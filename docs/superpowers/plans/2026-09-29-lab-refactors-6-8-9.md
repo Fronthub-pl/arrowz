@@ -518,7 +518,7 @@ Expected: all PASS (13 cases in `useStoredBoard.browser.test.tsx` unchanged).
 
 - [ ] **Step 7: Mutation check (do not commit it)**
 
-Delete the line `if (useStore.getState().library.notice?.kind === 'loading') useStore.getState().library.clearNotice()` inside the "already drawn" block, run `npx vitest run src/library/openStoredBoard.test.ts`, and expect the test "back to the drawn board while another loads…" to FAIL on `notice` being `loading`. Restore the line (`git diff src/library/openStoredBoard.ts` must be empty against the Step 3 version) and re-run: PASS.
+Before mutating, `cp src/library/openStoredBoard.ts /tmp/openStoredBoard.ts`. Delete the line `if (useStore.getState().library.notice?.kind === 'loading') useStore.getState().library.clearNotice()` inside the "already drawn" block (the second of its two occurrences; the first is in the `file` exit), run `npx vitest run src/library/openStoredBoard.test.ts`, and expect the test "back to the drawn board while another loads…" to FAIL on `notice` being `loading`. Restore with `cp /tmp/openStoredBoard.ts src/library/openStoredBoard.ts` (`diff /tmp/openStoredBoard.ts src/library/openStoredBoard.ts` must be empty) and re-run: PASS.
 
 - [ ] **Step 8: Commit**
 
@@ -767,6 +767,18 @@ In `apps/lab/src/shell/TabRow.tsx`:
 ```
 
 - Replace the tab's `ref={(node) => { … }}` (with its two-line comment) by `ref={i === current ? focusRef : undefined}`.
+- No existing test guards `TabRow`'s focus-follow (its keyboard test passes with the ref removed). Add to `apps/lab/src/shell/TabRow.browser.test.tsx`:
+
+```tsx
+test('the focus moves with the selection', async () => {
+  const screen = await mount('/')
+  await screen.getByRole('tab', { name: 'Lab' }).click()
+  await userEvent.keyboard('{ArrowRight}')
+  await expect.element(screen.getByRole('tab', { name: 'Saved boards' })).toHaveFocus()
+})
+```
+
+  Check it is red with `ref={undefined}` in place of `ref={i === current ? focusRef : undefined}`, then restore.
 
 - [ ] **Step 7: Move `GroupRail` onto the helpers**
 
@@ -807,7 +819,15 @@ In `apps/lab/src/shell/Segmented.tsx`:
 ```
 
 - Replace the radio's `ref={(node) => { … }}` by `ref={i === at ? focusRef : undefined}`.
-- The header comment's last sentence ("Focus follows the choice only while the group holds the focus, the same guard as `TabRow`, …") becomes "Focus follows the choice as `useFocusFollowsSelection` allows, so a choice made elsewhere (a link naming a language) does not pull the focus into the top bar."
+- The header comment's last paragraph becomes exactly (wrapped at 80; Prettier does not rewrap comments):
+
+```
+ * The keyboard is the radio pattern `TabRow` implements for tabs: the arrows
+ * move the choice and wrap, Home and End jump, and only the checked radio is a
+ * tab stop. Focus follows the choice as `useFocusFollowsSelection` allows, so a
+ * choice made elsewhere (a link naming a language) does not pull the focus into
+ * the top bar.
+```
 
 - [ ] **Step 9: Run the strips' tests**
 
@@ -817,8 +837,8 @@ Expected: all PASS, including `TabRow.browser.test.tsx`, `GroupRail.browser.test
 - [ ] **Step 10: Commit**
 
 ```bash
-cd apps/lab && npx prettier --write src/shell/roving.ts src/shell/roving.browser.test.tsx src/shell/TabRow.tsx src/console/GroupRail.tsx src/shell/Segmented.tsx
-git add src/shell/roving.ts src/shell/roving.browser.test.tsx src/shell/TabRow.tsx src/console/GroupRail.tsx src/shell/Segmented.tsx
+cd apps/lab && npx prettier --write src/shell/roving.ts src/shell/roving.browser.test.tsx src/shell/TabRow.tsx src/shell/TabRow.browser.test.tsx src/console/GroupRail.tsx src/shell/Segmented.tsx
+git add src/shell/roving.ts src/shell/roving.browser.test.tsx src/shell/TabRow.tsx src/shell/TabRow.browser.test.tsx src/console/GroupRail.tsx src/shell/Segmented.tsx
 git commit -m "Roving: the focus follows a selection only when it changes; tabs, rail and radios share the keys"
 ```
 
