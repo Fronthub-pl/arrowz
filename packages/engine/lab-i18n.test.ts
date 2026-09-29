@@ -349,12 +349,12 @@ Deno.test('the knobs speak of arrows, skeletons and target lengths, in both lang
   )
   assertEquals(
     PL.groupHelp.closing,
-    'Co robi generator, gdy utknie. Domyślne wypełniają każdą planszę do 400×400; zmieniaj je tylko eksperymentalnie.',
+    'Generator może utknąć przy układaniu strzałek; te ustawienia decydują, jak rusza dalej. Domyślne wypełniają każdą planszę do 400×400; zmieniaj je tylko eksperymentalnie.',
   )
   assertEquals(EN.start.options.mixing, 'mix')
   assertEquals(PL.start.options.mixing, 'mieszane')
-  assertEquals(dictionary('en').reason('skeletonOff'), 'needs skeletons > 0 or late chance > 0')
-  assertEquals(dictionary('pl').reason('stepZero'), 'bez wpływu przy przerwie „losowo”')
+  assertEquals(dictionary('en').reason('skeletonOff'), 'there is no skeleton: skeletons and late chance are both 0')
+  assertEquals(dictionary('pl').reason('stepZero'), 'przerwa jest „losowo”, więc szkielet nie ma biegów do urywania')
 })
 
 // A help that warned about a value its own slider cannot reach sent a player

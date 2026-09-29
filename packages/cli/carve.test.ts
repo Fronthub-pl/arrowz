@@ -554,7 +554,7 @@ Deno.test('carve.ts --help is short, --help=knobs adds the table, both exit 0 wi
   const knobs = dryRun(['--help=knobs', '--pstraight=0'], dir)
   assertEquals(knobs.status, 0)
   assertMatch(knobs.stdout, /--pstraight=0\.6\.\.1\s+straightness/)
-  assert(knobs.stdout.includes('longest arrow must be auto or at least 17'))
+  assert(knobs.stdout.includes('longest arrow must be auto or at least 17 cells'))
   assert(knobs.stdout.includes('--start=layers|random|tunnels'), 'the merged control is listed')
   assertEquals(knobs.stderr, '')
   assertEquals(entries(dir), 0)

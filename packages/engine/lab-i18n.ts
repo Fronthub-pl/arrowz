@@ -36,7 +36,7 @@ export const EN = {
     skeleton:
       'A few very long arrows laid first, snaking back and forth across the whole board; the rest fills in around them. The only way to get really long arrows.',
     closing:
-      'What the generator does when it gets stuck. The defaults fill every board up to 400×400; change these only to experiment.',
+      'The generator can get stuck laying arrows; these settings decide how it carries on. The defaults fill every board up to 400×400; change them only to experiment.',
   },
   presets: {
     placeholder: 'Preset…',
@@ -702,15 +702,17 @@ export const PL: Translation = {
     closing: 'gdy utknie',
   },
   reasons: {
-    skeletonOff: 'wymaga: szkielety > 0 albo kolejne > 0',
-    probeOff: 'wymaga: ile zadanych > 0',
-    stepZero: 'bez wpływu przy przerwie „losowo”',
+    skeletonOff: 'nie ma szkieletu: szkielety i kolejne wynoszą 0',
+    probeOff: 'żadna strzałka nie dostaje zadanej długości, dopóki „ile zadanych” wynosi 0',
+    stepZero: 'przerwa jest „losowo”, więc szkielet nie ma biegów do urywania',
     anticoilWins: 'działa dopiero powyżej kary zwojów z grupy „kształt”',
     // Cross-knob rules (RULE_REASONS in the engine), keyed like the inactive reasons.
-    sharesSum: 'krótkie + średnie najwyżej 0,9 (90%)',
-    lmaxHole: 'najdłuższa strzałka: auto albo co najmniej 17',
+    sharesSum:
+      'udziały krótkich i średnich dają razem więcej niż 0,9 (90%); co najmniej jedna dziesiąta strzałek musi zostać długa',
+    lmaxHole:
+      'najdłuższa strzałka: auto albo co najmniej 17 komórek; niżej średnie i długie wychodzą tej samej długości',
     straightFloor:
-      'za mała prostość jak na tę planszę: większa plansza, zakamarki poniżej 4 albo kara zwojów powyżej 6 wymagają więcej',
+      'za mała prostość jak na tę planszę, więc prawdopodobnie utknie: większe plansze potrzebują prostszych strzałek, podobnie zakamarki poniżej 4 albo kara zwojów powyżej 6',
     giantWander:
       'kolejne szkielety wymagają prostszych szkieletów: przy szansie na kolejne powyżej 0,05 prostość szkieletu musi wynosić co najmniej 0,6 plus tę szansę',
     startPair:
@@ -755,9 +757,9 @@ export const PL: Translation = {
         'Najdłuższa strzałka, do jakiej dąży generator, w komórkach. auto = 2,5 × dłuższy bok. Od 1 do 16 nie wolno: taki limit wcina się w średnie i długie.',
     },
     backbite: {
-      label: 'przeróbka ogona, gdy strzałka utknie',
+      label: 'przeróbka ogona utkniętej strzałki',
       help:
-        'Ile razy z rzędu strzałka, która utknie w ślepym zaułku, może przerobić ogon i rosnąć dalej. 0 = wyłączone. Więcej = mniej, ale dłuższych strzałek.',
+        'Gdy rosnąca strzałka utknie w ślepym zaułku, może przełożyć koniec ciała i rosnąć dalej. Ile razy z rzędu. 0 = wyłączone. Więcej = mniej, dłuższych strzałek.',
     },
 
     pStraight: {
@@ -785,8 +787,9 @@ export const PL: Translation = {
         'Skąd startuje każda nowa strzałka: od krawędzi (warstwy, łatwiej), gdziekolwiek (losowo) albo w głębi (tunele, trudniej). Wszystkie trzy wypełniają plansze do 400×400.',
     },
     mix: {
-      label: 'udział startów tunelami (mieszane)',
-      help: 'Przy starcie mieszanym: jaka część strzałek startuje tunelami, od 0,3 do 0,7; reszta warstwami.',
+      label: 'start mieszany: udział strzałek z tuneli',
+      help:
+        'Przy starcie mieszanym: jaka część strzałek startuje w głębi (tunele), od 0,3 do 0,7; reszta od krawędzi (warstwy).',
     },
     trapBias: {
       label: 'pułapki (strzałki, które wyglądają na wolne)',
@@ -811,34 +814,38 @@ export const PL: Translation = {
     },
     giantSpan: {
       label: 'długość szkieletu (w bokach planszy)',
-      help: 'Zadana długość jednej strzałki szkieletu, w bokach planszy. Kończy wcześniej, gdy zabraknie miejsca.',
+      help:
+        'Do jakiej długości dąży każda strzałka szkieletu, w wielokrotnościach dłuższego boku: 30 przy boku 50 komórek = 1500 komórek. Kończy wcześniej, gdy zabraknie miejsca.',
     },
     giantStep: {
-      label: 'przerwa między biegami szkieletu (losowo = swobodnie)',
+      label: 'przerwa między biegami (losowo = bez wężyka)',
       help:
-        'Komórki między kolejnymi biegami szkieletu tam i z powrotem. Mała = gęste, równe pasy; duża = kilka długich autostrad. „losowo” = bez wężyka: szkielet rośnie swobodnie.',
+        'Szkielet przechodzi przez planszę prostymi biegami; to o ile komórek schodzi w głąb przed zawróceniem. Mała = gęste pasy; duża = kilka autostrad. „losowo” = bez biegów.',
     },
     giantJitter: {
-      label: 'urywanie biegów szkieletu',
-      help: 'Jak często bieg szkieletu zawraca, zanim dojdzie do przeszkody. 0 = proste, równe brzegi.',
+      label: 'szansa, że bieg zawróci wcześniej',
+      help:
+        'Jak często bieg zawraca już po 3–14 komórkach, zamiast dojść do ściany albo innej strzałki. 0 = biegi idą do końca, brzegi są proste.',
     },
     wGiant: {
       label: 'szansa na kolejne szkielety',
       help:
-        'Szansa, że strzałka układana później też stanie się strzałką szkieletu. Powyżej 0,05 wymaga prostości szkieletu 0,6 plus ta szansa; przy 0,2 plansze liczą się wolno.',
+        'Po pierwszych szkieletach każda nowa strzałka z tą szansą staje się strzałką szkieletu. Powyżej 0,05 wymaga prostości szkieletu 0,6 + ta szansa; 0,2 liczy się wolno.',
     },
     giantStraight: {
       label: 'prostość szkieletu',
       help:
-        'Jak często strzałka szkieletu jedzie prosto tam, gdzie rośnie swobodnie: cała przy przerwie „losowo”, inaczej tylko ogon. 0,5 = bez preferencji.',
+        'Jak często strzałka szkieletu jedzie prosto tam, gdzie nie układa biegów: cała przy przerwie „losowo”, inaczej tylko po ostatnim biegu. 0,5 = bez preferencji.',
     },
     giantAnticoil: {
       label: 'kara zwojów szkieletu',
-      help: 'Kara zwojów tylko dla strzałek szkieletu. Obowiązuje wyższa z tej i kary zwojów z grupy „kształt”.',
+      help:
+        'Jak mocno strzałka szkieletu unika dotykania samej siebie. Kara zwojów z grupy „kształt” też działa i wygrywa wyższa, więc ta liczy się tylko powyżej niej.',
     },
     giantSpacing: {
       label: 'odstęp szkieletu',
-      help: 'Ile komórek szkielet trzyma od swoich wcześniejszych biegów. „bez odstępu” = może ich dotykać.',
+      help:
+        'Ile komórek szkielet stara się trzymać od swoich wcześniej ułożonych części, żeby się nie zablokować. „bez odstępu” = może biec tuż obok nich.',
     },
     headTries: {
       label: 'próby startu na kierunek',
@@ -846,9 +853,9 @@ export const PL: Translation = {
         'Ile miejsc startu generator sprawdza przed zmianą kierunku. Przy 2 szukanie jest płytkie dla trudnych ustawień; od 8 w górę zwykle wychodzi ta sama plansza co przy 4.',
     },
     absorbLimit: {
-      label: 'doklejaj resztki do N komórek',
+      label: 'największa pusta łatka, którą zajmie sąsiednia strzałka (komórki)',
       help:
-        'Pusta łatka do tylu komórek, w którą nie wejdzie żadna strzałka, zostaje doklejona do sąsiedniej. Blisko dolnej granicy plansze znacznie częściej utykają.',
+        'Pustą łatkę, w którą nie wejdzie żadna nowa strzałka, zajmuje sąsiednia, jeśli ma najwyżej tyle komórek. Blisko dolnej granicy plansze znacznie częściej utykają.',
     },
     maxBack: {
       label: 'budżet nawrotów',
@@ -858,7 +865,7 @@ export const PL: Translation = {
     restarts: {
       label: 'dopuszczalne restarty',
       help:
-        'Ile nowych prób po nieudanej, każda z ziarnem wyliczonym z Twojego. 0 pokazuje, jak często te ustawienia udają się same.',
+        'Ile razy generator zaczyna od pustej planszy, gdy próba utknie, z nowym ziarnem wyliczonym z Twojego. 0 pokazuje, jak często te ustawienia udają się same.',
     },
   },
   groupHelp: {
@@ -871,7 +878,7 @@ export const PL: Translation = {
     skeleton:
       'Kilka bardzo długich strzałek układanych na początku, wężykiem przez całą planszę; reszta wypełnia miejsce wokół nich. Jedyny sposób na naprawdę długie strzałki.',
     closing:
-      'Co robi generator, gdy utknie. Domyślne wypełniają każdą planszę do 400×400; zmieniaj je tylko eksperymentalnie.',
+      'Generator może utknąć przy układaniu strzałek; te ustawienia decydują, jak rusza dalej. Domyślne wypełniają każdą planszę do 400×400; zmieniaj je tylko eksperymentalnie.',
   },
   presets: {
     placeholder: 'Preset…',
