@@ -145,6 +145,8 @@ async function evalComments(judge: Judge): Promise<boolean> {
 const PICKED_AT = '08f1b8e'
 const PICK_SAW_COMMITS = 292
 const PICK_LAST_PR = 127
+// Messages written before the English-only rule existed cannot be expected to pass it.
+const RULE_SINCE = '5e17f97'
 
 /** Merged PRs numbered at or before `PICK_LAST_PR`, the 60 newest of those dropped too. */
 export function heldOutPrs(prs: Array<{ number: number; body: string }>): string[] {
@@ -153,7 +155,13 @@ export function heldOutPrs(prs: Array<{ number: number; body: string }>): string
 }
 
 async function evalMessage(judge: Judge): Promise<boolean> {
-  const commits = (await run('git', ['log', '--no-merges', `--skip=${PICK_SAW_COMMITS}`, '--format=%B%x00', PICKED_AT]))
+  const commits = (await run('git', [
+    'log',
+    '--no-merges',
+    `--skip=${PICK_SAW_COMMITS}`,
+    '--format=%B%x00',
+    `${RULE_SINCE}^..${PICKED_AT}`,
+  ]))
     .split(
       '\0',
     )

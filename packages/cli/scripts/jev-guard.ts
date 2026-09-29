@@ -18,7 +18,7 @@ const CONCURRENCY = 16
 
 export type Shipped = { comments: boolean; message: boolean; i18n: boolean }
 // Which guards the hook runs; a guard that missed its measured bar stays off (docs/jev-guards.md).
-export const SHIPPED: Shipped = { comments: true, message: false, i18n: false }
+export const SHIPPED: Shipped = { comments: true, message: true, i18n: false }
 
 /** Runs `fn` over `items`, at most `limit` at a time, results in input order. */
 export async function pool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {

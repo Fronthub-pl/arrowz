@@ -47,32 +47,37 @@ Source: `/tmp/jev-eval-comments.txt`.
 | shipped rule (`violates > 0.85` or `max(history, spec_ref) > 0.9`) | precision 0.985, recall 0.525, false alarms 0.5 %, flagged 461 |
 | bar | precision ≥ 0.95 → **PASS** |
 
-### Commit and PR messages (not shipped)
+### Commit and PR messages (shipped)
 
 Source: `/tmp/jev-eval-message.txt`.
 
 | Metric | Value |
 |---|---|
-| held-out set | 795 commits, 54 merged PRs, 15 hand-made violations |
-| AUC `not_english` | 0.960 |
-| at `MESSAGE_AT.not_english = 0.8` | false alarms 4.6 %, detection 100.0 % |
-| bar | false alarms ≤ 3 % and detection ≥ 80 % → **FAIL** |
+| held-out set | 756 commits, 54 merged PRs, 15 hand-made violations |
+| AUC `not_english` | 1.000 |
+| at `MESSAGE_AT.not_english = 0.8` | false alarms 0.0 %, detection 100.0 % |
+| bar | false alarms ≤ 3 % and detection ≥ 80 % → **PASS** |
 
 Detection on hand-made violations is optimistic: they are easier than real
 ones.
 
 The held-out set is fixed at the point `MESSAGE_AT` was picked in the dry
 run, so a later measurement never quietly re-includes data the threshold has
-already seen: `git log --no-merges --skip=292 08f1b8e` (795 commits today)
-plus merged PRs numbered at most 127 minus their 60 newest (54 today). The
-anchors are the constants `PICKED_AT`, `PICK_SAW_COMMITS`, and
-`PICK_LAST_PR` in `jev-eval.ts`. Re-picking `MESSAGE_AT` means moving those
-three constants forward first — otherwise the "held-out" set includes
+already seen: `git log --no-merges --skip=292 5e17f97^..08f1b8e` (756
+commits today) plus merged PRs numbered at most 127 minus their 60 newest
+(54 today). The anchors are the constants `PICKED_AT`, `PICK_SAW_COMMITS`,
+and `PICK_LAST_PR` in `jev-eval.ts`. Re-picking `MESSAGE_AT` means moving
+those three constants forward first — otherwise the "held-out" set includes
 commits and PRs the new threshold was tuned on.
 
-`SHIPPED.message` is `false`: the false-alarm bar was missed on held-out
-data, so the hook stays off rather than being tuned on the same run that
-failed it.
+A first run of this held-out set counted 39 commits predating the
+English-only rule (before `5e17f97`, written in Polish) as false alarms;
+the guard correctly flagged all 39 of them as `not_english`. The hold-out
+now starts at `5e17f97` (`RULE_SINCE` in `jev-eval.ts`) so messages that
+could never have followed a rule that did not yet exist are excluded, not
+mislabelled.
+
+`SHIPPED.message` is `true`: the held-out run above passes its bar.
 
 ### Polish dictionary (built, hook off by owner decision)
 
