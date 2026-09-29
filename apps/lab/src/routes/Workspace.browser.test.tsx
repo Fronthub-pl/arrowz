@@ -5,7 +5,7 @@ import { expect, test, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
-import { loadRunDone } from '../harness/mountApp'
+import { loadRunDone, mountApp, resetApp } from '../harness/mountApp'
 import { cancelPendingSave } from '../library/useViewSave'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
@@ -15,41 +15,6 @@ import '../design/shell.css'
 import '../design/console.css'
 import '../design/library.css'
 import '../design/run.css'
-
-// The real App, address bar and all: the claims here are about what App mounts,
-// so a MemoryRouter harness would test the wrong thing. The params slice is
-// reset too: the store outlives a test.
-async function mountApp() {
-  // `pushState` leaves /boards behind and drops the fragment, which the next
-  // mount would read as a pasted link and carve. `replaceState` clears
-  // `history.state`, where react-router keeps its record, so each mount starts
-  // from the blank entry a real page load has.
-  window.history.pushState({}, '', '/')
-  history.replaceState(null, '', location.pathname)
-  useStore.getState().run.reset()
-  useStore.getState().result.reset()
-  useStore.getState().library.reset()
-  useStore.getState().params.reset()
-  // The whole `ui` slice: a case that turned `auto` on would otherwise carve on
-  // the next case's first keystroke, and one that picked a rail entry leaves it
-  // on 'preview'.
-  useStore.getState().ui.select('board')
-  // The saved boards' panel too: the restyle case leaves it on 'preview'.
-  useStore.getState().ui.showBoards('list')
-  useStore.getState().ui.setAuto(false)
-  useStore.getState().ui.raiseClamped(false)
-  useStore.getState().lang.setLang('en')
-  useStore.getState().ui.setMode('advanced')
-  // Solo too: two cases press `f`, and a solo left on takes `.fw-console` out
-  // of the layout, so a later case would measure a `display: none` box.
-  useStore.getState().ui.setSolo(false)
-  useStore.getState().ui.setReport(false)
-  useStore.getState().ui.setSettings(true)
-  useStore.getState().ui.setSheet(null)
-  useStore.getState().ui.setMenu(false)
-  useStore.getState().ui.setBoardMode('view')
-  return render(<App />)
-}
 
 /**
  * Whether the store has answered for a board other than `before`. `saved` alone
@@ -249,19 +214,8 @@ test('the lab panel is hidden off-route and shown on it', async () => {
 // posted twice too. `fetch` is spied on, not stubbed, so the POST still fails for real.
 test('a finished run is offered to the store once per run, and the outcome is appended', async () => {
   await clearOfTheDrawer()
-  window.history.pushState({}, '', '/')
-  history.replaceState(null, '', location.pathname)
-  useStore.getState().run.reset()
-  useStore.getState().result.reset()
-  // Not through `mountApp`, which renders `App` bare: the defaults have to be
-  // put back here too, or this test carves whatever the last one left behind.
-  useStore.getState().params.reset()
-  useStore.getState().ui.select('board')
-  useStore.getState().ui.setAuto(false)
-  useStore.getState().ui.raiseClamped(false)
-  useStore.getState().lang.setLang('en')
-  useStore.getState().ui.setMode('advanced')
-  useStore.getState().ui.setBoardMode('view')
+  // Reset like `mountApp`, but rendered inside StrictMode.
+  resetApp('advanced')
   const screen = await render(
     <StrictMode>
       <App />
