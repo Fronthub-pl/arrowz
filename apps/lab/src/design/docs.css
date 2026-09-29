@@ -143,7 +143,7 @@
 }
 .fw-docs-table td {
   padding: 6px 12px 6px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--rule);
 }
 .fw-docs-table td:last-child {
   color: var(--mist);
@@ -196,7 +196,7 @@
   .fw-docs-toc .pg > ul a {
     display: flex;
     align-items: center;
-    min-height: 44px;
+    min-height: var(--touch);
     padding-top: 0;
     padding-bottom: 0;
   }

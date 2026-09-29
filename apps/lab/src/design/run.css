@@ -21,7 +21,7 @@
   height: 32px;
   min-height: 32px;
   white-space: nowrap;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: none;
   color: var(--ink);
   cursor: pointer;
@@ -93,15 +93,15 @@
 }
 @media (pointer: coarse), (max-width: 767px) {
   .fw-alt button {
-    height: 44px;
+    height: var(--touch);
   }
   .fw-exports button {
-    height: 44px;
+    height: var(--touch);
   }
   /* The track is raised in console.css's coarse block; the row still carries
      the rest of the 44px. */
   .fw-opt {
-    min-height: 44px;
+    min-height: var(--touch);
   }
 }
 /* `<figure>` carries a browser default margin; the mock's box has none, and
@@ -158,7 +158,7 @@
   margin: 0;
   padding: 10px 12px;
   background: var(--void);
-  border: 1px solid var(--border);
+  border: var(--rule);
   color: var(--ash);
   font: inherit;
   line-height: 1.6;
@@ -174,7 +174,7 @@
 }
 @media (pointer: coarse), (max-width: 767px) {
   .fw-cmdhd button {
-    min-height: 44px;
+    min-height: var(--touch);
   }
 }
 
@@ -189,7 +189,7 @@
   padding: 0 16px;
   height: 38px;
   background: var(--void);
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--rule);
 }
 .fw-presets .fw-pp-trigger {
   display: inline-flex;
@@ -197,7 +197,7 @@
   gap: 10px;
   height: 26px;
   padding: 0 10px;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: var(--void);
   color: var(--ink);
   cursor: pointer;
@@ -341,7 +341,7 @@
   }
   .fw-pp-col button,
   .fw-presets .fw-pp-trigger {
-    height: 44px;
+    height: var(--touch);
   }
 }
 
@@ -421,7 +421,7 @@
     flex: none;
     min-width: 32px;
     height: 32px;
-    border: 1px solid var(--border);
+    border: var(--rule);
     background: none;
     color: var(--ink);
     cursor: pointer;
@@ -452,11 +452,11 @@
 /* The bar under a finger: 44px controls, not 32. */
 @media (min-width: 768px) and (max-width: 1279px) and (pointer: coarse) {
   .fw-lab:not(.solo) .fw-stage > .fw-run-col :is(.fw-go, .fw-alt > button, .fw-more, .fw-cmdhd, .fw-cmd) {
-    height: 44px;
-    min-height: 44px;
+    height: var(--touch);
+    min-height: var(--touch);
   }
   .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-cmd {
-    max-height: 44px;
+    max-height: var(--touch);
     line-height: 42px;
   }
 }
@@ -477,7 +477,7 @@
     width: 100%;
     min-width: 0;
     max-width: 100%;
-    height: 44px;
+    height: var(--touch);
     padding: 0 12px;
     justify-content: flex-start;
     overflow: hidden;

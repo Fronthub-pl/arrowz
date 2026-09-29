@@ -157,7 +157,7 @@
 @media (pointer: coarse), (max-width: 767px) {
   .fw-console.library .fw-rail button,
   .fw-blist-hd .kv-chip {
-    min-height: 44px;
+    min-height: var(--touch);
   }
   .fw-brow {
     min-height: 52px;

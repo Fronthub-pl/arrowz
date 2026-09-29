@@ -8,7 +8,7 @@
   grid-template-columns: 168px minmax(0, 1fr);
   gap: 1px;
   background: var(--border);
-  border-top: 1px solid var(--border);
+  border-top: var(--rule);
   min-height: 0;
 }
 .fw-rail {
@@ -94,7 +94,7 @@
   width: 28px;
   height: 22px;
   padding: 1px;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: var(--void);
 }
 .fw-palette-remove {
@@ -102,7 +102,7 @@
   width: 22px;
   height: 22px;
   padding: 0;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: var(--void);
   color: var(--mist);
   line-height: 1;
@@ -146,7 +146,7 @@
   gap: 4px;
   padding-bottom: 8px;
   margin-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--rule);
 }
 .fw-khd b {
   font-weight: 400;
@@ -177,7 +177,7 @@
 }
 .kv-g {
   --val-n: 5ch;
-  --val-u: 44px;
+  --val-u: var(--touch);
   --end: 36px;
   --trk: 13ch;
   --row-h: 34px;
@@ -302,7 +302,7 @@
 .kv-chip {
   height: 18px;
   padding: 0 3px;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: none;
   color: var(--ash);
   font: inherit;
@@ -341,7 +341,7 @@
   min-width: 0;
   height: 24px;
   padding: 0 4px;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: var(--void);
   color: var(--ink);
   font: inherit;
@@ -586,7 +586,7 @@
   width: 24px;
   height: 20px;
   padding: 0;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: none;
   cursor: pointer;
 }
@@ -600,7 +600,7 @@
   width: max-content;
   margin: 0 var(--end) 8px auto;
   padding: 4px;
-  border: 1px solid var(--border);
+  border: var(--rule);
 }
 .kv-g .fw-swatch {
   flex: none;
@@ -638,7 +638,7 @@
     --row-h: 52px;
   }
   .kv-track {
-    height: 44px;
+    height: var(--touch);
   }
   .kv-track .rail,
   .kv-track .fill {
@@ -656,7 +656,7 @@
     height: 16px;
   }
   .kv-num {
-    min-height: 44px;
+    min-height: var(--touch);
   }
   .kv-g .cc > select {
     height: 40px;
@@ -721,8 +721,8 @@
    raises the tabs and Generate the same way. */
 @media (pointer: coarse), (max-width: 767px) {
   .fw-palette-remove {
-    width: 44px;
-    height: 44px;
+    width: var(--touch);
+    height: var(--touch);
   }
   /* The drawing grows a little (36×18), the target to the design system's
      full 44×44 through `::before`. */
@@ -742,8 +742,8 @@
     position: absolute;
     top: -14px;
     left: -5px;
-    width: 44px;
-    height: 44px;
+    width: var(--touch);
+    height: var(--touch);
   }
 }
 
@@ -830,7 +830,7 @@
 }
 @media (pointer: coarse) {
   .fw-lab .fw-stage {
-    --hd: 44px;
+    --hd: var(--touch);
   }
 }
 /* Under 700px of height the board gives up its minimum (shell.css), so its row
@@ -934,7 +934,7 @@
    rule bound, error is a refusal, and the two must not collapse into one. */
 .fw-note {
   padding: 12px;
-  border: 1px solid var(--border);
+  border: var(--rule);
   border-left: 2px solid var(--error);
   background: var(--graphite);
   color: var(--mist);
@@ -971,7 +971,7 @@
 }
 @media (pointer: coarse), (max-width: 767px) {
   .fw-note.hold button {
-    min-height: 44px;
+    min-height: var(--touch);
   }
 }
 
@@ -1070,7 +1070,7 @@
   }
   .fw-lab .fw-ldrawer .fw-rail button {
     flex: none;
-    height: 44px;
+    height: var(--touch);
     padding: 0 16px;
   }
   /* The bound tracks go with the bounds, as in the container query above:

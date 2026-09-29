@@ -175,7 +175,7 @@ body {
   gap: 20px;
   padding: 0 16px;
   background: var(--void);
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--rule);
 }
 .fw-tabrow button {
   padding: 10px 0 8px;
@@ -239,8 +239,8 @@ body {
   gap: 10px;
   padding: 12px 0;
   border: 0;
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
+  border-left: var(--rule);
+  border-right: var(--rule);
   background: var(--void);
   color: var(--mist);
   cursor: pointer;
@@ -285,12 +285,12 @@ body {
 }
 @media (pointer: coarse) {
   .fw-stage {
-    grid-template-columns: 70px minmax(0, 1fr) 44px;
+    grid-template-columns: 70px minmax(0, 1fr) var(--touch);
   }
   .fw-drawer {
-    grid-template-columns: 44px minmax(0, 1fr);
-    width: calc(clamp(22rem, 24vw, 32rem) + 44px);
-    transform: translateX(calc(100% - 44px));
+    grid-template-columns: var(--touch) minmax(0, 1fr);
+    width: calc(clamp(22rem, 24vw, 32rem) + var(--touch));
+    transform: translateX(calc(100% - var(--touch)));
   }
 }
 /* The settings drawer: the report's, mirrored onto the stage's left edge.
@@ -335,9 +335,9 @@ body {
 }
 @media (pointer: coarse) {
   .fw-ldrawer {
-    width: calc(var(--ls-w) + 44px);
-    grid-template-columns: minmax(0, 1fr) 44px;
-    transform: translateX(calc(-100% + 44px));
+    width: calc(var(--ls-w) + var(--touch));
+    grid-template-columns: minmax(0, 1fr) var(--touch);
+    transform: translateX(calc(-100% + var(--touch)));
   }
   .fw-ldrawer.open {
     transform: none;
@@ -365,7 +365,7 @@ body {
      only shows through before it upgrades. The strip is the annotation's own
      plane (`--void`), not the paper, or a dark theme gets a light band above it. */
   background: linear-gradient(var(--void) 0 var(--fw-strip), var(--paper) 0);
-  border: 1px solid var(--border);
+  border: var(--rule);
   overflow: hidden;
 }
 .fw-board arrowz-board {
@@ -420,7 +420,7 @@ body {
    height too) grows with it, or the toggle would spill below it. */
 @media (pointer: coarse), (max-width: 767px) {
   .fw-board {
-    --fw-strip: 44px;
+    --fw-strip: var(--touch);
   }
 }
 
@@ -456,10 +456,10 @@ body {
 /* The 44px Reset sets the row's height here, over two lines of text. */
 @media (pointer: coarse), (max-width: 767px) {
   .fw-modeline {
-    height: max(2lh, 44px);
+    height: max(2lh, var(--touch));
   }
   .fw-modeline .fw-btn {
-    height: 44px;
+    height: var(--touch);
   }
 }
 /* At XS the wrap has no padding, so the strip keeps the text off the edge. */
@@ -494,7 +494,7 @@ body {
   align-items: center;
   gap: 20px;
   padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--rule);
   color: var(--ash);
   flex-wrap: wrap;
 }
@@ -509,8 +509,8 @@ body {
 }
 .fw-go {
   flex: none;
-  height: 44px;
-  min-height: 44px;
+  height: var(--touch);
+  min-height: var(--touch);
   margin-top: 12px;
   padding: 0 16px;
   border: 0;
@@ -551,7 +551,7 @@ body {
   flex: none;
   height: 24px;
   padding: 0 10px;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: none;
   color: var(--mist);
   cursor: pointer;
@@ -571,7 +571,7 @@ body {
 }
 @media (pointer: coarse), (max-width: 767px) {
   .fw-seg button {
-    height: 44px;
+    height: var(--touch);
   }
 }
 
@@ -582,7 +582,7 @@ body {
 .fw-btn {
   height: 24px;
   padding: 0 10px;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: none;
   color: var(--mist);
   cursor: pointer;
@@ -603,7 +603,7 @@ body {
 }
 @media (pointer: coarse), (max-width: 767px) {
   .fw-btn {
-    height: 44px;
+    height: var(--touch);
   }
 }
 
@@ -718,14 +718,14 @@ body {
   .fw.menu-open .fw-top .right > .fw-seg button {
     flex: 1;
     justify-content: center;
-    min-height: 44px;
+    min-height: var(--touch);
   }
   .fw.menu-open .fw-top #cmdk {
     display: inline-flex;
     justify-content: center;
     align-items: center;
     width: 100%;
-    min-height: 44px;
+    min-height: var(--touch);
   }
   #cmdk .k-key {
     display: none;

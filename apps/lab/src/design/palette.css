@@ -35,10 +35,10 @@
 }
 .fw-pal input {
   width: 100%;
-  height: 44px;
+  height: var(--touch);
   padding: 0 14px;
   border: 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--rule);
   background: var(--void);
   color: var(--ink);
   font: inherit;
@@ -89,7 +89,7 @@
   display: flex;
   gap: 16px;
   padding: 8px 14px;
-  border-top: 1px solid var(--border);
+  border-top: var(--rule);
   color: var(--ash);
 }
 .fw-pal .foot b {

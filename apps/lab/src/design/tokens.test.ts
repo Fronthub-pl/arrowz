@@ -5,8 +5,8 @@ const declared = [...tokens.matchAll(/^\s*(--[\w-]+):/gm)].map((m) => m[1])
 
 // The mock's eighteen custom properties, less `--signal-soft` (below) and
 // `--signal-hover`/`--signal-press`, replaced by three fills that carry
-// `--ink` text at AA.
-test('tokens.css declares the eighteen tokens the lab keeps, in order', () => {
+// `--ink` text at AA, plus the lab's own `--touch` and `--rule`.
+test('tokens.css declares the twenty tokens the lab keeps, in order', () => {
   expect(declared).toEqual([
     '--void',
     '--graphite',
@@ -26,6 +26,8 @@ test('tokens.css declares the eighteen tokens the lab keeps, in order', () => {
     '--error',
     '--ui',
     '--mono',
+    '--touch',
+    '--rule',
   ])
 })
 
