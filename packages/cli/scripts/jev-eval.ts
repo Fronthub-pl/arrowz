@@ -141,17 +141,30 @@ async function evalComments(judge: Judge): Promise<boolean> {
   return pass
 }
 
+// MESSAGE_AT was measured seeing only the 292 commits at PICKED_AT and merged PRs <= PICK_LAST_PR; the held-out set stays anchored there so it never includes what the threshold saw.
+const PICKED_AT = '08f1b8e'
+const PICK_SAW_COMMITS = 292
+const PICK_LAST_PR = 127
+
+/** Merged PRs numbered at or before `PICK_LAST_PR`, the 60 newest of those dropped too. */
+export function heldOutPrs(prs: Array<{ number: number; body: string }>): string[] {
+  return prs.filter((p) => p.number <= PICK_LAST_PR).sort((a, b) => b.number - a.number).slice(60)
+    .map((p) => p.body.trim()).filter((t) => t !== '')
+}
+
 async function evalMessage(judge: Judge): Promise<boolean> {
-  // Held out: MESSAGE_AT was picked on the 300 newest commits and the 60 newest PR bodies.
-  const commits = (await run('git', ['log', '--no-merges', '--skip=300', '--format=%B%x00', 'HEAD'])).split('\0')
+  const commits = (await run('git', ['log', '--no-merges', `--skip=${PICK_SAW_COMMITS}`, '--format=%B%x00', PICKED_AT]))
+    .split(
+      '\0',
+    )
     .map((t) => t.trim()).filter((t) => t !== '')
   const prs = JSON.parse(
     await run('gh', ['pr', 'list', '--state', 'merged', '--limit', '500', '--json', 'number,body']),
   ) as Array<
     { number: number; body: string }
   >
-  const older = prs.sort((a, b) => b.number - a.number).slice(60)
-  const good = [...commits, ...older.map((p) => p.body.trim()).filter((t) => t !== '')]
+  const prsHeld = heldOutPrs(prs)
+  const good = [...commits, ...prsHeld]
   const { PL } = await import('@arrowz/engine/i18n')
   const bad = badMessages(Object.values(PL.ui).filter((v): v is string => typeof v === 'string'))
   const goodA = await pool(good, 16, (t) => askMessage(judge, 'commit', t))
@@ -163,7 +176,7 @@ async function evalMessage(judge: Judge): Promise<boolean> {
   const fa = good.filter((t, i) => messageFlags('commit', t, goodA[i] ?? null).length > 0).length / good.length
   const det = bad.filter((t, i) => messageFlags('commit', t, badA[i] ?? null).length > 0).length / bad.length
   console.log(
-    `held out: ${commits.length} commits, ${older.length} PRs, ${bad.length} hand-made; not_english AUC ${
+    `held out: ${commits.length} commits, ${prsHeld.length} PRs, ${bad.length} hand-made; not_english AUC ${
       auc(items).toFixed(3)
     }`,
   )

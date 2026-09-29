@@ -1,5 +1,14 @@
 import { assertAlmostEquals, assertEquals } from '@std/assert'
-import { auc, badMessages, mutations, pickThreshold, rates, type Scored, stripDiacritics } from './jev-eval.ts'
+import {
+  auc,
+  badMessages,
+  heldOutPrs,
+  mutations,
+  pickThreshold,
+  rates,
+  type Scored,
+  stripDiacritics,
+} from './jev-eval.ts'
 
 const s = (p: number, positive: boolean): Scored => ({ p, positive })
 
@@ -30,6 +39,14 @@ Deno.test('badMessages: fifteen, from strings the threshold was not picked on, n
   assertEquals(bad.length, 15)
   assertEquals(bad.some((b) => b.includes('w0 ')), false)
   assertEquals(bad.some((b) => /[\u0105\u0107\u0119\u0142\u0144\u00f3\u015b\u017a\u017c]/.test(b)), false)
+})
+
+Deno.test('heldOutPrs: only PRs the threshold never saw', () => {
+  const prs = Array.from({ length: 130 }, (_, i) => ({ number: i + 1, body: `b${i + 1}` }))
+  const result = heldOutPrs(prs)
+  const expected = Array.from({ length: 67 }, (_, i) => `b${67 - i}`)
+  assertEquals(result, expected)
+  assertEquals(result.some((b) => Number(b.slice(1)) > 127), false)
 })
 
 Deno.test('mutations: every mutated pair changes the Polish and names its mutation', () => {
