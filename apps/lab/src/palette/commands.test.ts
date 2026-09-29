@@ -92,6 +92,30 @@ describe('the catalogue', () => {
     expect(row?.disabled).toBe(false)
   })
 
+  it('lists Check seeds under run, disabled only during a run, and runs it through the control it was handed', () => {
+    const idle = buildCommands(deps(), useStore.getState()).find((row) => row.id === 'run-check-seeds')
+    expect(idle?.name).toBe('Check seeds')
+    expect(idle?.section).toBe('run')
+    expect(idle?.disabled).toBe(false)
+    useStore.getState().run.started(useStore.getState().params.values)
+    const running = buildCommands(deps(), useStore.getState()).find((row) => row.id === 'run-check-seeds')
+    expect(running?.disabled).toBe(true)
+    useStore.getState().run.reset()
+    const calls: string[] = []
+    const control: RunControl = {
+      start: () => {},
+      abort: () => {},
+      hold: () => {},
+      checkSeeds: () => calls.push('checkSeeds'),
+    }
+    useStore.getState().ui.openPalette()
+    buildCommands({ ...deps(), control }, useStore.getState())
+      .find((row) => row.id === 'run-check-seeds')
+      ?.run()
+    expect(calls).toEqual(['checkSeeds'])
+    expect(useStore.getState().ui.palette).toBe(false)
+  })
+
   it('refuses Generate against a broken rule, and says which way it is broken', () => {
     // wShort + wMid above 0.9 breaks `sharesSum`.
     useStore.getState().params.setMany({ wShort: 0.9, wMid: 0.9 })
