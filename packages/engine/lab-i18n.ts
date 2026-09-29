@@ -714,9 +714,9 @@ export const PL: Translation = {
     straightFloor:
       'za mała prostość jak na tę planszę, więc prawdopodobnie utknie: większe plansze potrzebują prostszych strzałek, podobnie zakamarki poniżej 4 albo kara zwojów powyżej 6',
     giantWander:
-      'kolejne szkielety wymagają prostszych szkieletów: przy szansie na kolejne powyżej 0,05 prostość szkieletu musi wynosić co najmniej 0,6 plus tę szansę',
+      'za dużo kolejnych szkieletów jak na ich prostość: przy szansie na kolejne powyżej 0,05 podnieś prostość szkieletu do co najmniej 0,6 + ta szansa, inaczej plansze utykają',
     startPair:
-      'start strzałek i udział tuneli do siebie nie pasują: start mieszany wymaga startu losowego i udziału od 0,3 do 0,7; każdy inny start wymaga wyłączonego udziału (-1)',
+      'start strzałek i udział tuneli się wykluczają: start musi być warstwy, losowo albo tunele, a udział tuneli (0,3 do 0,7) wymaga startu losowo; inaczej udział musi być wyłączony (-1)',
   },
   // The key is the CLI word (--giantspacing=off), the value the lab shows in
   // Polish: for a choice knob's list and for a chip's special word alike.
