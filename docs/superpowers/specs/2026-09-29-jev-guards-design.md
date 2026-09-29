@@ -39,6 +39,22 @@ request. What Jev adds over the regex: spec citations without a keyword ("§3.3"
 words like "round joins". Recall is capped well below 1 because the sweep also
 rewrote comments for accuracy, which no rule check can see.
 
+## Measured in the dry run
+
+The plan was executed once in a throwaway worktree (2026-09-29, `jev-1.13.0`)
+before the real run:
+
+| Guard | Result | Figures |
+|---|---|---|
+| comments, rule quoted verbatim | pass | precision 0.980, recall 0.518, false alarms 0.7 % (violates alone: AUC 0.864) |
+| message, as first specified | fail | false alarms 5.6 %, detection 53 %: the Polish-letter regex alone flagged 14 of 360 real messages that quote the dictionary; `no_why` reached AUC 0.683; `not_english` reached AUC 1.000 with 0.8 as the lowest threshold under 1.5 % false alarms |
+| dictionary | fail | AUC 0.977, false alarms 2.9 %, detection 78.9 % against the 80 % bar; a dropped number was caught in 16 of 30 mutations |
+
+Consequences: the message guard drops the Polish-letter regex and `no_why`,
+keeps attribution and `not_english` at 0.8, and is re-measured on held-out
+data before it may ship. The dictionary guard is built and runs by hand
+(`deno task jev i18n`) but its hook stays off.
+
 ## Decisions
 
 - **Advisory only.** Hooks return `hookSpecificOutput.additionalContext` and
@@ -54,8 +70,10 @@ rewrote comments for accuracy, which no rule check can see.
 - **The model is pinned to `jev-1.13.0`**, not `jev-latest`: the thresholds
   are calibrated on that version. Bumping it means re-running `jev-eval.ts`
   and updating the numbers in `docs/jev-guards.md`.
-- **Deterministic checks stay in code.** Attribution lines and Polish
-  diacritics are regular expressions; Jev only gets what they cannot see.
+- **Deterministic checks stay in code** where the rule itself is
+  deterministic: attribution lines are a regular expression. Polish letters
+  are not: the repository allows quoting the Polish dictionary in a message,
+  so "is this message English" is Jev's question, not a letter regex's.
 - **Each guard ships only past its own measured bar** (below); a guard that
   misses it is left out, not tuned until it passes on the same data.
 
@@ -99,11 +117,10 @@ stub it:
   run time so the text lives in one place), `file`, `comment`, and `code` (the
   next line). Flag when `violates > 0.85` or `max(history, spec_ref) > 0.9`.
 - `message(kind, text)` — for a commit message or a pull request body. Code
-  flags attribution lines (`Co-Authored-By`, "Generated with") and Polish
-  diacritics. Jev is asked `not_english` (Polish or mixed language without
-  diacritics) and `no_why` (the text says what changed and nothing says why).
-  Each threshold is the lowest `p` at which `jev-eval.ts` measures false
-  alarms at or under the bar, recorded as a constant beside its question.
+  flags attribution lines (`Co-Authored-By`, "Generated with"). Jev is asked
+  `not_english` (written, fully or partly, in a language other than English;
+  quoted interface strings do not count). Flag when `not_english > 0.8`, the
+  threshold measured in the dry run (below).
 - `i18n(pairs)` — English and Polish strings paired by key path over `EN` and
   `PL` (string leaves only; function-valued entries are out of scope), plus
   `PARAM_SPEC` label and help against `PL.params` and `INACTIVE_REASONS` and
@@ -138,10 +155,13 @@ Re-measures one guard and prints AUC and precision and recall per threshold:
 - `comments` — the spike's labels, rebuilt from git (`446c853` against
   `e7b0d50`, blocks of six lines or fewer, the sweep's roots). Bar: precision
   ≥ 0.95 at the shipped threshold with the rule quoted verbatim.
-- `message` — false alarms on the last 300 commit messages on `main` and the
-  bodies of the last 60 merged pull requests (all expected to pass), and
-  detection on about 30 hand-written violations kept in a fixture file. Bar:
-  false alarms ≤ 3 %, detection ≥ 80 %.
+- `message` — held out from the data that chose its threshold: false alarms
+  on every non-merge commit older than the 300 newest (787 on 2026-09-29) and
+  on the merged pull requests older than the 60 newest (54), all expected to
+  pass; detection on 15 messages built at run time from Polish dictionary
+  strings with their diacritics stripped, alone or under an English title,
+  taken from strings the threshold's measurement did not use. Bar: false
+  alarms ≤ 3 %, detection ≥ 80 %.
 - `i18n` — false alarms on the current dictionary's pairs, detection on
   mutations of them (Polish swapped between keys, a negation added, a number
   or a unit dropped). Bar as for `message`. Jev is weaker in Polish than in

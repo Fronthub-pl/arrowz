@@ -18,6 +18,9 @@ Two refinements of the spec, both forced by facts checked while planning: the ho
 - Code style: `deno fmt` (single quotes, no semicolons, line width 120); `deno lint` with `no-explicit-any` and `no-non-null-assertion`; `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`.
 - Comments follow `CLAUDE.md` "Comments": say why, once; one line by default; no history, no task or review references; cite symbols, never `file.ts:NN`.
 - The model is pinned: `jev-1.13.0`, never `jev-latest`.
+- Code in this plan that spells `\uXXXX` must reach disk as those six ASCII characters. The Write tool decodes JSON escapes into real letters, so after writing such a file run `grep -nP "[\x{0105}\x{0107}\x{0119}\x{0142}\x{0144}\x{00f3}\x{015b}\x{017a}\x{017c}\x{0141}]" <file>` and turn any hit back into its `\u` escape (with `sed` or `python3`) before running tests.
+- Deno 2.9.7 types `setTimeout` as returning `Timeout`: annotate a stored timer as `ReturnType<typeof setTimeout>`.
+- Smoke payloads with `\n` inside JSON go through `printf '%s' '…'`, never `echo`: zsh's `echo` turns `\n` into a newline and the hook silently drops the broken JSON.
 - No network call inside `deno test`: every test stubs `fetch` or `Judge`. No file named `*.test.ts` may reach `api.typesafe.ai`.
 - Every hook failure (missing key, network, HTTP error, timeout, malformed payload, unreadable file) prints nothing and exits 0. No hook ever returns `permissionDecision` or exits 2.
 - Client deadline: 8000 ms across attempts, at most 5000 ms per attempt, up to 4 attempts, backoff 250 ms doubling on 429 and 529. Hook `timeout`: 10 (seconds).
@@ -328,7 +331,7 @@ export async function readKey(
   timeoutMs = 2000,
   read: (p: string) => Promise<string> = (p) => Deno.readTextFile(p),
 ): Promise<string | null> {
-  let timer: number | undefined
+  let timer: ReturnType<typeof setTimeout> | undefined
   const late = new Promise<null>((ok) => {
     timer = setTimeout(() => ok(null), timeoutMs)
   })
@@ -448,7 +451,7 @@ within 8 seconds, never as an exception."
 - Produces:
   - `export type Flag = { where: string; question: string; p: number; excerpt: string }`
   - `export const MAX_FLAGS = 5`, `export const MAX_COMMENT_REQUESTS = 120`, `export const VIOLATES_AT = 0.85`, `export const HISTORY_AT = 0.9`
-  - `export const SHIPPED: { comments: boolean; message: boolean; i18n: boolean }` (a mutable object; Task 8 sets the final values)
+  - `export type Shipped = { comments: boolean; message: boolean; i18n: boolean }`, `export const SHIPPED: Shipped` (Task 8 sets the final values; the dictionary guard is off by decision)
   - `export function pool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]>`
   - `export function excerpt(text: string, max?: number): string`
   - `export function format(title: string, flags: Flag[], note?: string): string | null`
@@ -595,7 +598,9 @@ const MAX_LINES = 6
 export const MAX_COMMENT_REQUESTS = 120
 const CONCURRENCY = 16
 
-export const SHIPPED = { comments: true, message: true, i18n: true }
+export type Shipped = { comments: boolean; message: boolean; i18n: boolean }
+// Which guards the hook runs; a guard that missed its measured bar stays off (docs/jev-guards.md).
+export const SHIPPED: Shipped = { comments: true, message: true, i18n: false }
 
 /** Runs `fn` over `items`, at most `limit` at a time, results in input order. */
 export async function pool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -762,9 +767,9 @@ the thresholds measured on the comment sweep (violates > 0.85: precision
   - `export type MessageKind = 'commit' | 'pr'`
   - `export function words(s: string): string[]`
   - `export function messageFromCommand(command: string, cwd: string, read: (path: string) => string | null): { kind: MessageKind; text: string } | null`
-  - `export const MESSAGE_QUESTIONS: Record<string, Noul>`, `export const MESSAGE_AT: { not_english: number; no_why: number }`
+  - `export const MESSAGE_QUESTIONS: Record<string, Noul>` (one question, `not_english`), `export const MESSAGE_AT: { not_english: number }` (0.8)
   - `export function askMessage(judge: Judge, kind: MessageKind, text: string): Promise<Answers | null>`
-  - `export function messageFlags(kind: MessageKind, text: string, a: Answers | null, at?: { not_english: number; no_why: number }): Flag[]`
+  - `export function messageFlags(kind: MessageKind, text: string, a: Answers | null, at?: { not_english: number }): Flag[]`
   - `export function message(judge: Judge, kind: MessageKind, text: string): Promise<Flag[]>`
   - `export function messageReport(kind: MessageKind, flags: Flag[]): string | null`
 
@@ -818,24 +823,25 @@ Deno.test('messageFromCommand: nothing to read is null', () => {
   assertEquals(messageFromCommand('gh pr view 3', '/r', noFiles), null)
 })
 
-Deno.test('messageFlags: attribution and Polish letters are flagged by code, without Jev', () => {
-  const attributed = messageFlags('commit', 'Fix\n\nCo-Authored-By: someone <a@b>', null)
-  assertEquals(attributed.map((f) => f.question), ['attribution'])
-  const polish = messageFlags('commit', 'Rename the \u0105 key', null)
-  assertEquals(polish.map((f) => f.question), ['polish'])
+Deno.test('messageFlags: an attribution line is flagged by code, without Jev', () => {
+  const flags = messageFlags('commit', 'Fix\n\nCo-Authored-By: someone <a@b>', null)
+  assertEquals(flags.map((f) => f.question), ['attribution'])
 })
 
-Deno.test('messageFlags: Jev answers past the threshold, not_english dropped when letters already told', () => {
-  const at = { not_english: 0.5, no_why: 0.5 }
-  const flags = messageFlags('pr', 'Update', { not_english: 0.2, no_why: 0.8 }, at)
-  assertEquals(flags, [{ where: 'PR body', question: 'no_why', p: 0.8, excerpt: 'Update' }])
-  assertEquals(messageFlags('pr', 'Update', { not_english: 0.5, no_why: 0.5 }, at), [])
-  const both = messageFlags('commit', 'Rename \u0105', { not_english: 0.99, no_why: 0.1 }, at)
-  assertEquals(both.map((f) => f.question), ['polish'])
+Deno.test('messageFlags: letters alone flag nothing, since messages may quote the Polish dictionary', () => {
+  assertEquals(messageFlags('commit', 'Lab: the label now reads "\u0105\u0142"', null), [])
+})
+
+Deno.test('messageFlags: not_english strictly past its threshold', () => {
+  const at = { not_english: 0.8 }
+  assertEquals(messageFlags('pr', 'Update', { not_english: 0.85 }, at), [
+    { where: 'PR body', question: 'not_english', p: 0.85, excerpt: 'Update' },
+  ])
+  assertEquals(messageFlags('pr', 'Update', { not_english: 0.8 }, at), [])
 })
 
 Deno.test('message: asks with the kind spelled out, and reports under the message title', async () => {
-  const { judge, calls } = stubJudge(() => ({ not_english: 0.1, no_why: 0.9 }))
+  const { judge, calls } = stubJudge(() => ({ not_english: 0.99 }))
   const flags = await message(judge, 'commit', 'Update')
   assertEquals(calls, [{ kind: 'commit message', text: 'Update' }])
   assertStringIncludes(messageReport('commit', flags) ?? '', 'the commit message may break the message rules')
@@ -972,20 +978,12 @@ export const MESSAGE_QUESTIONS: Record<string, Noul> = {
     instructions:
       'The `text` is written, fully or partly, in a language other than English, for example Polish with or without diacritics. Code identifiers, file names and quoted interface strings do not count.',
   },
-  no_why: {
-    type: 'noul',
-    instructions: 'The `text` says only what changed; nothing in it gives the reason for the change or the problem it solves.',
-    criteria: {
-      true: 'A reader learns what changed but not why.',
-      false: 'The text states or clearly implies why the change was made.',
-    },
-  },
 }
-// Provisional; jev-eval.ts measures the final values (docs/jev-guards.md).
-export const MESSAGE_AT = { not_english: 0.5, no_why: 0.5 }
+// Measured by jev-eval.ts on jev-1.13.0 (docs/jev-guards.md).
+export const MESSAGE_AT = { not_english: 0.8 }
 
 const ATTRIBUTION = /^\s*(?:co-authored-by:|.*\bgenerated with\b).*$/im
-const POLISH_LETTERS = /[\u0105\u0107\u0119\u0142\u0144\u00f3\u015b\u017a\u017c]/iu
+// No Polish-letter rule: messages may quote the Polish dictionary, which a letter regex cannot tell from Polish prose.
 
 const whereOf = (kind: MessageKind) => (kind === 'commit' ? 'commit message' : 'PR body')
 
@@ -995,21 +993,12 @@ export function askMessage(judge: Judge, kind: MessageKind, text: string): Promi
 
 export function messageFlags(kind: MessageKind, text: string, a: Answers | null, at = MESSAGE_AT): Flag[] {
   const where = whereOf(kind)
-  const lines = text.split('\n')
-  const first = lines.find((l) => l.trim() !== '') ?? ''
+  const first = text.split('\n').find((l) => l.trim() !== '') ?? ''
   const flags: Flag[] = []
   const attribution = ATTRIBUTION.exec(text)
   if (attribution) flags.push({ where, question: 'attribution', p: 1, excerpt: attribution[0] })
-  const polish = lines.find((l) => POLISH_LETTERS.test(l))
-  if (polish !== undefined) flags.push({ where, question: 'polish', p: 1, excerpt: polish })
-  if (a !== null) {
-    const notEnglish = a.not_english ?? 0
-    if (polish === undefined && notEnglish > at.not_english) {
-      flags.push({ where, question: 'not_english', p: notEnglish, excerpt: first })
-    }
-    const noWhy = a.no_why ?? 0
-    if (noWhy > at.no_why) flags.push({ where, question: 'no_why', p: noWhy, excerpt: first })
-  }
+  const notEnglish = a?.not_english ?? 0
+  if (notEnglish > at.not_english) flags.push({ where, question: 'not_english', p: notEnglish, excerpt: first })
   return flags
 }
 
@@ -1028,9 +1017,9 @@ Run: `deno test --allow-read packages/cli/scripts/jev-guard.test.ts && deno task
 Expected: PASS.
 
 Mutation checks (one at a time, each reverted):
-- In `words`, change `if (c !== ' ' && c !== '\t') return out` to `i++; continue` only (never stop). Expected: the chained-command test fails.
+- In `words`, change `if (c !== ' ' && c !== '\t') return out` to `i++; continue` only (never stop). Expected: the `words: quotes, escapes, and a stop…` test fails.
 - Replace `unwrap(next)` with `next`. Expected: the heredoc test fails.
-- In `messageFlags`, drop `polish === undefined &&`. Expected: the "not_english dropped" assertion fails.
+- In `messageFlags`, change `notEnglish > at.not_english` to `>=`. Expected: the "strictly past its threshold" test fails.
 
 - [ ] **Step 5: Commit**
 
@@ -1039,9 +1028,9 @@ deno fmt packages/cli/scripts/jev-guard.ts packages/cli/scripts/jev-guard.test.t
 git add packages/cli/scripts/jev-guard.ts packages/cli/scripts/jev-guard.test.ts
 git commit -m "CLI scripts: the Jev message guard for commits and PR bodies
 
-Attribution lines and Polish letters are caught by code; Jev is asked only
-what a regex cannot see: Polish without diacritics, and a message that
-says what changed but not why. Thresholds stay provisional until measured."
+Attribution lines are caught by code; whether the text is English is
+Jev's question, because messages may quote the Polish dictionary and a
+letter regex flagged 14 of 360 real messages for doing so."
 ```
 
 ---
@@ -1219,20 +1208,21 @@ loaded only when this guard runs."
 **Interfaces:**
 - Consumes: everything in Tasks 2–5; `defaultJudge`, `keyPath` (Task 2).
 - Produces:
-  - `export type Deps = { judge: Judge; root: string; read: (path: string) => string | null }`
+  - `export type Deps = { judge: Judge; root: string; read: (path: string) => string | null; shipped?: Shipped }`
   - `export function runHook(payload: unknown, deps: Deps): Promise<string | null>` (the JSON line to print, or null)
   - CLI: `deno run … jev-guard.ts hook` (stdin), `comments <file…>`, `message [--pr] <file>`, `i18n`
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `packages/cli/scripts/jev-guard.test.ts` (add `runHook`, `SHIPPED` to the import; add `import { fromFileUrl } from '@std/path'` at the top):
+Append to `packages/cli/scripts/jev-guard.test.ts` (add `runHook` and `type Shipped` to the import; add `import { fromFileUrl } from '@std/path'` at the top):
 
 ```ts
 const ROOT = '/repo'
 const CLAUDE_MD = '# R\n## Comments\nSay why.\n# Tools\n'
 const files: Record<string, string> = { '/repo/CLAUDE.md': CLAUDE_MD }
 const read = (p: string) => files[p] ?? null
-const deps = (judge: Judge) => ({ judge, root: ROOT, read })
+const ALL: Shipped = { comments: true, message: true, i18n: true }
+const deps = (judge: Judge, shipped: Shipped = ALL) => ({ judge, root: ROOT, read, shipped })
 
 const edit = (file_path: string, new_string: string) => ({
   hook_event_name: 'PostToolUse',
@@ -1241,17 +1231,17 @@ const edit = (file_path: string, new_string: string) => ({
 })
 
 Deno.test('hook: a commit message is judged before the command runs, without a permission decision', async () => {
-  const { judge } = stubJudge(() => ({ not_english: 0.1, no_why: 0.1 }))
+  const { judge } = stubJudge(() => ({ not_english: 0.95 }))
   const payload = {
     hook_event_name: 'PreToolUse',
     tool_name: 'Bash',
     cwd: ROOT,
-    tool_input: { command: 'git commit -m "Rename \u0105"' },
+    tool_input: { command: 'git commit -m "Update"' },
   }
   const out = JSON.parse((await runHook(payload, deps(judge))) ?? 'null')
   assertEquals(out.hookSpecificOutput.hookEventName, 'PreToolUse')
   assertEquals('permissionDecision' in out.hookSpecificOutput, false)
-  assertStringIncludes(out.hookSpecificOutput.additionalContext, 'polish')
+  assertStringIncludes(out.hookSpecificOutput.additionalContext, 'not_english p=0.95')
 })
 
 Deno.test('hook: an Edit judges the comments it wrote, at their line in the file', async () => {
@@ -1304,15 +1294,10 @@ Deno.test('hook: an edit of lab-i18n.ts judges the pairs whose text it wrote', a
 })
 
 Deno.test('hook: a guard that did not ship stays silent', async () => {
-  const { judge, calls } = stubJudge(() => ({ not_english: 0.99, no_why: 0.99 }))
-  SHIPPED.message = false
-  try {
-    const payload = { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git commit -m x' } }
-    assertEquals(await runHook(payload, deps(judge)), null)
-    assertEquals(calls.length, 0)
-  } finally {
-    SHIPPED.message = true
-  }
+  const { judge, calls } = stubJudge(() => ({ not_english: 0.99 }))
+  const payload = { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git commit -m x' } }
+  assertEquals(await runHook(payload, deps(judge, { ...ALL, message: false })), null)
+  assertEquals(calls.length, 0)
 })
 
 Deno.test('hook: with no key file the script prints nothing and exits 0', async () => {
@@ -1344,7 +1329,7 @@ Expected: FAIL, `runHook` not exported.
 Change the `@std/path` import of `jev-guard.ts` to `import { fromFileUrl, isAbsolute, join, relative } from '@std/path'` and add `import { defaultJudge, keyPath } from './jev-client.ts'` beside the type import. Append:
 
 ```ts
-export type Deps = { judge: Judge; root: string; read: (path: string) => string | null }
+export type Deps = { judge: Judge; root: string; read: (path: string) => string | null; shipped?: Shipped }
 
 function inScope(rel: string): boolean {
   if (rel.startsWith('..') || isAbsolute(rel)) return false
@@ -1370,12 +1355,13 @@ export async function runHook(payload: unknown, deps: Deps): Promise<string | nu
     unknown
   >
   const event = str(p.hook_event_name)
+  const shipped = deps.shipped ?? SHIPPED
   const parts: string[] = []
   const add = (s: string | null) => {
     if (s !== null) parts.push(s)
   }
 
-  if (event === 'PreToolUse' && p.tool_name === 'Bash' && SHIPPED.message) {
+  if (event === 'PreToolUse' && p.tool_name === 'Bash' && shipped.message) {
     const command = str(input.command)
     const msg = command === null ? null : messageFromCommand(command, str(p.cwd) ?? deps.root, deps.read)
     if (msg !== null) add(messageReport(msg.kind, await message(deps.judge, msg.kind, msg.text)))
@@ -1386,13 +1372,13 @@ export async function runHook(payload: unknown, deps: Deps): Promise<string | nu
     const rel = path === null ? '' : relative(deps.root, path)
     if (path !== null && inScope(rel)) {
       const written = p.tool_name === 'Edit' ? str(input.new_string) : str(input.content) ?? deps.read(path)
-      if (written !== null && SHIPPED.comments) {
+      if (written !== null && shipped.comments) {
         const rule = ruleSection(deps.read(join(deps.root, 'CLAUDE.md')) ?? '', 'Comments')
         const start = p.tool_name === 'Edit' ? lineOf(deps.read(path), written) : 0
         const place = start === null ? (l: number) => `${rel} (edit, line ${l})` : (l: number) => `${rel}:${l + start}`
         if (rule !== null) add(commentReport(await comments(deps.judge, rule, rel, written, place)))
       }
-      if (written !== null && SHIPPED.i18n && rel.endsWith('lab-i18n.ts')) {
+      if (written !== null && shipped.i18n && rel.endsWith('lab-i18n.ts')) {
         const pairs = (await dictionaryPairs()).filter((x) => written.includes(x.pl) || written.includes(x.en))
         if (pairs.length > 0) add(i18nReport(await i18n(deps.judge, pairs)))
       }
@@ -1460,8 +1446,14 @@ if (import.meta.main) {
     try {
       // Read the payload first: exiting before Claude Code has written it would break its pipe.
       const raw = await new Response(Deno.stdin.readable).text()
-      const judge = await defaultJudge()
-      if (judge !== null) out = await runHook(JSON.parse(raw), { judge, root: ROOT, read: readOrNull })
+      // The key is read only when a guard asks: a locked 1Password would cost 2 s on every edit.
+      let real: Promise<Judge | null> | null = null
+      const judge: Judge = async (state, questions) => {
+        real ??= defaultJudge()
+        const j = await real
+        return j === null ? null : j(state, questions)
+      }
+      out = await runHook(JSON.parse(raw), { judge, root: ROOT, read: readOrNull })
     } catch {
       out = null
     }
@@ -1564,7 +1556,7 @@ In the root `deno.json`, add to `tasks` after `"compile"`:
 
 - [ ] **Step 6: Check the hook script end to end without a key**
 
-Run: `echo '{"hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"/x/apps/a.ts","new_string":"// c"}}' | ARROWZ_TYPESAFE_ENV=/nonexistent deno run --quiet --allow-read --allow-env packages/cli/scripts/jev-guard.ts hook; echo "exit=$?"`
+Run: `printf '%s' '{"hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"/x/apps/a.ts","new_string":"// c"}}' | ARROWZ_TYPESAFE_ENV=/nonexistent deno run --quiet --allow-read --allow-env packages/cli/scripts/jev-guard.ts hook; echo "exit=$?"`
 Expected: only `exit=0`.
 
 Run: `deno task jev bogus; echo "exit=$?"`
@@ -1597,7 +1589,7 @@ missing key or any failure is silence, so the hooks cannot stop the work."
   - `export function rates(items: Scored[], at: number): { precision: number; recall: number; falseAlarm: number; flagged: number }`
   - `export function pickThreshold(items: Scored[], bar: number): number | null`
   - `export function stripDiacritics(s: string): string`
-  - `export function badMessages(polish: string[]): Array<{ text: string; target: 'not_english' | 'no_why' }>`
+  - `export function badMessages(polish: string[]): string[]`
   - `export function mutations(pairs: Pair[], per?: number): Pair[]`
   - CLI: `deno task jev:eval comments | message | i18n`
 
@@ -1632,12 +1624,12 @@ Deno.test('stripDiacritics: Polish letters lose their marks, the stroked l inclu
   assertEquals(stripDiacritics('a\u0142b \u00f3c\u017a \u0141\u0105'), 'alb ocz La')
 })
 
-Deno.test('badMessages: fifteen of each target, no diacritics left', () => {
-  const polish = Array.from({ length: 20 }, (_, i) => `w${i} aa bb cc d\u0105 e\u0142`)
+Deno.test('badMessages: fifteen, from strings the threshold was not picked on, no diacritics left', () => {
+  const polish = Array.from({ length: 40 }, (_, i) => `w${i} aa bb cc d\u0105 e\u0142`)
   const bad = badMessages(polish)
-  assertEquals(bad.filter((b) => b.target === 'not_english').length, 15)
-  assertEquals(bad.filter((b) => b.target === 'no_why').length, 15)
-  assertEquals(bad.some((b) => /[\u0105\u0107\u0119\u0142\u0144\u00f3\u015b\u017a\u017c]/.test(b.text)), false)
+  assertEquals(bad.length, 15)
+  assertEquals(bad.some((b) => b.includes('w0 ')), false)
+  assertEquals(bad.some((b) => /[\u0105\u0107\u0119\u0142\u0144\u00f3\u015b\u017a\u017c]/.test(b)), false)
 })
 
 Deno.test('mutations: every mutated pair changes the Polish and names its mutation', () => {
@@ -1722,33 +1714,11 @@ export function stripDiacritics(s: string): string {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0142/g, 'l').replace(/\u0141/g, 'L')
 }
 
-// Hand-made violations: easier than real ones, so detection measured on them is optimistic.
-const NO_WHY = [
-  'Update files',
-  'Fix stuff',
-  'WIP',
-  'Changes',
-  'Refactor',
-  'Lab: update App.tsx',
-  'Engine: change engine.ts',
-  'Tweak CSS',
-  'More fixes',
-  'Cleanup',
-  'Update tests',
-  'Bump',
-  'Rename variables',
-  'Move code around',
-  'Edit docs',
-]
-
-/** Polish without diacritics (alone, and under an English title) from dictionary strings, and messages with no why. */
-export function badMessages(polish: string[]): Array<{ text: string; target: 'not_english' | 'no_why' }> {
-  const long = polish.filter((t) => t.split(/\s+/).length >= 5).slice(0, 15).map(stripDiacritics)
-  const notEnglish = long.map((t, i) => ({
-    text: i % 2 === 0 ? t : `Lab: fix the stage\n\n${t}`,
-    target: 'not_english' as const,
-  }))
-  return [...notEnglish, ...NO_WHY.map((text) => ({ text, target: 'no_why' as const }))]
+// Hand-made violations: easier than real ones, so detection measured on them is optimistic. The first
+// fifteen long strings fed the measurement that picked MESSAGE_AT, so these start after them.
+export function badMessages(polish: string[]): string[] {
+  const long = polish.filter((t) => t.split(/\s+/).length >= 5).slice(15, 30).map(stripDiacritics)
+  return long.map((t, i) => (i % 2 === 0 ? t : `Lab: fix the stage\n\n${t}`))
 }
 
 export function mutations(pairs: Pair[], per = 30): Pair[] {
@@ -1826,33 +1796,26 @@ async function evalComments(judge: Judge): Promise<boolean> {
 }
 
 async function evalMessage(judge: Judge): Promise<boolean> {
-  const commits = (await run('git', ['log', '-300', '--no-merges', '--format=%B%x00', 'HEAD'])).split('\0')
+  // Held out: MESSAGE_AT was picked on the 300 newest commits and the 60 newest PR bodies.
+  const commits = (await run('git', ['log', '--no-merges', '--skip=300', '--format=%B%x00', 'HEAD'])).split('\0')
     .map((t) => t.trim()).filter((t) => t !== '')
-  const prs = JSON.parse(await run('gh', ['pr', 'list', '--state', 'merged', '--limit', '60', '--json', 'body'])) as Array<
-    { body: string }
+  const prs = JSON.parse(await run('gh', ['pr', 'list', '--state', 'merged', '--limit', '500', '--json', 'number,body'])) as Array<
+    { number: number; body: string }
   >
-  const good = [...commits, ...prs.map((p) => p.body.trim()).filter((t) => t !== '')]
+  const older = prs.sort((a, b) => b.number - a.number).slice(60)
+  const good = [...commits, ...older.map((p) => p.body.trim()).filter((t) => t !== '')]
   const { PL } = await import('@arrowz/engine/i18n')
-  const polish = Object.values(PL.ui).filter((v): v is string => typeof v === 'string')
-  const bad = badMessages(polish)
+  const bad = badMessages(Object.values(PL.ui).filter((v): v is string => typeof v === 'string'))
   const goodA = await pool(good, 16, (t) => askMessage(judge, 'commit', t))
-  const badA = await pool(bad, 16, (b) => askMessage(judge, 'commit', b.text))
-  const picks = { not_english: 0.5, no_why: 0.5 }
-  for (const q of ['not_english', 'no_why'] as const) {
-    const items: Scored[] = [
-      ...goodA.flatMap((a) => (a ? [{ p: a[q] ?? 0, positive: false }] : [])),
-      ...badA.flatMap((a, i) => (a && bad[i]?.target === q ? [{ p: a[q] ?? 0, positive: true }] : [])),
-    ]
-    const pick = pickThreshold(items, 0.015)
-    console.log(`${q}: AUC ${auc(items).toFixed(3)}, lowest threshold with <= 1.5% false alarms: ${pick ?? 'none'}`)
-    picks[q] = pick ?? 1
-  }
-  const flaggedGood = good.filter((t, i) => messageFlags('commit', t, goodA[i] ?? null, picks).length > 0).length
-  const flaggedBad = bad.filter((b, i) => messageFlags('commit', b.text, badA[i] ?? null, picks).length > 0).length
-  const fa = flaggedGood / good.length
-  const det = flaggedBad / bad.length
-  console.log(`current MESSAGE_AT ${JSON.stringify(MESSAGE_AT)}; measured picks ${JSON.stringify(picks)}`)
-  console.log(`with the picks: false alarms ${pct(fa)} on ${good.length} real messages, detection ${pct(det)} on ${bad.length} hand-made`)
+  const badA = await pool(bad, 16, (t) => askMessage(judge, 'commit', t))
+  const items: Scored[] = [
+    ...goodA.flatMap((a) => (a ? [{ p: a.not_english ?? 0, positive: false }] : [])),
+    ...badA.flatMap((a) => (a ? [{ p: a.not_english ?? 0, positive: true }] : [])),
+  ]
+  const fa = good.filter((t, i) => messageFlags('commit', t, goodA[i] ?? null).length > 0).length / good.length
+  const det = bad.filter((t, i) => messageFlags('commit', t, badA[i] ?? null).length > 0).length / bad.length
+  console.log(`held out: ${commits.length} commits, ${older.length} PRs, ${bad.length} hand-made; not_english AUC ${auc(items).toFixed(3)}`)
+  console.log(`at MESSAGE_AT ${JSON.stringify(MESSAGE_AT)}: false alarms ${pct(fa)}, detection ${pct(det)}`)
   const pass = fa <= 0.03 && det >= 0.8
   console.log(`bar: false alarms <= 3% and detection >= 80% -> ${pass ? 'PASS' : 'FAIL'}`)
   return pass
@@ -1946,20 +1909,20 @@ This task calls the real API (cost: well under $1) and needs `$HOME/.config/arro
 Run: `deno task jev:eval comments 2>&1 | tee /tmp/jev-eval-comments.txt`
 Expected: `bar: precision >= 0.95 -> PASS` (the spike measured 0.98 with a paraphrased rule). If FAIL: set `SHIPPED.comments = false` and record the figures; do not change the questions.
 
-- [ ] **Step 2: Measure the message guard and set its thresholds**
+- [ ] **Step 2: Measure the message guard on held-out data**
 
 Run: `deno task jev:eval message 2>&1 | tee /tmp/jev-eval-message.txt`
-Set `MESSAGE_AT` in `jev-guard.ts` to the printed "measured picks" (`1` for a question with no pick, which disables it). Replace the comment above `MESSAGE_AT` with `// Measured by jev-eval.ts on jev-1.13.0 (docs/jev-guards.md).`. If the bar printed FAIL: set `SHIPPED.message = false`.
+Do not change `MESSAGE_AT` (0.8 was picked in the dry run; this run only validates it). If the bar printed FAIL: set `SHIPPED.message = false`.
 
-- [ ] **Step 3: Measure the dictionary guard and set its threshold**
+- [ ] **Step 3: Measure the dictionary guard and record its threshold**
 
 Run: `deno task jev:eval i18n 2>&1 | tee /tmp/jev-eval-i18n.txt`
-Set `DIFFERS_AT` to the printed `differs > <pick>` value, and replace its comment as in Step 2. If the bar printed FAIL: set `SHIPPED.i18n = false`.
+Set `DIFFERS_AT` to the printed `differs > <pick>` value and replace its comment with `// Measured by jev-eval.ts on jev-1.13.0 (docs/jev-guards.md).`. `SHIPPED.i18n` stays `false` whatever the bar prints: the owner decided after the dry run (78.9 % against 80 %) that the dictionary guard runs by hand only.
 
 - [ ] **Step 4: Re-run the unit tests**
 
 Run: `deno task test`
-Expected: PASS. The tests pass thresholds explicitly where they depend on them; if a test relied on a provisional default (e.g. `message` with `no_why: 0.9`), change only that test's stub answer to lie clearly past the new threshold.
+Expected: PASS. The hook tests pass `shipped` explicitly, so the values in `SHIPPED` do not affect them.
 
 - [ ] **Step 5: Write `docs/jev-guards.md` and the `CLAUDE.md` line**
 
@@ -1983,11 +1946,11 @@ In `CLAUDE.md`, append under "## Packages", after the last bullet:
 Run each and check the output by eye:
 
 ```bash
-echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"'"$PWD"'","tool_input":{"command":"git commit -m \"Update files\""}}' | deno task jev hook
-echo '{"hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{"file_path":"'"$PWD"'/apps/lab/src/zz.ts","content":"// Review round 2 moved this here (Ruling 14).\nexport const a = 1\n"}}' | deno task jev hook
+printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"'"$PWD"'","tool_input":{"command":"git commit -m \"Tippfehler in der Beschreibung korrigiert\""}}' | deno task jev hook
+printf '%s' '{"hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{"file_path":"'"$PWD"'/apps/lab/src/zz.ts","content":"// Review round 2 moved this here (Ruling 14).\nexport const a = 1\n"}}' | deno task jev hook
 ```
 
-Expected: the first prints a `PreToolUse` JSON flagging `no_why` (if the message guard shipped); the second prints a `PostToolUse` JSON flagging `apps/lab/src/zz.ts:1` (history or violates). No file `zz.ts` is created (the hook only reads the payload).
+Expected: the first prints a `PreToolUse` JSON flagging `not_english` (if the message guard shipped); the second prints a `PostToolUse` JSON flagging `apps/lab/src/zz.ts:1` (history or violates). No file `zz.ts` is created (the hook only reads the payload).
 
 - [ ] **Step 7: Commit**
 
