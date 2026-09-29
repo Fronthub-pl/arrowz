@@ -67,3 +67,16 @@ test('a series that fails before any answer shows the failure, not nothing', asy
   await render(<SeriesSection control={control} />)
   await expect.element(page.getByText('The seeds could not be checked: boom')).toBeVisible()
 })
+
+// Mid-series, a failed seed's row already shows; its button must not rewrite
+// the knobs under the series still running.
+test('a failed seed button is disabled while its series is still running', async () => {
+  const s = useStore.getState().series
+  s.started({ ...defaultParams(), seed: 10 }, 2)
+  s.answered(runs[1] as SeedRun)
+  const screen = await render(<SeriesSection control={control} />)
+  const button = screen.getByRole('button', { name: 'seed 11 — incomplete, 312 cells left' })
+  await expect.element(button).toBeDisabled()
+  await userEvent.click(button, { force: true })
+  expect(control.start).not.toHaveBeenCalled()
+})

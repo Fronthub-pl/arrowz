@@ -32,6 +32,7 @@ export function SeriesSection({ control }: { control: RunControl }): ReactElemen
   const s = series.runs.length === 0 ? null : summariseSeries(series.runs)
   const stale = (Object.keys(own) as (keyof typeof own)[]).some((key) => key !== 'seed' && own[key] !== values[key])
   const open = (seed: number) => {
+    if (series.phase === 'running') return
     useStore.getState().params.setMany({ ...own, seed })
     control.start()
   }
@@ -77,7 +78,7 @@ export function SeriesSection({ control }: { control: RunControl }): ReactElemen
               .filter((run) => run.outcome !== 'complete')
               .map((run) => (
                 <li key={run.seed}>
-                  <button type="button" onClick={() => open(run.seed)}>
+                  <button type="button" disabled={series.phase === 'running'} onClick={() => open(run.seed)}>
                     {run.outcome === 'complete'
                       ? null
                       : dict.t('seriesFailed', run.seed, dict.t(OUTCOME[run.outcome]), run.remaining)}
