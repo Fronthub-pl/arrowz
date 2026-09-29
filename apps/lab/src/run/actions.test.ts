@@ -14,6 +14,7 @@ function fakeControl(): RunControl & { started: number } {
     },
     abort: () => {},
     hold: () => {},
+    checkSeeds: () => {},
   }
   return control
 }

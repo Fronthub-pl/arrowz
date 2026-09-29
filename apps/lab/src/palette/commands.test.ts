@@ -6,7 +6,7 @@ import { PALETTE_CAP } from '../state/view.slice'
 import type { RunControl } from '../run/useRun'
 import { buildCommands, type CommandDeps, type CommandSection, matchCommands } from './commands'
 
-const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {} }
+const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
 
 function deps(): CommandDeps & { went: string[] } {
   const went: string[] = []

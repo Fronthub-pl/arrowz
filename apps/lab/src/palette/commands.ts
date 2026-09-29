@@ -6,7 +6,7 @@ import type { PlainUiKey } from '../console/viewFields'
 import { VIEW_FLAGS, VIEW_NUMBERS, VIEW_ROWS } from '../console/viewFields'
 import { openFilePicker } from '../library/BoardFileInput'
 import { applyPreset, defaults, generate, reseed } from '../run/actions'
-import type { RunControl } from '../run/useRun'
+import { inFlight, type RunControl } from '../run/useRun'
 import { readBand } from '../state/band'
 import { type Store, useStore } from '../state/store'
 import { lookOf, PALETTE_CAP } from '../state/view.slice'
@@ -187,7 +187,7 @@ function presetRows(deps: CommandDeps): Command[] {
 /** Every row the palette can show, in the order it shows them. */
 export function buildCommands(deps: CommandDeps, state: Store): Command[] {
   const { dict } = deps
-  const running = state.run.phase === 'running'
+  const running = inFlight(state)
   const broken = state.params.violations.length > 0
   const run: Command[] = [
     {
@@ -236,7 +236,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
     {
       id: 'run-abort',
       section: 'run',
-      name: state.run.stopping ? dict.t('abortDiscard') : dict.t('abort'),
+      name: state.run.stopping || state.series.stopping ? dict.t('abortDiscard') : dict.t('abort'),
       note: dict.t('cmdSecRun'),
       value: running ? '' : dict.t('cmdNoRun'),
       hay: 'abort stop',

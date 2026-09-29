@@ -10,7 +10,7 @@ import { CommandPalette } from './CommandPalette'
 import '../design/tokens.css'
 import '../design/palette.css'
 
-const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {} }
+const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
 
 function mount(path = '/') {
   return render(
@@ -218,7 +218,15 @@ describe('the palette dialog', () => {
 describe('a pasted command', () => {
   const counting = () => {
     const runs: number[] = []
-    return { runs, control: { start: () => runs.push(1), abort: () => {}, hold: () => {} } satisfies RunControl }
+    return {
+      runs,
+      control: {
+        start: () => runs.push(1),
+        abort: () => {},
+        hold: () => {},
+        checkSeeds: () => {},
+      } satisfies RunControl,
+    }
   }
 
   it('shows one row, and loading it starts exactly one run', async () => {

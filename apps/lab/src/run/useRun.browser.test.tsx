@@ -1,6 +1,8 @@
 import { renderHook } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { defaultParams } from '@arrowz/engine'
 import type { GeneratorHandle } from '../worker/useGenerator'
+import type { SeriesHandle } from '../series/useSeries'
 import { useStore } from '../state/store'
 import { useRun } from './useRun'
 
@@ -10,7 +12,8 @@ function stub() {
     start: () => void calls.start++,
     abort: () => void calls.abort++,
   }
-  return { generator, started: () => calls.start, aborted: () => calls.abort }
+  const series: SeriesHandle = { start: vi.fn(), abort: vi.fn() }
+  return { generator, series, started: () => calls.start, aborted: () => calls.abort }
 }
 
 beforeEach(() => {
@@ -18,12 +21,13 @@ beforeEach(() => {
   state.params.reset()
   state.run.reset()
   state.result.reset()
+  state.series.reset()
 })
 
 describe('useRun', () => {
   it('hands the worker the knobs as they stand at the call', async () => {
     const g = stub()
-    const { result } = await renderHook(() => useRun(g.generator))
+    const { result } = await renderHook(() => useRun(g.generator, g.series))
     useStore.getState().params.set('W', 33)
     result.current.start()
     expect(g.started()).toBe(1)
@@ -33,7 +37,7 @@ describe('useRun', () => {
   // window are not buttons, so the refusal lives here.
   it('refuses while a rule is broken, whoever asked', async () => {
     const g = stub()
-    const { result } = await renderHook(() => useRun(g.generator))
+    const { result } = await renderHook(() => useRun(g.generator, g.series))
     useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
     expect(useStore.getState().params.violations.length).toBeGreaterThan(0)
     result.current.start()
@@ -42,7 +46,7 @@ describe('useRun', () => {
 
   it('cancels a debounce that has not fired before starting', async () => {
     const g = stub()
-    const { result } = await renderHook(() => useRun(g.generator))
+    const { result } = await renderHook(() => useRun(g.generator, g.series))
     const cancel = vi.fn()
     result.current.hold(cancel)
     result.current.start()
@@ -53,7 +57,7 @@ describe('useRun', () => {
   // debounce fires 350 ms later into the same refusal.
   it('cancels even when it then refuses', async () => {
     const g = stub()
-    const { result } = await renderHook(() => useRun(g.generator))
+    const { result } = await renderHook(() => useRun(g.generator, g.series))
     const cancel = vi.fn()
     useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
     result.current.hold(cancel)
@@ -64,8 +68,41 @@ describe('useRun', () => {
 
   it('passes an abort straight through', async () => {
     const g = stub()
-    const { result } = await renderHook(() => useRun(g.generator))
+    const { result } = await renderHook(() => useRun(g.generator, g.series))
     result.current.abort()
     expect(g.aborted()).toBe(1)
+  })
+
+  it('no run starts while a series runs — auto-generate included', async () => {
+    const g = stub()
+    const { result } = await renderHook(() => useRun(g.generator, g.series))
+    useStore.getState().series.started(defaultParams(), 3)
+    result.current.start()
+    expect(g.started()).toBe(0)
+  })
+
+  it('Check seeds starts a series from the knobs as they stand', async () => {
+    const g = stub()
+    const { result } = await renderHook(() => useRun(g.generator, g.series))
+    useStore.getState().params.set('seed', 41)
+    result.current.checkSeeds()
+    expect(g.series.start).toHaveBeenCalledWith(expect.objectContaining({ seed: 41 }))
+  })
+
+  it('Check seeds refuses while a run is in flight or a rule is broken', async () => {
+    const g = stub()
+    const { result } = await renderHook(() => useRun(g.generator, g.series))
+    useStore.getState().run.started(defaultParams())
+    result.current.checkSeeds()
+    expect(g.series.start).not.toHaveBeenCalled()
+  })
+
+  it('Abort stops the series when one runs, not the generator', async () => {
+    const g = stub()
+    const { result } = await renderHook(() => useRun(g.generator, g.series))
+    useStore.getState().series.started(defaultParams(), 3)
+    result.current.abort()
+    expect(g.series.abort).toHaveBeenCalled()
+    expect(g.aborted()).toBe(0)
   })
 })
