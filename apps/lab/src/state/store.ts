@@ -6,6 +6,7 @@ import { createParamsSlice, type ParamsState } from './params.slice'
 import { createRecipeSlice, type RecipeState } from './recipe.slice'
 import { createResultSlice, type ResultState, showResult } from './result.slice'
 import { createRunSlice, type DoneReport, runDone, type RunState } from './run.slice'
+import { createSeriesSlice, type SeriesState } from './series.slice'
 import { createUiSlice, type UiState } from './ui.slice'
 import { createViewSlice, type ViewState } from './view.slice'
 
@@ -29,6 +30,7 @@ export interface Store {
   ui: UiState
   lang: LangState
   recipe: RecipeState
+  series: SeriesState
   /**
    * The only writer that sees both the run and the result: the run's done
    * transition and the result's show transition in one `set`, so no render
@@ -47,6 +49,7 @@ export const useStore = create<Store>()((set) => ({
   ui: createUiSlice(set),
   lang: createLangSlice(set),
   recipe: createRecipeSlice(set),
+  series: createSeriesSlice(set),
   completeRun: (done) =>
     set((state) => {
       const params = state.run.params

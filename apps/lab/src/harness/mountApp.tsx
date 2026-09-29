@@ -23,6 +23,7 @@ export function resetApp(mode: ViewMode): void {
   cancelFlash()
   const state = useStore.getState()
   state.run.reset()
+  state.series.reset()
   state.result.reset()
   state.library.reset()
   state.params.reset()
