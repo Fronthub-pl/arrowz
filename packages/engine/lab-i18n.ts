@@ -1365,7 +1365,7 @@ export const PL: Translation = {
     seriesTitle: 'Ziarna',
     seriesStale: 'dla innych ustawień',
     seriesHead: (total, complete, incomplete, unsolvable, stopped) =>
-      `Pełna na ${complete} z ${total} · niepełna ${incomplete} · nierozwiązywalna ${unsolvable} · przerwana ${stopped}`,
+      `Pełne: ${complete} z ${total} · niepełne ${incomplete} · nierozwiązywalne ${unsolvable} · przerwane ${stopped}`,
     seriesMeanArrows: 'strzałki, średnio',
     seriesMeanLongest: 'najdłuższa, średnio',
     seriesMeanTime: 'czas, średnio',
