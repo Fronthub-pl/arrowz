@@ -9,7 +9,12 @@ import {
   type Flag,
   format,
   MAX_COMMENT_REQUESTS,
+  message,
+  messageFlags,
+  messageFromCommand,
+  messageReport,
   ruleSection,
+  words,
 } from './jev-guard.ts'
 
 export function stubJudge(answer: (state: Record<string, unknown>) => Answers | null) {
@@ -108,4 +113,73 @@ Deno.test('excerpt: one line, cut at 80 characters', () => {
   assertEquals(excerpt('a\n  b'), 'a b')
   assertEquals(excerpt('x'.repeat(100)).length, 80)
   assertEquals(excerpt('x'.repeat(100)).endsWith('…'), true)
+})
+
+const noFiles = () => null
+
+Deno.test('words: quotes, escapes, and a stop at the first control operator', () => {
+  assertEquals(words(`-m "say \\"hi\\"" -q && git push`), ['-m', 'say "hi"', '-q'])
+  assertEquals(words(`-m 'a b'; echo x`), ['-m', 'a b'])
+  assertEquals(words('-m "unterminated'), ['-m'])
+})
+
+Deno.test('messageFromCommand: -m, repeated -m, -am and --message=', () => {
+  assertEquals(messageFromCommand('git commit -m "Title"', '/r', noFiles), { kind: 'commit', text: 'Title' })
+  assertEquals(messageFromCommand('git commit -m A -m "B c"', '/r', noFiles)?.text, 'A\n\nB c')
+  assertEquals(messageFromCommand('git commit -am "All"', '/r', noFiles)?.text, 'All')
+  assertEquals(messageFromCommand('git commit --message=Eq', '/r', noFiles)?.text, 'Eq')
+})
+
+Deno.test('messageFromCommand: a $(cat <<EOF) heredoc inside -m', () => {
+  const cmd = `git commit -m "$(cat <<'EOF'\nTitle line\n\nWhy it matters.\nEOF\n)"`
+  assertEquals(messageFromCommand(cmd, '/r', noFiles)?.text, 'Title line\n\nWhy it matters.')
+})
+
+Deno.test('messageFromCommand: only the commit of a chained command', () => {
+  const cmd = 'cd packages && git add x && git commit -q -m "Only this" && git push origin HEAD'
+  assertEquals(messageFromCommand(cmd, '/r', noFiles)?.text, 'Only this')
+})
+
+Deno.test('messageFromCommand: -F reads the file against cwd, -F - reads the stdin heredoc', () => {
+  const read = (p: string) => (p === '/r/sub/msg.txt' ? 'From file' : null)
+  assertEquals(messageFromCommand('git commit -F sub/msg.txt', '/r', read)?.text, 'From file')
+  assertEquals(messageFromCommand("git commit -F - <<'EOF'\nPiped\nEOF", '/r', noFiles)?.text, 'Piped')
+  assertEquals(messageFromCommand('git commit -F missing.txt', '/r', read), null)
+})
+
+Deno.test('messageFromCommand: gh pr create and edit bodies', () => {
+  assertEquals(messageFromCommand('gh pr create --title T --body "Body"', '/r', noFiles), { kind: 'pr', text: 'Body' })
+  assertEquals(messageFromCommand('gh pr edit 12 -b B2', '/r', noFiles)?.text, 'B2')
+  const read = (p: string) => (p === '/tmp/b.md' ? 'File body' : null)
+  assertEquals(messageFromCommand('gh pr create --body-file /tmp/b.md', '/r', read)?.text, 'File body')
+})
+
+Deno.test('messageFromCommand: nothing to read is null', () => {
+  assertEquals(messageFromCommand('git commit --amend --no-edit', '/r', noFiles), null)
+  assertEquals(messageFromCommand('git status', '/r', noFiles), null)
+  assertEquals(messageFromCommand('gh pr view 3', '/r', noFiles), null)
+})
+
+Deno.test('messageFlags: an attribution line is flagged by code, without Jev', () => {
+  const flags = messageFlags('commit', 'Fix\n\nCo-Authored-By: someone <a@b>', null)
+  assertEquals(flags.map((f) => f.question), ['attribution'])
+})
+
+Deno.test('messageFlags: letters alone flag nothing, since messages may quote the Polish dictionary', () => {
+  assertEquals(messageFlags('commit', 'Lab: the label now reads "\u0105\u0142"', null), [])
+})
+
+Deno.test('messageFlags: not_english strictly past its threshold', () => {
+  const at = { not_english: 0.8 }
+  assertEquals(messageFlags('pr', 'Update', { not_english: 0.85 }, at), [
+    { where: 'PR body', question: 'not_english', p: 0.85, excerpt: 'Update' },
+  ])
+  assertEquals(messageFlags('pr', 'Update', { not_english: 0.8 }, at), [])
+})
+
+Deno.test('message: asks with the kind spelled out, and reports under the message title', async () => {
+  const { judge, calls } = stubJudge(() => ({ not_english: 0.99 }))
+  const flags = await message(judge, 'commit', 'Update')
+  assertEquals(calls, [{ kind: 'commit message', text: 'Update' }])
+  assertStringIncludes(messageReport('commit', flags) ?? '', 'the commit message may break the message rules')
 })

@@ -2,6 +2,7 @@
 // commit messages and PR bodies, and the Polish dictionary. They report and never
 // gate; thresholds are measured by jev-eval.ts (see docs/jev-guards.md).
 import { commentBlocks, commentLines } from '@arrowz/engine/comment-lines'
+import { isAbsolute, join } from '@std/path'
 import type { Answers, Judge, Noul } from './jev-client.ts'
 
 export type Flag = { where: string; question: string; p: number; excerpt: string }
@@ -144,4 +145,158 @@ export function commentReport(r: { flags: Flag[]; skipped: number }): string | n
   const n = r.flags.length
   const note = r.skipped > 0 ? `(${r.skipped} further comments were not checked)` : undefined
   return format(`${n} comment${n === 1 ? '' : 's'} may break the comment rule (CLAUDE.md, Comments)`, r.flags, note)
+}
+
+export type MessageKind = 'commit' | 'pr'
+
+/** Shell words of `s` up to the first unquoted `;`, `&`, `|` or newline; an unterminated quote ends the list. */
+export function words(s: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  let has = false
+  let i = 0
+  while (i < s.length) {
+    const c = s[i] ?? ''
+    if (c === "'") {
+      const end = s.indexOf("'", i + 1)
+      if (end === -1) return out
+      cur += s.slice(i + 1, end)
+      has = true
+      i = end + 1
+      continue
+    }
+    if (c === '"') {
+      i++
+      let closed = false
+      while (i < s.length) {
+        const d = s[i] ?? ''
+        const e = s[i + 1] ?? ''
+        if (d === '\\' && '"\\$`'.includes(e) && e !== '') {
+          cur += e
+          i += 2
+          continue
+        }
+        i++
+        if (d === '"') {
+          closed = true
+          break
+        }
+        cur += d
+      }
+      if (!closed) return out
+      has = true
+      continue
+    }
+    if (c === '\\' && i + 1 < s.length) {
+      cur += s[i + 1] ?? ''
+      has = true
+      i += 2
+      continue
+    }
+    if (/\s/.test(c) || c === ';' || c === '&' || c === '|') {
+      if (has) out.push(cur)
+      cur = ''
+      has = false
+      if (c !== ' ' && c !== '\t') return out
+      i++
+      continue
+    }
+    cur += c
+    has = true
+    i++
+  }
+  if (has) out.push(cur)
+  return out
+}
+
+const GIT_COMMIT = /\bgit\s+(?:-C\s+\S+\s+)?commit\b/
+const GH_PR = /\bgh\s+pr\s+(?:create|edit)\b/
+// `-m "$(cat <<'EOF' … EOF )"`: the message is the heredoc's body.
+const SUBSTITUTED = /^\$\(\s*cat\s+<<-?\s*['"]?(\w+)['"]?\s*\n([\s\S]*?)\n[ \t]*\1[ \t]*\n?\s*\)$/
+// `-F - <<'EOF'`: the message arrives on stdin.
+const STDIN = /<<-?\s*['"]?(\w+)['"]?[^\n]*\n([\s\S]*?)\n[ \t]*\1[ \t]*(?:\n|$)/
+
+const unwrap = (v: string) => SUBSTITUTED.exec(v)?.[2] ?? v
+
+export function messageFromCommand(
+  command: string,
+  cwd: string,
+  read: (path: string) => string | null,
+): { kind: MessageKind; text: string } | null {
+  const commit = GIT_COMMIT.exec(command)
+  const hit = commit ?? GH_PR.exec(command)
+  if (!hit) return null
+  const kind: MessageKind = commit ? 'commit' : 'pr'
+  const rest = command.slice(hit.index + hit[0].length)
+  const ws = words(rest)
+  const texts: string[] = []
+  const fromFile = (path: string) => {
+    if (path === '-') return STDIN.exec(rest)?.[2] ?? null
+    return read(isAbsolute(path) ? path : join(cwd, path))
+  }
+  const textFlag = kind === 'commit'
+    ? (w: string) => /^-[a-zA-Z]*m$/.test(w) || w === '--message'
+    : (w: string) => w === '--body' || w === '-b'
+  const fileFlag = kind === 'commit'
+    ? (w: string) => /^-[a-zA-Z]*F$/.test(w) || w === '--file'
+    : (w: string) => w === '--body-file' || w === '-F'
+  const textEq = kind === 'commit' ? '--message=' : '--body='
+  const fileEq = kind === 'commit' ? '--file=' : '--body-file='
+  for (let i = 0; i < ws.length; i++) {
+    const w = ws[i] ?? ''
+    const next = ws[i + 1]
+    if (textFlag(w) && next !== undefined) {
+      texts.push(unwrap(next))
+      i++
+    } else if (fileFlag(w) && next !== undefined) {
+      const t = fromFile(next)
+      if (t !== null) texts.push(t)
+      i++
+    } else if (w.startsWith(textEq)) {
+      texts.push(unwrap(w.slice(textEq.length)))
+    } else if (w.startsWith(fileEq)) {
+      const t = fromFile(w.slice(fileEq.length))
+      if (t !== null) texts.push(t)
+    }
+  }
+  const text = texts.join('\n\n').trim()
+  return text === '' ? null : { kind, text }
+}
+
+export const MESSAGE_QUESTIONS: Record<string, Noul> = {
+  not_english: {
+    type: 'noul',
+    instructions:
+      'The `text` is written, fully or partly, in a language other than English, for example Polish with or without diacritics. Code identifiers, file names and quoted interface strings do not count.',
+  },
+}
+// Measured by jev-eval.ts on jev-1.13.0 (docs/jev-guards.md).
+export const MESSAGE_AT = { not_english: 0.8 }
+
+const ATTRIBUTION = /^\s*(?:co-authored-by:|.*\bgenerated with\b).*$/im
+// No Polish-letter rule: messages may quote the Polish dictionary, which a letter regex cannot tell from Polish prose.
+
+const whereOf = (kind: MessageKind) => (kind === 'commit' ? 'commit message' : 'PR body')
+
+export function askMessage(judge: Judge, kind: MessageKind, text: string): Promise<Answers | null> {
+  return judge({ kind: kind === 'commit' ? 'commit message' : 'pull request description', text }, MESSAGE_QUESTIONS)
+}
+
+export function messageFlags(kind: MessageKind, text: string, a: Answers | null, at = MESSAGE_AT): Flag[] {
+  const where = whereOf(kind)
+  const first = text.split('\n').find((l) => l.trim() !== '') ?? ''
+  const flags: Flag[] = []
+  const attribution = ATTRIBUTION.exec(text)
+  if (attribution) flags.push({ where, question: 'attribution', p: 1, excerpt: attribution[0] })
+  const notEnglish = a?.not_english ?? 0
+  if (notEnglish > at.not_english) flags.push({ where, question: 'not_english', p: notEnglish, excerpt: first })
+  return flags
+}
+
+export async function message(judge: Judge, kind: MessageKind, text: string): Promise<Flag[]> {
+  return messageFlags(kind, text, await askMessage(judge, kind, text))
+}
+
+export function messageReport(kind: MessageKind, flags: Flag[]): string | null {
+  return format(`the ${whereOf(kind)} may break the message rules (CLAUDE.md)`, flags)
 }
