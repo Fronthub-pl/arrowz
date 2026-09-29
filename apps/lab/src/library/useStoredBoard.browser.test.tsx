@@ -216,6 +216,39 @@ test('leaving /boards/file clears the file preview', async () => {
   await expect.poll(() => useStore.getState().result.preview).toBeNull()
 })
 
+// A stored board that finished loading must not survive the walk back to the
+// file: the file branch only clears `loading`, so a drawn store preview would
+// be left showing under a column that says there is nothing open.
+test('walking from a file to a board that loads, and back, clears the stored preview', async () => {
+  stubStore({ [first.meta.id]: first.file })
+  useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])
+  putFilePreview()
+  function Walk() {
+    useStoredBoard()
+    const navigate = useNavigate()
+    return (
+      <div>
+        <button type="button" onClick={() => void navigate('/boards/file')}>
+          File
+        </button>
+        <button type="button" onClick={() => void navigate(`/boards/8x8/${first.meta.id}`)}>
+          A
+        </button>
+      </div>
+    )
+  }
+  const screen = await render(
+    <MemoryRouter initialEntries={['/boards/file']}>
+      <Walk />
+    </MemoryRouter>,
+  )
+  await userEvent.click(screen.getByRole('button', { name: 'A' }))
+  await expect.poll(() => useStore.getState().result.preview?.origin).toBe('store')
+  await userEvent.click(screen.getByRole('button', { name: 'File' }))
+
+  await expect.poll(() => useStore.getState().result.preview).toBeNull()
+})
+
 // B's fetch is cancelled by the walk back to the file, and the file branch
 // returns early: that early return must clear "Loading B…".
 test('walking from a file to a board still loading, and back, leaves no loading notice', async () => {
