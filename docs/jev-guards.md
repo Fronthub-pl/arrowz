@@ -35,9 +35,12 @@ deno task jev i18n
 
 ## Measured on jev-1.13.0, 2026-09-29
 
+The comment and dictionary figures are in-sample (their thresholds were chosen
+on the same data shown here); only the message figures below are held out.
+
 ### Comments (shipped)
 
-Source: `/tmp/jev-eval-comments.txt`.
+Regenerate with `deno task jev:eval comments`.
 
 | Metric | Value |
 |---|---|
@@ -49,7 +52,7 @@ Source: `/tmp/jev-eval-comments.txt`.
 
 ### Commit and PR messages (shipped)
 
-Source: `/tmp/jev-eval-message.txt`.
+Regenerate with `deno task jev:eval message`.
 
 | Metric | Value |
 |---|---|
@@ -82,7 +85,7 @@ mislabelled.
 
 ### Polish dictionary (built, hook off by owner decision)
 
-Source: `/tmp/jev-eval-i18n.txt`.
+Regenerate with `deno task jev:eval i18n`.
 
 | Metric | Value |
 |---|---|
@@ -112,9 +115,21 @@ hook.
 - A manual `deno task jev comments|message|i18n` that prints
   `jev: nothing flagged` also prints that line when Jev did not answer at
   all (no key, network failure, timeout); the two cases look the same.
+- A worktree outside the project root (for example `/tmp/arrowz-*`) is not
+  checked at all: it is outside both the hook's scope and its
+  `--allow-read`.
+- While 1Password is locked, every edit that adds a comment and every checked
+  commit waits about 2 s for the key read (`readKey`'s timeout) before
+  staying silent.
+- `badMessages` takes long `PL.ui` strings 15–30 of the current dictionary,
+  so a dictionary edit before them shifts the hand-made violation set onto
+  strings the threshold pick already saw; re-anchor those indices if
+  `lab-i18n.ts` changes there.
 
 ## Re-measuring
 
 Run `deno task jev:eval comments|message|i18n` after changing any question,
 any threshold, or `MODEL` in `jev-client.ts`. The figures above stop being
-true the moment one of those changes.
+true the moment one of those changes. Editing the `## Comments` section of
+`CLAUDE.md` also changes the comment guard's input — it is sent as `rule` —
+so it too needs `deno task jev:eval comments` re-run.
