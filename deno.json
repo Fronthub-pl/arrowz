@@ -55,6 +55,8 @@
     "report": "deno task --cwd=packages/cli report",
     "docs": "deno run --allow-read --allow-write --allow-run --allow-env packages/cli/scripts/record-doc-images.ts",
     "store": "deno task --cwd=packages/cli store",
-    "compile": "deno task --cwd=packages/cli compile"
+    "compile": "deno task --cwd=packages/cli compile",
+    "jev": "deno run --allow-net=api.typesafe.ai --allow-read --allow-env=HOME,ARROWZ_TYPESAFE_ENV packages/cli/scripts/jev-guard.ts",
+    "jev:eval": "deno run --allow-net=api.typesafe.ai --allow-read --allow-env --allow-run=git,gh packages/cli/scripts/jev-eval.ts"
   }
 }
