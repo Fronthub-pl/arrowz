@@ -377,8 +377,6 @@ test('the knobs on screen are the knobs the run used', async () => {
 // body, not `result.saved`, which says only that the store answered.
 test('the saved board carries the view on screen', async () => {
   await clearOfTheDrawer()
-  // The view slice has no reset, so this test puts back what it moved.
-  const was = { colored: useStore.getState().view.colored, stroke: useStore.getState().view.stroke }
   const screen = await mountApp()
   // The load run's own save is awaited before the spy goes on, as in the
   // StrictMode case; the length assertion below still says which POST this is.
@@ -391,6 +389,9 @@ test('the saved board carries the view on screen', async () => {
     // A second field, and a number rather than a flag: one boolean surviving
     // the trip says less than "the view the user was looking at survived it".
     useStore.getState().view.setNumber('stroke', '0.8')
+    // Set directly, not through `setFlag`/`setNumber`, so the assertion below
+    // exercises the save's own zeroing rather than a setter that might zero it first.
+    useStore.setState((s) => ({ view: { ...s.view, highlightLongest: true, top: 5 } }))
     const loaded = useStore.getState().result.shown?.file
     await screen.getByRole('button', { name: 'Generate' }).click()
     await expect.poll(() => savedAfter(loaded), { timeout: 30_000 }).toBe(true)
@@ -411,8 +412,6 @@ test('the saved board carries the view on screen', async () => {
     expect(request.view.cell).not.toBe(12)
   } finally {
     fetchSpy.mockRestore()
-    if (useStore.getState().view.colored !== was.colored) useStore.getState().view.toggle('colored')
-    useStore.getState().view.setNumber('stroke', String(was.stroke))
   }
 }, 40_000)
 

@@ -503,3 +503,6 @@ git commit -m "lab-review: refactor 7 done"
 - `CommandPalette`'s outside-press handler skips presses on the trigger ("Not the trigger: it toggles on *click*…"). With the scrim covering the top bar that branch is not reached by a mouse in the app; removing it is a product change and is not part of this refactor.
 - The six component tests that patch the view with `setState` (`knobgrid`, `useUrlHash`, `SimplePanel`, `BoardFrame`, `LayoutInvariants`, `ViewPanel`) set deliberate non-default values for their case, not a reset; they stay.
 - Refactor 5 (the `.fw button` prefix, tokens, the 699/700 breakpoint) is the next PR, planned after this one merges.
+- `CommandPalette`'s "Not the trigger" branch (skipping the outside-press close for a click on the trigger itself) now has no test at all: the deleted assertion was its only coverage, and removing the branch leaves the suite green.
+- `TopBar.tsx`'s ⌘K trigger `onClick` comment ("...The dialog's own outside-press listener leaves this element alone") describes a press the app cannot reach while `.fw-scrim` covers the trigger.
+- `lab-review.md`'s item 7 list of files that patch the view slice through `setState` should say `Console.jump.browser.test.tsx` and `Workspace.browser.test.tsx` were cleaned up on this branch.
