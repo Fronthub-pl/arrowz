@@ -273,7 +273,8 @@ export const MESSAGE_QUESTIONS: Record<string, Noul> = {
 // Measured by jev-eval.ts on jev-1.13.0 (docs/jev-guards.md).
 export const MESSAGE_AT = { not_english: 0.8 }
 
-const ATTRIBUTION = /^\s*(?:co-authored-by:|.*\bgenerated with\b).*$/im
+// A trailer, or a footer that starts with "Generated with" after only non-letters, not prose that mentions it.
+const ATTRIBUTION = /^\s*co-authored-by:.*$|^[^\p{L}\n]*generated with\b.*$/imu
 // No Polish-letter rule: messages may quote the Polish dictionary, which a letter regex cannot tell from Polish prose.
 
 const whereOf = (kind: MessageKind) => (kind === 'commit' ? 'commit message' : 'PR body')

@@ -183,3 +183,12 @@ Deno.test('message: asks with the kind spelled out, and reports under the messag
   assertEquals(calls, [{ kind: 'commit message', text: 'Update' }])
   assertStringIncludes(messageReport('commit', flags) ?? '', 'the commit message may break the message rules')
 })
+
+Deno.test('messageFlags: prose that mentions "generated with" is not an attribution line', () => {
+  assertEquals(messageFlags('commit', 'Lab: boards generated with seed 7 draw the same', null), [])
+})
+
+Deno.test('messageFlags: a footer with a leading emoji is still an attribution line', () => {
+  const flags = messageFlags('commit', 'Fix\n\n' + '\u{1F916} Generated with [Some Tool](https://example.com)', null)
+  assertEquals(flags.map((f) => f.question), ['attribution'])
+})
