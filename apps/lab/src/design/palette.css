@@ -5,7 +5,7 @@
 /* The ⌘K trigger: in the top bar, but dressed here beside the dialog it
    opens, since the two move together. The child combinator keeps the rule off
    the `Segmented` chips in `.right` (wrapped in `.fw-seg`): a descendant
-   selector would tie with `.fw .fw-seg button` and win on import order. The
+   selector would tie with `.fw-top .fw-seg button` and win on import order. The
    border and hover are `--ink` at low alpha, as the chips' are. */
 .fw-top .right > button {
   height: 24px;

@@ -16,10 +16,7 @@
   flex-direction: column;
   gap: 2px;
 }
-/* `.fw .fw-alt button` and not a bare selector: the `.fw button` reset in
-   shell.css is (0,1,1) and would outrank (0,1,0) on `color`. Every rule in
-   this file carries the prefix for the same reason. */
-.fw .fw-alt button {
+.fw-alt button {
   flex: none;
   height: 32px;
   min-height: 32px;
@@ -29,21 +26,21 @@
   color: var(--ink);
   cursor: pointer;
 }
-.fw .fw-alt button:hover:not(:disabled) {
+.fw-alt button:hover:not(:disabled) {
   background: var(--surface);
 }
 /* The mock has no disabled state, because nothing in it can refuse. Half
-   opacity is what `.fw .fw-go:disabled` already uses, so the two refusals
+   opacity is what `.fw-go:disabled` already uses, so the two refusals
    look like one rule. Measured: --ink at 0.5 over --graphite is 4.70:1. */
-.fw .fw-alt button:disabled {
+.fw-alt button:disabled {
   opacity: 0.5;
   cursor: default;
 }
 /* The Check seeds row sits beside its count field, not stacked like the rest of `.fw-alt`. */
-.fw .fw-series {
+.fw-series {
   flex-direction: row;
 }
-.fw .fw-series > button {
+.fw-series > button {
   flex: 1;
 }
 .fw-ghost {
@@ -69,7 +66,7 @@
    ghost group after the switches' one, whose own 8px top padding is the gap
    between them. `--ash` on `--graphite` is 5.52:1 and moves to `--ink` on
    hover (ExportButtons.browser.test.tsx measures it). */
-.fw .fw-exports button {
+.fw-exports button {
   flex: none;
   height: 28px;
   min-height: 28px;
@@ -80,11 +77,11 @@
   text-align: left;
   cursor: pointer;
 }
-.fw .fw-exports button:hover:not(:disabled) {
+.fw-exports button:hover:not(:disabled) {
   color: var(--ink);
 }
-/* The same refusal as `.fw .fw-alt button:disabled`. */
-.fw .fw-exports button:disabled {
+/* The same refusal as `.fw-alt button:disabled`. */
+.fw-exports button:disabled {
   opacity: 0.5;
   cursor: default;
 }
@@ -95,10 +92,10 @@
   overflow-wrap: anywhere;
 }
 @media (pointer: coarse), (max-width: 767px) {
-  .fw .fw-alt button {
+  .fw-alt button {
     height: 44px;
   }
-  .fw .fw-exports button {
+  .fw-exports button {
     height: 44px;
   }
   /* The track is raised in console.css's coarse block; the row still carries
@@ -139,14 +136,14 @@
    `--graphite` — under AA at 12px — and spends a colour reserved for state
    and data on an action. `--mist` is 8.05:1 and moves to `--ink` on
    hover, the same ash-to-ink move `.fw-tabrow button` already makes. */
-.fw .fw-cmdhd button {
+.fw-cmdhd button {
   border: 0;
   background: none;
   color: var(--mist);
   cursor: pointer;
   padding: 0;
 }
-.fw .fw-cmdhd button:hover {
+.fw-cmdhd button:hover {
   color: var(--ink);
 }
 /* `overflow: auto`, not the mock's `hidden`: clipping would hide what is run.
@@ -176,7 +173,7 @@
   color: var(--ink);
 }
 @media (pointer: coarse), (max-width: 767px) {
-  .fw .fw-cmdhd button {
+  .fw-cmdhd button {
     min-height: 44px;
   }
 }
@@ -194,7 +191,7 @@
   background: var(--void);
   border-bottom: 1px solid var(--border);
 }
-.fw .fw-presets .fw-pp-trigger {
+.fw-presets .fw-pp-trigger {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -206,8 +203,8 @@
   cursor: pointer;
   white-space: nowrap;
 }
-.fw .fw-presets .fw-pp-trigger:hover,
-.fw .fw-presets .fw-pp-trigger[aria-expanded='true'] {
+.fw-presets .fw-pp-trigger:hover,
+.fw-presets .fw-pp-trigger[aria-expanded='true'] {
   background: var(--surface);
   border-color: var(--mist);
 }
@@ -295,7 +292,7 @@
 /* Centred, not on the baseline: `baseline` in a 28px row puts both spans at
    its top edge. The two spans
    (13px mode, 11px size) share `line-height: 1`, so their centres meet. */
-.fw .fw-pp-col button {
+.fw-pp-col button {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -308,14 +305,14 @@
   text-align: left;
   cursor: pointer;
 }
-.fw .fw-pp-col button > span {
+.fw-pp-col button > span {
   line-height: 1;
 }
-.fw .fw-pp-col button:hover {
+.fw-pp-col button:hover {
   background: var(--surface);
   color: var(--ink);
 }
-.fw .fw-pp-col button[aria-current='true'] {
+.fw-pp-col button[aria-current='true'] {
   background: var(--signal-fill);
   color: var(--ink);
 }
@@ -342,15 +339,15 @@
     height: auto;
     padding: 6px 16px;
   }
-  .fw .fw-pp-col button,
-  .fw .fw-presets .fw-pp-trigger {
+  .fw-pp-col button,
+  .fw-presets .fw-pp-trigger {
     height: 44px;
   }
 }
 
 /* The `…` and its popover (MoreMenu.tsx) exist only in the M/S bar; outside
    it the button is gone and the container is not a box at all. */
-.fw .fw-more {
+.fw-more {
   display: none;
 }
 .fw-more-pop {
@@ -402,7 +399,7 @@
   .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-cmd::-webkit-scrollbar {
     display: none;
   }
-  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-go {
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-go {
     flex: none;
     width: auto;
     height: 32px;
@@ -413,11 +410,11 @@
   .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-alt {
     flex-direction: row;
   }
-  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-alt > button {
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-alt > button {
     width: auto;
     padding: 0 10px;
   }
-  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-more {
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-more {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -429,8 +426,8 @@
     color: var(--ink);
     cursor: pointer;
   }
-  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-more:hover,
-  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-more[aria-expanded='true'] {
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-more:hover,
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-more[aria-expanded='true'] {
     background: var(--surface);
   }
   .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-more-pop {
@@ -454,7 +451,7 @@
 }
 /* The bar under a finger: 44px controls, not 32. */
 @media (min-width: 768px) and (max-width: 1279px) and (pointer: coarse) {
-  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col :is(.fw-go, .fw-alt > button, .fw-more, .fw-cmdhd, .fw-cmd) {
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col :is(.fw-go, .fw-alt > button, .fw-more, .fw-cmdhd, .fw-cmd) {
     height: 44px;
     min-height: 44px;
   }
@@ -475,7 +472,7 @@
     padding: 6px 12px;
     gap: 0;
   }
-  .fw .fw-lab .fw-presets .fw-pp-trigger {
+  .fw-lab .fw-presets .fw-pp-trigger {
     flex: 1 1 auto;
     width: 100%;
     min-width: 0;
@@ -527,7 +524,7 @@
   .fw-lab .fw-pp-col + .fw-pp-col h3 {
     padding-top: 20px;
   }
-  .fw .fw-lab .fw-pp-col button {
+  .fw-lab .fw-pp-col button {
     width: 100%;
     height: 48px;
     padding: 0 16px;
@@ -542,14 +539,14 @@
    under it says the rest (pieces, left, backtracks, time) or the last
    outcome. The live `<output>` stays in `.fw-bar`, mounted at every band,
    so announcements do not depend on a column a sheet may hide (shell.css). */
-.fw .fw-go.busy {
+.fw-go.busy {
   opacity: 1;
   background: linear-gradient(to right, var(--signal-fill) 0 var(--p), var(--surface) var(--p) 100%);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 /* Check seeds is Generate's meter for a series: the same fill, on its own button. */
-.fw .fw-series > button.busy {
+.fw-series > button.busy {
   opacity: 1;
   background: linear-gradient(to right, var(--signal-fill) 0 var(--p), var(--surface) var(--p) 100%);
   color: var(--ink);

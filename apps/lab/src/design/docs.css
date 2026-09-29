@@ -157,7 +157,7 @@
 .fw-docs-block > .fw-docs-pre {
   padding-top: 34px;
 }
-.fw .fw-docs-copy {
+.fw-docs-copy {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -170,7 +170,7 @@
   font-size: 11px;
   cursor: pointer;
 }
-.fw .fw-docs-copy:hover {
+.fw-docs-copy:hover {
   color: var(--ink);
   border-color: var(--ash);
 }
