@@ -8,6 +8,12 @@ import './index.css'
 // that *match* each element, the tallest height or min-height it declares.
 // Matching elements rather than selector strings keeps the test indifferent
 // to how a rule is spelled.
+// A declared `var(--touch)` is read through the root's value, as the page would.
+function resolved(value: string): string {
+  const token = /^var\((--[\w-]+)\)$/.exec(value.trim())
+  return token?.[1] === undefined ? value : getComputedStyle(document.documentElement).getPropertyValue(token[1])
+}
+
 function declaredHeight(el: Element, condition: string): number {
   let best = 0
   for (const sheet of document.styleSheets) {
@@ -23,7 +29,7 @@ function declaredHeight(el: Element, condition: string): number {
         }
         if (!hit) continue
         for (const prop of ['height', 'min-height'] as const) {
-          const px = Number.parseFloat(inner.style.getPropertyValue(prop))
+          const px = Number.parseFloat(resolved(inner.style.getPropertyValue(prop)))
           if (Number.isFinite(px)) best = Math.max(best, px)
         }
       }
@@ -138,7 +144,7 @@ function coarseBefore(el: Element, prop: 'height' | 'width'): number {
         } catch {
           hit = false
         }
-        const px = Number.parseFloat(inner.style.getPropertyValue(prop))
+        const px = Number.parseFloat(resolved(inner.style.getPropertyValue(prop)))
         if (hit && Number.isFinite(px)) best = Math.max(best, px)
       }
     }
