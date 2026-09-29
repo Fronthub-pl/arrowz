@@ -37,6 +37,34 @@
 
 ---
 
+## Errata from the dry run (binding — they override the task text they name)
+
+A dry run of this plan passed every gate after these fixes; its commits are in
+`/tmp/arrowz-dry-series` (after `086ce60`), working code to read when a step
+is unclear, never to cherry-pick.
+
+- **E1 (Task 1) — BLOCKER, the outcome mapping.** `generate()` reports a deadlock with `ok: false, stuck: null` (see `GenerateResult.deadlock`), so `ok && deadlock` never happens. `outcomeOf` is `if (result.aborted) return 'stopped'; if (result.deadlock) return 'unsolvable'; return result.ok ? 'complete' : 'incomplete'`, and `remaining` is `result.stuck?.remaining ?? 0`. The unsolvable test uses `{ ...base, ok: false, aborted: false, deadlock: true, stuck: null }` and expects outcome `'unsolvable'`, remaining `0`; it must fail against the old mapping.
+- **E2 (Task 1, Step 1).** `lab-report.test.ts` imports `generate` from `./mod.ts`; add `GenerateAbort` to that import.
+- **E3 (Task 3, Step 4) — "capped at four".** `seedsSent()` lists seeds worker by worker, not in send order. Assert `expect(HeldWorker.made[2]?.sent.map((m) => (m.type === 'seed' ? m.params.seed : null))).toEqual([102, 104])` and `expect(seedsSent()).toHaveLength(5)`.
+- **E4 (Task 3, Step 4) — lint `react-hooks/globals`.** In the pool test's `Harness`: `const series = useSeries(); useEffect(() => { handle = series }, [series]); return null`.
+- **E5 (all tasks) — prettier lives in `apps/lab` only.** Format with `cd apps/lab && git diff --name-only --relative -- src scripts | xargs pnpm exec prettier --write` (plus new untracked files by name). Never run prettier from the repo root.
+- **E6 (Task 4, Step 1).** `useRun.browser.test.tsx` uses `stub()` with counters and `renderHook(() => useRun(g.generator))`. `stub()` gains `series: SeriesHandle = { start: vi.fn(), abort: vi.fn() }`; every `useRun(g.generator)` becomes `useRun(g.generator, g.series)`; `beforeEach` gains `state.series.reset()`; import `defaultParams`. Write the four new cases in that style.
+- **E7 (Task 4, Step 4).** 15 `RunControl` literals in 12 files break; several of those files do not import `vi`. Add `checkSeeds: () => {}` in each literal's own style.
+- **E8 (Task 4, Step 3).** `commands.ts` imports only `type RunControl`: make it `import { inFlight, type RunControl } from '../run/useRun'`. In `Workspace.tsx` nothing changes (its variable is `running`, the run's, and stays).
+- **E9 (Task 4) — gaps the plan left.** (a) While a series is stopping, the Stop button and the ⌘K `run-abort` row read "Discard": their condition is `state.run.stopping || state.series.stopping`. (b) The run column's New seed and Defaults are `disabled` while a series runs (`state.series.phase === 'running'`), not during a normal run (unchanged). Add one RunColumn browser case for each.
+- **E10 (Task 5) — `commands.test.ts` ordering case.** "keeps the catalogue order among rows that tie in rank" breaks: insert `'run-check-seeds'` after `'run-abort'` in its expected list and make its comment count six run rows and eight in all.
+- **E11 (Task 5, Step 3) — `DraftNumber`.** Do not pass `word` (it replaces the value in the accessible name, giving `seeds: seeds`). Typing test: `await page.getByRole('button', { name: 'seeds: 20' }).click(); await userEvent.fill(page.getByRole('textbox', { name: 'seeds' }), '500'); await userEvent.keyboard('{Enter}')`.
+- **E12 (Task 5) — the meter's CSS.** The fill is bound to `.fw .fw-go.busy` in `apps/lab/src/design/run.css`. Add there: `.fw .fw-series { flex-direction: row }`, the series button `flex: 1`, and `.fw .fw-series > button.busy` with the same gradient as `.fw-go.busy` (copy the declaration). `run.css` joins Task 5's commit.
+- **E13 (Task 5) — layout invariant `bar-row`.** Mounted after `.fw-alt`, the row makes the run bar 136 px tall at 1024×768 in Polish (cap 104, `LayoutInvariants.browser.test.tsx`). Mount `{simple ? null : <SeriesRow control={control} />}` as the first child of `<MoreMenu>` instead: `.fw-more-pop` is `display: contents` on wide screens, so the column is unchanged there, and on narrow bars the row sits in the "…" popover. Task 5 ends with the whole chromium project.
+- **E14 (Task 6, Step 3) — outcome key.** `.filter` does not narrow `'complete'` out. Use `const OUTCOME = { incomplete: 'seriesOutcome_incomplete', unsolvable: 'seriesOutcome_unsolvable', stopped: 'seriesOutcome_stopped' } as const` and inside the `map` `run.outcome === 'complete' ? null : …dict.t(OUTCOME[run.outcome])…`.
+- **E15 (Task 6, Step 2).** The stale marker's text is ` · for other settings`: match `page.getByText(/for other settings/)`.
+- **E16 (Task 6) — heading and tone.** Report headings are `<h2>` (styled by `.fw-report h2`), not `<h3>`. `ReportSummary` has no tone classes: add to `apps/lab/src/design/report.css` three rules for the head line on `--ok`, `--warn`, `--error` (check the token names with `grep -n "\-\-ok\|\-\-warn\|\-\-error" apps/lab/src/design/tokens.css`) and a list reset for `.fw-series-failed`. `report.css` joins Task 6's commit.
+- **E17 (Task 6) — mounting through a slot.** Neither `ReportPanel` nor `Stage` receives the control, and `ReportPanel.browser.test` renders `<ReportPanel />` bare. `Stage` gains `series?: ReactNode` and passes it on; `ReportPanel({ series = null }: { series?: ReactNode })` renders `{series}` above the run's report, also when `result === null`; `Workspace` passes `series={lab ? <SeriesSection control={control} /> : null}`.
+- **E18 (Task 6, Step 1) — help text and Polish.** `seriesMean_help` has no `= …` clause (EN: `'Averaged over the complete seeds only: an incomplete board would pull the numbers towards a board nobody plays.'`, PL likewise without the `=` part). Polish `seriesFailed`: `` (seed, outcome, left) => `ziarno ${seed} — ${outcome}, zostało pól: ${left}` `` (no plural agreement to get wrong).
+- **E19 (Task 7, Step 2).** Also correct the spec's outcome-mapping sentence if it still reads `ok && deadlock` (fixed on the branch before execution; check).
+
+---
+
 ## File Structure
 
 - `packages/engine/types.ts` — `SeedOutcome`, `SeedRun`, `WorkerIn` `seed`, `WorkerOut` `seedDone`.
@@ -58,6 +86,8 @@
 ---
 
 ### Task 1: the engine's seed run and its summary
+
+**Errata to apply: E1, E2, E5.**
 
 **Files:**
 - Modify: `packages/engine/types.ts` (beside `WorkerIn` / `WorkerOut`)
@@ -242,6 +272,8 @@ git commit -m "Engine: one seed of a series, its outcome, and the series' summar
 
 ### Task 2: the worker answers one seed
 
+**Errata to apply: E5.**
+
 **Files:**
 - Modify: `apps/lab/src/worker/generate.worker.ts`
 - Modify: `apps/lab/scripts/worker-smoke.mjs`
@@ -306,6 +338,8 @@ git commit -m "Worker: one seed of a series, numbers only"
 ---
 
 ### Task 3: the series slice, the seed list and the pool
+
+**Errata to apply: E3, E4, E5.**
 
 **Files:**
 - Create: `apps/lab/src/series/seeds.ts`, `apps/lab/src/series/seeds.test.ts`
@@ -746,6 +780,8 @@ git commit -m "Series: a pool of workers checks the knobs seed by seed"
 
 ### Task 4: one gate for runs and series
 
+**Errata to apply: E5, E6, E7, E8, E9.**
+
 **Files:**
 - Modify: `apps/lab/src/run/useRun.ts`, `apps/lab/src/run/useRun.browser.test.tsx`
 - Modify: `apps/lab/src/App.tsx`
@@ -853,6 +889,8 @@ git commit -m "Run: one gate keeps a run and a series apart, and Abort stops whi
 ---
 
 ### Task 5: the row, the meter and the ⌘K row
+
+**Errata to apply: E5, E10, E11, E12, E13.**
 
 **Files:**
 - Create: `apps/lab/src/series/SeriesRow.tsx`, `apps/lab/src/series/SeriesRow.browser.test.tsx`
@@ -984,6 +1022,8 @@ git commit -m "Series: a Check seeds row with its count, its meter and its ⌘K 
 ---
 
 ### Task 6: the "Seeds" section and the status line
+
+**Errata to apply: E5, E14, E15, E16, E17, E18.**
 
 **Files:**
 - Create: `apps/lab/src/report/SeriesSection.tsx`, `apps/lab/src/report/SeriesSection.browser.test.tsx`
@@ -1199,6 +1239,8 @@ git commit -m "Series: the Seeds section in the report and its status line"
 ---
 
 ### Task 7: docs, the whole gate and the live pass
+
+**Errata to apply: E19.**
 
 **Files:**
 - Modify: `lab-review.md`

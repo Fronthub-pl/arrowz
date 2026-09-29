@@ -45,9 +45,10 @@ four; four such workers hold on the order of 1–1.5 GB. Hence the cap below.
   `{ type: 'seedDone'; seed: number; outcome: SeedOutcome; pieces: number;
   maxLen: number | null; genMs: number; remaining: number; metrics: Metrics | null }`
   with `SeedOutcome = 'complete' | 'incomplete' | 'unsolvable' | 'stopped'`,
-  from `GenerateResult`, in this order: `aborted` → stopped; `ok && deadlock`
-  → unsolvable (a full board that cannot be solved, a generator bug);
-  `ok` → complete; otherwise incomplete. `remaining` is the
+  from `GenerateResult`, in this order: `aborted` → stopped; `deadlock` →
+  unsolvable (a full board that cannot be solved, a generator bug; `generate`
+  reports it with `ok: false` and `stuck: null`); `ok` → complete; otherwise
+  incomplete. `remaining` is the
   empty cells left (`stuck.remaining`, 0 when complete).
 - `summariseSeries(runs: readonly SeedRun[])` in `lab-report.ts`, pure: the
   count of each outcome, the total, and the means over the complete runs only
