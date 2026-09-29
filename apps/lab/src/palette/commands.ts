@@ -247,6 +247,19 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       },
     },
     {
+      id: 'run-check-seeds',
+      section: 'run',
+      name: dict.t('checkSeeds'),
+      note: dict.t('cmdSecRun'),
+      value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : '',
+      hay: 'check seeds series many rate',
+      disabled: running || broken,
+      run: () => {
+        deps.control.checkSeeds()
+        state.ui.closePalette()
+      },
+    },
+    {
       id: 'run-solo',
       section: 'run',
       name: dict.t('fullView'),

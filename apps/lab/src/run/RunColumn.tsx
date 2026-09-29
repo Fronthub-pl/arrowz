@@ -1,5 +1,6 @@
 import { type CSSProperties, type RefObject, useLayoutEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
+import { SeriesRow } from '../series/SeriesRow'
 import { oneDecimal, useRunLine } from '../stage/useRunState'
 import { useStore } from '../state/store'
 import { defaults, generate, reseed } from './actions'
@@ -131,6 +132,10 @@ export function RunColumn({
         </button>
       </div>
       <MoreMenu>
+        {/* Checking many seeds keeps the run bar's own cap (`bar-row`): mounted
+            here, the row rides in the "…" popover at M/S and reads unchanged
+            (`display: contents`) at the wide band. */}
+        {simple ? null : <SeriesRow control={control} />}
         {/* The knobs' own switch, so not in the simple view, which shows no knobs. */}
         {simple ? null : (
           <div className="fw-ghost">

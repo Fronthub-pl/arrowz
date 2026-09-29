@@ -255,8 +255,8 @@ describe('the matcher', () => {
     expect(matches[0]).toBe('view-top')
   })
 
-  // 'run' matches the five run rows' note, and `knob-giantStep`'s and
-  // `knob-giantJitter`'s label; no name starts with it, so all seven share one rank.
+  // 'run' matches the six run rows' note, and `knob-giantStep`'s and
+  // `knob-giantJitter`'s label; no name starts with it, so all eight share one rank.
   it('keeps the catalogue order among rows that tie in rank', () => {
     const rows = buildCommands(deps(), useStore.getState())
     const catalogueOrder = rows.map((row) => row.id)
@@ -266,6 +266,7 @@ describe('the matcher', () => {
       'run-reseed',
       'run-defaults',
       'run-abort',
+      'run-check-seeds',
       'run-solo',
       'knob-giantStep',
       'knob-giantJitter',
