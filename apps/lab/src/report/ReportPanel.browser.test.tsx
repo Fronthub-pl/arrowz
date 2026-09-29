@@ -5,7 +5,7 @@ import { render } from 'vitest-browser-react'
 import { contrast, shown } from '../design/contrast'
 import { decodeBoard } from '@arrowz/engine'
 import { storedFixture } from '../state/library.fixtures'
-import { finish, finishedRun } from '../state/result.fixtures'
+import { finish, finishedRun, stoppedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { ReportPanel } from './ReportPanel'
 import '../design/tokens.css'
@@ -164,6 +164,16 @@ test('the first result has nothing to compare with', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
   for (const cell of stats(screen.container).querySelectorAll('.fw-delta')) expect(cell.textContent).toBe('')
+})
+
+// A stopped board's numbers describe a cut-short generation, not comparable
+// with the full run before it.
+test('a stopped board shows no delta against the run it interrupted', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  await act(async () => finish(stoppedRun(2)))
+  for (const cell of stats(screen.container).querySelectorAll('.fw-delta')) expect(cell.textContent).toBe('')
+  for (const at of [0, 1, 2, 3]) expect(figure(screen.container, at).change.className).toBe('none')
 })
 
 // Compared by row index against the result shown before. The colour is the

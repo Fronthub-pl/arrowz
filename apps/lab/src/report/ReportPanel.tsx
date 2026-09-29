@@ -42,8 +42,8 @@ export function ReportPanel(): ReactElement {
         )
       ) : result === null ? null : (
         <>
-          <ReportSummary result={result} baseline={baseline} />
-          <StatsTable result={result} baseline={baseline} />
+          <ReportSummary result={result} baseline={result.report.aborted ? null : baseline} />
+          <StatsTable result={result} baseline={result.report.aborted ? null : baseline} />
           <LongestTable board={result.board} />
         </>
       )}
