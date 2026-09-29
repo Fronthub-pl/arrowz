@@ -166,7 +166,7 @@ different counter over 237 files; the two numbers are not comparable.)
 | 2. One knob-row shell, split `ViewPanel.tsx` | fixed on `lab/row-shell` (`b2c78d3`..`080d3ce`) | `console/rows/RowShell.tsx` frames every knob row and `rowIds` spells its ids (`<scope>-<field>` plus `-help`/`-label`/`-why`/`-ends`); the view's rows live in `console/rows/` and `ViewPanel.tsx` is the panel; `useReleasableChip` is the one chip memory; `rows.guard.test.ts` keeps `kv-row` and row ids in `RowShell`; `OptionSwitch` stays apart by decision |
 | 3. One view schema and `view.apply()` | fixed on `lab/view-schema` (`f33ba85`..`4d16651`) | `viewSchema.ts` is the one field list; the slice, the link and "Load into lab" all read and normalise through it, and `view.apply()` writes a patch in one update |
 | 4. One hotkey table and `useDismiss` | fixed on `lab/hotkeys-dismiss` (`a679fcf`..`1eb93cc`) | `shell/hotkeys.ts` holds `WORKSPACE_KEYS` behind one `useWorkspaceKeys` listener, with `usePaletteKey` beside it; `shell/useDismiss.ts` closes the top menu, the `…` popover and the preset panel; `CommandPalette` stays apart by decision (modal, mousedown, focus trap); `useStoreSave` and `useBandReset` are out of `App.tsx` |
-| 5. CSS: `.fw button` tax, tokens, breakpoint | partly fixed in `750b059`, `d750cad` | Breakpoint fixed; the prefix tax and the tokens are open |
+| 5. CSS: `.fw button` tax, tokens, breakpoint | fixed on `lab/css-cascade` (breakpoint in `750b059`, `d750cad`) | `:where(.fw) button`, 120 prefixes removed, `--touch`/`--rule`; computed styles identical (probe); spacing scale left out |
 | 6. Library column reuses the run column's pieces | fixed in #129 and #131 | `useSvgDrawing` and `SavedExports` (#129); `CommandFigure` with `useCopy` for the live command and both library columns, a file's command included |
 | 7. Test fixtures | fixed on `lab/test-fixtures` | `design/index.css` for `main.tsx` and every test (a node guard in `design/index.test.ts`), `resetApp` through `getInitialState`, `renderAt` in the harness; `twoFrames` was already one in `harness/frames.ts` |
 | 8. `useStoredBoard` into a library action | fixed in #131 | `openStoredBoard` returns its cancel and takes `read`; `openStoredBoard.test.ts` runs its exits and races in node |
@@ -243,7 +243,7 @@ section above).
 
 1. **The copy pass is done:** the report, the simple view and the glossary across the knobs, the view panel and the saved boards' list, all on `lab/glossary`.
 2. **Smaller correctness items:** done on `lab/correctness-2` (the `aborted` flag, the per-board view save, the worker's stale handlers and failed load, the delayed revoke; the SVG now carries the colours instead of a note). The SVG download from the drawing worker's callback was checked in WebKit and Firefox: the download fired in Playwright 1.63's WebKit and Firefox 155 engines (and Chromium as a control), each saving a valid SVG; Playwright's WebKit is not Safari itself, so Safari proper remains unchecked.
-3. **Structural refactors:** 5 (the `.fw button` prefix and tokens) and 11; 7 is done on `lab/test-fixtures`.
+3. **Structural refactors:** 11; 5 and 7 are done.
 5. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
 6. **Observations from the live pass and deferred review minors:** the report
@@ -985,6 +985,8 @@ Scope: `apps/lab` at `b9a5a9d` (worktree `/Users/tomek/dev/arrowz-review`). Ever
 - **Size:** S-M. **Payoff:** medium. About 120 lines less and one source of truth for key precedence.
 
 #### 5. CSS: remove the `.fw button` specificity tax, add a few tokens, and fix one breakpoint
+
+**Done on `lab/css-cascade`:** `:where(.fw) button` and no `.fw` prefixes (guarded by `design/prefix.test.ts`), `--touch` and `--rule`; the breakpoint was already aligned and pinned by `design/breakpoints.test.ts`. The spacing scale and a font-size token were left out by decision.
 
 - **Where:**
   - `design/shell.css:79-85`: `.fw button { … color: inherit }` has specificity (0,1,1). Because of it, 113 selectors across the files are prefixed with `.fw ` just to win (`grep -cE "^\s*\.fw \."`: console 37, shell 33, run 30, library 11, docs 2). The comments say so: `run.css:19-21` ("Every rule in this file carries the prefix for the same reason"), `console.css:336`, `shell.css:495`.
