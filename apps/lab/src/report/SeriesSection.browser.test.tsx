@@ -40,7 +40,8 @@ test('the first line counts every outcome', async () => {
   await expect.element(page.getByText('Complete on 1 of 2 · incomplete 1 · unsolvable 0 · stopped 0')).toBeVisible()
 })
 
-// Review Focus 5: the failed seed opens under the series' knobs, not the panel's.
+// A failed seed reopens under the series' own knobs, not the ones on screen,
+// or the board shown is not the one that failed.
 test('a failed seed opens as a normal run under the series knobs', async () => {
   seriesDone({ ...defaultParams(), W: 30, seed: 10 })
   useStore.getState().params.set('W', 12)
