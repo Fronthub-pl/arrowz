@@ -9,8 +9,7 @@ import { DOCS_SECTIONS } from './DocsNav'
 import { ElementDocs } from './ElementDocs'
 // The colour cases below read computed style, which a component test only has
 // with the sheets imported.
-import '../design/tokens.css'
-import '../design/docs.css'
+import '../design/index.css'
 
 beforeEach(() => useStore.getState().lang.setLang('en'))
 afterEach(() => vi.restoreAllMocks())

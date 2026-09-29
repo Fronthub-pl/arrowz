@@ -7,9 +7,7 @@ import { contrast, shown } from '../design/contrast'
 import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { ExportButtons } from './ExportButtons'
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/run.css'
+import '../design/index.css'
 
 const ONE = finishedRun(1)
 

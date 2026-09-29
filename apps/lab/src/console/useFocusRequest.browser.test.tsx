@@ -7,14 +7,7 @@ import { useStore } from '../state/store'
 import { cancelFlash } from './flash'
 // The cascade `main.tsx` loads, in its order: the S and XS cases below read
 // whether the knob is on screen, and with no stylesheet every node is.
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
-import '../design/library.css'
-import '../design/run.css'
-import '../design/report.css'
-import '../design/docs.css'
-import '../design/palette.css'
+import '../design/index.css'
 
 beforeEach(() => {
   cancelFlash()

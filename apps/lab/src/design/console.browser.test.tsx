@@ -6,9 +6,7 @@ import { ValueKnob } from '../console/ValueKnob'
 import { OptionSwitch } from '../run/OptionSwitch'
 import { useStore } from '../state/store'
 import { contrast, parse, shown } from './contrast'
-import './tokens.css'
-import './shell.css'
-import './console.css'
+import './index.css'
 
 /**
  * This console argues, on purpose, that a knob which does nothing is *not*

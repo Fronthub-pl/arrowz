@@ -10,11 +10,7 @@ import { cancelPendingSave } from '../library/useViewSave'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 // The stage-height case measures the lab grid, which needs the real cascade.
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
-import '../design/library.css'
-import '../design/run.css'
+import '../design/index.css'
 
 /**
  * Whether the store has answered for a board other than `before`. `saved` alone

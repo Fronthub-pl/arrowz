@@ -6,14 +6,7 @@ import { App } from './App'
 // name that first and the plain name second.
 import '@fontsource-variable/archivo'
 import '@fontsource-variable/jetbrains-mono'
-import './design/tokens.css'
-import './design/shell.css'
-import './design/console.css'
-import './design/library.css'
-import './design/run.css'
-import './design/report.css'
-import './design/docs.css'
-import './design/palette.css'
+import './design/index.css'
 
 const root = document.getElementById('root')
 // A missing mount point is a broken index.html; failing here names the cause.

@@ -7,8 +7,7 @@ import type { RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
 import { CommandPalette } from './CommandPalette'
-import '../design/tokens.css'
-import '../design/palette.css'
+import '../design/index.css'
 
 const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
 

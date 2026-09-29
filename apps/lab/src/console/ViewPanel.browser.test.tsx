@@ -17,9 +17,7 @@ import { ViewPanel } from './ViewPanel'
 // The disabled-button case reads a real computed colour, which needs the
 // stylesheets and the tokens they read. Elsewhere `getComputedStyle` reads
 // React's inline styles, which pass with no CSS at all.
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
+import '../design/index.css'
 
 const view = () => useStore.getState().view
 const EN = dictionary('en')

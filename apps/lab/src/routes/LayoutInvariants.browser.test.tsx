@@ -14,14 +14,7 @@ import { settleTransitions } from '../harness/settle'
 import { storedFixture } from '../state/library.fixtures'
 import type { Sheet } from '../state/ui.slice'
 import { useStore } from '../state/store'
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
-import '../design/library.css'
-import '../design/run.css'
-import '../design/report.css'
-import '../design/docs.css'
-import '../design/palette.css'
+import '../design/index.css'
 
 // The layout audit's invariants over every lab state that once broke them.
 // The same import order as `main.tsx`.

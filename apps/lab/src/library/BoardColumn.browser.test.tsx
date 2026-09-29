@@ -19,11 +19,7 @@ import { cancelPendingSave, useViewSave } from './useViewSave'
 import type { RunControl } from '../run/useRun'
 // The style cases read the real cascade: the Delete button's border is
 // `run.css`'s and its armed colour `library.css`'s.
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
-import '../design/library.css'
-import '../design/run.css'
+import '../design/index.css'
 
 const stored = storedFixture(1)
 const other = storedFixture(2)

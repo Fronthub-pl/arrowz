@@ -3,16 +3,9 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
-// The eight stylesheets in `main.tsx` order, as `LayoutInvariants` loads
-// them: the solo, focus and menu cases below need `display: none` to be real.
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
-import '../design/library.css'
-import '../design/run.css'
-import '../design/report.css'
-import '../design/docs.css'
-import '../design/palette.css'
+// The real cascade: the solo, focus and menu cases below need `display: none`
+// to be real.
+import '../design/index.css'
 import { loadRunDone, mountApp, resetApp } from '../harness/mountApp'
 import { useStore } from '../state/store'
 

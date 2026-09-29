@@ -8,9 +8,7 @@ import { render } from 'vitest-browser-react'
 import type { RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
 import { SimplePanel } from './SimplePanel'
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
+import '../design/index.css'
 
 /** `#rrggbb` as the browser reports it back through `getComputedStyle`. */
 function rgbOf(hex: string): string {

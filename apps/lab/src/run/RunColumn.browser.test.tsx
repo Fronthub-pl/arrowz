@@ -9,9 +9,7 @@ import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
 import { RunColumn } from './RunColumn'
 // The real cascade, in `main.tsx`'s order: a case below measures where the command box clips.
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/run.css'
+import '../design/index.css'
 
 function stub() {
   const calls = { start: 0, abort: 0 }

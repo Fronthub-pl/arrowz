@@ -9,9 +9,7 @@ import { storedFixture } from '../state/library.fixtures'
 import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { BoardFrame } from './BoardFrame'
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
+import '../design/index.css'
 
 beforeEach(() => {
   const state = useStore.getState()

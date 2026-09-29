@@ -6,8 +6,7 @@ import { renderAt } from '../harness/renderAt'
 import { sizesFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import { LibraryFace } from './LibraryFace'
-import '../design/tokens.css'
-import '../design/library.css'
+import '../design/index.css'
 
 beforeEach(() => {
   const state = useStore.getState()

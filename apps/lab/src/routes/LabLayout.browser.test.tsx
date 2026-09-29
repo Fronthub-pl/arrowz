@@ -5,11 +5,7 @@ import { loadRunDone, mountApp } from '../harness/mountApp'
 import { settleTransitions } from '../harness/settle'
 import { twoFrames } from '../harness/frames'
 import { useStore } from '../state/store'
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
-import '../design/run.css'
-import '../design/report.css'
+import '../design/index.css'
 
 // Every case here is about geometry at a stated size, so each sets its own
 // viewport first: the size a case sets outlives it.
@@ -277,25 +273,27 @@ test('⌘K opens the palette on the docs route too', async () => {
   await expect.poll(() => useStore.getState().ui.palette).toBe(true)
 }, 40_000)
 
-// Needs the whole application: the trigger and the dialog on the page together.
-// The dialog closes on a press outside its frame, and the trigger is outside
-// it, so without the exception the press shut the palette and the click that
-// followed opened it again: the button could never close what it opened.
-test('the ⌘K button closes the palette it opened, rather than reopening it', async () => {
+// The open palette's scrim covers the top bar: a press where the trigger sits
+// lands on the scrim, which closes the palette, and the click after it must not
+// reopen it.
+test('a press where the ⌘K button sits closes the palette, and it stays closed', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
   await loadRunDone()
   const trigger = screen.getByRole('button', { name: 'Command palette (⌘K)' })
   await trigger.click()
   await expect.poll(() => useStore.getState().ui.palette).toBe(true)
-  await trigger.click()
+  const box = trigger.element().getBoundingClientRect()
+  const x = box.left + box.width / 2
+  const y = box.top + box.height / 2
+  const scrim = document.querySelector('.fw-scrim')
+  if (!(scrim instanceof HTMLElement)) throw new Error('the open palette has no scrim')
+  expect(scrim.contains(document.elementFromPoint(x, y))).toBe(true)
+  // `inset: 0`, so the scrim's own coordinates are the viewport's.
+  await page.elementLocator(scrim).click({ position: { x, y } })
   await expect.poll(() => useStore.getState().ui.palette).toBe(false)
-  // And a press anywhere else outside the frame still closes it, so the
-  // exception above is the trigger's alone.
-  await trigger.click()
-  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
-  await screen.getByRole('heading', { level: 1, name: 'Arrowz' }).click()
-  await expect.poll(() => useStore.getState().ui.palette).toBe(false)
+  await twoFrames()
+  expect(useStore.getState().ui.palette).toBe(false)
 }, 40_000)
 
 // The palette's search box is a field, and the `f` guard refuses fields — so

@@ -7,10 +7,7 @@ import { storedFixture } from '../state/library.fixtures'
 import { finish, finishedRun, stoppedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { ReportPanel } from './ReportPanel'
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
-import '../design/report.css'
+import '../design/index.css'
 
 // Seed 1: 8 pieces, longest 18. Seed 2: 13 pieces, longest 17 (both close).
 const ONE = finishedRun(1)
