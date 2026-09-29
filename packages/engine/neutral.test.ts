@@ -21,6 +21,7 @@ const NEUTRAL = [
   'lab-docs.ts',
   'game.ts',
   'board-file.ts',
+  'comment-lines.ts',
 ]
 // `document.` is matched with the dot, not as a bare word: the engine comments
 // use the English word "document", which a `\bdocument\b` pattern would flag.

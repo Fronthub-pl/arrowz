@@ -7,159 +7,7 @@
 // JSX text reads as a `//` comment.
 import { dirname, fromFileUrl, join, relative } from '@std/path'
 import { assert, assertEquals } from '@std/assert'
-
-type Line = { comment: string; code: string; inComment: boolean }
-export type CommentLine = { line: number; text: string; alone: boolean }
-
-// Characters after which a `/` starts a regex literal rather than a division.
-// `<` and `>` are left out on purpose: in TSX `</div>` is a closing tag, and
-// reading it as a regex would swallow a `{/* */}` later on the same line.
-const REGEX_AFTER = new Set('(,=:[!&|?{};+-*%~^'.split(''))
-const REGEX_KEYWORDS = /\b(return|typeof|case|in|of|delete|void|throw|yield|await)$/
-
-/** Splits a TS/TSX (or, with `css`, a CSS) source into per-line comment text. */
-export function commentLines(source: string, css = false): CommentLine[] {
-  const lines: Line[] = [{ comment: '', code: '', inComment: false }]
-  const cur = (): Line => lines[lines.length - 1] ?? { comment: '', code: '', inComment: false }
-  const newline = (inComment: boolean) => lines.push({ comment: '', code: '', inComment })
-  // Brace depth of each open `${` inside template literals; the top entry is the innermost.
-  const templates: number[] = []
-  let codeSoFar = ''
-  let i = 0
-  const n = source.length
-
-  const skipString = (quote: string) => {
-    cur().code += quote
-    i++
-    while (i < n) {
-      const c = source[i]
-      if (c === '\\') {
-        i += 2
-        continue
-      }
-      if (c === '\n') return // an unterminated quote ends with its line (JSX text like "don't")
-      i++
-      if (c === quote) return
-    }
-  }
-  // Returns true when it closed the template, false when it stopped at `${`.
-  const skipTemplate = (): boolean => {
-    while (i < n) {
-      const c = source[i]
-      if (c === '\\') {
-        i += 2
-        continue
-      }
-      if (c === '\n') {
-        newline(false)
-        i++
-        continue
-      }
-      if (c === '`') {
-        i++
-        return true
-      }
-      if (c === '$' && source[i + 1] === '{') {
-        i += 2
-        templates.push(0)
-        return false
-      }
-      cur().code += 'x'
-      i++
-    }
-    return true
-  }
-
-  while (i < n) {
-    const c = source[i] ?? ''
-    const next = source[i + 1]
-    if (c === '\n') {
-      newline(false)
-      i++
-      continue
-    }
-    if (c === '/' && next === '*') {
-      i += 2
-      cur().inComment = true
-      while (i < n && !(source[i] === '*' && source[i + 1] === '/')) {
-        if (source[i] === '\n') newline(true)
-        else cur().comment += source[i]
-        i++
-      }
-      i += 2
-      cur().comment += ' '
-      continue
-    }
-    if (!css && c === '/' && next === '/') {
-      const end = source.indexOf('\n', i)
-      const stop = end === -1 ? n : end
-      cur().comment += source.slice(i + 2, stop)
-      cur().inComment = true
-      i = stop
-      continue
-    }
-    if (c === '"' || c === "'") {
-      skipString(c)
-      codeSoFar += 'x'
-      continue
-    }
-    if (!css && c === '`') {
-      i++
-      cur().code += '`'
-      skipTemplate()
-      codeSoFar += 'x'
-      continue
-    }
-    if (!css && c === '{' && templates.length > 0) {
-      templates[templates.length - 1] = (templates[templates.length - 1] ?? 0) + 1
-    }
-    if (!css && c === '}' && templates.length > 0) {
-      const depth = templates[templates.length - 1] ?? 0
-      if (depth === 0) {
-        templates.pop()
-        i++
-        skipTemplate()
-        codeSoFar += 'x'
-        continue
-      }
-      templates[templates.length - 1] = depth - 1
-    }
-    if (!css && c === '/') {
-      const prev = codeSoFar.trimEnd()
-      const last = prev.slice(-1)
-      if (prev === '' || REGEX_AFTER.has(last) || REGEX_KEYWORDS.test(prev)) {
-        // A regex literal: runs to the unescaped `/` outside a class, never past the line.
-        let j = i + 1
-        let inClass = false
-        while (j < n && source[j] !== '\n') {
-          const r = source[j]
-          if (r === '\\') j++
-          else if (r === '[') inClass = true
-          else if (r === ']') inClass = false
-          else if (r === '/' && !inClass) break
-          j++
-        }
-        if (source[j] === '/') {
-          cur().code += 'x'
-          codeSoFar += 'x'
-          i = j + 1
-          continue
-        }
-      }
-    }
-    cur().code += c
-    codeSoFar += c
-    if (codeSoFar.length > 64) codeSoFar = codeSoFar.slice(-32)
-    i++
-  }
-
-  const out: CommentLine[] = []
-  lines.forEach((l, index) => {
-    if (!l.inComment) return
-    out.push({ line: index + 1, text: l.comment, alone: /^[\s{}]*$/.test(l.code) })
-  })
-  return out
-}
+import { commentBlocks, commentLines, MAX_BLOCK, MAX_HEADER } from './comment-lines.ts'
 
 export const MARKERS = [
   /\bPR ?#?\d/,
@@ -175,8 +23,6 @@ export const MARKERS = [
   // so the plain form needs no narrowing.
   /\bR\d+\b/,
 ]
-export const MAX_BLOCK = 6
-export const MAX_HEADER = 24
 
 // A `/** */` block is an API header when the next non-blank line opens one of these: a declaration,
 // a method (its line holds `):` or ends with `{` without an arrow) or a property signature.
@@ -211,34 +57,19 @@ export function offences(source: string, css: boolean): Offence[] {
   // A block is a run of consecutive comment-only lines. A header is the file's first block, or a
   // JSDoc block right above a declaration; headers may run to MAX_HEADER lines, other blocks to MAX_BLOCK.
   const src = source.split('\n')
-  let blockStart = -1
-  let blockEnd = -1
   let firstBlock = true
-  const close = () => {
-    if (blockStart === -1) return
-    const size = blockEnd - blockStart + 1
-    const jsdoc = src.slice(blockStart - 1, blockEnd).some((l) => l.trim().startsWith('/**'))
-    const after = src.slice(blockEnd).find((l) => l.trim() !== '')
+  for (const b of commentBlocks(source, css)) {
+    const size = b.end - b.start + 1
+    const jsdoc = src.slice(b.start - 1, b.end).some((l) => l.trim().startsWith('/**'))
+    const after = src.slice(b.end).find((l) => l.trim() !== '')
     const header = firstBlock || (jsdoc && after !== undefined && isDeclaration(after))
     const max = header ? MAX_HEADER : MAX_BLOCK
     if (size > max) {
       const label = header ? 'header block' : 'block'
-      found.push({ line: blockStart, kind: 'block', what: `${label} of ${size} lines (max ${max})` })
+      found.push({ line: b.start, kind: 'block', what: `${label} of ${size} lines (max ${max})` })
     }
     firstBlock = false
-    blockStart = -1
   }
-  for (const c of comments) {
-    if (!c.alone) continue
-    if (blockStart !== -1 && c.line === blockEnd + 1) {
-      blockEnd = c.line
-      continue
-    }
-    close()
-    blockStart = c.line
-    blockEnd = c.line
-  }
-  close()
   return found.sort((a, b) => a.line - b.line)
 }
 
