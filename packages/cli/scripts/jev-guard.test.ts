@@ -5,15 +5,21 @@ import {
   commentReport,
   comments,
   commentsOf,
+  dictionaryPairs,
   excerpt,
   type Flag,
   format,
+  i18n,
+  i18nReport,
   MAX_COMMENT_REQUESTS,
   message,
   messageFlags,
   messageFromCommand,
   messageReport,
+  type Pair,
+  pairFlag,
   ruleSection,
+  walkPairs,
   words,
 } from './jev-guard.ts'
 
@@ -191,4 +197,37 @@ Deno.test('messageFlags: prose that mentions "generated with" is not an attribut
 Deno.test('messageFlags: a footer with a leading emoji is still an attribution line', () => {
   const flags = messageFlags('commit', 'Fix\n\n' + '\u{1F916} Generated with [Some Tool](https://example.com)', null)
   assertEquals(flags.map((f) => f.question), ['attribution'])
+})
+
+Deno.test('walkPairs: string leaves by key path; functions and keys missing in PL are skipped', () => {
+  const out: Pair[] = []
+  walkPairs({ a: 'A', b: { c: 'C', f: () => 'x' }, gone: 'G' }, { a: 'a', b: { c: 'c', f: () => 'y' } }, '', out)
+  assertEquals(out, [{ key: 'a', en: 'A', pl: 'a' }, { key: 'b.c', en: 'C', pl: 'c' }])
+})
+
+Deno.test('dictionaryPairs: the dictionary, the knob texts and the reasons, never an untranslated pair', async () => {
+  const pairs = await dictionaryPairs()
+  assertEquals(pairs.length > 300, true)
+  assertEquals(pairs.some((p) => p.key === 'params.W.label'), true)
+  assertEquals(pairs.some((p) => p.key.startsWith('reasons.')), true)
+  assertEquals(pairs.some((p) => p.key.startsWith('ui.')), true)
+  assertEquals(pairs.every((p) => p.en.trim() !== p.pl.trim()), true)
+})
+
+Deno.test('pairFlag: flagged as differs = 1 - same_meaning, strictly past the threshold', () => {
+  const pair = { key: 'ui.x', en: 'Width', pl: 'y' }
+  assertEquals(pairFlag(pair, { same_meaning: 0.2 }, 0.7), {
+    where: 'lab-i18n.ts ui.x',
+    question: 'differs',
+    p: 0.8,
+    excerpt: 'y',
+  })
+  assertEquals(pairFlag(pair, { same_meaning: 0.3 }, 0.7), null)
+})
+
+Deno.test('i18n: asks each pair with its key, English and Polish', async () => {
+  const { judge, calls } = stubJudge(() => ({ same_meaning: 0.05 }))
+  const flags = await i18n(judge, [{ key: 'k', en: 'E', pl: 'P' }])
+  assertEquals(calls, [{ key: 'k', en: 'E', pl: 'P' }])
+  assertStringIncludes(i18nReport(flags) ?? '', '1 Polish string may not say what the English says')
 })

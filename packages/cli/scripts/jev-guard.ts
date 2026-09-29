@@ -301,3 +301,76 @@ export async function message(judge: Judge, kind: MessageKind, text: string): Pr
 export function messageReport(kind: MessageKind, flags: Flag[]): string | null {
   return format(`the ${whereOf(kind)} may break the message rules (CLAUDE.md)`, flags)
 }
+
+export type Pair = { key: string; en: string; pl: string }
+
+export function walkPairs(en: unknown, pl: unknown, prefix: string, out: Pair[]): void {
+  if (typeof en === 'string') {
+    if (typeof pl === 'string') out.push({ key: prefix, en, pl })
+    return
+  }
+  if (typeof en !== 'object' || en === null || typeof pl !== 'object' || pl === null) return
+  for (const [k, v] of Object.entries(en)) {
+    walkPairs(v, (pl as Record<string, unknown>)[k], prefix === '' ? k : `${prefix}.${k}`, out)
+  }
+}
+
+/** Every English source text with its Polish translation; identical pairs (units, symbols) left out. */
+export async function dictionaryPairs(): Promise<Pair[]> {
+  const { EN, PL } = await import('@arrowz/engine/i18n')
+  const { PARAM_SPEC, INACTIVE_REASONS, RULE_REASONS } = await import('@arrowz/engine')
+  const out: Pair[] = []
+  walkPairs(EN, PL, '', out)
+  for (const s of PARAM_SPEC) {
+    const pl = (PL.params as Record<string, { label: string; help: string } | undefined>)[s.key]
+    if (pl === undefined) continue
+    out.push({ key: `params.${s.key}.label`, en: s.label, pl: pl.label })
+    out.push({ key: `params.${s.key}.help`, en: s.help, pl: pl.help })
+  }
+  const reasons: Record<string, string> = { ...INACTIVE_REASONS, ...RULE_REASONS }
+  for (const [k, en] of Object.entries(reasons)) {
+    const pl = (PL.reasons as Record<string, string | undefined>)[k]
+    if (pl !== undefined) out.push({ key: `reasons.${k}`, en, pl })
+  }
+  return out.filter((p) => p.en.trim() !== p.pl.trim())
+}
+
+export const PAIR_QUESTIONS: Record<string, Noul> = {
+  same_meaning: {
+    type: 'noul',
+    instructions:
+      'The Polish text `pl` says the same as the English text `en`: a reader of either learns the same facts, numbers, conditions and instructions.',
+    criteria: {
+      true: 'The two texts carry the same meaning, even if worded differently.',
+      false: 'One text says something the other does not, or contradicts it.',
+    },
+  },
+}
+// Provisional; jev-eval.ts measures the final value (docs/jev-guards.md).
+export const DIFFERS_AT = 0.7
+
+export function askPair(judge: Judge, pair: Pair): Promise<Answers | null> {
+  return judge({ key: pair.key, en: pair.en, pl: pair.pl }, PAIR_QUESTIONS)
+}
+
+export function pairFlag(pair: Pair, a: Answers, at = DIFFERS_AT): Flag | null {
+  const differs = Math.round((1 - (a.same_meaning ?? 1)) * 1000) / 1000
+  return differs > at ? { where: `lab-i18n.ts ${pair.key}`, question: 'differs', p: differs, excerpt: pair.pl } : null
+}
+
+export async function i18n(judge: Judge, pairs: Pair[]): Promise<Flag[]> {
+  const checked = pairs.slice(0, MAX_COMMENT_REQUESTS)
+  const answers = await pool(checked, CONCURRENCY, (p) => askPair(judge, p))
+  const flags: Flag[] = []
+  checked.forEach((p, i) => {
+    const a = answers[i]
+    const f = a ? pairFlag(p, a) : null
+    if (f) flags.push(f)
+  })
+  return flags
+}
+
+export function i18nReport(flags: Flag[]): string | null {
+  const n = flags.length
+  return format(`${n} Polish string${n === 1 ? '' : 's'} may not say what the English says`, flags)
+}
