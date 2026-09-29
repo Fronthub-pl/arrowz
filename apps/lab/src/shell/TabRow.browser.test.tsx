@@ -77,3 +77,10 @@ test('the left arrow from the middle tab moves to the first', async () => {
   await userEvent.keyboard('{ArrowLeft}')
   await expect.element(screen.getByRole('tab', { name: 'Lab', selected: true })).toBeVisible()
 })
+
+test('the focus moves with the selection', async () => {
+  const screen = await mount('/')
+  await screen.getByRole('tab', { name: 'Lab' }).click()
+  await userEvent.keyboard('{ArrowRight}')
+  await expect.element(screen.getByRole('tab', { name: 'Saved boards' })).toHaveFocus()
+})

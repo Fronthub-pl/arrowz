@@ -1,6 +1,7 @@
 import type React from 'react'
 import { useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
+import { nextIndex, useFocusFollowsSelection } from '../shell/roving'
 import { useStore } from '../state/store'
 import { openEntry } from './openEntry'
 import { useOpenBoard } from './useOpenBoard'
@@ -41,6 +42,7 @@ export function BoardsRail() {
   const entries = [...all.map((size) => size.size), PREVIEW]
   // A tablist keeps one tab in the tab order even when none is selected.
   const tabbable = selected ?? entries[0]
+  const focusRef = useFocusFollowsSelection(selected)
 
   const choose = (value: string) => {
     if (value === PREVIEW) {
@@ -53,31 +55,14 @@ export function BoardsRail() {
     if (size !== undefined && target !== undefined) void navigate(`/boards/${size.size}/${target.id}`)
   }
 
-  const move = (delta: number) => {
-    const at = selected === null ? -1 : entries.indexOf(selected)
-    const next = entries[(at + delta + entries.length) % entries.length]
-    if (next !== undefined) choose(next)
-  }
+  // Preview is the last entry, so End lands on it.
   const onKeyDown = (event: React.KeyboardEvent) => {
-    const keys: Record<string, () => void> = {
-      ArrowDown: () => move(1),
-      ArrowUp: () => move(-1),
-      Home: () => {
-        const first = entries[0]
-        if (first !== undefined) choose(first)
-      },
-      End: () => choose(PREVIEW),
-    }
-    const action = keys[event.key]
-    if (!action) return
+    const at = selected === null ? -1 : entries.indexOf(selected)
+    const next = nextIndex(event.key, at, entries.length, { axis: 'vertical', wrap: true })
+    const to = next === null ? undefined : entries[next]
+    if (to === undefined) return
     event.preventDefault()
-    action()
-  }
-
-  // Focus follows the selection only while the rail already holds the focus,
-  // as in `GroupRail`: a selection made from elsewhere must not pull it in.
-  const focusIfSelected = (on: boolean) => (node: HTMLButtonElement | null) => {
-    if (node && on && node.parentElement?.contains(document.activeElement)) node.focus()
+    choose(to)
   }
 
   const tab = (value: string, children: React.ReactNode, label?: string) => {
@@ -92,7 +77,7 @@ export function BoardsRail() {
         {...(on ? { 'aria-controls': value === PREVIEW ? BOARDS_PREVIEW_ID : BOARDS_LIST_ID } : {})}
         {...(label === undefined ? {} : { 'aria-label': label })}
         tabIndex={value === tabbable ? 0 : -1}
-        ref={focusIfSelected(on)}
+        ref={on ? focusRef : undefined}
         onKeyDown={onKeyDown}
         onClick={() => choose(value)}
       >

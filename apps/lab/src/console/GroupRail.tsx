@@ -1,5 +1,6 @@
 import type React from 'react'
 import { useDictionary } from '../i18n'
+import { nextIndex, useFocusFollowsSelection } from '../shell/roving'
 import { type RailEntry, RAIL_GROUPS } from '../state/ui.slice'
 import { useStore } from '../state/store'
 import { countsByGroup } from './violationCounts'
@@ -24,39 +25,16 @@ export function GroupRail() {
   const select = useStore((state) => state.ui.select)
   const violations = useStore((state) => state.params.violations)
   const counts = countsByGroup(violations)
+  const focusRef = useFocusFollowsSelection(entry)
 
-  const move = (delta: number) => {
-    const at = ENTRIES.indexOf(entry)
-    const next = ENTRIES[(at + delta + ENTRIES.length) % ENTRIES.length]
-    if (next) select(next)
-  }
-  /** The first or last entry, from the list itself: `RAIL_GROUPS` is derived
-   *  from `PARAM_SPEC` so the console cannot hide a group the engine has, and a
-   *  hard-coded 'board' would put that back the day the table's first group
-   *  changes name. */
-  const jump = (to: RailEntry | undefined) => {
-    if (to) select(to)
-  }
+  // The first and last entries come from `ENTRIES` itself: `RAIL_GROUPS` is
+  // derived from `PARAM_SPEC`, so no group name is hard-coded here.
   const onKeyDown = (event: React.KeyboardEvent) => {
-    const keys: Record<string, () => void> = {
-      ArrowDown: () => move(1),
-      ArrowUp: () => move(-1),
-      Home: () => jump(ENTRIES[0]),
-      End: () => jump(ENTRIES.at(-1)),
-    }
-    const action = keys[event.key]
-    if (!action) return
+    const next = nextIndex(event.key, ENTRIES.indexOf(entry), ENTRIES.length, { axis: 'vertical', wrap: true })
+    const to = next === null ? undefined : ENTRIES[next]
+    if (to === undefined) return
     event.preventDefault()
-    action()
-  }
-
-  /**
-   * Focus follows the selection, but only while the rail already owns focus
-   * (the same guard as `TabRow`'s tabs): selecting a group from elsewhere must
-   * not steal focus out of whatever the user was in.
-   */
-  const focusIfSelected = (selected: boolean) => (node: HTMLButtonElement | null) => {
-    if (node && selected && node.parentElement?.contains(document.activeElement)) node.focus()
+    select(to)
   }
 
   const tab = (value: RailEntry, name: string, count?: number) => (
@@ -72,7 +50,7 @@ export function GroupRail() {
       // A bare digit announces "lengths 1". The name says what the 1 is.
       {...(count === undefined ? {} : { 'aria-label': dict.t('violationsInGroup', name, count) })}
       tabIndex={entry === value ? 0 : -1}
-      ref={focusIfSelected(entry === value)}
+      ref={entry === value ? focusRef : undefined}
       onKeyDown={onKeyDown}
       onClick={() => select(value)}
     >

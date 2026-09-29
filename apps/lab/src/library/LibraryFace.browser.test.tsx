@@ -229,6 +229,15 @@ test('the arrow keys walk the rail, sizes then Preview, and the focus follows', 
   await expect.element(first).toHaveFocus()
 })
 
+test('with no tab selected, up goes to the last entry, Preview', async () => {
+  const screen = await mountPanel('/boards/10x10/sha256-0')
+  await act(async () => useStore.getState().library.listed(sizesFixture()))
+  screen.getByRole('tab', { name: /^8×8/ }).element().focus()
+  await userEvent.keyboard('{ArrowUp}')
+  await expect.element(screen.getByRole('tab', { name: 'Preview' })).toHaveAttribute('aria-selected', 'true')
+  await expect.element(screen.getByRole('tab', { name: 'Preview' })).toHaveFocus()
+})
+
 test('with no store the rail holds only Preview', async () => {
   const screen = await mountPanel()
   await act(async () => useStore.getState().library.listFailed('connect ECONNREFUSED'))

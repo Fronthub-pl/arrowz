@@ -2,6 +2,7 @@ import { type KeyboardEvent, type ReactElement, useEffect, useMemo, useRef, useS
 import { useLocation, useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
 import { inFlight, type RunControl } from '../run/useRun'
+import { nextIndex } from '../shell/roving'
 import { selectedIndex } from '../shell/TabRow'
 import { useStore } from '../state/store'
 import { buildCommands, type Command, matchCommands } from './commands'
@@ -154,20 +155,11 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
       choose(current)
       return
     }
-    const last = hits.length - 1
-    const next =
-      event.key === 'ArrowDown'
-        ? Math.min(active + 1, last)
-        : event.key === 'ArrowUp'
-          ? Math.max(active - 1, 0)
-          : event.key === 'Home'
-            ? 0
-            : event.key === 'End'
-              ? last
-              : null
+    // With no hits there is no row to move to, so the keys stay the input's.
+    const next = nextIndex(event.key, active, hits.length, { axis: 'vertical', wrap: false })
     if (next === null) return
     event.preventDefault()
-    setActive(Math.max(0, next))
+    setActive(next)
   }
 
   const title = dict.t('cmdTitle')

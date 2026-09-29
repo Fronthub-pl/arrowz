@@ -1,4 +1,5 @@
 import type { KeyboardEvent, ReactElement } from 'react'
+import { nextIndex, useFocusFollowsSelection } from './roving'
 
 export interface SegmentedOption<T extends string> {
   value: T
@@ -12,9 +13,9 @@ export interface SegmentedOption<T extends string> {
  *
  * The keyboard is the radio pattern `TabRow` implements for tabs: the arrows
  * move the choice and wrap, Home and End jump, and only the checked radio is a
- * tab stop. Focus follows the choice only while the group holds the focus, the
- * same guard as `TabRow`, so a choice made elsewhere (a link naming a
- * language) does not pull the focus into the top bar.
+ * tab stop. Focus follows the choice as `useFocusFollowsSelection` allows, so a
+ * choice made elsewhere (a link naming a language) does not pull the focus into
+ * the top bar.
  */
 export function Segmented<T extends string>({
   label,
@@ -34,23 +35,10 @@ export function Segmented<T extends string>({
   onChange(next: T): void
 }): ReactElement {
   const at = options.findIndex((option) => option.value === value)
+  const focusRef = useFocusFollowsSelection(value)
 
   function onKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    const last = options.length - 1
-    const next =
-      event.key === 'ArrowRight' || event.key === 'ArrowDown'
-        ? at >= last
-          ? 0
-          : at + 1
-        : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
-          ? at <= 0
-            ? last
-            : at - 1
-          : event.key === 'Home'
-            ? 0
-            : event.key === 'End'
-              ? last
-              : null
+    const next = nextIndex(event.key, at, options.length, { axis: 'both', wrap: true })
     if (next === null) return
     event.preventDefault()
     const option = options[next]
@@ -73,9 +61,7 @@ export function Segmented<T extends string>({
           aria-checked={i === at}
           // A value no option carries still leaves the group reachable.
           tabIndex={i === at || (at === -1 && i === 0) ? 0 : -1}
-          ref={(node) => {
-            if (node && i === at && node.parentElement?.contains(document.activeElement)) node.focus()
-          }}
+          ref={i === at ? focusRef : undefined}
           onClick={() => onChange(option.value)}
           onKeyDown={onKeyDown}
         >

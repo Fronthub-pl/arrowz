@@ -100,6 +100,15 @@ test('there is no command until the address’s board is on the stage', async ()
   await expect.element(screen.getByRole('button', { name: /load into lab/i })).toBeVisible()
 })
 
+test('Copy puts the saved board’s command on the clipboard', async () => {
+  const write = vi.fn(() => Promise.resolve())
+  vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({ writeText: write } as unknown as Clipboard)
+  const screen = await mountDetail()
+  await show()
+  await userEvent.click(screen.getByRole('button', { name: 'Copy' }))
+  expect(write).toHaveBeenCalledWith(stored.meta.command)
+})
+
 // A preview alone is not enough: the address must name it too.
 test('a preview the address does not name shows no detail', async () => {
   const screen = await mountDetail('/boards')

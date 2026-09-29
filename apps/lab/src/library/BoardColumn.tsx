@@ -1,11 +1,11 @@
 import type { BoardFile } from '@arrowz/engine'
 import { svgOptions } from '@arrowz/engine/command'
 import { genSeconds } from '@arrowz/engine/report'
-import { type ReactElement, useEffect, useRef, useState } from 'react'
+import { type ReactElement, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { deleteBoard } from '../api/boards'
 import { useDictionary } from '../i18n'
-import { CommandText } from '../run/CommandText'
+import { CommandFigure } from '../run/CommandFigure'
 import type { RunControl } from '../run/useRun'
 import { type StateLine, useRunState } from '../stage/useRunState'
 import { useStore } from '../state/store'
@@ -48,14 +48,9 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
   const open = useOpenPreview()
   const lang = useStore((state) => state.lang.lang)
   const navigate = useNavigate()
-  const [copied, setCopied] = useState(false)
   const [armed, setArmed] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const { library } = useRunState()
 
-  // A component unmounted inside the confirmation window must not write state
-  // afterwards; StrictMode makes that happen in tests.
-  useEffect(() => () => clearTimeout(timer.current), [])
   if (open === null) {
     return (
       <section id={BOARD_COLUMN_ID} className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
@@ -70,20 +65,6 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
   if (open.origin === 'file') return <FileColumn opened={open.opened} control={control} />
   const { stored, size } = open
   const meta = stored.meta
-
-  const copy = () => {
-    const clipboard = navigator.clipboard
-    // Undefined outside a secure context; the label staying put is the honest signal.
-    if (clipboard === undefined) return
-    void clipboard
-      .writeText(meta.command)
-      .then(() => {
-        setCopied(true)
-        clearTimeout(timer.current)
-        timer.current = setTimeout(() => setCopied(false), 1200)
-      })
-      .catch(() => {})
-  }
 
   // Two clicks: the first arms, the second removes.
   const remove = () => {
@@ -136,17 +117,7 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
 
   return (
     <section id={BOARD_COLUMN_ID} className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
-      <figure className="fw-cmdfig" aria-label={dict.t('boardCommand')}>
-        <figcaption className="fw-cmdhd">
-          <span className="caps">{dict.t('cliThisBoard')}</span>
-          <button type="button" onClick={copy}>
-            {copied ? dict.t('copied') : dict.t('copy')}
-          </button>
-        </figcaption>
-        <pre className="fw-cmd">
-          <CommandText command={meta.command} />
-        </pre>
-      </figure>
+      <CommandFigure label={dict.t('boardCommand')} caption={dict.t('cliThisBoard')} command={meta.command} />
       <button type="button" className="fw-go" onClick={() => loadIntoLab(meta, control, (path) => void navigate(path))}>
         {dict.t('loadIntoLab')}
       </button>
