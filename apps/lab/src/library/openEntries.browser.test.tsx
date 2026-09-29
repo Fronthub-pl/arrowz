@@ -34,6 +34,8 @@ test('choosing a file in the input opens it at /boards/file', async () => {
   input.dispatchEvent(new Event('change', { bubbles: true }))
   await expect.poll(() => window.location.pathname).toBe(FILE_ROUTE)
   expect(useStore.getState().result.preview?.origin).toBe('file')
+  await expect.element(page.getByText(`File ${board.name}: 8×8`)).toBeVisible()
+  expect(document.querySelector('.fw-anno')?.textContent).toBe('8×8')
 }, 60_000)
 
 test('Open file… clicks the one input', async () => {
@@ -54,8 +56,7 @@ test('a file dropped on the lab opens it', async () => {
   await expect.poll(() => window.location.pathname).toBe(FILE_ROUTE)
 }, 60_000)
 
-// A guard: with no files on the transfer, the no-address branch already
-// leaves the page untouched, before Step 4's drop handler exists.
+// A guard: a transfer with no files must not reach `openBoardFiles`.
 test('a drop with no files changes nothing', async () => {
   await mountQuiet()
   const transfer = new DataTransfer()
