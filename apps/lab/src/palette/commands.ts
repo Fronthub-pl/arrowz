@@ -159,8 +159,11 @@ function lookRows(deps: CommandDeps, state: Store): Command[] {
   ]
 }
 
-/** A preset row's `run` rewrites every knob before `applyPreset` can refuse, so it is disabled during a series too. */
-function presetRows(deps: CommandDeps, running: boolean): Command[] {
+/**
+ * A preset row's `run` rewrites every knob before `applyPreset` can refuse a
+ * series, so it is off during one; a normal run is replaced, as `PresetStrip` does.
+ */
+function presetRows(deps: CommandDeps, series: boolean): Command[] {
   const levels = deps.dict.d.presets.levels as Partial<Record<string, string>>
   const rows: Command[] = []
   for (const level of PRESETS) {
@@ -172,9 +175,9 @@ function presetRows(deps: CommandDeps, running: boolean): Command[] {
         section: 'preset',
         name: deps.dict.d.presets.modes[option.mode],
         note: levels[level.id] ?? level.id,
-        value: running ? deps.dict.t('cmdRunning') : `${W}×${H}`,
+        value: series ? deps.dict.t('cmdRunning') : `${W}×${H}`,
         hay: option.id,
-        disabled: running,
+        disabled: series,
         run: () => {
           applyPreset(deps.control, option.params)
           useStore.getState().ui.closePalette()
@@ -328,7 +331,13 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
   ]
   // No export rows: each export is a closure inside `ExportButtons` holding a
   // worker or a per-board hash, reachable only by clicking its button.
-  return [...run, ...go, ...knobRows(deps, state), ...lookRows(deps, state), ...presetRows(deps, running)]
+  return [
+    ...run,
+    ...go,
+    ...knobRows(deps, state),
+    ...lookRows(deps, state),
+    ...presetRows(deps, state.series.phase === 'running'),
+  ]
 }
 
 function goRow(deps: CommandDeps, id: string, name: string, path: string): Command {

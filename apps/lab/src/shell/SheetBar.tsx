@@ -1,6 +1,6 @@
 import { type ReactElement, useLayoutEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
-import { BOARD_COLUMN_ID } from '../library/BoardColumn'
+import { BOARD_COLUMN_ID } from '../library/boardColumnId'
 import { REPORT_ID } from '../report/ReportPanel'
 import type { WorkspaceTab } from '../routes/Workspace'
 import { RUN_COLUMN_ID } from '../run/RunColumn'

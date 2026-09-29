@@ -1,19 +1,17 @@
 import { svgOptions } from '@arrowz/engine/command'
-import { type ReactElement, useEffect, useRef, useState } from 'react'
+import type { ReactElement } from 'react'
 import { useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
 import { CommandText } from '../run/CommandText'
-import { downloadBlob } from '../run/download'
-import { drawSvg } from '../run/drawSvg'
-import { MoreMenu } from '../run/MoreMenu'
 import type { RunControl } from '../run/useRun'
 import { useRunState } from '../stage/useRunState'
 import type { OpenedFile } from '../state/result.slice'
 import { useStore } from '../state/store'
 import { lookOf, viewOf } from '../state/view.slice'
-import { BOARD_COLUMN_ID } from './BoardColumn'
+import { BOARD_COLUMN_ID } from './boardColumnId'
 import { loadIntoLab } from './loadIntoLab'
 import { OpenFileButton } from './OpenFileButton'
+import { SavedExports } from './SavedExports'
 
 /**
  * The board column for a board opened from disk. Not in the store, so no
@@ -24,39 +22,16 @@ export function FileColumn({ opened, control }: { opened: OpenedFile; control: R
   const dict = useDictionary()
   const navigate = useNavigate()
   const { library } = useRunState()
-  const drawing = useRef<Worker | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [drawError, setDrawError] = useState<string | null>(null)
-  useEffect(() => () => drawing.current?.terminate(), [])
   const { meta, file, name, id } = opened
   const stem = name.replace(/\.board\.json$|\.json$/, '')
 
-  const exportFile = () =>
-    downloadBlob(
-      new Blob([JSON.stringify(file)], { type: 'application/json' }),
-      name.endsWith('.json') ? name : `${stem}.board.json`,
-    )
-
   // Drawn as the stage draws it: the meta's view when there is one, the lab's otherwise.
-  const exportSvg = () => {
-    if (drawing.current !== null) return
-    setBusy(true)
-    setDrawError(null)
-    const look = lookOf(useStore.getState().view)
-    const view = meta === null ? viewOf(useStore.getState().view) : meta.view
-    drawing.current = drawSvg(
-      file,
-      {
-        ...svgOptions({ ...view, ...look }),
-        voids: meta === null ? useStore.getState().view.voids : meta.ok === false,
-      },
-      `${stem}.svg`,
-      setDrawError,
-      () => {
-        drawing.current = null
-        setBusy(false)
-      },
-    )
+  const exportOptions = () => {
+    const view = useStore.getState().view
+    return {
+      ...svgOptions({ ...(meta === null ? viewOf(view) : meta.view), ...lookOf(view) }),
+      voids: meta === null ? view.voids : meta.ok === false,
+    }
   }
 
   return (
@@ -86,21 +61,12 @@ export function FileColumn({ opened, control }: { opened: OpenedFile; control: R
       <div className="fw-alt">
         <OpenFileButton />
       </div>
-      <MoreMenu>
-        <div className="fw-ghost fw-exports" role="group" aria-label={dict.t('exportsGroup')}>
-          <button type="button" onClick={exportSvg} disabled={busy}>
-            {dict.t('downloadSvg')}
-          </button>
-          <button type="button" onClick={exportFile}>
-            {dict.t('downloadBoardFile')}
-          </button>
-          {drawError === null ? null : (
-            <p className="fw-export-error" role="alert">
-              {`${dict.t('exportError')} ${drawError}`}
-            </p>
-          )}
-        </div>
-      </MoreMenu>
+      <SavedExports
+        file={file}
+        options={exportOptions}
+        svgName={`${stem}.svg`}
+        fileName={name.endsWith('.json') ? name : `${stem}.board.json`}
+      />
       <dl className="fw-bmeta" aria-label={dict.t('boardFacts')}>
         <div>
           <dt>{dict.t('factFile')}</dt>

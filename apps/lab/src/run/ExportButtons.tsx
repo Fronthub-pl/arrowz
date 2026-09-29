@@ -1,12 +1,12 @@
 import type { BoardFile } from '@arrowz/engine'
 import { layoutHash } from '@arrowz/engine'
 import { svgOptions } from '@arrowz/engine/command'
-import { type ReactElement, useEffect, useRef, useState } from 'react'
+import { type ReactElement, useEffect, useState } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
 import { downloadBlob } from './download'
-import { drawSvg } from './drawSvg'
+import { useSvgDrawing } from './useSvgDrawing'
 
 /** The layout hash of one board file, or why it could not be worked out. */
 interface Named {
@@ -20,9 +20,7 @@ interface Named {
  * file. Both read the result slice, so a run in flight exports the board beside
  * it, not the one being carved.
  *
- * The SVG is drawn in a worker of its own, one at a time: tens of megabytes of
- * text at Insane, off the page's thread, and not in the generation worker,
- * which a new run terminates. The board file is the file itself, named by its
+ * The SVG is drawn by `useSvgDrawing`, one at a time. The board file is the file itself, named by its
  * layout hash like the store names it. The hash is asynchronous and a download
  * has to start in its click, so it is worked out when the board arrives.
  *
@@ -35,12 +33,8 @@ export function ExportButtons(): ReactElement {
   const dict = useDictionary()
   const result = useStore((state) => state.result.shown)
   const error = useStore((state) => state.result.exportError)
-  const drawing = useRef<Worker | null>(null)
-  const [busy, setBusy] = useState(false)
+  const { busy, draw } = useSvgDrawing()
   const [named, setNamed] = useState<Named | null>(null)
-
-  // An export outlives nothing: leaving the page takes its worker down.
-  useEffect(() => () => drawing.current?.terminate(), [])
 
   // One hash per shown board. The cleanup drops an answer for a board that is
   // no longer shown — and the first of StrictMode's two mount runs. Dropping it
@@ -69,23 +63,15 @@ export function ExportButtons(): ReactElement {
   const hash = current?.hash ?? null
 
   const exportSvg = () => {
-    if (result === null || drawing.current !== null) return
+    if (result === null || busy) return
     const about = result.file
     const { W, H, seed } = result.params
     const name = `arrowz-${W}x${H}-seed${seed}.svg`
     // The view of the moment, cell included: the export field is what `cell` is for.
     const view = useStore.getState().view
-    setBusy(true)
     useStore.getState().result.exported(about, null)
-    drawing.current = drawSvg(
-      result.file,
-      { ...svgOptions(viewOf(view)), voids: view.voids },
-      name,
-      (reason) => useStore.getState().result.exported(about, reason),
-      () => {
-        drawing.current = null
-        setBusy(false)
-      },
+    draw(result.file, { ...svgOptions(viewOf(view)), voids: view.voids }, name, (reason) =>
+      useStore.getState().result.exported(about, reason),
     )
   }
 

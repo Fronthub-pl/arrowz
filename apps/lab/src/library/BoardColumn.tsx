@@ -6,17 +6,16 @@ import { useNavigate } from 'react-router'
 import { deleteBoard } from '../api/boards'
 import { useDictionary } from '../i18n'
 import { CommandText } from '../run/CommandText'
-import { downloadBlob } from '../run/download'
-import { drawSvg } from '../run/drawSvg'
-import { MoreMenu } from '../run/MoreMenu'
 import type { RunControl } from '../run/useRun'
 import { type StateLine, useRunState } from '../stage/useRunState'
 import { useStore } from '../state/store'
 import { lookOf } from '../state/view.slice'
+import { BOARD_COLUMN_ID } from './boardColumnId'
 import { FileColumn } from './FileColumn'
 import { loadIntoLab } from './loadIntoLab'
 import { raiseNotice } from './notices'
 import { OpenFileButton } from './OpenFileButton'
+import { SavedExports } from './SavedExports'
 import { refreshLibrary } from './useLibraryList'
 import { useOpenPreview } from './useOpenPreview'
 import { cancelPendingSave } from './useViewSave'
@@ -29,9 +28,6 @@ import { cancelPendingSave } from './useViewSave'
  * `Workspace` keys it by the open board: an armed Delete, a Copied label and a
  * drawing's error belong to the board they were raised on.
  */
-
-/** The board column's id, which the phone's Board sheet button controls. */
-export const BOARD_COLUMN_ID = 'board-column'
 
 /**
  * The library's events and failures in words, `aria-hidden` because the live
@@ -54,22 +50,12 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const [armed, setArmed] = useState(false)
-  const [drawError, setDrawError] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const drawing = useRef<Worker | null>(null)
-  const [busy, setBusy] = useState(false)
   const { library } = useRunState()
 
   // A component unmounted inside the confirmation window must not write state
-  // afterwards; StrictMode makes that happen in tests. Leaving the page takes a
-  // drawing down with it.
-  useEffect(
-    () => () => {
-      clearTimeout(timer.current)
-      drawing.current?.terminate()
-    },
-    [],
-  )
+  // afterwards; StrictMode makes that happen in tests.
+  useEffect(() => () => clearTimeout(timer.current), [])
   if (open === null) {
     return (
       <section id={BOARD_COLUMN_ID} className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
@@ -125,27 +111,11 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
     })
   }
 
-  // The file as the store holds it: `decodeBoard` accepted it when it loaded,
-  // and it goes out untouched, named by its layout hash — which is the id.
-  const exportFile = () =>
-    downloadBlob(new Blob([JSON.stringify(stored.file)], { type: 'application/json' }), `${meta.id}.board.json`)
-
   // The board as it is drawn here: its own saved shape in the page's look, and its jammed cells when it did not close, as `BoardFrame` draws them.
-  const exportSvg = () => {
-    if (drawing.current !== null) return
-    setBusy(true)
-    setDrawError(null)
-    drawing.current = drawSvg(
-      stored.file as BoardFile,
-      { ...svgOptions({ ...meta.view, ...lookOf(useStore.getState().view) }), voids: meta.ok === false },
-      `arrowz-${meta.W}x${meta.H}-seed${meta.seed}.svg`,
-      setDrawError,
-      () => {
-        drawing.current = null
-        setBusy(false)
-      },
-    )
-  }
+  const exportOptions = () => ({
+    ...svgOptions({ ...meta.view, ...lookOf(useStore.getState().view) }),
+    voids: meta.ok === false,
+  })
 
   const created = meta.createdAt ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB') : ''
   // The layout row alone carries the full hash and wraps anywhere: a hash
@@ -186,21 +156,12 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
           {armed ? dict.t('confirmDelete') : dict.t('deleteBoard')}
         </button>
       </div>
-      <MoreMenu>
-        <div className="fw-ghost fw-exports" role="group" aria-label={dict.t('exportsGroup')}>
-          <button type="button" onClick={exportSvg} disabled={busy}>
-            {dict.t('downloadSvg')}
-          </button>
-          <button type="button" onClick={exportFile}>
-            {dict.t('downloadBoardFile')}
-          </button>
-          {drawError === null ? null : (
-            <p className="fw-export-error" role="alert">
-              {`${dict.t('exportError')} ${drawError}`}
-            </p>
-          )}
-        </div>
-      </MoreMenu>
+      <SavedExports
+        file={stored.file as BoardFile}
+        options={exportOptions}
+        svgName={`arrowz-${meta.W}x${meta.H}-seed${meta.seed}.svg`}
+        fileName={`${meta.id}.board.json` /* the id is the layout hash */}
+      />
       <dl className="fw-bmeta" aria-label={dict.t('boardFacts')}>
         {facts.map(([term, value, wrap]) => (
           <div key={term}>

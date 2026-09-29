@@ -193,6 +193,17 @@ describe('the catalogue', () => {
     }
   })
 
+  // `applyPreset` refuses only a series; a normal run is replaced, as the preset strip's buttons do.
+  it('keeps every preset row on during a normal run, with its size', () => {
+    useStore.getState().run.started(useStore.getState().params.values)
+    const rows = buildCommands(deps(), useStore.getState()).filter((row) => row.section === 'preset')
+    expect(rows.length).toBeGreaterThan(0)
+    for (const row of rows) {
+      expect(row.disabled, row.id).toBe(false)
+      expect(row.value, row.id).toMatch(/^\d+×\d+$/)
+    }
+  })
+
   it('reaches every colour and element field of the Preview panel, in its order', () => {
     const ids = buildCommands(deps(), useStore.getState())
       .filter((row) => row.section === 'knob')
