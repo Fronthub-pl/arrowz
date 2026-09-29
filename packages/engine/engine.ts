@@ -2473,14 +2473,14 @@ const PARAM_TABLE = [
   },
   {
     key: 'backbite',
-    label: 'tail rework when an arrow gets stuck',
+    label: 'let a stuck arrow rework its tail',
     group: 'lengths',
     min: 0,
     max: 8,
     step: 1,
     def: 0,
     help:
-      'When a growing arrow hits a dead end, how many times in a row it may rework its tail and keep growing instead of stopping. 0 = off. More = fewer, longer arrows.',
+      'When a growing arrow hits a dead end, it may reshape the end of its body and keep growing, up to this many times in a row. 0 = off. More = fewer, longer arrows.',
   },
 
   {
@@ -2542,14 +2542,15 @@ const PARAM_TABLE = [
   },
   {
     key: 'mix',
-    label: 'share of tunnel starts (mix)',
+    label: 'mixed start: share of tunnel arrows',
     group: 'difficulty',
     min: -1,
     max: MIX_SHARE.max,
     step: 0.05,
     def: -1,
     surface: 'start',
-    help: 'With the mixed start: the share of arrows that start as tunnels, 0.3 to 0.7; the rest start as layers.',
+    help:
+      'With the mixed start: the share of arrows that start deep inside (tunnels), 0.3 to 0.7; the rest start from the edges (layers).',
   },
   {
     key: 'trapBias',
@@ -2614,11 +2615,12 @@ const PARAM_TABLE = [
     step: 1,
     def: 30,
     inactive: skeletonOff,
-    help: 'The target length of one skeleton arrow, in board sides. It stops earlier when it runs out of room.',
+    help:
+      "How long each skeleton arrow tries to get, in multiples of the board's longer side: 30 on a 50-cell side = 1500 cells. It stops earlier if it runs out of room.",
   },
   {
     key: 'giantStep',
-    label: 'gap between skeleton runs (random = free)',
+    label: 'gap between runs, in cells (random = no back and forth)',
     group: 'skeleton',
     min: 0,
     max: 40,
@@ -2626,18 +2628,19 @@ const PARAM_TABLE = [
     def: 14,
     inactive: skeletonOff,
     help:
-      'Cells between the back-and-forth runs of a skeleton. Small = tight, regular stripes; large = a few long highways. random = no back and forth: the skeleton grows freely.',
+      'A skeleton crosses the board in straight runs; this is how many cells it moves inwards between two runs. Small = tight stripes; large = a few highways. random = no runs.',
   },
   {
     key: 'giantJitter',
-    label: 'cutting skeleton runs short',
+    label: 'chance a run turns back early',
     group: 'skeleton',
     min: 0,
     max: 1,
     step: 0.05,
     def: 0.6,
     inactive: (p) => skeletonOff(p) ?? (p.giantStep === 0 ? 'stepZero' : null),
-    help: 'How often a skeleton run turns back before it reaches an obstacle. 0 = straight, regular edges.',
+    help:
+      'How often a run turns back after only 3 to 14 cells instead of going on to a wall or another arrow. 0 = runs go all the way, with straight edges.',
   },
   {
     key: 'wGiant',
@@ -2648,7 +2651,7 @@ const PARAM_TABLE = [
     step: 0.01,
     def: 0,
     help:
-      'The chance that an arrow laid later also becomes a skeleton arrow. Above 0.05 it needs a skeleton straightness of 0.6 plus this chance; at 0.2 boards get slow.',
+      'After the first skeletons, each new arrow becomes a skeleton arrow with this chance. Above 0.05 it needs skeleton straightness 0.6 + this chance; at 0.2 boards get slow.',
   },
   // giantStraight acts on every skeleton regardless of giantStep: the
   // serpentine only seeds the path, the tail keeps growing on this weight
@@ -2664,7 +2667,7 @@ const PARAM_TABLE = [
     def: 0.94,
     inactive: skeletonOff,
     help:
-      'How often a skeleton arrow keeps straight where it grows freely: all of it when the run gap is random, only its tail otherwise. 0.5 = no preference.',
+      'How often a skeleton arrow goes straight where it is not laying runs: all of it when the run gap is random, else only after its last run. 0.5 = no preference.',
   },
   {
     key: 'giantAnticoil',
@@ -2680,7 +2683,7 @@ const PARAM_TABLE = [
     // that until now; the README always did.
     inactive: (p) => skeletonOff(p) ?? (p.giantAnticoil <= p.anticoil ? 'anticoilWins' : null),
     help:
-      'The coil penalty for skeleton arrows only. Whichever is higher, this or the coil penalty in the shape group, applies.',
+      "How strongly a skeleton arrow avoids touching itself. The shape group's coil penalty applies too and the higher one wins, so this matters only above it.",
   },
   {
     key: 'giantSpacing',
@@ -2697,7 +2700,8 @@ const PARAM_TABLE = [
       kind: 'choice',
       choices: [{ value: 1, word: 'off' }, { value: 2, word: '2' }, { value: 3, word: '3' }],
     },
-    help: 'How many cells a skeleton keeps from its own earlier runs. off = it may touch them.',
+    help:
+      'How many cells a skeleton tries to keep from the parts of itself laid earlier, so it does not box itself in. off = it may run right alongside them.',
   },
 
   {
@@ -2713,14 +2717,14 @@ const PARAM_TABLE = [
   },
   {
     key: 'absorbLimit',
-    label: 'merge leftovers up to N cells',
+    label: 'largest empty patch a neighbour takes over (cells)',
     group: 'closing',
     min: 12,
     max: 64,
     step: 1,
     def: 24,
     help:
-      'An empty patch up to this many cells that no arrow fits is merged into a neighbouring arrow. Near the bottom of the range boards get stuck far more often.',
+      'An empty patch that no new arrow fits into goes to a neighbouring arrow if it has at most this many cells. Near the bottom of the range boards get stuck far more often.',
   },
   {
     key: 'maxBack',
@@ -2742,7 +2746,7 @@ const PARAM_TABLE = [
     step: 1,
     def: 3,
     help:
-      'How many fresh attempts after a failed one, each with a seed made from yours. 0 shows how often these settings succeed on their own.',
+      'When an attempt gets stuck, how many times the generator starts again on an empty board, with a new seed made from yours. 0 shows how often these settings succeed alone.',
   },
 ] as const satisfies readonly ParamSpec[]
 
@@ -2759,9 +2763,9 @@ export const PARAM_SPEC: readonly ParamSpec[] = PARAM_TABLE
 // Reason keys returned by `inactive(p)` in PARAM_SPEC, with their English text.
 // The lab maps a key to the current language (see lab-i18n.ts for Polish).
 export const INACTIVE_REASONS: Record<InactiveKey, string> = {
-  skeletonOff: 'needs skeletons > 0 or late chance > 0',
-  probeOff: 'needs target share > 0',
-  stepZero: 'no effect while the run gap is random',
+  skeletonOff: 'there is no skeleton: skeletons and late chance are both 0',
+  probeOff: 'no arrow gets a target length while target share is 0',
+  stepZero: 'run gap is random, so the skeleton has no runs to cut short',
   anticoilWins: "only acts above the shape group's coil penalty",
 }
 
@@ -2894,12 +2898,13 @@ export const RULES: readonly {
 ]
 
 export const RULE_REASONS: Record<RuleKey, string> = {
-  sharesSum: 'short + medium must be at most 0.9 (90%)',
-  lmaxHole: 'longest arrow must be auto or at least 17',
+  sharesSum: 'short and medium shares add up to more than 0.9 (90%); at least a tenth of the arrows must stay long',
+  lmaxHole:
+    'longest arrow must be auto or at least 17 cells; below that, medium and long arrows come out the same length',
   startPair: 'arrow start and tunnel share do not fit together: a mixed start needs random start and a share of ' +
     `${MIX_SHARE.min} to ${MIX_SHARE.max}; any other start needs the share off (-1)`,
   straightFloor:
-    'straightness is too low for this board: bigger boards, nooks first below 4 or a coil penalty above 6 all need more',
+    'straightness is too low for this board, so it would likely get stuck: bigger boards need straighter arrows, and so do nooks first below 4 or a coil penalty above 6',
   giantWander:
     'skeletons added later need straighter skeletons: above a later chance of 0.05, skeleton straightness must be at least 0.6 plus that chance',
 }
