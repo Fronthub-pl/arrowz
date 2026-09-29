@@ -1,7 +1,9 @@
 import type { BoardFile, WorkerIn, WorkerOut } from '@arrowz/engine'
+import { useEffect, useRef, useState } from 'react'
 import { downloadBlob } from './download'
 
-type SvgRequest = Extract<WorkerIn, { type: 'svg' }>
+/** What the drawing worker is asked to draw with. */
+export type SvgOptions = Extract<WorkerIn, { type: 'svg' }>['options']
 
 /**
  * Draws one board file as an SVG in a worker of its own and downloads it:
@@ -9,13 +11,10 @@ type SvgRequest = Extract<WorkerIn, { type: 'svg' }>
  * generation worker, which a new run terminates. `failed` hears why a drawing
  * failed; `ended` runs once whichever way it ends, after the worker is gone.
  * The worker is returned so that its owner can take it down on unmount.
- *
- * Shared by the run column's exports and the saved boards' right column, so
- * the two cannot drift in how a drawing is started, named or ended.
  */
-export function drawSvg(
+function drawSvg(
   file: BoardFile,
-  options: SvgRequest['options'],
+  options: SvgOptions,
   name: string,
   failed: (reason: string) => void,
   ended: () => void,
@@ -37,4 +36,28 @@ export function drawSvg(
   }
   worker.postMessage({ type: 'svg', board: file, options } satisfies WorkerIn)
   return worker
+}
+
+/**
+ * One drawing at a time for the component that owns it: `busy` while it runs,
+ * and taken down when the component unmounts. Shared by the run column's
+ * exports and the saved boards' column, so the two cannot drift in how a
+ * drawing is started, named or ended. `draw` does nothing while one runs.
+ */
+export function useSvgDrawing(): {
+  busy: boolean
+  draw: (file: BoardFile, options: SvgOptions, name: string, failed: (reason: string) => void) => void
+} {
+  const drawing = useRef<Worker | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => () => drawing.current?.terminate(), [])
+  const draw = (file: BoardFile, options: SvgOptions, name: string, failed: (reason: string) => void) => {
+    if (drawing.current !== null) return
+    setBusy(true)
+    drawing.current = drawSvg(file, options, name, failed, () => {
+      drawing.current = null
+      setBusy(false)
+    })
+  }
+  return { busy, draw }
 }
