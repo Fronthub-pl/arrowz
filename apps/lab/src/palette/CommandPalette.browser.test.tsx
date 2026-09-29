@@ -89,6 +89,19 @@ describe('the palette dialog', () => {
     await expect.element(screen.getByText('nothing matches seedzzzz')).toBeVisible()
   })
 
+  // Read at the document, after React's handler has run on the root.
+  it('with nothing matching, the arrows, Home and End are left to the input', async () => {
+    const screen = await mount()
+    await userEvent.keyboard('seedzzzz')
+    expect(screen.container.querySelectorAll('[role="option"]')).toHaveLength(0)
+    const prevented: boolean[] = []
+    const record = (event: KeyboardEvent) => prevented.push(event.defaultPrevented)
+    document.addEventListener('keydown', record)
+    await userEvent.keyboard('{ArrowDown}{ArrowUp}{Home}{End}')
+    document.removeEventListener('keydown', record)
+    expect(prevented).toEqual([false, false, false, false])
+  })
+
   // Measured as an effect, not a declared property: `overflow-y: auto` on a box
   // nothing constrains scrolls nothing.
   it('scrolls its list rather than cutting it off', async () => {
