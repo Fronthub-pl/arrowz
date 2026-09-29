@@ -1,8 +1,11 @@
 import { assertAlmostEquals, assertEquals } from '@std/assert'
+import type { Answers } from './jev-client.ts'
 import {
   auc,
   badMessages,
   heldOutPrs,
+  i18nAt,
+  messageRates,
   mutations,
   pickThreshold,
   rates,
@@ -47,6 +50,42 @@ Deno.test('heldOutPrs: only PRs the threshold never saw', () => {
   const expected = Array.from({ length: 67 }, (_, i) => `b${67 - i}`)
   assertEquals(result, expected)
   assertEquals(result.some((b) => Number(b.slice(1)) > 127), false)
+})
+
+Deno.test('messageRates: an unanswered item counts neither as clean nor as flagged', () => {
+  const good = ['Clean one', 'Unanswered good A', 'Unanswered good B', 'Unanswered good C']
+  const goodA: Array<Answers | null> = [{ not_english: 0.95 }, null, null, null]
+  const bad = ['Bad one', 'Unanswered bad']
+  const badA: Array<Answers | null> = [{ not_english: 0.9 }, null]
+  const r = messageRates(good, goodA, bad, badA)
+  assertEquals(r.answered, 2)
+  assertEquals(r.total, 6)
+  // Dividing by the full arrays (the old bug) would give 1/4 and 1/2; over answered items it is 1/1 both ways.
+  assertEquals(r.falseAlarm, 1)
+  assertEquals(r.detection, 1)
+})
+
+Deno.test('messageRates: an answered clean item is not a false alarm', () => {
+  const r = messageRates(['Fine'], [{ not_english: 0.1 }], ['Bad'], [{ not_english: 0.95 }])
+  assertEquals(r.answered, 2)
+  assertEquals(r.total, 2)
+  assertEquals(r.falseAlarm, 0)
+  assertEquals(r.detection, 1)
+})
+
+Deno.test('i18nAt: judges the bar at the shipped threshold, the free pick is only a suggestion', () => {
+  const items: Scored[] = [
+    ...Array.from({ length: 94 }, () => ({ p: 0.1, positive: false })),
+    ...Array.from({ length: 6 }, () => ({ p: 0.6, positive: false })),
+    ...Array.from({ length: 8 }, () => ({ p: 0.9, positive: true })),
+    ...Array.from({ length: 2 }, () => ({ p: 0.3, positive: true })),
+  ]
+  const at = i18nAt(items, 0.54)
+  // At 0.54 the six 0.6-scored negatives are false alarms (6%), past the 3% bar.
+  assertEquals(at.shipped.falseAlarm, 0.06)
+  assertEquals(at.pass, false)
+  // A picked threshold above the shipped one would have hidden the failure.
+  assertEquals(at.suggested !== null && at.suggested > 0.54, true)
 })
 
 Deno.test('mutations: every mutated pair changes the Polish and names its mutation', () => {

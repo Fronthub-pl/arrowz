@@ -1,7 +1,7 @@
 // Advisory checks of the repository's written rules, answered by Jev: comments,
 // commit messages and PR bodies, and the Polish dictionary. They report and never
 // gate; thresholds are measured by jev-eval.ts (see docs/jev-guards.md).
-import { commentBlocks, commentLines } from '@arrowz/engine/comment-lines'
+import { commentBlocks, commentLines, MAX_BLOCK } from '@arrowz/engine/comment-lines'
 import { fromFileUrl, isAbsolute, join, relative } from '@std/path'
 import { defaultJudge, keyPath } from './jev-client.ts'
 import type { Answers, Judge, Noul } from './jev-client.ts'
@@ -10,8 +10,6 @@ import type { InactiveKey, RuleKey } from '@arrowz/engine'
 export type Flag = { where: string; question: string; p: number; excerpt: string }
 
 export const MAX_FLAGS = 5
-// Longer blocks are the regex guard's (`MAX_BLOCK` in comments.test.ts).
-const MAX_LINES = 6
 // 120 requests at 16 at a time fit the hook's 10 s timeout at the measured ~0.35 s p95.
 export const MAX_COMMENT_REQUESTS = 120
 const CONCURRENCY = 16
@@ -70,7 +68,7 @@ export function commentsOf(source: string, css: boolean): Commented[] {
   const src = source.split('\n')
   const out: Commented[] = []
   for (const b of commentBlocks(source, css)) {
-    if (b.end - b.start + 1 > MAX_LINES) continue
+    if (b.end - b.start + 1 > MAX_BLOCK) continue
     const code = src.slice(b.end).find((l) => l.trim() !== '') ?? ''
     out.push({ line: b.start, text: b.text, code: code.trim() })
   }

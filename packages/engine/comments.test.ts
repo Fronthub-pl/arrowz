@@ -7,7 +7,7 @@
 // JSX text reads as a `//` comment.
 import { dirname, fromFileUrl, join, relative } from '@std/path'
 import { assert, assertEquals } from '@std/assert'
-import { commentBlocks, commentLines } from './comment-lines.ts'
+import { commentBlocks, commentLines, MAX_BLOCK, MAX_HEADER } from './comment-lines.ts'
 
 export const MARKERS = [
   /\bPR ?#?\d/,
@@ -23,8 +23,6 @@ export const MARKERS = [
   // so the plain form needs no narrowing.
   /\bR\d+\b/,
 ]
-export const MAX_BLOCK = 6
-export const MAX_HEADER = 24
 
 // A `/** */` block is an API header when the next non-blank line opens one of these: a declaration,
 // a method (its line holds `):` or ends with `{` without an arrow) or a property signature.

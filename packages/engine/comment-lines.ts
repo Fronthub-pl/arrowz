@@ -3,6 +3,10 @@
 type Line = { comment: string; code: string; inComment: boolean }
 export type CommentLine = { line: number; text: string; alone: boolean }
 
+// Shared with the Jev comment guard (`jev-guard.ts`), so the two never drift apart.
+export const MAX_BLOCK = 6
+export const MAX_HEADER = 24
+
 // Characters after which a `/` starts a regex literal rather than a division.
 // `<` and `>` are left out on purpose: in TSX `</div>` is a closing tag, and
 // reading it as a regex would swallow a `{/* */}` later on the same line.

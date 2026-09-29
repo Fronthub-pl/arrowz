@@ -10,6 +10,7 @@ import {
   commentFlag,
   commentsOf,
   dictionaryPairs,
+  DIFFERS_AT,
   MESSAGE_AT,
   messageFlags,
   type Pair,
@@ -51,6 +52,43 @@ export function pickThreshold(items: Scored[], bar: number): number | null {
     if (rates(items, t / 100).falseAlarm <= bar) return t / 100
   }
   return null
+}
+
+export type MessageRates = { items: Scored[]; answered: number; total: number; falseAlarm: number; detection: number }
+
+/** `not_english` scores and false-alarm/detection rates over answered messages only; an unanswered
+ * message is excluded from both, not counted as clean. */
+export function messageRates(
+  good: string[],
+  goodA: Array<Answers | null>,
+  bad: string[],
+  badA: Array<Answers | null>,
+): MessageRates {
+  const answered = <T extends string>(texts: T[], answers: Array<Answers | null>) =>
+    texts.flatMap((t, i) => (answers[i] ? [{ t, a: answers[i] as Answers }] : []))
+  const goodOk = answered(good, goodA)
+  const badOk = answered(bad, badA)
+  const items: Scored[] = [
+    ...goodOk.map(({ a }) => ({ p: a.not_english ?? 0, positive: false })),
+    ...badOk.map(({ a }) => ({ p: a.not_english ?? 0, positive: true })),
+  ]
+  const rate = (xs: typeof goodOk) =>
+    xs.length === 0 ? 0 : xs.filter(({ t, a }) => messageFlags('commit', t, a).length > 0).length / xs.length
+  return {
+    items,
+    answered: goodOk.length + badOk.length,
+    total: good.length + bad.length,
+    falseAlarm: rate(goodOk),
+    detection: rate(badOk),
+  }
+}
+
+/** Rates and pass/fail at the shipped `DIFFERS_AT`; the lowest 3 %-false-alarm threshold is a suggestion only,
+ * never the bar, since picking it on the same data it is judged on would always look right. */
+export function i18nAt(items: Scored[], shippedAt: number) {
+  const shipped = rates(items, shippedAt)
+  const pass = shipped.falseAlarm <= 0.03 && shipped.recall >= 0.8
+  return { shipped, pass, suggested: pickThreshold(items, 0.03) }
 }
 
 export function stripDiacritics(s: string): string {
@@ -177,14 +215,9 @@ async function evalMessage(judge: Judge): Promise<boolean> {
   const bad = badMessages(Object.values(PL.ui).filter((v): v is string => typeof v === 'string'))
   const goodA = await pool(good, 16, (t) => askMessage(judge, 'commit', t))
   const badA = await pool(bad, 16, (t) => askMessage(judge, 'commit', t))
-  const items: Scored[] = [
-    ...goodA.flatMap((a) => (a ? [{ p: a.not_english ?? 0, positive: false }] : [])),
-    ...badA.flatMap((a) => (a ? [{ p: a.not_english ?? 0, positive: true }] : [])),
-  ]
-  const fa = good.filter((t, i) => messageFlags('commit', t, goodA[i] ?? null).length > 0).length / good.length
-  const det = bad.filter((t, i) => messageFlags('commit', t, badA[i] ?? null).length > 0).length / bad.length
+  const { items, answered, total, falseAlarm: fa, detection: det } = messageRates(good, goodA, bad, badA)
   console.log(
-    `held out: ${commits.length} commits, ${prsHeld.length} PRs, ${bad.length} hand-made; not_english AUC ${
+    `held out: ${commits.length} commits, ${prsHeld.length} PRs, ${bad.length} hand-made; answered ${answered} of ${total}; not_english AUC ${
       auc(items).toFixed(3)
     }`,
   )
@@ -204,19 +237,25 @@ async function evalI18n(judge: Judge): Promise<boolean> {
     ...goodA.flatMap((a) => (a ? [{ p: differs(a), positive: false }] : [])),
     ...badA.flatMap((a) => (a ? [{ p: differs(a), positive: true }] : [])),
   ]
-  const pick = pickThreshold(items, 0.03)
-  console.log(`pairs ${good.length}, mutations ${bad.length}, AUC ${auc(items).toFixed(3)}`)
-  if (pick === null) {
-    console.log('no threshold keeps false alarms <= 3% -> FAIL')
-    return false
-  }
-  const r = rates(items, pick)
-  console.log(line(`differs > ${pick}`, r))
+  console.log(
+    `pairs ${good.length}, mutations ${bad.length}, answered ${items.length} of ${good.length + bad.length}, AUC ${
+      auc(items).toFixed(3)
+    }`,
+  )
+  const { shipped, pass, suggested } = i18nAt(items, DIFFERS_AT)
+  console.log(line(`at DIFFERS_AT ${DIFFERS_AT}`, shipped))
+  console.log(
+    suggested === null
+      ? 'suggestion: no threshold on this run keeps false alarms <= 3%'
+      : `suggestion: differs > ${suggested}`,
+  )
   for (const kind of ['swapped', 'truncated', 'number']) {
-    const sub = bad.flatMap((m, i) => (m.key.endsWith(`(${kind})`) && badA[i] ? [differs(badA[i] ?? null) > pick] : []))
+    const sub = bad.flatMap((
+      m,
+      i,
+    ) => (m.key.endsWith(`(${kind})`) && badA[i] ? [differs(badA[i] ?? null) > DIFFERS_AT] : []))
     console.log(`  ${kind}: detected ${sub.filter(Boolean).length} of ${sub.length}`)
   }
-  const pass = r.falseAlarm <= 0.03 && r.recall >= 0.8
   console.log(`bar: false alarms <= 3% and detection >= 80% -> ${pass ? 'PASS' : 'FAIL'}`)
   return pass
 }

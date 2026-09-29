@@ -345,7 +345,9 @@ Deno.test('hook: with no key file the script prints nothing and exits 0', async 
     stderr: 'piped',
   }).spawn()
   const w = child.stdin.getWriter()
-  await w.write(new TextEncoder().encode(JSON.stringify(edit('/x/apps/a.ts', '// c\nx'))))
+  // In scope of the real root, so the guard actually asks Jev and the missing key is read, not skipped by inScope().
+  const target = fromFileUrl(new URL('../../../apps/lab/src/a.ts', import.meta.url))
+  await w.write(new TextEncoder().encode(JSON.stringify(edit(target, '// c\nx'))))
   await w.close()
   const { code, stdout } = await child.output()
   assertEquals(code, 0)
