@@ -43,7 +43,7 @@ four; four such workers hold on the order of 1–1.5 GB. Hence the cap below.
   seed, one answer, no board file.
 - `WorkerOut` gains
   `{ type: 'seedDone'; seed: number; outcome: SeedOutcome; pieces: number;
-  maxLen: number | null; genMs: number; remaining: number; metrics: Metrics | null }`
+  maxLen: number | null; genMs: number; remaining: number }`
   with `SeedOutcome = 'complete' | 'incomplete' | 'unsolvable' | 'stopped'`,
   from `GenerateResult`, in this order: `aborted` → stopped; `deadlock` →
   unsolvable (a full board that cannot be solved, a generator bug; `generate`
@@ -103,8 +103,8 @@ anywhere; a reload forgets it.
     (`control.start()`), so the stage shows where it got stuck.
 - When the knobs on screen differ from the series' `params`, the section stays
   and carries "for other settings" beside its title.
-- The status line: "Checking seeds: 7 of 20…" while running, "Checked 20 seeds:
-  complete on 18" after, "Stopped after 9 of 20 seeds" after a Stop.
+- The status line: "Checking seeds: 7 of 20…" while running, returns to the board's
+  status after; the counts and outcomes stay in the Seeds section's first line.
 - Every string in `lab-i18n.ts`, EN and PL, passing `glossary.test.ts` (no
   "close(d)", "jam", "piece(s)" in English).
 
