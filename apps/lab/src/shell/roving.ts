@@ -1,3 +1,5 @@
+import { type RefObject, useLayoutEffect, useRef } from 'react'
+
 /** Which arrows move along a strip: ← → for a row, ↑ ↓ for a rail, all four for a radio group. */
 export type RovingAxis = 'horizontal' | 'vertical' | 'both'
 
@@ -36,4 +38,19 @@ export function nextIndex(
   if (at > last) return wrap ? 0 : last
   if (at < 0) return wrap ? last : 0
   return at
+}
+
+/**
+ * A ref for the selected item that moves the focus onto it when the selection
+ * changes, but only while the strip already holds the focus: a selection made
+ * elsewhere must not pull the focus in. Only on a change: an inline ref
+ * callback would refocus on every render.
+ */
+export function useFocusFollowsSelection<T>(selection: T): RefObject<HTMLButtonElement | null> {
+  const ref = useRef<HTMLButtonElement>(null)
+  useLayoutEffect(() => {
+    const node = ref.current
+    if (node?.parentElement?.contains(document.activeElement) === true) node.focus()
+  }, [selection])
+  return ref
 }

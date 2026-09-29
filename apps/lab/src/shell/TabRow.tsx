@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
+import { nextIndex, useFocusFollowsSelection } from './roving'
 
 // The strip is the application's only navigation, so the route is the
 // selection: no second copy of "which tab is open" to drift from the URL.
@@ -20,26 +21,13 @@ export function TabRow() {
   const dict = useDictionary()
   const navigate = useNavigate()
   const current = selectedIndex(useLocation().pathname)
+  const focusRef = useFocusFollowsSelection(current)
 
   // Arrow keys move the selection and the focus together; the pattern wraps at
   // both ends, and Home/End jump. The listener sits on each tab, not on the
   // tablist, so the tablist is never a target and needs no tabIndex of its own.
   function onKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    const last = TABS.length - 1
-    const next =
-      event.key === 'ArrowRight'
-        ? current === last
-          ? 0
-          : current + 1
-        : event.key === 'ArrowLeft'
-          ? current === 0
-            ? last
-            : current - 1
-          : event.key === 'Home'
-            ? 0
-            : event.key === 'End'
-              ? last
-              : null
+    const next = nextIndex(event.key, current, TABS.length, { axis: 'horizontal', wrap: true })
     if (next === null) return
     event.preventDefault()
     const tab = TABS[next]
@@ -59,11 +47,7 @@ export function TabRow() {
           // id is worse than not pointing at all.
           {...(i === current ? { 'aria-controls': tab.panel } : {})}
           tabIndex={i === current ? 0 : -1}
-          ref={(node) => {
-            // Focus follows the selection, but only while the strip already
-            // has it: clicking a tab must not steal focus back from a panel.
-            if (node && i === current && node.parentElement?.contains(document.activeElement)) node.focus()
-          }}
+          ref={i === current ? focusRef : undefined}
           onClick={() => void navigate(tab.path)}
           onKeyDown={onKeyDown}
         >
