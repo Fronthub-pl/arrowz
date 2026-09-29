@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router'
 import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { storedFixture } from '../state/library.fixtures'
+import { finish, stoppedRun } from '../state/result.fixtures'
 import type { DoneReport } from '../state/run.slice'
 import { useStore } from '../state/store'
 import { RunStatusBar } from './RunStatusBar'
@@ -37,6 +38,7 @@ const CLOSED: DoneReport = {
   totalMs: RESULT.genMs + RESULT.metricsMs,
   stuck: null,
   deadlock: false,
+  aborted: false,
   pieces: RESULT.board.pieces.length,
   stats: RESULT.board.stats,
   board: encodeBoard(RESULT.board),
@@ -103,6 +105,20 @@ describe('RunStatusBar', () => {
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('closed'))
     await act(async () => useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 }))
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('generateBlocked'))
+  })
+
+  it('says a stopped board is stopped, not closed', async () => {
+    finish(stoppedRun(1))
+    const screen = await mountBar()
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('stopped'))
+  })
+
+  it('says Stopping… once a stop is requested', async () => {
+    const state = useStore.getState()
+    state.run.started(state.params.values)
+    state.run.stopRequested()
+    const screen = await mountBar()
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('stopping'))
   })
 
   // An 8 × 8 run has 2 × (8 + 8) = 32 places a head can stand; the stuck report is stated.
@@ -177,7 +193,7 @@ describe('RunStatusBar', () => {
     state.run.started(state.params.values)
     state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
     state.result.stored(CLOSED.board, { ok: false, error: 'no store server' })
-    state.result.showPreview({ board: decodeBoard(file), file, meta })
+    state.result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta })
     const screen = await mountBar(`/boards/8x8/${meta.id}`)
     const line = EN.t('savedBoard', `8x8/${meta.id}`, meta.seed, meta.source, `${genSeconds(meta, '—')} s`)
     await expect.poll(() => screen.getByRole('status').element().textContent).toBe(line)
@@ -209,7 +225,7 @@ describe('RunStatusBar', () => {
   it('says nothing about a stored board once the tab is the lab again', async () => {
     const { meta, file } = storedFixture(2)
     const state = useStore.getState()
-    state.result.showPreview({ board: decodeBoard(file), file, meta })
+    state.result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta })
     state.library.boardFailed({ name: '8x8/sha256-ab', reason: 'HTTP 404' })
     const screen = await mountBar()
     // Read once and synchronously: the state is set before the mount, so the
@@ -222,7 +238,9 @@ describe('RunStatusBar', () => {
   it('says what the library has just done, ahead of the board it is showing', async () => {
     const { meta, file } = storedFixture(1)
     const screen = await mountBar(`/boards/8x8/${meta.id}`)
-    await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+    await act(async () =>
+      useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta }),
+    )
     await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
 
     await act(async () => useStore.getState().library.notify({ kind: 'viewSaved', name: `8x8/${meta.id}` }))
@@ -397,7 +415,9 @@ describe('the lines the columns show', () => {
   it('leave a stored board to the live region', async () => {
     const { meta, file } = storedFixture(1)
     const { screen, line } = await mountLines(`/boards/8x8/${meta.id}`)
-    await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+    await act(async () =>
+      useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta }),
+    )
     await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
     expect(line('library')).toBeNull()
   })

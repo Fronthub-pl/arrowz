@@ -127,9 +127,9 @@ different counter over 237 files; the two numbers are not comparable.)
 | Gap 3: closing rate over N seeds | open | |
 | Gap 4: missing report rows (`backbites`, `T2`, `minLen`, …) | fixed on `lab/report-parity` | and the delta's colour is the direction of the change |
 | Gap 5 / Duplication 1: colour-button split | fixed in `840bf34`, `5b09695`, `85c7aab`, `078b98e` | See finding 2 |
-| Gap 6: Stop that keeps the partial board | open | |
+| Gap 6: Stop that keeps the partial board | fixed on `lab/stop-and-open` | a second Stop discards; a stopped board is not stored |
 | Gap 7: SVG colours | fixed on `lab/correctness-2` | Points, `pad` and CLI colour flags fixed on `engine/view-look` |
-| Gap 8: open a `.board.json` from disk | open | |
+| Gap 8: open a `.board.json` from disk | fixed on `lab/stop-and-open` | button, drop and ⌘K; with its meta, Load into lab |
 | Gap 9: `highlight` colour row | fixed in `b90609e` | |
 | Gap 9: `pad` (margin) row | fixed in `0d916c2`, `24bca8b` | Held to the element's new `PAD_RANGE` (`840bf34`) |
 | Gap 9: recipes, `fingerprint`, batch fill, point-grid note | open | |
@@ -244,10 +244,11 @@ section above).
 1. **The copy pass is done:** the report, the simple view and the glossary across the knobs, the view panel and the saved boards' list, all on `lab/glossary`.
 2. **Smaller correctness items:** done on `lab/correctness-2` (the `aborted` flag, the per-board view save, the worker's stale handlers and failed load, the delayed revoke; the SVG now carries the colours instead of a note). The SVG download from the drawing worker's callback was checked in WebKit and Firefox: the download fired in Playwright 1.63's WebKit and Firefox 155 engines (and Chromium as a control), each saving a valid SVG; Playwright's WebKit is not Safari itself, so Safari proper remains unchecked.
 3. **Structural refactors:** 5 (the `.fw button` prefix and tokens), 6–9 and 11.
-4. **Parity gaps, as product decisions:** closing rate over N seeds, Stop
-   that keeps the partial board, and opening a `.board.json`. Pasting a
-   `carve` command is done on `lab/paste-command`; the report rows and the
-   ⌘K rows for the colour and element fields on `lab/report-parity`.
+4. **Parity gaps, as product decisions:** closing rate over N seeds. Pasting a
+   `carve` command, Stop that keeps the partial board and opening a
+   `.board.json` are done (`lab/paste-command`, `lab/stop-and-open`); the
+   report rows and the ⌘K rows for the colour and element fields on
+   `lab/report-parity`.
 5. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
 6. **Observations from the live pass and deferred review minors:** the report

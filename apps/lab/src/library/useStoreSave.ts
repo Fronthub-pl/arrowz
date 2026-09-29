@@ -20,6 +20,8 @@ export function useStoreSave() {
   useEffect(() => {
     if (shown === null || posted.current === shown.file) return
     posted.current = shown.file
+    // A stopped board is a look at where a run got to, not a board to keep.
+    if (shown.report.aborted) return
     // `top` zeroed: a saved board is a picture, and the highlight is a reading
     // aid for this run. `cell` comes from the board's size (`exportCell`, as
     // `buildCommand` does), not from the slice, so the preview field a user

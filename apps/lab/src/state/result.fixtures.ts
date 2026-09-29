@@ -30,6 +30,7 @@ export function finishedRun(seed: number, W = 8, H = 8): FinishedFixture {
       totalMs: result.genMs + result.metricsMs,
       stuck: result.stuck,
       deadlock: result.deadlock,
+      aborted: result.aborted,
       pieces: result.board.pieces.length,
       stats: result.board.stats,
       board: file,
@@ -42,4 +43,10 @@ export function finish(run: FinishedFixture): void {
   const state = useStore.getState()
   state.run.started(run.params)
   state.completeRun(run)
+}
+
+/** A finished run as a Stop leaves it: not closed, aborted. The board is a real one; only the flags differ. */
+export function stoppedRun(seed: number): FinishedFixture {
+  const run = finishedRun(seed)
+  return { ...run, report: { ...run.report, ok: false, aborted: true } }
 }

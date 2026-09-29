@@ -33,6 +33,7 @@ const CLOSED: DoneReport = {
   totalMs: RESULT.genMs + RESULT.metricsMs,
   stuck: null,
   deadlock: false,
+  aborted: false,
   pieces: RESULT.board.pieces.length,
   stats: RESULT.board.stats,
   board: encodeBoard(RESULT.board),
@@ -79,6 +80,15 @@ describe('RunColumn', () => {
     const go = screen.getByRole('button', { name: 'Generate' })
     await expect.element(go).toBeDisabled()
     await expect.element(go).toHaveAttribute('title')
+  })
+
+  // Once a stop is requested, the button keeps running the same action but says
+  // the second press discards the board rather than keeping it.
+  it('renames Abort to Discard once a stop is requested, and stays enabled', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    useStore.getState().run.started(useStore.getState().params.values)
+    useStore.getState().run.stopRequested()
+    await expect.element(screen.getByRole('button', { name: 'Discard' })).toBeEnabled()
   })
 
   // Abort is not a second Generate: it is live exactly while a worker is.

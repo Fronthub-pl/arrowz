@@ -410,7 +410,8 @@ export interface LongestSummary {
 }
 
 export type WorkerIn =
-  | { type: 'generate'; params: Params }
+  /** `stop` is a one-element view over a SharedArrayBuffer: 1 asks the run to stop and hand back its board. */
+  | { type: 'generate'; params: Params; stop?: Int32Array }
   /** The SVG export: drawn off the page's thread, from the board file the page holds. */
   | { type: 'svg'; board: BoardFile; options: SvgOptions }
 
@@ -429,6 +430,8 @@ export type WorkerOut =
     totalMs: number
     stuck: Stuck | null
     deadlock: boolean
+    /** The run was stopped (`GenerateAbort`): the board is the one laid so far. */
+    aborted: boolean
     pieces: number
     stats: CarverStats
     /** The board as its file: one string across the worker boundary, and the file the store keeps. */

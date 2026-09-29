@@ -1,5 +1,5 @@
-import { decodeBoard } from '@arrowz/engine'
-import type { ReactNode } from 'react'
+import { type BoardMeta, decodeBoard, encodeBoard } from '@arrowz/engine'
+import { type ReactNode, useEffect } from 'react'
 import { expect, test, vi, beforeEach, afterEach } from 'vitest'
 import { render, renderHook } from 'vitest-browser-react'
 import { userEvent } from 'vitest/browser'
@@ -39,7 +39,7 @@ test('the board the address names is decoded and shown', async () => {
   stubStore({ [first.meta.id]: first.file })
   useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])
   await renderHook(() => useStoredBoard(), at(`/boards/8x8/${first.meta.id}`))
-  await expect.poll(() => useStore.getState().result.preview?.meta.id).toBe(first.meta.id)
+  await expect.poll(() => useStore.getState().result.preview?.meta?.id).toBe(first.meta.id)
   expect(useStore.getState().result.preview?.board.W).toBe(8)
   expect(useStore.getState().library.boardError).toBeNull()
 })
@@ -88,7 +88,9 @@ test('an answer for a board no longer open is dropped', async () => {
 test('an id the listing does not hold is reported, and clears what was shown', async () => {
   stubStore({ [first.meta.id]: first.file })
   useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])
-  useStore.getState().result.showPreview({ board: decodeBoard(first.file), file: first.file, meta: first.meta })
+  useStore
+    .getState()
+    .result.showPreview({ origin: 'store', board: decodeBoard(first.file), file: first.file, meta: first.meta })
 
   await renderHook(() => useStoredBoard(), at('/boards/8x8/sha256-0'))
 
@@ -100,7 +102,7 @@ test('a board that has arrived leaves no loading notice behind', async () => {
   stubStore({ [first.meta.id]: first.file })
   useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])
   await renderHook(() => useStoredBoard(), at(`/boards/8x8/${first.meta.id}`))
-  await expect.poll(() => useStore.getState().result.preview?.meta.id).toBe(first.meta.id)
+  await expect.poll(() => useStore.getState().result.preview?.meta?.id).toBe(first.meta.id)
   expect(useStore.getState().library.notice).toBeNull()
 })
 
@@ -130,7 +132,7 @@ test('walking away from a board still loading, and back, leaves no loading notic
       <Walk />
     </MemoryRouter>,
   )
-  await expect.poll(() => useStore.getState().result.preview?.meta.id).toBe(first.meta.id)
+  await expect.poll(() => useStore.getState().result.preview?.meta?.id).toBe(first.meta.id)
 
   // B's file must stay in flight across both clicks. `userEvent.click` here
   // returns only once the page is idle, so any mock that settles (even late)
@@ -141,7 +143,7 @@ test('walking away from a board still loading, and back, leaves no loading notic
   await userEvent.click(screen.getByRole('button', { name: 'A' }))
 
   await expect.poll(() => useStore.getState().library.notice).toBeNull()
-  expect(useStore.getState().result.preview?.meta.id).toBe(first.meta.id)
+  expect(useStore.getState().result.preview?.meta?.id).toBe(first.meta.id)
 })
 
 test('a board that fails to load leaves no loading notice behind', async () => {
@@ -159,4 +161,125 @@ test('closing the board clears a failed-save notice that outlived it', async () 
   await renderHook(() => useStoredBoard(), at('/boards'))
 
   expect(useStore.getState().library.notice).toBeNull()
+})
+
+/** A file preview as `openBoardFiles` leaves it, optionally with a given meta. */
+function putFilePreview(meta: BoardMeta | null = null) {
+  const board = decodeBoard(first.file)
+  useStore.getState().result.showPreview({
+    origin: 'file',
+    board,
+    file: encodeBoard(board),
+    meta,
+    name: 'mine.board.json',
+    id: first.meta.id,
+  })
+}
+
+test('at /boards/file the file preview is left alone', async () => {
+  stubStore({})
+  putFilePreview()
+  await renderHook(() => useStoredBoard(), at('/boards/file'))
+  await new Promise((done) => setTimeout(done, 50))
+  expect(useStore.getState().result.preview?.origin).toBe('file')
+})
+
+// Same id on purpose: only the origin tells the file apart from the stored board.
+test('a file preview with a stored board’s id is not taken for that board', async () => {
+  const fetch = vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(() => Promise.resolve(new Response(JSON.stringify(first.file), { status: 200 })))
+  useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])
+  putFilePreview(first.meta)
+  await renderHook(() => useStoredBoard(), at(`/boards/8x8/${first.meta.id}`))
+  await expect.poll(() => useStore.getState().result.preview?.origin).toBe('store')
+  expect(fetch).toHaveBeenCalled()
+})
+
+// A guard: the file route must not start keeping the preview after it is left.
+test('leaving /boards/file clears the file preview', async () => {
+  stubStore({})
+  putFilePreview()
+  function Leave() {
+    useStoredBoard()
+    const navigate = useNavigate()
+    useEffect(() => {
+      void navigate('/boards')
+    }, [navigate])
+    return null
+  }
+  await render(
+    <MemoryRouter initialEntries={['/boards/file']}>
+      <Leave />
+    </MemoryRouter>,
+  )
+  await expect.poll(() => useStore.getState().result.preview).toBeNull()
+})
+
+// A stored board that finished loading must not survive the walk back to the
+// file: the file branch only clears `loading`, so a drawn store preview would
+// be left showing under a column that says there is nothing open.
+test('walking from a file to a board that loads, and back, clears the stored preview', async () => {
+  stubStore({ [first.meta.id]: first.file })
+  useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])
+  putFilePreview()
+  function Walk() {
+    useStoredBoard()
+    const navigate = useNavigate()
+    return (
+      <div>
+        <button type="button" onClick={() => void navigate('/boards/file')}>
+          File
+        </button>
+        <button type="button" onClick={() => void navigate(`/boards/8x8/${first.meta.id}`)}>
+          A
+        </button>
+      </div>
+    )
+  }
+  const screen = await render(
+    <MemoryRouter initialEntries={['/boards/file']}>
+      <Walk />
+    </MemoryRouter>,
+  )
+  await userEvent.click(screen.getByRole('button', { name: 'A' }))
+  await expect.poll(() => useStore.getState().result.preview?.origin).toBe('store')
+  await userEvent.click(screen.getByRole('button', { name: 'File' }))
+
+  await expect.poll(() => useStore.getState().result.preview).toBeNull()
+})
+
+// B's fetch is cancelled by the walk back to the file, and the file branch
+// returns early: that early return must clear "Loading B…".
+test('walking from a file to a board still loading, and back, leaves no loading notice', async () => {
+  useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta, second.meta] }])
+  putFilePreview()
+  // A host that really navigates, as in the walk between two stored boards.
+  function Walk() {
+    useStoredBoard()
+    const navigate = useNavigate()
+    return (
+      <div>
+        <button type="button" onClick={() => void navigate('/boards/file')}>
+          File
+        </button>
+        <button type="button" onClick={() => void navigate(`/boards/8x8/${second.meta.id}`)}>
+          B
+        </button>
+      </div>
+    )
+  }
+  const screen = await render(
+    <MemoryRouter initialEntries={['/boards/file']}>
+      <Walk />
+    </MemoryRouter>,
+  )
+  // A promise that never resolves keeps B in flight across both clicks.
+  vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  await userEvent.click(screen.getByRole('button', { name: 'B' }))
+  await expect.poll(() => useStore.getState().library.notice?.kind).toBe('loading')
+  await userEvent.click(screen.getByRole('button', { name: 'File' }))
+
+  await expect.poll(() => useStore.getState().library.notice).toBeNull()
+  expect(useStore.getState().result.preview?.origin).toBe('file')
 })

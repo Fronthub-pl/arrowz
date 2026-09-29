@@ -1,4 +1,4 @@
-import { decodeBoard, encodeBoard, generate, toSvg } from '@arrowz/engine'
+import { decodeBoard, encodeBoard, GenerateAbort, generate, toSvg } from '@arrowz/engine'
 import type { WorkerIn, WorkerOut } from '@arrowz/engine'
 
 // The engine's own protocol, against the engine the CLI carves with. The
@@ -17,9 +17,15 @@ self.onmessage = (event: MessageEvent<WorkerIn>) => {
     return
   }
   const started = performance.now()
+  const { stop } = message
   let result
   try {
-    result = generate(message.params, { trace: (info) => post({ type: 'progress', info }) })
+    result = generate(message.params, {
+      trace: (info) => {
+        post({ type: 'progress', info })
+        if (stop !== undefined && Atomics.load(stop, 0) === 1) throw new GenerateAbort('stopped from the page')
+      },
+    })
   } catch (err) {
     // Includes InvalidParamsError, whose message lists the violations.
     post({ type: 'error', message: err instanceof Error ? err.message : String(err) })
@@ -36,6 +42,7 @@ self.onmessage = (event: MessageEvent<WorkerIn>) => {
     totalMs: performance.now() - started,
     stuck: result.stuck,
     deadlock: result.deadlock,
+    aborted: result.aborted,
     pieces: result.board.pieces.length,
     stats: result.board.stats,
     board: encodeBoard(result.board),

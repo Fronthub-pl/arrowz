@@ -69,6 +69,7 @@ function run(W: number, H: number, seed: number) {
     totalMs: r.genMs + r.metricsMs,
     stuck: r.stuck,
     deadlock: r.deadlock,
+    aborted: r.aborted,
   }
 }
 
@@ -139,6 +140,7 @@ const pinnedBase = {
   totalMs: 3579,
   stuck: null,
   deadlock: false,
+  aborted: false,
 } satisfies Omit<ReportInput, 'stats'>
 
 const pinnedParams = { ...defaultParams(), W: 20, H: 20, seed: 3, backbite: 2 }

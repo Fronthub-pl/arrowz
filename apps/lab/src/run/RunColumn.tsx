@@ -41,6 +41,7 @@ export function RunColumn({
 }) {
   const dict = useDictionary()
   const running = useStore((state) => state.run.phase === 'running')
+  const stopping = useStore((state) => state.run.stopping)
   const blocked = useStore((state) => state.params.violations.length > 0)
   const auto = useStore((state) => state.ui.auto)
   const setAuto = useStore((state) => state.ui.setAuto)
@@ -120,7 +121,7 @@ export function RunColumn({
           {dict.t('reset')}
         </button>
         <button type="button" ref={abortRef} onClick={control.abort} disabled={!running}>
-          {dict.t('abort')}
+          {stopping ? dict.t('abortDiscard') : dict.t('abort')}
         </button>
       </div>
       <MoreMenu>

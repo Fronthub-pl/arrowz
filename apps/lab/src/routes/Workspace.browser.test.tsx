@@ -357,8 +357,10 @@ test('the clamp notice hands focus to the route’s own buttons', async () => {
   // The end of the run does not take that focus down with it: `RunColumn`
   // moves it to Generate, re-enabled in the same commit. `vi.waitFor`, not a
   // bare read: the redirect is a layout effect racing HTML's own focus fixup.
+  // Stop keeps the board, so the run ends in `done`; a press before the first
+  // trace lets it finish whole, hence the long poll.
   await screen.getByRole('button', { name: 'Abort' }).click()
-  await expect.poll(() => useStore.getState().run.phase).toBe('idle')
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   await vi.waitFor(() =>
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element()),
   )
@@ -790,7 +792,7 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     await screen.getByRole('button', { name: /^thickness:/ }).click()
     await userEvent.fill(screen.getByRole('textbox', { name: 'thickness', exact: true }), '0.9')
     await userEvent.keyboard('{Enter}')
-    await expect.poll(() => useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
+    await expect.poll(() => useStore.getState().result.preview?.meta?.view.stroke).toBe(0.9)
     expect(useStore.getState().run.phase).toBe(phase)
 
     // Load into lab runs the loaded knobs: a fresh run replaces the lab's

@@ -39,7 +39,9 @@ async function mountPreview(path = `/boards/8x8/${stored.meta.id}`) {
 
 async function show() {
   await act(async () =>
-    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+    useStore
+      .getState()
+      .result.showPreview({ origin: 'store', board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
   )
 }
 
@@ -76,11 +78,11 @@ test('an edit lands in the stored board’s view, clamped, and leaves the lab’
   await screen.getByRole('button', { name: /^thickness:/ }).click()
   await userEvent.fill(screen.getByRole('textbox', { name: 'thickness', exact: true }), '5')
   await userEvent.keyboard('{Enter}')
-  expect(useStore.getState().result.preview?.meta.view.stroke).toBe(VIEW_RANGE.stroke.max)
+  expect(useStore.getState().result.preview?.meta?.view.stroke).toBe(VIEW_RANGE.stroke.max)
   expect(useStore.getState().view.stroke).toBe(lab)
 
   await userEvent.click(screen.getByRole('switch', { name: 'multicolour' }))
-  expect(useStore.getState().result.preview?.meta.view.colored).toBe(!stored.meta.view.colored)
+  expect(useStore.getState().result.preview?.meta?.view.colored).toBe(!stored.meta.view.colored)
 })
 
 // The stage lays the lab's theme, palette, paper and ink over a stored board

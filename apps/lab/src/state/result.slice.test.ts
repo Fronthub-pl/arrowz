@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from 'vitest'
 import { decodeBoard } from '@arrowz/engine'
-import { finish, finishedRun } from './result.fixtures'
+import { finish, finishedRun, stoppedRun } from './result.fixtures'
 import { storedFixture } from './library.fixtures'
 import { useStore } from './store'
 
@@ -51,6 +51,13 @@ test('a result without metrics leaves the baseline where it was', () => {
   expect(result().baseline?.params.seed).toBe(2)
   finish(ONE)
   expect(result().baseline?.params.seed).toBe(2)
+})
+
+test('the baseline does not move past a stopped board', () => {
+  finish(finishedRun(1))
+  finish(stoppedRun(2))
+  finish(finishedRun(2))
+  expect(result().baseline?.params.seed).toBe(1)
 })
 
 // Without this, the next board would read "closed — saved" until its own POST answered.
@@ -122,10 +129,10 @@ test('a preview leaves the run result, its answer and its baseline alone', () =>
   const shownBefore = useStore.getState().result.shown
   const { meta, file } = storedFixture(3)
 
-  useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta })
+  useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta })
 
   const after = useStore.getState().result
-  expect(after.preview?.meta.id).toBe(meta.id)
+  expect(after.preview?.meta?.id).toBe(meta.id)
   expect(after.shown).toBe(shownBefore)
 })
 
@@ -134,7 +141,7 @@ test('clearing the preview leaves the run result where it was', () => {
   state.result.reset()
   finish(finishedRun(1))
   const { meta, file } = storedFixture(3)
-  useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta })
+  useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta })
 
   useStore.getState().result.clearPreview()
 
@@ -148,15 +155,15 @@ test('a finished run does not clear a preview', () => {
   const state = useStore.getState()
   state.result.reset()
   const { meta, file } = storedFixture(3)
-  state.result.showPreview({ board: decodeBoard(file), file, meta })
+  state.result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta })
   finish(finishedRun(2))
-  expect(useStore.getState().result.preview?.meta.id).toBe(meta.id)
+  expect(useStore.getState().result.preview?.meta?.id).toBe(meta.id)
 })
 
 test('reset clears both the result and the preview', () => {
   const state = useStore.getState()
   const { meta, file } = storedFixture(3)
-  state.result.showPreview({ board: decodeBoard(file), file, meta })
+  state.result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta })
   finish(finishedRun(1))
   useStore.getState().result.reset()
   expect(useStore.getState().result.shown).toBeNull()
@@ -168,19 +175,19 @@ test('reset clears both the result and the preview', () => {
 test('a new preview view moves the meta, and leaves the board and the file', () => {
   const { meta, file } = storedFixture(3)
   const board = decodeBoard(file)
-  result().showPreview({ board, file, meta })
+  result().showPreview({ origin: 'store', board, file, meta })
 
   result().previewView({ ...meta.view, stroke: 0.9, colored: true })
 
   const after = useStore.getState().result.preview
-  expect(after?.meta.view.stroke).toBe(0.9)
-  expect(after?.meta.view.colored).toBe(true)
+  expect(after?.meta?.view.stroke).toBe(0.9)
+  expect(after?.meta?.view.colored).toBe(true)
   expect(after?.board).toBe(board)
   expect(after?.file).toBe(file)
   // Everything else the meta knows is still the meta's: this is an edit to one
   // field of it, not a new meta built from a view.
-  expect(after?.meta.id).toBe(meta.id)
-  expect(after?.meta.command).toBe(meta.command)
+  expect(after?.meta?.id).toBe(meta.id)
+  expect(after?.meta?.command).toBe(meta.command)
 })
 
 // The same guard `stored` and `exported` have: an answer for a board nobody is

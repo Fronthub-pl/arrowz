@@ -3,6 +3,7 @@ import { useDictionary } from '../i18n'
 import { useInLibrary } from '../library/useInLibrary'
 import { useOpenPreview } from '../library/useOpenPreview'
 import { useStore } from '../state/store'
+import { FileFacts } from './FileFacts'
 import { LongestTable } from './LongestTable'
 import { ReportSummary } from './ReportSummary'
 import { StatsTable } from './StatsTable'
@@ -28,16 +29,21 @@ export function ReportPanel(): ReactElement {
   return (
     <section id={REPORT_ID} className="fw-report" aria-label={dict.t('reportPanel')}>
       {inLibrary ? (
-        open === null ? null : (
+        open === null ? null : open.origin === 'file' ? (
           <>
-            <StoredFacts stored={open.stored} />
+            <FileFacts opened={open.opened} />
+            <LongestTable board={open.opened.board} stored />
+          </>
+        ) : (
+          <>
+            <StoredFacts meta={open.stored.meta} />
             <LongestTable board={open.stored.board} stored />
           </>
         )
       ) : result === null ? null : (
         <>
-          <ReportSummary result={result} baseline={baseline} />
-          <StatsTable result={result} baseline={baseline} />
+          <ReportSummary result={result} baseline={result.report.aborted ? null : baseline} />
+          <StatsTable result={result} baseline={result.report.aborted ? null : baseline} />
           <LongestTable board={result.board} />
         </>
       )}

@@ -65,3 +65,25 @@ test('reset does not record an abort', () => {
   run().reset()
   expect(run().wasAborted).toBe(false)
 })
+
+test('a stop request keeps the run running and marks it stopping', () => {
+  run().started(params)
+  run().stopRequested()
+  expect(run().phase).toBe('running')
+  expect(run().stopping).toBe(true)
+})
+
+test('the run that ends after a stop request is no longer stopping', () => {
+  run().started(params)
+  run().stopRequested()
+  useStore.getState().completeRun(finishedRun(1))
+  expect(run().stopping).toBe(false)
+  expect(run().phase).toBe('done')
+})
+
+test('a new run forgets an earlier stop request', () => {
+  run().started(params)
+  run().stopRequested()
+  run().started(params)
+  expect(run().stopping).toBe(false)
+})

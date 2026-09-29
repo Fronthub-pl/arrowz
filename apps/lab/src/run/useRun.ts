@@ -5,7 +5,7 @@ import type { GeneratorHandle } from '../worker/useGenerator'
 export interface RunControl {
   /** Starts a run from the knobs as they stand. Refuses while a rule is broken. */
   start(): void
-  /** Terminates the worker if one is carving; does nothing otherwise. */
+  /** Asks a run in flight to stop and keep its board; a second call discards it. Does nothing with no run. */
   abort(): void
   /** Registers the cancel of a debounce that has not fired. `useAutoRun` calls it. */
   hold(cancel: () => void): void

@@ -19,7 +19,9 @@ const at = ({ children }: { children: ReactNode }) => (
 beforeEach(() => {
   useStore.getState().result.reset()
   useStore.getState().library.reset()
-  useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta })
+  useStore
+    .getState()
+    .result.showPreview({ origin: 'store', board: decodeBoard(stored.file), file: stored.file, meta: stored.meta })
 })
 
 afterEach(() => {
@@ -41,7 +43,7 @@ test('the store is written 350 ms after the last edit, not before', async () => 
 
   await act(async () => result.current({ ...stored.meta.view, stroke: 0.8 }))
   // The picture moves at once; only the store waits.
-  expect(useStore.getState().result.preview?.meta.view.stroke).toBe(0.8)
+  expect(useStore.getState().result.preview?.meta?.view.stroke).toBe(0.8)
   await act(async () => await vi.advanceTimersByTimeAsync(349))
   expect(posts.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0)
   await act(async () => await vi.advanceTimersByTimeAsync(1))
@@ -55,7 +57,7 @@ test('an edit posts once, whatever the owner re-renders in between', async () =>
   function Owner() {
     // Selecting the state the hook writes, as `BoardPreview` does, makes the
     // re-renders real.
-    const stroke = useStore((state) => state.result.preview?.meta.view.stroke)
+    const stroke = useStore((state) => state.result.preview?.meta?.view.stroke)
     const commit = useViewSave(() => {})
     const [bumps, bump] = useState(0)
     return (
@@ -142,15 +144,17 @@ test('an edit finished by clicking another board is written to the board that wa
   await act(async () => result.current({ ...stored.meta.view, stroke: 0.9 }))
   // The stage moves to the other board inside the pause, as the click does.
   await act(async () => {
-    useStore.getState().result.showPreview({ board: decodeBoard(other.file), file: other.file, meta: other.meta })
+    useStore
+      .getState()
+      .result.showPreview({ origin: 'store', board: decodeBoard(other.file), file: other.file, meta: other.meta })
   })
   await expect.poll(() => posts.length).toBe(1)
 
   expect(posts[0]?.board).toEqual(stored.file)
   expect(posts[0]?.view.stroke).toBe(0.9)
   // And the board that replaced it is left exactly as it was.
-  expect(useStore.getState().result.preview?.meta.id).toBe(other.meta.id)
-  expect(useStore.getState().result.preview?.meta.view.stroke).toBe(other.meta.view.stroke)
+  expect(useStore.getState().result.preview?.meta?.id).toBe(other.meta.id)
+  expect(useStore.getState().result.preview?.meta?.view.stroke).toBe(other.meta.view.stroke)
 })
 
 // The only case here that fails if `raiseNotice` stopped clearing on timeout, or its identity guard were inverted.
@@ -202,7 +206,7 @@ test('a failed save keeps the picture and says so', async () => {
 
   await act(async () => result.current({ ...stored.meta.view, stroke: 0.8 }))
   await expect.poll(() => useStore.getState().library.notice?.kind).toBe('saveFailed')
-  expect(useStore.getState().result.preview?.meta.view.stroke).toBe(0.8)
+  expect(useStore.getState().result.preview?.meta?.view.stroke).toBe(0.8)
 })
 
 test('a save that lands takes the store’s meta and refreshes the list', async () => {
@@ -213,7 +217,7 @@ test('a save that lands takes the store’s meta and refreshes the list', async 
 
   await act(async () => result.current({ ...stored.meta.view, stroke: 0.8 }))
   await expect.poll(() => useStore.getState().library.notice?.kind).toBe('viewSaved')
-  expect(useStore.getState().result.preview?.meta.command).toBe('deno task carve --stroke=0.8')
+  expect(useStore.getState().result.preview?.meta?.command).toBe('deno task carve --stroke=0.8')
   expect(refreshed).toBe(1)
 })
 
@@ -228,7 +232,9 @@ function posted(posts: MockInstance<typeof fetch>) {
 }
 
 const showOther = () =>
-  useStore.getState().result.showPreview({ board: decodeBoard(other.file), file: other.file, meta: other.meta })
+  useStore
+    .getState()
+    .result.showPreview({ origin: 'store', board: decodeBoard(other.file), file: other.file, meta: other.meta })
 
 // Same fake-timer rules as the first case in this file.
 test('an edit of another board leaves the first board’s write pending', async () => {

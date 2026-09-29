@@ -12,6 +12,7 @@ export function AppRoutes() {
       <Route path="/" element={null} />
       <Route path="/boards" element={null} />
       <Route path="/boards/:size/:id" element={null} />
+      <Route path="/boards/file" element={null} />
       {/* The bare path is a documentation link too. Route order does not
           matter — react-router ranks matches — but it reads better here. */}
       <Route path="/docs" element={<KeepHashNavigate to="/docs/element" />} />

@@ -14,10 +14,18 @@ import { useOpenBoard } from './useOpenBoard'
  * at a list, missing and unreadable are one thing.
  */
 export function useStoredBoard(): void {
-  const { size, id } = useOpenBoard()
+  const { size, id, file } = useOpenBoard()
   const metas = useStore((state) => state.library.sizes)
 
   useEffect(() => {
+    // A file's preview is set by `openBoardFiles`, not fetched. A stored board
+    // left drawn by an earlier address (its fetch already resolved) is cleared
+    // here too, or the column would call it gone while the stage still shows it.
+    if (file) {
+      if (useStore.getState().result.preview?.origin === 'store') useStore.getState().result.clearPreview()
+      if (useStore.getState().library.notice?.kind === 'loading') useStore.getState().library.clearNotice()
+      return
+    }
     if (size === null || id === null) {
       useStore.getState().result.clearPreview()
       useStore.getState().library.boardFailed(null)
@@ -45,7 +53,8 @@ export function useStoredBoard(): void {
     // Do not re-fetch a board already drawn: `listed()` stores a fresh array on
     // every refresh (a view save makes one), and a re-fetch would bring back the
     // listing's view over an edit in flight and flash `loading` over `viewSaved`.
-    if (useStore.getState().result.preview?.meta.id === id) {
+    const drawn = useStore.getState().result.preview
+    if (drawn?.origin === 'store' && drawn.meta.id === id) {
       // A, then B, then back to A while B is in flight: B's cancelled fetch
       // clears nothing, so "Loading B…" is cleared here. Only `loading`: the
       // `viewSaved` a save's refresh lands on must survive.
@@ -73,7 +82,7 @@ export function useStoredBoard(): void {
         const board = decodeBoard(outcome.file)
         if (cancelled) return
         state.library.clearNotice()
-        state.result.showPreview({ board, file: outcome.file, meta })
+        state.result.showPreview({ origin: 'store', board, file: outcome.file, meta })
       } catch (err) {
         if (cancelled) return
         state.library.clearNotice()
@@ -84,5 +93,5 @@ export function useStoredBoard(): void {
     return () => {
       cancelled = true
     }
-  }, [size, id, metas])
+  }, [size, id, file, metas])
 }

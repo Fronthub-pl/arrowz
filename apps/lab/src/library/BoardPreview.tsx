@@ -25,7 +25,7 @@ export function BoardPreview(): ReactElement {
   const dict = useDictionary()
   const open = useOpenPreview()
   const commitView = useViewSave(refreshLibrary)
-  const view = open?.stored.meta.view ?? null
+  const view = open?.origin === 'store' ? open.stored.meta.view : (open?.opened.meta?.view ?? null)
   return (
     <div className="fw-knobs" role="tabpanel" id={BOARDS_PREVIEW_ID} aria-labelledby={boardsTabId('preview')}>
       <div className="fw-khd">
@@ -34,7 +34,7 @@ export function BoardPreview(): ReactElement {
       <div className="kv kv-g">
         <Section id="boards-sec-arrows" title={dict.t('secStoredArrows')}>
           {view === null ? (
-            <p className="fw-lib-empty">{dict.t('openBoardHint')}</p>
+            <p className="fw-lib-empty">{open?.origin === 'file' ? dict.t('fileNoMeta') : dict.t('openBoardHint')}</p>
           ) : (
             <>
               {STORED_NUMBERS.map((key) => (

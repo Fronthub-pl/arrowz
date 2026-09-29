@@ -89,9 +89,11 @@ export function useRunState(): RunState {
         ? {
             // Worded here, not stored: a language switch must reword it.
             text:
-              boardError.reason === null
-                ? dict.t('boardNotStored', boardError.name)
-                : dict.t('boardFileError', boardError.name, boardError.reason),
+              boardError.problem !== undefined
+                ? dict.t('boardFileError', boardError.name, dict.t(`open_${boardError.problem}`))
+                : boardError.reason === null
+                  ? dict.t('boardNotStored', boardError.name)
+                  : dict.t('boardFileError', boardError.name, boardError.reason),
             bad: true,
           }
         : null
@@ -102,8 +104,16 @@ export function useRunState(): RunState {
   let live = runLive
   if (library !== null) live = library.text
   else if (inLibrary && preview !== null) {
-    const meta = preview.meta
-    live = dict.t('savedBoard', `${meta.W}x${meta.H}/${meta.id}`, meta.seed, meta.source, `${genSeconds(meta, '—')} s`)
+    live =
+      preview.origin === 'file'
+        ? dict.t('openedFile', preview.name, preview.board.W, preview.board.H)
+        : dict.t(
+            'savedBoard',
+            `${preview.meta.W}x${preview.meta.H}/${preview.meta.id}`,
+            preview.meta.seed,
+            preview.meta.source,
+            `${genSeconds(preview.meta, '—')} s`,
+          )
   }
 
   return { live, run, library, percent }
@@ -133,29 +143,39 @@ export function useRunLine(): Omit<RunState, 'library'> {
   // the refusal would glue a board nobody is looking at onto the knobs' error.
   let reportsRun = false
   if (run.phase === 'running') {
-    const p = run.progress
-    if (p === null) {
-      // The size is the run's, not the console's: it is read at the moment
-      // `run()` fires, and a knob edited during a carve must not rewrite the
-      // warning about the carve already going.
-      const started = run.params
-      const cells = started === null ? 0 : started.W * started.H
-      text =
-        started !== null && cells > 200_000
-          ? dict.t('generatingBig', started.W, started.H, dict.fmt(cells))
-          : dict.t('generating')
-    } else {
-      // The share done is measured in cells left, not pieces made, and the two
-      // counts are abbreviated with `short`, not `fmt`.
-      percent = 100 * (1 - p.remaining / p.total)
-      const seconds = oneDecimal(dict, p.ms / 1000)
-      // The dictionary's `progress` carries `<b>` markup, and an `aria-live`
-      // region has to be text, so the tags are stripped here and the
-      // dictionary stays the source of truth.
-      text = dict
-        .t('progress', oneDecimal(dict, percent), dict.short(p.pieces), dict.short(p.remaining), p.backtracks, seconds)
-        .replace(/<\/?b>/g, '')
-      rest = dict.t('progressRest', dict.short(p.pieces), dict.short(p.remaining), p.backtracks, seconds)
+    if (run.stopping) text = dict.t('stopping')
+    else {
+      const p = run.progress
+      if (p === null) {
+        // The size is the run's, not the console's: it is read at the moment
+        // `run()` fires, and a knob edited during a carve must not rewrite the
+        // warning about the carve already going.
+        const started = run.params
+        const cells = started === null ? 0 : started.W * started.H
+        text =
+          started !== null && cells > 200_000
+            ? dict.t('generatingBig', started.W, started.H, dict.fmt(cells))
+            : dict.t('generating')
+      } else {
+        // The share done is measured in cells left, not pieces made, and the two
+        // counts are abbreviated with `short`, not `fmt`.
+        percent = 100 * (1 - p.remaining / p.total)
+        const seconds = oneDecimal(dict, p.ms / 1000)
+        // The dictionary's `progress` carries `<b>` markup, and an `aria-live`
+        // region has to be text, so the tags are stripped here and the
+        // dictionary stays the source of truth.
+        text = dict
+          .t(
+            'progress',
+            oneDecimal(dict, percent),
+            dict.short(p.pieces),
+            dict.short(p.remaining),
+            p.backtracks,
+            seconds,
+          )
+          .replace(/<\/?b>/g, '')
+        rest = dict.t('progressRest', dict.short(p.pieces), dict.short(p.remaining), p.backtracks, seconds)
+      }
     }
   } else if (blocked) {
     // The refusal outranks every phase but `running`: the slice is `done` from
@@ -174,6 +194,9 @@ export function useRunLine(): Omit<RunState, 'library'> {
     // Idle: aborted or fresh. Refused is the branch above, whatever phase the
     // last run left: "Press Generate" beside a disabled Generate asks the impossible.
     text = run.wasAborted ? dict.t('aborted') : dict.t('pressGenerate')
+  } else if (report.aborted) {
+    reportsRun = true
+    text = dict.t('stopped')
   } else if (report.ok) {
     reportsRun = true
     text = dict.t('closed')

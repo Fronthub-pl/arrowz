@@ -1,5 +1,4 @@
 import type { BoardFile } from '@arrowz/engine'
-import { readParams } from '@arrowz/engine'
 import { svgOptions } from '@arrowz/engine/command'
 import { genSeconds } from '@arrowz/engine/report'
 import { type ReactElement, useEffect, useRef, useState } from 'react'
@@ -13,8 +12,11 @@ import { MoreMenu } from '../run/MoreMenu'
 import type { RunControl } from '../run/useRun'
 import { type StateLine, useRunState } from '../stage/useRunState'
 import { useStore } from '../state/store'
-import { lookOf, viewFieldsOf } from '../state/view.slice'
+import { lookOf } from '../state/view.slice'
+import { FileColumn } from './FileColumn'
+import { loadIntoLab } from './loadIntoLab'
 import { raiseNotice } from './notices'
+import { OpenFileButton } from './OpenFileButton'
 import { refreshLibrary } from './useLibraryList'
 import { useOpenPreview } from './useOpenPreview'
 import { cancelPendingSave } from './useViewSave'
@@ -72,10 +74,14 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
     return (
       <section id={BOARD_COLUMN_ID} className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
         <p className="fw-lib-empty">{dict.t('openBoardHint')}</p>
+        <div className="fw-alt">
+          <OpenFileButton />
+        </div>
         <LibraryLine line={library} />
       </section>
     )
   }
+  if (open.origin === 'file') return <FileColumn opened={open.opened} control={control} />
   const { stored, size } = open
   const meta = stored.meta
 
@@ -91,16 +97,6 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
         timer.current = setTimeout(() => setCopied(false), 1200)
       })
       .catch(() => {})
-  }
-
-  // The knobs, then the view, then one run and the lab. `start()`, not
-  // `generate()`: in the simple view that would draw new knobs over these.
-  const loadIntoLab = () => {
-    const { params, ui, view } = useStore.getState()
-    ui.raiseClamped(params.setMany(readParams(meta.params)))
-    view.apply(viewFieldsOf(meta.view))
-    control.start()
-    void navigate('/')
   }
 
   // Two clicks: the first arms, the second removes.
@@ -181,7 +177,7 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
           <CommandText command={meta.command} />
         </pre>
       </figure>
-      <button type="button" className="fw-go" onClick={loadIntoLab}>
+      <button type="button" className="fw-go" onClick={() => loadIntoLab(meta, control, (path) => void navigate(path))}>
         {dict.t('loadIntoLab')}
       </button>
       <LibraryLine line={library} />

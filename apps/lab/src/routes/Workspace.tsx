@@ -1,7 +1,9 @@
 import { type ReactElement, useRef } from 'react'
+import { useNavigate } from 'react-router'
 import { Console } from '../console/Console'
 import { Violations } from '../console/Violations'
 import { BoardColumn } from '../library/BoardColumn'
+import { openBoardFiles } from '../library/openBoardFiles'
 import { useOpenBoard } from '../library/useOpenBoard'
 import { useStoredBoard } from '../library/useStoredBoard'
 import { ClampNotice } from '../run/ClampNotice'
@@ -41,6 +43,7 @@ export function Workspace({
   // Abort when Generate is the one disabled.
   const goRef = useRef<HTMLButtonElement>(null)
   const abortRef = useRef<HTMLButtonElement>(null)
+  const navigate = useNavigate()
   const simple = useStore((state) => state.ui.mode === 'simple')
   const solo = useStore((state) => state.ui.solo)
   const sheet = useStore((state) => state.ui.sheet)
@@ -59,7 +62,22 @@ export function Workspace({
     // `aria-controls` must resolve to it, and it is the one thing this panel
     // renames with the tab.
     <main hidden={hidden}>
-      <section id={panel} role="tabpanel" aria-labelledby={`tab-${panel}`} tabIndex={0} className="fw-view">
+      <section
+        id={panel}
+        role="tabpanel"
+        aria-labelledby={`tab-${panel}`}
+        tabIndex={0}
+        className="fw-view"
+        // Files only: dragging selected text is a drop too, and must not open anything.
+        onDragOver={(event) => {
+          if (event.dataTransfer.types.includes('Files')) event.preventDefault()
+        }}
+        onDrop={(event) => {
+          if (event.dataTransfer.files.length === 0) return
+          event.preventDefault()
+          void openBoardFiles(Array.from(event.dataTransfer.files), (path) => void navigate(path))
+        }}
+      >
         {/* The live region, at every band. From 768 up the bar is out of sight
             and the columns' lines are what a person reads. Under 768 the run
             column is a sheet that may be `display: none`, where a live region
