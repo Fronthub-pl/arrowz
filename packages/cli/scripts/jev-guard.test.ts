@@ -231,3 +231,14 @@ Deno.test('i18n: asks each pair with its key, English and Polish', async () => {
   assertEquals(calls, [{ key: 'k', en: 'E', pl: 'P' }])
   assertStringIncludes(i18nReport(flags) ?? '', '1 Polish string may not say what the English says')
 })
+
+Deno.test('i18n: every pair is judged, however many', async () => {
+  const pairs: Pair[] = Array.from({ length: 130 }, (_, i) => ({
+    key: `k${i}`,
+    en: 'English',
+    pl: 'Polish',
+  }))
+  const { judge, calls } = stubJudge(() => ({ same_meaning: 0.9 }))
+  await i18n(judge, pairs)
+  assertEquals(calls.length, 130)
+})

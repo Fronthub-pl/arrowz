@@ -4,6 +4,7 @@
 import { commentBlocks, commentLines } from '@arrowz/engine/comment-lines'
 import { isAbsolute, join } from '@std/path'
 import type { Answers, Judge, Noul } from './jev-client.ts'
+import type { InactiveKey, RuleKey } from '@arrowz/engine'
 
 export type Flag = { where: string; question: string; p: number; excerpt: string }
 
@@ -322,15 +323,13 @@ export async function dictionaryPairs(): Promise<Pair[]> {
   const out: Pair[] = []
   walkPairs(EN, PL, '', out)
   for (const s of PARAM_SPEC) {
-    const pl = (PL.params as Record<string, { label: string; help: string } | undefined>)[s.key]
-    if (pl === undefined) continue
+    const pl = PL.params[s.key]
     out.push({ key: `params.${s.key}.label`, en: s.label, pl: pl.label })
     out.push({ key: `params.${s.key}.help`, en: s.help, pl: pl.help })
   }
   const reasons: Record<string, string> = { ...INACTIVE_REASONS, ...RULE_REASONS }
-  for (const [k, en] of Object.entries(reasons)) {
-    const pl = (PL.reasons as Record<string, string | undefined>)[k]
-    if (pl !== undefined) out.push({ key: `reasons.${k}`, en, pl })
+  for (const [k, en] of Object.entries(reasons) as Array<[InactiveKey | RuleKey, string]>) {
+    out.push({ key: `reasons.${k}`, en, pl: PL.reasons[k] })
   }
   return out.filter((p) => p.en.trim() !== p.pl.trim())
 }
@@ -359,10 +358,9 @@ export function pairFlag(pair: Pair, a: Answers, at = DIFFERS_AT): Flag | null {
 }
 
 export async function i18n(judge: Judge, pairs: Pair[]): Promise<Flag[]> {
-  const checked = pairs.slice(0, MAX_COMMENT_REQUESTS)
-  const answers = await pool(checked, CONCURRENCY, (p) => askPair(judge, p))
+  const answers = await pool(pairs, CONCURRENCY, (p) => askPair(judge, p))
   const flags: Flag[] = []
-  checked.forEach((p, i) => {
+  pairs.forEach((p, i) => {
     const a = answers[i]
     const f = a ? pairFlag(p, a) : null
     if (f) flags.push(f)
