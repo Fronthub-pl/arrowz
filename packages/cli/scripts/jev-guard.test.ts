@@ -1,4 +1,5 @@
 import { assertEquals, assertStringIncludes } from '@std/assert'
+import { fromFileUrl } from '@std/path'
 import type { Answers, Judge } from './jev-client.ts'
 import {
   commentFlag,
@@ -19,6 +20,8 @@ import {
   type Pair,
   pairFlag,
   ruleSection,
+  runHook,
+  type Shipped,
   walkPairs,
   words,
 } from './jev-guard.ts'
@@ -241,4 +244,110 @@ Deno.test('i18n: every pair is judged, however many', async () => {
   const { judge, calls } = stubJudge(() => ({ same_meaning: 0.9 }))
   await i18n(judge, pairs)
   assertEquals(calls.length, 130)
+})
+
+const ROOT = '/repo'
+const CLAUDE_MD = '# R\n## Comments\nSay why.\n# Tools\n'
+const files: Record<string, string> = { '/repo/CLAUDE.md': CLAUDE_MD }
+const read = (p: string) => files[p] ?? null
+const ALL: Shipped = { comments: true, message: true, i18n: true }
+const deps = (judge: Judge, shipped: Shipped = ALL) => ({ judge, root: ROOT, read, shipped })
+
+const edit = (file_path: string, new_string: string) => ({
+  hook_event_name: 'PostToolUse',
+  tool_name: 'Edit',
+  tool_input: { file_path, old_string: 'x', new_string },
+})
+
+Deno.test('hook: a commit message is judged before the command runs, without a permission decision', async () => {
+  const { judge } = stubJudge(() => ({ not_english: 0.95 }))
+  const payload = {
+    hook_event_name: 'PreToolUse',
+    tool_name: 'Bash',
+    cwd: ROOT,
+    tool_input: { command: 'git commit -m "Update"' },
+  }
+  const out = JSON.parse((await runHook(payload, deps(judge))) ?? 'null')
+  assertEquals(out.hookSpecificOutput.hookEventName, 'PreToolUse')
+  assertEquals('permissionDecision' in out.hookSpecificOutput, false)
+  assertStringIncludes(out.hookSpecificOutput.additionalContext, 'not_english p=0.95')
+})
+
+Deno.test('hook: an Edit judges the comments it wrote, at their line in the file', async () => {
+  files['/repo/apps/lab/src/a.ts'] = 'const a = 1\nconst b = 2\n// Review round 2 said so\nconst c = 3\n'
+  const { judge, calls } = stubJudge(() => ({ violates: 0.95, history: 0.2, spec_ref: 0.1 }))
+  const out = await runHook(edit('/repo/apps/lab/src/a.ts', '// Review round 2 said so\nconst c = 3'), deps(judge))
+  assertEquals(calls.length, 1)
+  assertStringIncludes(out ?? '', 'apps/lab/src/a.ts:3  violates p=0.95')
+})
+
+Deno.test('hook: an Edit whose text occurs twice gives the line within the edit', async () => {
+  files['/repo/apps/lab/src/b.ts'] = '// same\nx\n// same\nx\n'
+  const { judge } = stubJudge(() => ({ violates: 0.95, history: 0.1, spec_ref: 0.1 }))
+  const out = await runHook(edit('/repo/apps/lab/src/b.ts', '// same\nx'), deps(judge))
+  assertStringIncludes(out ?? '', 'apps/lab/src/b.ts (edit, line 1)')
+})
+
+Deno.test('hook: a Write is judged from its content', async () => {
+  const { judge, calls } = stubJudge(() => ({ violates: 0.95, history: 0.1, spec_ref: 0.1 }))
+  const payload = {
+    hook_event_name: 'PostToolUse',
+    tool_name: 'Write',
+    tool_input: { file_path: '/repo/packages/cli/new.ts', content: '// A new file\nexport const a = 1\n' },
+  }
+  assertStringIncludes((await runHook(payload, deps(judge))) ?? '', 'packages/cli/new.ts:1')
+  assertEquals(calls.length, 1)
+})
+
+Deno.test('hook: files out of scope make no request', async () => {
+  const { judge, calls } = stubJudge(() => ({ violates: 0.99, history: 0.99, spec_ref: 0.99 }))
+  for (
+    const path of [
+      '/repo/README.md',
+      '/repo/node_modules/x/a.ts',
+      '/elsewhere/apps/a.ts',
+      '/repo/packages/engine/dist/a.js',
+    ]
+  ) {
+    assertEquals(await runHook(edit(path, '// comment\nx'), deps(judge)), null)
+  }
+  assertEquals(calls.length, 0)
+})
+
+Deno.test('hook: malformed payloads and unanswered questions are silence', async () => {
+  const { judge } = stubJudge(() => null)
+  for (const p of [null, 'text', 42, {}, { hook_event_name: 'PostToolUse', tool_name: 'Edit' }]) {
+    assertEquals(await runHook(p, deps(judge)), null)
+  }
+  assertEquals(await runHook(edit('/repo/apps/lab/src/a.ts', '// x\ny'), deps(judge)), null)
+})
+
+Deno.test('hook: an edit of lab-i18n.ts judges the pairs whose text it wrote', async () => {
+  const target = (await dictionaryPairs()).find((p) => p.key === 'params.W.help')
+  const { judge, calls } = stubJudge((s) => ('en' in s ? { same_meaning: 0.9 } : null))
+  await runHook(edit('/repo/packages/engine/lab-i18n.ts', `help: ${JSON.stringify(target?.pl)}`), deps(judge))
+  assertEquals(calls.some((c) => c.key === 'params.W.help'), true)
+})
+
+Deno.test('hook: a guard that did not ship stays silent', async () => {
+  const { judge, calls } = stubJudge(() => ({ not_english: 0.99 }))
+  const payload = { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git commit -m x' } }
+  assertEquals(await runHook(payload, deps(judge, { ...ALL, message: false })), null)
+  assertEquals(calls.length, 0)
+})
+
+Deno.test('hook: with no key file the script prints nothing and exits 0', async () => {
+  const child = new Deno.Command(Deno.execPath(), {
+    args: ['run', '--allow-read', '--allow-env', fromFileUrl(new URL('./jev-guard.ts', import.meta.url)), 'hook'],
+    env: { ARROWZ_TYPESAFE_ENV: '/nonexistent/typesafe.env' },
+    stdin: 'piped',
+    stdout: 'piped',
+    stderr: 'piped',
+  }).spawn()
+  const w = child.stdin.getWriter()
+  await w.write(new TextEncoder().encode(JSON.stringify(edit('/x/apps/a.ts', '// c\nx'))))
+  await w.close()
+  const { code, stdout } = await child.output()
+  assertEquals(code, 0)
+  assertEquals(new TextDecoder().decode(stdout), '')
 })

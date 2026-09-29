@@ -23,6 +23,37 @@
                     }
                 ]
             }
+        ],
+        "PreToolUse": [
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "if": "Bash(git commit *)",
+                        "command": "f=\"$CLAUDE_PROJECT_DIR/packages/cli/scripts/jev-guard.ts\"; [ -f \"$f\" ] || exit 0; deno run --quiet --allow-net=api.typesafe.ai --allow-read=\"$CLAUDE_PROJECT_DIR\",\"$HOME/.config/arrowz\",/tmp,/private/tmp --allow-env=HOME,ARROWZ_TYPESAFE_ENV \"$f\" hook",
+                        "timeout": 10
+                    },
+                    {
+                        "type": "command",
+                        "if": "Bash(gh pr *)",
+                        "command": "f=\"$CLAUDE_PROJECT_DIR/packages/cli/scripts/jev-guard.ts\"; [ -f \"$f\" ] || exit 0; deno run --quiet --allow-net=api.typesafe.ai --allow-read=\"$CLAUDE_PROJECT_DIR\",\"$HOME/.config/arrowz\",/tmp,/private/tmp --allow-env=HOME,ARROWZ_TYPESAFE_ENV \"$f\" hook",
+                        "timeout": 10
+                    }
+                ]
+            }
+        ],
+        "PostToolUse": [
+            {
+                "matcher": "Edit|Write",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "f=\"$CLAUDE_PROJECT_DIR/packages/cli/scripts/jev-guard.ts\"; [ -f \"$f\" ] || exit 0; deno run --quiet --allow-net=api.typesafe.ai --allow-read=\"$CLAUDE_PROJECT_DIR\",\"$HOME/.config/arrowz\",/tmp,/private/tmp --allow-env=HOME,ARROWZ_TYPESAFE_ENV \"$f\" hook",
+                        "timeout": 10
+                    }
+                ]
+            }
         ]
     }
 }

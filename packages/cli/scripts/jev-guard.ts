@@ -2,7 +2,8 @@
 // commit messages and PR bodies, and the Polish dictionary. They report and never
 // gate; thresholds are measured by jev-eval.ts (see docs/jev-guards.md).
 import { commentBlocks, commentLines } from '@arrowz/engine/comment-lines'
-import { isAbsolute, join } from '@std/path'
+import { fromFileUrl, isAbsolute, join, relative } from '@std/path'
+import { defaultJudge, keyPath } from './jev-client.ts'
 import type { Answers, Judge, Noul } from './jev-client.ts'
 import type { InactiveKey, RuleKey } from '@arrowz/engine'
 
@@ -371,4 +372,139 @@ export async function i18n(judge: Judge, pairs: Pair[]): Promise<Flag[]> {
 export function i18nReport(flags: Flag[]): string | null {
   const n = flags.length
   return format(`${n} Polish string${n === 1 ? '' : 's'} may not say what the English says`, flags)
+}
+
+export type Deps = { judge: Judge; root: string; read: (path: string) => string | null; shipped?: Shipped }
+
+function inScope(rel: string): boolean {
+  if (rel.startsWith('..') || isAbsolute(rel)) return false
+  if (/(^|\/)(node_modules|dist)\//.test(rel)) return false
+  return /\.(ts|tsx|css)$/.test(rel) && /(^|\/)(apps|packages)\//.test(rel)
+}
+
+/** The 0-based line where `fragment` starts in `file`, or null when it is absent or not unique. */
+function lineOf(file: string | null, fragment: string): number | null {
+  if (file === null) return null
+  const at = file.indexOf(fragment)
+  if (at === -1 || file.indexOf(fragment, at + 1) !== -1) return null
+  return file.slice(0, at).split('\n').length - 1
+}
+
+const str = (v: unknown) => (typeof v === 'string' ? v : null)
+
+export async function runHook(payload: unknown, deps: Deps): Promise<string | null> {
+  if (typeof payload !== 'object' || payload === null) return null
+  const p = payload as { hook_event_name?: unknown; tool_name?: unknown; tool_input?: unknown; cwd?: unknown }
+  const input = (typeof p.tool_input === 'object' && p.tool_input !== null ? p.tool_input : {}) as Record<
+    string,
+    unknown
+  >
+  const event = str(p.hook_event_name)
+  const shipped = deps.shipped ?? SHIPPED
+  const parts: string[] = []
+  const add = (s: string | null) => {
+    if (s !== null) parts.push(s)
+  }
+
+  if (event === 'PreToolUse' && p.tool_name === 'Bash' && shipped.message) {
+    const command = str(input.command)
+    const msg = command === null ? null : messageFromCommand(command, str(p.cwd) ?? deps.root, deps.read)
+    if (msg !== null) add(messageReport(msg.kind, await message(deps.judge, msg.kind, msg.text)))
+  }
+
+  if (event === 'PostToolUse' && (p.tool_name === 'Edit' || p.tool_name === 'Write')) {
+    const path = str(input.file_path)
+    const rel = path === null ? '' : relative(deps.root, path)
+    if (path !== null && inScope(rel)) {
+      const written = p.tool_name === 'Edit' ? str(input.new_string) : str(input.content) ?? deps.read(path)
+      if (written !== null && shipped.comments) {
+        const rule = ruleSection(deps.read(join(deps.root, 'CLAUDE.md')) ?? '', 'Comments')
+        const start = p.tool_name === 'Edit' ? lineOf(deps.read(path), written) : 0
+        const place = start === null ? (l: number) => `${rel} (edit, line ${l})` : (l: number) => `${rel}:${l + start}`
+        if (rule !== null) add(commentReport(await comments(deps.judge, rule, rel, written, place)))
+      }
+      if (written !== null && shipped.i18n && rel.endsWith('lab-i18n.ts')) {
+        const pairs = (await dictionaryPairs()).filter((x) => written.includes(x.pl) || written.includes(x.en))
+        if (pairs.length > 0) add(i18nReport(await i18n(deps.judge, pairs)))
+      }
+    }
+  }
+
+  if (parts.length === 0 || event === null) return null
+  return JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: parts.join('\n\n') } })
+}
+
+const ROOT = fromFileUrl(new URL('../../../', import.meta.url))
+
+function readOrNull(path: string): string | null {
+  try {
+    return Deno.readTextFileSync(path)
+  } catch {
+    return null
+  }
+}
+
+async function manual(mode: string | undefined, args: string[]): Promise<number> {
+  const usage = 'usage: jev-guard.ts hook | comments <file…> | message [--pr] <file> | i18n'
+  if (mode !== 'comments' && mode !== 'message' && mode !== 'i18n') {
+    console.error(usage)
+    return 2
+  }
+  const judge = await defaultJudge()
+  if (judge === null) {
+    console.error(`jev: no TYPESAFE_API_KEY in ${keyPath()}`)
+    return 1
+  }
+  const outputs: Array<string | null> = []
+  if (mode === 'comments') {
+    const rule = ruleSection(readOrNull(join(ROOT, 'CLAUDE.md')) ?? '', 'Comments') ?? ''
+    for (const file of args) {
+      const source = readOrNull(file)
+      if (source === null) {
+        console.error(`jev: cannot read ${file}`)
+        continue
+      }
+      const rel = relative(ROOT, file)
+      outputs.push(commentReport(await comments(judge, rule, rel, source, (l) => `${rel}:${l}`)))
+    }
+  } else if (mode === 'message') {
+    const kind: MessageKind = args.includes('--pr') ? 'pr' : 'commit'
+    const file = args.find((a) => a !== '--pr')
+    const body = file === undefined ? null : readOrNull(file)
+    if (body === null) {
+      console.error(usage)
+      return 2
+    }
+    outputs.push(messageReport(kind, await message(judge, kind, body)))
+  } else {
+    outputs.push(i18nReport(await i18n(judge, await dictionaryPairs())))
+  }
+  const found = outputs.filter((o): o is string => o !== null)
+  console.log(found.length === 0 ? 'jev: nothing flagged' : found.join('\n\n'))
+  return 0
+}
+
+if (import.meta.main) {
+  const [mode, ...args] = Deno.args
+  if (mode === 'hook') {
+    let out: string | null = null
+    try {
+      // Read the payload first: exiting before Claude Code has written it would break its pipe.
+      const raw = await new Response(Deno.stdin.readable).text()
+      // The key is read only when a guard asks: a locked 1Password would cost 2 s on every edit.
+      let real: Promise<Judge | null> | null = null
+      const judge: Judge = async (state, questions) => {
+        real ??= defaultJudge()
+        const j = await real
+        return j === null ? null : j(state, questions)
+      }
+      out = await runHook(JSON.parse(raw), { judge, root: ROOT, read: readOrNull })
+    } catch {
+      out = null
+    }
+    if (out !== null) console.log(out)
+    // A key read still blocked on the 1Password FIFO would keep the process alive.
+    Deno.exit(0)
+  }
+  Deno.exit(await manual(mode, args))
 }
