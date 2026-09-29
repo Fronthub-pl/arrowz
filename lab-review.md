@@ -167,10 +167,10 @@ different counter over 237 files; the two numbers are not comparable.)
 | 3. One view schema and `view.apply()` | fixed on `lab/view-schema` (`f33ba85`..`4d16651`) | `viewSchema.ts` is the one field list; the slice, the link and "Load into lab" all read and normalise through it, and `view.apply()` writes a patch in one update |
 | 4. One hotkey table and `useDismiss` | fixed on `lab/hotkeys-dismiss` (`a679fcf`..`1eb93cc`) | `shell/hotkeys.ts` holds `WORKSPACE_KEYS` behind one `useWorkspaceKeys` listener, with `usePaletteKey` beside it; `shell/useDismiss.ts` closes the top menu, the `…` popover and the preset panel; `CommandPalette` stays apart by decision (modal, mousedown, focus trap); `useStoreSave` and `useBandReset` are out of `App.tsx` |
 | 5. CSS: `.fw button` tax, tokens, breakpoint | partly fixed in `750b059`, `d750cad` | Breakpoint fixed; the prefix tax and the tokens are open |
-| 6. Library column reuses the run column's pieces | open | |
+| 6. Library column reuses the run column's pieces | fixed in #129 and on `lab/refactors-6-8-9` | `useSvgDrawing` and `SavedExports` (#129); `CommandFigure` with `useCopy` for the live command and both library columns, a file's command included |
 | 7. Test fixtures | partly fixed in `97cc390` | Three copies of `twoFrames` are one in `harness/frames.ts`; the CSS barrel, one reset and `renderAt` are open |
-| 8. `useStoredBoard` into a library action | open | |
-| 9. One roving-focus helper | open | |
+| 8. `useStoredBoard` into a library action | fixed on `lab/refactors-6-8-9` | `openStoredBoard` returns its cancel and takes `read`; `openStoredBoard.test.ts` runs its exits and races in node |
+| 9. One roving-focus helper | fixed on `lab/refactors-6-8-9` | `shell/roving.ts`: `nextIndex` for `TabRow`, `GroupRail`, `BoardsRail`, `Segmented` and `CommandPalette`, `useFocusFollowsSelection` for the four strips; `PresetStrip`'s 2-D grid stays apart by decision |
 | 10. Symbols instead of `file.ts:NN` | fixed in `0d0d809`, `fcc58af`, `6d60475`, `d0edfd9`, `428be15`, `eed9851`, `fcf0c0a`, `f6c4673`, `ffb4dd1`, `0be63c3`, `5e78da1`, `e7b0d50`, `701e83a` | Swept, and the guard fails on the pattern |
 | 11. Try the React Compiler | open | |
 
@@ -243,7 +243,7 @@ section above).
 
 1. **The copy pass is done:** the report, the simple view and the glossary across the knobs, the view panel and the saved boards' list, all on `lab/glossary`.
 2. **Smaller correctness items:** done on `lab/correctness-2` (the `aborted` flag, the per-board view save, the worker's stale handlers and failed load, the delayed revoke; the SVG now carries the colours instead of a note). The SVG download from the drawing worker's callback was checked in WebKit and Firefox: the download fired in Playwright 1.63's WebKit and Firefox 155 engines (and Chromium as a control), each saving a valid SVG; Playwright's WebKit is not Safari itself, so Safari proper remains unchecked.
-3. **Structural refactors:** 5 (the `.fw button` prefix and tokens), 6–9 and 11.
+3. **Structural refactors:** 5 (the `.fw button` prefix and tokens), 7 and 11.
 5. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
 6. **Observations from the live pass and deferred review minors:** the report
