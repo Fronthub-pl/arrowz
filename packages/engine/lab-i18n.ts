@@ -603,6 +603,7 @@ export const EN = {
     seriesOutcome_stopped: 'stopped',
     seriesStatus: (done: number, planned: number) => `Checking seeds: ${done} of ${planned}…`,
     seriesStopping: 'Stopping the seeds…',
+    seriesError: (message: string) => `The seeds could not be checked: ${message}`,
     boardAnnotation: (W: number, H: number, seed: number) => `${W}×${H} · seed ${seed}`,
     // The board frame's mode: look, click a piece for its facts, or play it.
     boardModeLabel: 'Board mode',
@@ -1373,6 +1374,7 @@ export const PL: Translation = {
     seriesOutcome_stopped: 'przerwana',
     seriesStatus: (done, planned) => `Sprawdzam ziarna: ${done} z ${planned}…`,
     seriesStopping: 'Zatrzymuję ziarna…',
+    seriesError: (message) => `Nie udało się sprawdzić ziaren: ${message}`,
     boardAnnotation: (W, H, seed) => `${W}×${H} · ziarno ${seed}`,
     boardModeLabel: 'Tryb planszy',
     boardModeView: 'Widok',

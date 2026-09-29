@@ -58,3 +58,12 @@ test('after a knob edit the section says it is for other settings', async () => 
   await render(<SeriesSection control={control} />)
   await expect.element(page.getByText(/for other settings/)).toBeVisible()
 })
+
+// A worker crash before any answer must still be told, not render an empty section.
+test('a series that fails before any answer shows the failure, not nothing', async () => {
+  const s = useStore.getState().series
+  s.started({ ...defaultParams(), seed: 10 }, 2)
+  s.finished('boom')
+  await render(<SeriesSection control={control} />)
+  await expect.element(page.getByText('The seeds could not be checked: boom')).toBeVisible()
+})

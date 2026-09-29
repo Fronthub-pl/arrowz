@@ -124,3 +124,15 @@ test('a worker error ends the series with the message', async () => {
   expect(series().error).toBe('nope')
   expect(HeldWorker.made.every((w) => w.terminated)).toBe(true)
 })
+
+// A browser's `onerror` does not reliably carry a `message` (some throw a plain
+// Event); `end(undefined)` there would read as the same call a clean finish
+// makes, so a load failure before any answer would look like success.
+test('a worker onerror with no message still ends the series with a non-null error', async () => {
+  series().setCount(4)
+  await act(async () => h().start({ ...defaultParams(), seed: 1 }))
+  await act(async () => HeldWorker.made[0]?.onerror?.({} as ErrorEvent))
+  expect(series().phase).toBe('done')
+  expect(series().error).not.toBeNull()
+  expect(HeldWorker.made.every((w) => w.terminated)).toBe(true)
+})

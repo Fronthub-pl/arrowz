@@ -69,7 +69,9 @@ export function useSeries(): SeriesHandle {
               next(worker)
             } else if (message.type === 'error') end(message.message)
           }
-          worker.onerror = (event) => end(event.message)
+          // Not `event.message`: a browser can raise this with no reliable message, and
+          // `end(undefined)` there would read as the same call a clean finish makes.
+          worker.onerror = () => end('')
           made.push(worker)
         }
         pool.current = made
