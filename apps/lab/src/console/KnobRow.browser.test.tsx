@@ -3,8 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { KnobTrack } from './KnobRow'
-import '../design/tokens.css'
-import '../design/console.css'
+import '../design/index.css'
 
 const specOf = (key: string) => {
   const spec = PARAM_SPEC.find((s) => s.key === key)

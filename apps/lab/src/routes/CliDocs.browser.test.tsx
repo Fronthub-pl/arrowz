@@ -4,12 +4,9 @@ import { render } from 'vitest-browser-react'
 import { useStore } from '../state/store'
 import { CliDocs } from './CliDocs'
 import { DOCS_SECTIONS } from './DocsNav'
-// A component test loads no stylesheet of its own, so a test that measures
-// computed style imports the sheets: `docs.css` for the overflow assertion
-// below (without it that reads `visible`), and `tokens.css` for the custom
-// properties the sheet uses.
-import '../design/tokens.css'
-import '../design/docs.css'
+// A component test loads no stylesheet of its own; without the cascade the
+// overflow assertion below reads `visible`.
+import '../design/index.css'
 
 beforeEach(() => useStore.getState().lang.setLang('en'))
 afterEach(() => vi.restoreAllMocks())

@@ -1,17 +1,13 @@
 import { act } from 'react'
-import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'
-import { render } from 'vitest-browser-react'
 import { contrast, shown } from '../design/contrast'
 import { decodeBoard } from '@arrowz/engine'
+import { renderAt } from '../harness/renderAt'
 import { storedFixture } from '../state/library.fixtures'
 import { finish, finishedRun, stoppedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { ReportPanel } from './ReportPanel'
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
-import '../design/report.css'
+import '../design/index.css'
 
 // Seed 1: 8 pieces, longest 18. Seed 2: 13 pieces, longest 17 (both close).
 const ONE = finishedRun(1)
@@ -31,13 +27,7 @@ beforeEach(() => {
  * of its own: every case here is the lab, `/`.
  */
 async function mountReport(path = '/') {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <div className="fw" style={{ display: 'grid', width: '352px', height: '600px' }}>
-        <ReportPanel />
-      </div>
-    </MemoryRouter>,
-  )
+  return renderAt(<ReportPanel />, { path, style: { display: 'grid', width: '352px', height: '600px' } })
 }
 
 function stats(container: HTMLElement): HTMLTableElement {

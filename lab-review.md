@@ -168,7 +168,7 @@ different counter over 237 files; the two numbers are not comparable.)
 | 4. One hotkey table and `useDismiss` | fixed on `lab/hotkeys-dismiss` (`a679fcf`..`1eb93cc`) | `shell/hotkeys.ts` holds `WORKSPACE_KEYS` behind one `useWorkspaceKeys` listener, with `usePaletteKey` beside it; `shell/useDismiss.ts` closes the top menu, the `…` popover and the preset panel; `CommandPalette` stays apart by decision (modal, mousedown, focus trap); `useStoreSave` and `useBandReset` are out of `App.tsx` |
 | 5. CSS: `.fw button` tax, tokens, breakpoint | partly fixed in `750b059`, `d750cad` | Breakpoint fixed; the prefix tax and the tokens are open |
 | 6. Library column reuses the run column's pieces | fixed in #129 and #131 | `useSvgDrawing` and `SavedExports` (#129); `CommandFigure` with `useCopy` for the live command and both library columns, a file's command included |
-| 7. Test fixtures | partly fixed in `97cc390` | Three copies of `twoFrames` are one in `harness/frames.ts`; the CSS barrel, one reset and `renderAt` are open |
+| 7. Test fixtures | fixed on `lab/test-fixtures` | `design/index.css` for `main.tsx` and every test (a node guard in `design/index.test.ts`), `resetApp` through `getInitialState`, `renderAt` in the harness; `twoFrames` was already one in `harness/frames.ts` |
 | 8. `useStoredBoard` into a library action | fixed in #131 | `openStoredBoard` returns its cancel and takes `read`; `openStoredBoard.test.ts` runs its exits and races in node |
 | 9. One roving-focus helper | fixed in #131 | `shell/roving.ts`: `nextIndex` for `TabRow`, `GroupRail`, `BoardsRail`, `Segmented` and `CommandPalette`, `useFocusFollowsSelection` for the four strips; `PresetStrip`'s 2-D grid stays apart by decision |
 | 10. Symbols instead of `file.ts:NN` | fixed in `0d0d809`, `fcc58af`, `6d60475`, `d0edfd9`, `428be15`, `eed9851`, `fcf0c0a`, `f6c4673`, `ffb4dd1`, `0be63c3`, `5e78da1`, `e7b0d50`, `701e83a` | Swept, and the guard fails on the pattern |
@@ -243,7 +243,7 @@ section above).
 
 1. **The copy pass is done:** the report, the simple view and the glossary across the knobs, the view panel and the saved boards' list, all on `lab/glossary`.
 2. **Smaller correctness items:** done on `lab/correctness-2` (the `aborted` flag, the per-board view save, the worker's stale handlers and failed load, the delayed revoke; the SVG now carries the colours instead of a note). The SVG download from the drawing worker's callback was checked in WebKit and Firefox: the download fired in Playwright 1.63's WebKit and Firefox 155 engines (and Chromium as a control), each saving a valid SVG; Playwright's WebKit is not Safari itself, so Safari proper remains unchecked.
-3. **Structural refactors:** 5 (the `.fw button` prefix and tokens), 7 and 11.
+3. **Structural refactors:** 5 (the `.fw button` prefix and tokens) and 11; 7 is done on `lab/test-fixtures`.
 5. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
 6. **Observations from the live pass and deferred review minors:** the report
@@ -1008,6 +1008,8 @@ Scope: `apps/lab` at `b9a5a9d` (worktree `/Users/tomek/dev/arrowz-review`). Ever
 - **Size:** S-M. **Payoff:** medium.
 
 #### 7. Test fixtures: CSS barrel, one app reset, one router mount
+
+**Done on `lab/test-fixtures`:** `design/index.css`, `resetApp` through `getInitialState`, `renderAt`; the ⌘K case now tests the scrim, since the trigger is covered while the palette is open.
 
 - **Where:**
   - 25 test files import a hand-picked subset of the 8 stylesheets. For example, `routes/LabLayout.browser.test.tsx:7-11` imports 5 of them, and `main.tsx:11-18` is the only complete list. The harness notes say the browser project loads no CSS unless a test imports it.

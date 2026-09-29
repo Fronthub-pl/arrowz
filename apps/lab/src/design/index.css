@@ -1,0 +1,9 @@
+/* The lab's whole cascade, in order: main.tsx and every test import this file. */
+@import './tokens.css';
+@import './shell.css';
+@import './console.css';
+@import './library.css';
+@import './run.css';
+@import './report.css';
+@import './docs.css';
+@import './palette.css';

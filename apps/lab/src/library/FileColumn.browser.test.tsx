@@ -1,7 +1,6 @@
-import { MemoryRouter } from 'react-router'
 import { page, userEvent } from 'vitest/browser'
-import { render } from 'vitest-browser-react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+import { renderAt } from '../harness/renderAt'
 import type { RunControl } from '../run/useRun'
 import { fileFixture } from '../state/file.fixtures'
 import { useStore } from '../state/store'
@@ -25,13 +24,7 @@ afterEach(() => {
 
 async function mountFile(files: File[]) {
   await openBoardFiles(files, () => {})
-  return render(
-    <MemoryRouter initialEntries={['/boards/file']}>
-      <div className="fw">
-        <BoardColumn control={control} />
-      </div>
-    </MemoryRouter>,
-  )
+  return renderAt(<BoardColumn control={control} />, { path: '/boards/file' })
 }
 
 test('a file with no meta offers exports, and neither Delete nor Load into lab', async () => {

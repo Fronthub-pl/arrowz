@@ -6,10 +6,7 @@ import { KnobPanel } from '../console/KnobPanel'
 import { mountApp } from '../harness/mountApp'
 import { RAIL_GROUPS } from '../state/ui.slice'
 import { useStore } from '../state/store'
-import './tokens.css'
-import './shell.css'
-import './console.css'
-import './run.css'
+import './index.css'
 
 beforeEach(() => {
   useStore.getState().params.reset()

@@ -1,8 +1,7 @@
 import { decodeBoard, newSession } from '@arrowz/engine'
 import { act } from 'react'
-import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { render } from 'vitest-browser-react'
+import { renderAt } from '../harness/renderAt'
 import { storedFixture } from '../state/library.fixtures'
 import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
@@ -29,13 +28,10 @@ afterEach(() => {
 })
 
 async function mountFrame(path = '/') {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <div className="fw" style={{ display: 'grid', gridTemplateRows: '1fr', width: '480px', height: '360px' }}>
-        <BoardFrame />
-      </div>
-    </MemoryRouter>,
-  )
+  return renderAt(<BoardFrame />, {
+    path,
+    style: { display: 'grid', gridTemplateRows: '1fr', width: '480px', height: '360px' },
+  })
 }
 
 /** The hand-built board on stage as the lab's own result. */

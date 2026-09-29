@@ -1,6 +1,6 @@
 import '@fontsource-variable/archivo'
 import '@fontsource-variable/jetbrains-mono'
-import './tokens.css'
+import './index.css'
 import { expect, test } from 'vitest'
 
 // A missing font still reports its declared family, and `document.fonts.check()`

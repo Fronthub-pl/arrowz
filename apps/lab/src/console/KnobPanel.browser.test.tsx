@@ -8,8 +8,7 @@ import { KnobPanel } from './KnobPanel'
 // A closed description is `.fw-vh` and the rows are a grid; a component test
 // renders no other route to the stylesheet, so it imports it itself to see
 // the same clipping and layout the app would apply.
-import '../design/tokens.css'
-import '../design/console.css'
+import '../design/index.css'
 
 // File scope: a reset inside a describe would leave every case declared above
 // the block running on whatever the case before it left behind.

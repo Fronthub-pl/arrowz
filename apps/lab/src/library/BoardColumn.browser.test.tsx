@@ -8,6 +8,7 @@ import { render, renderHook } from 'vitest-browser-react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { App } from '../App'
 import { resetApp } from '../harness/mountApp'
+import { renderAt } from '../harness/renderAt'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import { BoardColumn } from './BoardColumn'
@@ -18,11 +19,7 @@ import { cancelPendingSave, useViewSave } from './useViewSave'
 import type { RunControl } from '../run/useRun'
 // The style cases read the real cascade: the Delete button's border is
 // `run.css`'s and its armed colour `library.css`'s.
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
-import '../design/library.css'
-import '../design/run.css'
+import '../design/index.css'
 
 const stored = storedFixture(1)
 const other = storedFixture(2)
@@ -72,14 +69,13 @@ function KeyedColumn() {
 }
 
 async function mountDetail(path = `/boards/8x8/${stored.meta.id}`, children?: ReactNode) {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <div className="fw">
-        <KeyedColumn />
-        <Address />
-        {children}
-      </div>
-    </MemoryRouter>,
+  return renderAt(
+    <>
+      <KeyedColumn />
+      <Address />
+      {children}
+    </>,
+    { path },
   )
 }
 

@@ -3,9 +3,7 @@ import { render } from 'vitest-browser-react'
 import { expect, test } from 'vitest'
 import { CommandText } from './CommandText'
 // The selection case measures rendered text, which needs the real cascade.
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/run.css'
+import '../design/index.css'
 
 const COMMAND = `${COMMAND_PREFIX} --width=137 --height=251 --seed=987654 --pstraight=0.83 --colored --sharp`
 

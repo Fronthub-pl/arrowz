@@ -5,51 +5,12 @@ import { expect, test, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
-import { loadRunDone } from '../harness/mountApp'
+import { loadRunDone, mountApp, resetApp } from '../harness/mountApp'
 import { cancelPendingSave } from '../library/useViewSave'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 // The stage-height case measures the lab grid, which needs the real cascade.
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
-import '../design/library.css'
-import '../design/run.css'
-
-// The real App, address bar and all: the claims here are about what App mounts,
-// so a MemoryRouter harness would test the wrong thing. The params slice is
-// reset too: the store outlives a test.
-async function mountApp() {
-  // `pushState` leaves /boards behind and drops the fragment, which the next
-  // mount would read as a pasted link and carve. `replaceState` clears
-  // `history.state`, where react-router keeps its record, so each mount starts
-  // from the blank entry a real page load has.
-  window.history.pushState({}, '', '/')
-  history.replaceState(null, '', location.pathname)
-  useStore.getState().run.reset()
-  useStore.getState().result.reset()
-  useStore.getState().library.reset()
-  useStore.getState().params.reset()
-  // The whole `ui` slice: a case that turned `auto` on would otherwise carve on
-  // the next case's first keystroke, and one that picked a rail entry leaves it
-  // on 'preview'.
-  useStore.getState().ui.select('board')
-  // The saved boards' panel too: the restyle case leaves it on 'preview'.
-  useStore.getState().ui.showBoards('list')
-  useStore.getState().ui.setAuto(false)
-  useStore.getState().ui.raiseClamped(false)
-  useStore.getState().lang.setLang('en')
-  useStore.getState().ui.setMode('advanced')
-  // Solo too: two cases press `f`, and a solo left on takes `.fw-console` out
-  // of the layout, so a later case would measure a `display: none` box.
-  useStore.getState().ui.setSolo(false)
-  useStore.getState().ui.setReport(false)
-  useStore.getState().ui.setSettings(true)
-  useStore.getState().ui.setSheet(null)
-  useStore.getState().ui.setMenu(false)
-  useStore.getState().ui.setBoardMode('view')
-  return render(<App />)
-}
+import '../design/index.css'
 
 /**
  * Whether the store has answered for a board other than `before`. `saved` alone
@@ -249,19 +210,8 @@ test('the lab panel is hidden off-route and shown on it', async () => {
 // posted twice too. `fetch` is spied on, not stubbed, so the POST still fails for real.
 test('a finished run is offered to the store once per run, and the outcome is appended', async () => {
   await clearOfTheDrawer()
-  window.history.pushState({}, '', '/')
-  history.replaceState(null, '', location.pathname)
-  useStore.getState().run.reset()
-  useStore.getState().result.reset()
-  // Not through `mountApp`, which renders `App` bare: the defaults have to be
-  // put back here too, or this test carves whatever the last one left behind.
-  useStore.getState().params.reset()
-  useStore.getState().ui.select('board')
-  useStore.getState().ui.setAuto(false)
-  useStore.getState().ui.raiseClamped(false)
-  useStore.getState().lang.setLang('en')
-  useStore.getState().ui.setMode('advanced')
-  useStore.getState().ui.setBoardMode('view')
+  // Reset like `mountApp`, but rendered inside StrictMode.
+  resetApp('advanced')
   const screen = await render(
     <StrictMode>
       <App />
@@ -427,8 +377,6 @@ test('the knobs on screen are the knobs the run used', async () => {
 // body, not `result.saved`, which says only that the store answered.
 test('the saved board carries the view on screen', async () => {
   await clearOfTheDrawer()
-  // The view slice has no reset, so this test puts back what it moved.
-  const was = { colored: useStore.getState().view.colored, stroke: useStore.getState().view.stroke }
   const screen = await mountApp()
   // The load run's own save is awaited before the spy goes on, as in the
   // StrictMode case; the length assertion below still says which POST this is.
@@ -441,6 +389,9 @@ test('the saved board carries the view on screen', async () => {
     // A second field, and a number rather than a flag: one boolean surviving
     // the trip says less than "the view the user was looking at survived it".
     useStore.getState().view.setNumber('stroke', '0.8')
+    // Set directly, not through `setFlag`/`setNumber`, so the assertion below
+    // exercises the save's own zeroing rather than a setter that might zero it first.
+    useStore.setState((s) => ({ view: { ...s.view, highlightLongest: true, top: 5 } }))
     const loaded = useStore.getState().result.shown?.file
     await screen.getByRole('button', { name: 'Generate' }).click()
     await expect.poll(() => savedAfter(loaded), { timeout: 30_000 }).toBe(true)
@@ -461,8 +412,6 @@ test('the saved board carries the view on screen', async () => {
     expect(request.view.cell).not.toBe(12)
   } finally {
     fetchSpy.mockRestore()
-    if (useStore.getState().view.colored !== was.colored) useStore.getState().view.toggle('colored')
-    useStore.getState().view.setNumber('stroke', String(was.stroke))
   }
 }, 40_000)
 

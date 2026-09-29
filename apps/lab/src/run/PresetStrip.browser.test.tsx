@@ -11,9 +11,7 @@ import type { RunControl } from './useRun'
 import { PresetStrip } from './PresetStrip'
 // The closed panel is hidden by `.fw-pp-panel[hidden]` (its own `display: grid`
 // beats the user agent's `[hidden]`), so visibility needs the real cascade.
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/run.css'
+import '../design/index.css'
 
 function stub() {
   const calls = { start: 0 }

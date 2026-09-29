@@ -4,12 +4,7 @@ import { render } from 'vitest-browser-react'
 import { App } from '../App'
 import { loadRunDone, mountApp, resetApp } from '../harness/mountApp'
 import { useStore } from '../state/store'
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
-import '../design/run.css'
-import '../design/report.css'
-import '../design/docs.css'
+import '../design/index.css'
 
 // The documentation panel's geometry, measured in the shell: "the panel
 // scrolls inside itself because the shell has a fixed height and does not

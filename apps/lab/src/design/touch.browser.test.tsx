@@ -1,11 +1,6 @@
 import { expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
-import './tokens.css'
-import './shell.css'
-import './console.css'
-import './library.css'
-import './run.css'
-import './docs.css'
+import './index.css'
 
 // 44px where there is no hover. The runner cannot emulate a
 // coarse pointer (nor a phone's width at every size), so this asks the

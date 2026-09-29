@@ -1,4 +1,3 @@
-import { DEFAULT_PAD } from '@arrowz/board-element'
 import { newSession, PARAM_SPEC, type Params, play } from '@arrowz/engine'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { act } from 'react'
@@ -14,17 +13,9 @@ import { settleTransitions } from '../harness/settle'
 import { storedFixture } from '../state/library.fixtures'
 import type { Sheet } from '../state/ui.slice'
 import { useStore } from '../state/store'
-import '../design/tokens.css'
-import '../design/shell.css'
-import '../design/console.css'
-import '../design/library.css'
-import '../design/run.css'
-import '../design/report.css'
-import '../design/docs.css'
-import '../design/palette.css'
+import '../design/index.css'
 
 // The layout audit's invariants over every lab state that once broke them.
-// The same import order as `main.tsx`.
 
 type State =
   | 'board'
@@ -121,14 +112,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  // The view slice has no reset; put back what a case moved via setState, not
-  // via a slice action, so the reset cannot hide that action's bugs.
-  useStore.setState((s) => ({ view: { ...s.view, palette: [], pad: DEFAULT_PAD } }))
-  // The Polish pass below leaves the page in `pl`; `resetApp`'s own
-  // `setLang('en')` runs at the start of the next case's `arrange`, but a
-  // case that throws before that point must not leave `pl` behind either.
-  useStore.setState((s) => ({ lang: { ...s.lang, lang: 'en' } }))
-  useStore.setState((s) => ({ ui: { ...s.ui, report: false } }))
   vi.restoreAllMocks()
 })
 
