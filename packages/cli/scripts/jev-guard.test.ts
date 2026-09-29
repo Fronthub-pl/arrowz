@@ -39,6 +39,15 @@ Deno.test('commentsOf: short blocks and trailing comments, with the code that fo
   ])
 })
 
+Deno.test('commentsOf: a six-line block is judged, a seven-line block is not', () => {
+  const six = Array.from({ length: 6 }, (_, i) => `// line ${i}`).join('\n')
+  const seven = Array.from({ length: 7 }, (_, i) => `// line ${i}`).join('\n')
+  const srcSix = `${six}\nconst a = 1\n`
+  const srcSeven = `${seven}\nconst b = 2\n`
+  assertEquals(commentsOf(srcSix, false).length, 1)
+  assertEquals(commentsOf(srcSeven, false).length, 0)
+})
+
 Deno.test('commentFlag: past a threshold, named after the question with the highest p', () => {
   const c = { line: 1, text: 'x', code: '' }
   assertEquals(commentFlag('f:1', c, { violates: 0.9, history: 0.95, spec_ref: 0.2 })?.question, 'history')
