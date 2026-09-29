@@ -1,8 +1,8 @@
 import { act } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
-import { render } from 'vitest-browser-react'
-import { MemoryRouter, useLocation } from 'react-router'
+import { useLocation } from 'react-router'
+import { renderAt } from '../harness/renderAt'
 import { sizesFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import { LibraryFace } from './LibraryFace'
@@ -31,13 +31,12 @@ function Address() {
 }
 
 async function mountPanel(path = '/boards') {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <div className="fw">
-        <LibraryFace />
-        <Address />
-      </div>
-    </MemoryRouter>,
+  return renderAt(
+    <>
+      <LibraryFace />
+      <Address />
+    </>,
+    { path },
   )
 }
 

@@ -1,10 +1,9 @@
 import { DEFAULT_PAD } from '@arrowz/board-element'
 import { decodeBoard, type View } from '@arrowz/engine'
 import { act } from 'react'
-import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { render } from 'vitest-browser-react'
 import { contrast, shown } from '../design/contrast'
+import { renderAt } from '../harness/renderAt'
 import { cancelPendingSave } from '../library/useViewSave'
 import { storedFixture } from '../state/library.fixtures'
 import { finish, finishedRun } from '../state/result.fixtures'
@@ -39,14 +38,11 @@ afterEach(() => {
  * route (`useInLibrary`), so it needs a router; no address means `/`, the lab.
  */
 async function mountFrame(path = '/') {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      {/* One row: `.fw`'s own `48px auto 1fr` rows would give the frame 48px. */}
-      <div className="fw" style={{ display: 'grid', gridTemplateRows: '1fr', width: '480px', height: '360px' }}>
-        <BoardFrame />
-      </div>
-    </MemoryRouter>,
-  )
+  // One row: `.fw`'s own `48px auto 1fr` rows would give the frame 48px.
+  return renderAt(<BoardFrame />, {
+    path,
+    style: { display: 'grid', gridTemplateRows: '1fr', width: '480px', height: '360px' },
+  })
 }
 
 const annotation = (container: HTMLElement) => container.querySelector('.fw-anno')

@@ -1,10 +1,9 @@
 import { decodeBoard } from '@arrowz/engine'
 import { VIEW_RANGE } from '@arrowz/engine/command'
 import { act } from 'react'
-import { MemoryRouter } from 'react-router'
 import { userEvent } from 'vitest/browser'
-import { render } from 'vitest-browser-react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+import { renderAt } from '../harness/renderAt'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import { BoardPreview } from './BoardPreview'
@@ -28,13 +27,7 @@ afterEach(() => {
 })
 
 async function mountPreview(path = `/boards/8x8/${stored.meta.id}`) {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <div className="fw">
-        <BoardPreview />
-      </div>
-    </MemoryRouter>,
-  )
+  return renderAt(<BoardPreview />, { path })
 }
 
 async function show() {
