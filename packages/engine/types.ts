@@ -409,11 +409,27 @@ export interface LongestSummary {
   coil: number
 }
 
+/** How one seed of a series ended: `unsolvable` is a full board no order of taps empties. */
+export type SeedOutcome = 'complete' | 'incomplete' | 'unsolvable' | 'stopped'
+
+/** One seed of a series as the worker answers it: numbers only, no board. */
+export interface SeedRun {
+  seed: number
+  outcome: SeedOutcome
+  pieces: number
+  maxLen: number | null
+  genMs: number
+  /** Empty cells left; 0 on a full board. */
+  remaining: number
+}
+
 export type WorkerIn =
   /** `stop` is a one-element view over a SharedArrayBuffer: 1 asks the run to stop and hand back its board. */
   | { type: 'generate'; params: Params; stop?: Int32Array }
   /** The SVG export: drawn off the page's thread, from the board file the page holds. */
   | { type: 'svg'; board: BoardFile; options: SvgOptions }
+  /** One seed of a series: answered by `seedDone`, never by `progress`. */
+  | { type: 'seed'; params: Params; stop?: Int32Array }
 
 export type WorkerOut =
   | { type: 'progress'; info: TraceInfo }
@@ -437,3 +453,4 @@ export type WorkerOut =
     /** The board as its file: one string across the worker boundary, and the file the store keeps. */
     board: BoardFile
   }
+  | { type: 'seedDone'; run: SeedRun }

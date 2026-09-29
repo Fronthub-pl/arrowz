@@ -83,6 +83,19 @@ check(
 )
 check(done?.aborted === false, 'a run nobody stopped says aborted: false')
 
+messages.length = 0
+globalThis.postMessage = (message) => messages.push(message)
+const seedParams = { ...defaultParams(), W: 20, H: 20, seed: 11 }
+globalThis.onmessage({ data: { type: 'seed', params: seedParams } })
+const answer = messages.find((m) => m.type === 'seedDone')
+const direct = generate(seedParams)
+check(
+  answer?.run?.seed === 11 && answer.run.pieces === direct.board.pieces.length,
+  'one seed of a series answers the engine’s arrow count',
+)
+check(answer?.run?.outcome === (direct.ok ? 'complete' : 'incomplete'), 'and its outcome')
+check(!messages.some((m) => m.type === 'progress' || m.type === 'done'), 'with no progress and no board')
+
 if (failures > 0) {
   console.error(`${failures} check(s) failed: the built worker is not the engine`)
   process.exit(1)

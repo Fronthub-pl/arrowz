@@ -8,7 +8,9 @@ import { viewFieldsOf } from '../state/view.slice'
  * `generate()`: in the simple view that would draw new knobs over these.
  */
 export function loadIntoLab(meta: BoardMeta, control: RunControl, navigate: (path: string) => void): void {
-  const { params, ui, view } = useStore.getState()
+  const { params, ui, view, series } = useStore.getState()
+  // Before the write: a series still running must keep the knobs it started with.
+  if (series.phase === 'running') return
   ui.raiseClamped(params.setMany(readParams(meta.params)))
   view.apply(viewFieldsOf(meta.view))
   control.start()

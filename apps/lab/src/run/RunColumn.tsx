@@ -1,5 +1,6 @@
 import { type CSSProperties, type RefObject, useLayoutEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
+import { SeriesRow } from '../series/SeriesRow'
 import { oneDecimal, useRunLine } from '../stage/useRunState'
 import { useStore } from '../state/store'
 import { defaults, generate, reseed } from './actions'
@@ -7,7 +8,7 @@ import { ExportButtons } from './ExportButtons'
 import { LiveCommand } from './LiveCommand'
 import { MoreMenu } from './MoreMenu'
 import { OptionSwitch } from './OptionSwitch'
-import type { RunControl } from './useRun'
+import { inFlight, type RunControl } from './useRun'
 
 /**
  * The stage's third track (`.fw-run-col`), right of the board. It belongs to
@@ -40,8 +41,12 @@ export function RunColumn({
   abortRef?: RefObject<HTMLButtonElement | null> | undefined
 }) {
   const dict = useDictionary()
-  const running = useStore((state) => state.run.phase === 'running')
-  const stopping = useStore((state) => state.run.stopping)
+  // A series keeps the cores: Generate and Abort go off for either, but the
+  // meter, the percent and the progressbar stay the run's own (`carving`).
+  const running = useStore(inFlight)
+  const carving = useStore((state) => state.run.phase === 'running')
+  const seriesRunning = useStore((state) => state.series.phase === 'running')
+  const stopping = useStore((state) => state.run.stopping || state.series.stopping)
   const blocked = useStore((state) => state.params.violations.length > 0)
   const auto = useStore((state) => state.ui.auto)
   const setAuto = useStore((state) => state.ui.setAuto)
@@ -84,21 +89,21 @@ export function RunColumn({
           The progressbar is for assistive technology only (`fw-vh`). */}
       <button
         type="button"
-        className={running ? 'fw-go busy' : 'fw-go'}
+        className={carving ? 'fw-go busy' : 'fw-go'}
         ref={goRef}
         onClick={onGenerate}
         disabled={running || blocked}
         title={blocked ? dict.t('generateBlocked') : undefined}
-        style={running ? ({ '--p': `${share ?? 0}%` } as CSSProperties) : undefined}
-        aria-describedby={running ? PROGRESS_ID : undefined}
+        style={carving ? ({ '--p': `${share ?? 0}%` } as CSSProperties) : undefined}
+        aria-describedby={carving ? PROGRESS_ID : undefined}
       >
-        {!running
+        {!carving
           ? dict.t('generate')
           : share === null
             ? dict.t('generating')
             : dict.t('generatingPct', oneDecimal(dict, share))}
       </button>
-      {running ? (
+      {carving ? (
         <div
           id={PROGRESS_ID}
           className="fw-vh"
@@ -114,10 +119,12 @@ export function RunColumn({
         {line.text}
       </p>
       <div className="fw-alt">
-        <button type="button" onClick={onReseed}>
+        {/* Off only for a series, whose seeds are the point: a normal run does
+            not stop either from starting, unlike Generate. */}
+        <button type="button" onClick={onReseed} disabled={seriesRunning}>
           {dict.t('reseed')}
         </button>
-        <button type="button" onClick={onDefaults}>
+        <button type="button" onClick={onDefaults} disabled={seriesRunning}>
           {dict.t('reset')}
         </button>
         <button type="button" ref={abortRef} onClick={control.abort} disabled={!running}>
@@ -125,6 +132,10 @@ export function RunColumn({
         </button>
       </div>
       <MoreMenu>
+        {/* Checking many seeds keeps the run bar's own cap (`bar-row`): mounted
+            here, the row rides in the "…" popover at M/S and reads unchanged
+            (`display: contents`) at the wide band. */}
+        {simple ? null : <SeriesRow control={control} />}
         {/* The knobs' own switch, so not in the simple view, which shows no knobs. */}
         {simple ? null : (
           <div className="fw-ghost">

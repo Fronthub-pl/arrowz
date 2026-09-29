@@ -1,5 +1,6 @@
 import { decodeBoard, encodeBoard, GenerateAbort, generate, toSvg } from '@arrowz/engine'
 import type { WorkerIn, WorkerOut } from '@arrowz/engine'
+import { seedRunOf } from '@arrowz/engine/report'
 
 // The engine's own protocol, against the engine the CLI carves with. The
 // finished board crosses as its board file (one packed record instead of
@@ -11,6 +12,20 @@ self.onmessage = (event: MessageEvent<WorkerIn>) => {
   if (message.type === 'svg') {
     try {
       post({ type: 'svg', svg: toSvg(decodeBoard(message.board), message.options) })
+    } catch (err) {
+      post({ type: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+    return
+  }
+  if (message.type === 'seed') {
+    const { stop } = message
+    try {
+      const result = generate(message.params, {
+        trace: () => {
+          if (stop !== undefined && Atomics.load(stop, 0) === 1) throw new GenerateAbort('stopped from the page')
+        },
+      })
+      post({ type: 'seedDone', run: seedRunOf(message.params.seed, result) })
     } catch (err) {
       post({ type: 'error', message: err instanceof Error ? err.message : String(err) })
     }

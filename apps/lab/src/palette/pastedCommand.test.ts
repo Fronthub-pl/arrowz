@@ -11,7 +11,7 @@ import { isCommandQuery, loadCommand, pastedRow, problemWords, readCommand } fro
 function deps(lang: 'en' | 'pl' = 'en') {
   const started: number[] = []
   const went: string[] = []
-  const control: RunControl = { start: () => started.push(1), abort: () => {}, hold: () => {} }
+  const control: RunControl = { start: () => started.push(1), abort: () => {}, hold: () => {}, checkSeeds: () => {} }
   const d: CommandDeps = { control, navigate: (path) => went.push(path), dict: dictionary(lang) }
   return { d, started, went }
 }

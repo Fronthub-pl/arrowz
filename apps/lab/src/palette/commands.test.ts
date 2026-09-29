@@ -6,7 +6,7 @@ import { PALETTE_CAP } from '../state/view.slice'
 import type { RunControl } from '../run/useRun'
 import { buildCommands, type CommandDeps, type CommandSection, matchCommands } from './commands'
 
-const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {} }
+const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
 
 function deps(): CommandDeps & { went: string[] } {
   const went: string[] = []
@@ -92,6 +92,30 @@ describe('the catalogue', () => {
     expect(row?.disabled).toBe(false)
   })
 
+  it('lists Check seeds under run, disabled only during a run, and runs it through the control it was handed', () => {
+    const idle = buildCommands(deps(), useStore.getState()).find((row) => row.id === 'run-check-seeds')
+    expect(idle?.name).toBe('Check seeds')
+    expect(idle?.section).toBe('run')
+    expect(idle?.disabled).toBe(false)
+    useStore.getState().run.started(useStore.getState().params.values)
+    const running = buildCommands(deps(), useStore.getState()).find((row) => row.id === 'run-check-seeds')
+    expect(running?.disabled).toBe(true)
+    useStore.getState().run.reset()
+    const calls: string[] = []
+    const control: RunControl = {
+      start: () => {},
+      abort: () => {},
+      hold: () => {},
+      checkSeeds: () => calls.push('checkSeeds'),
+    }
+    useStore.getState().ui.openPalette()
+    buildCommands({ ...deps(), control }, useStore.getState())
+      .find((row) => row.id === 'run-check-seeds')
+      ?.run()
+    expect(calls).toEqual(['checkSeeds'])
+    expect(useStore.getState().ui.palette).toBe(false)
+  })
+
   it('refuses Generate against a broken rule, and says which way it is broken', () => {
     // wShort + wMid above 0.9 breaks `sharesSum`.
     useStore.getState().params.setMany({ wShort: 0.9, wMid: 0.9 })
@@ -151,6 +175,22 @@ describe('the catalogue', () => {
     const rows = buildCommands(deps(), useStore.getState()).filter((row) => row.section === 'preset')
     expect(rows.length).toBe(26)
     expect(rows[0]?.note.length).toBeGreaterThan(0)
+  })
+
+  // A preset row's `run` writes every knob before `applyPreset` refuses the run,
+  // so it must be disabled while a series checks the ones on screen.
+  it('disables every preset row during a series, with the reason other rows give', () => {
+    useStore.getState().series.started(useStore.getState().params.values, 4)
+    try {
+      const rows = buildCommands(deps(), useStore.getState()).filter((row) => row.section === 'preset')
+      expect(rows.length).toBeGreaterThan(0)
+      for (const row of rows) {
+        expect(row.disabled, row.id).toBe(true)
+        expect(row.value, row.id).toBe(dictionary('en').t('cmdRunning'))
+      }
+    } finally {
+      useStore.getState().series.reset()
+    }
   })
 
   it('reaches every colour and element field of the Preview panel, in its order', () => {
@@ -255,8 +295,8 @@ describe('the matcher', () => {
     expect(matches[0]).toBe('view-top')
   })
 
-  // 'run' matches the five run rows' note, and `knob-giantStep`'s and
-  // `knob-giantJitter`'s label; no name starts with it, so all seven share one rank.
+  // 'run' matches the six run rows' note, and `knob-giantStep`'s and
+  // `knob-giantJitter`'s label; no name starts with it, so all eight share one rank.
   it('keeps the catalogue order among rows that tie in rank', () => {
     const rows = buildCommands(deps(), useStore.getState())
     const catalogueOrder = rows.map((row) => row.id)
@@ -266,6 +306,7 @@ describe('the matcher', () => {
       'run-reseed',
       'run-defaults',
       'run-abort',
+      'run-check-seeds',
       'run-solo',
       'knob-giantStep',
       'knob-giantJitter',

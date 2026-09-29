@@ -238,6 +238,24 @@
   color: var(--ok);
 }
 
+/* The Seeds section's head line: the outcome counts, coloured by how the
+   series went. `ReportSummary`'s rows carry no tone of their own, so these
+   three are new. */
+.fw-report .fw-series-head.ok {
+  color: var(--ok);
+}
+.fw-report .fw-series-head.warn {
+  color: var(--warn);
+}
+.fw-report .fw-series-head.error {
+  color: var(--error);
+}
+.fw-report .fw-series-failed {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 /* The longest pieces' headings stand over their numbers, which
    are right-aligned (`td.num`). */
 .fw-report .fw-longest thead th {

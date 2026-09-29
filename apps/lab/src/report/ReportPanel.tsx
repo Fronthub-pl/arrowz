@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { useDictionary } from '../i18n'
 import { useInLibrary } from '../library/useInLibrary'
 import { useOpenPreview } from '../library/useOpenPreview'
@@ -19,8 +19,12 @@ export const REPORT_ID = 'lab-report'
  * board: what the store keeps about it and its longest pieces. That holds on
  * the tab, not merely when a preview is set, which is why this asks the route;
  * and it shows nothing while no board the address names is drawn.
+ *
+ * `series` is a slot: the lab's `SeriesSection`, mounted above the run's own
+ * report even while it has none, so a series just finished still shows before
+ * a board has run.
  */
-export function ReportPanel(): ReactElement {
+export function ReportPanel({ series = null }: { series?: ReactNode }): ReactElement {
   const dict = useDictionary()
   const result = useStore((state) => state.result.shown)
   const inLibrary = useInLibrary()
@@ -40,11 +44,16 @@ export function ReportPanel(): ReactElement {
             <LongestTable board={open.stored.board} stored />
           </>
         )
-      ) : result === null ? null : (
+      ) : (
         <>
-          <ReportSummary result={result} baseline={result.report.aborted ? null : baseline} />
-          <StatsTable result={result} baseline={result.report.aborted ? null : baseline} />
-          <LongestTable board={result.board} />
+          {series}
+          {result === null ? null : (
+            <>
+              <ReportSummary result={result} baseline={result.report.aborted ? null : baseline} />
+              <StatsTable result={result} baseline={result.report.aborted ? null : baseline} />
+              <LongestTable board={result.board} />
+            </>
+          )}
         </>
       )}
     </section>

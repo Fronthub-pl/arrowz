@@ -8,6 +8,7 @@ import { Workspace } from './routes/Workspace'
 import { PresetStrip } from './run/PresetStrip'
 import { useAutoRun } from './run/useAutoRun'
 import { useRun } from './run/useRun'
+import { useSeries } from './series/useSeries'
 import { usePaletteKey, useWorkspaceKeys } from './shell/hotkeys'
 import { selectedIndex, TabRow } from './shell/TabRow'
 import { TopBar } from './shell/TopBar'
@@ -27,7 +28,8 @@ function Shell() {
   // Above the routes: a route change must not kill a run, nor unmount
   // <arrowz-board> and dispose its GL context.
   const generator = useGenerator()
-  const control = useRun(generator)
+  const series = useSeries()
+  const control = useRun(generator, series)
   useAutoRun(control)
   const hash = useUrlHash(control)
   // Open on a board: run once at mount, after `useUrlHash` has read the link

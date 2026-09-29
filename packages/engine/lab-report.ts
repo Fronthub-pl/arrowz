@@ -2,7 +2,7 @@
 // surface can render without knowing what any of them mean. Pure: it takes
 // the run, the knobs and a dictionary, and returns strings.
 import type { Dict } from './lab-i18n.ts'
-import type { BoardMeta, CarverStats, Metrics, Params, Stuck } from './types.ts'
+import type { BoardMeta, CarverStats, GenerateResult, Metrics, Params, SeedOutcome, SeedRun, Stuck } from './types.ts'
 
 /**
  * How long a stored board took to generate, or the dash the surface uses when
@@ -281,4 +281,52 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       stats.n ? 100 * stats.strandTrunc / stats.n : undefined,
     ),
   ]
+}
+
+/** A stopped run first, then a deadlocked full board, then ok decides complete or incomplete. */
+function outcomeOf(result: GenerateResult): SeedOutcome {
+  if (result.aborted) return 'stopped'
+  if (result.deadlock) return 'unsolvable'
+  return result.ok ? 'complete' : 'incomplete'
+}
+
+export function seedRunOf(seed: number, result: GenerateResult): SeedRun {
+  const outcome = outcomeOf(result)
+  return {
+    seed,
+    outcome,
+    pieces: result.board.pieces.length,
+    maxLen: result.metrics?.maxLen ?? null,
+    genMs: result.genMs,
+    remaining: result.stuck?.remaining ?? 0,
+  }
+}
+
+export interface SeriesSummary {
+  total: number
+  complete: number
+  incomplete: number
+  unsolvable: number
+  stopped: number
+  /** Over the complete runs only, as `report.ts` averages its closed runs; null with none. */
+  meanPieces: number | null
+  meanMaxLen: number | null
+  meanGenMs: number | null
+}
+
+export function summariseSeries(runs: readonly SeedRun[]): SeriesSummary {
+  const count = (outcome: SeedOutcome) => runs.filter((run) => run.outcome === outcome).length
+  const done = runs.filter((run) => run.outcome === 'complete')
+  const mean = (values: readonly number[]) =>
+    values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length
+  return {
+    total: runs.length,
+    complete: done.length,
+    incomplete: count('incomplete'),
+    unsolvable: count('unsolvable'),
+    stopped: count('stopped'),
+    meanPieces: mean(done.map((run) => run.pieces)),
+    meanMaxLen: mean(done.flatMap((run) => (run.maxLen === null ? [] : [run.maxLen]))),
+    meanGenMs: mean(done.map((run) => run.genMs)),
+  }
 }

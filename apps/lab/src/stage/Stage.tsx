@@ -43,11 +43,14 @@ export function Stage({
   settings,
   run,
   side,
+  series = null,
   busy = false,
 }: {
   settings: ReactNode
   run: ReactNode
   side: ReactNode
+  /** The lab's Seeds section, passed to the report drawer; null on the saved boards. */
+  series?: ReactNode
   /** A carve in flight on the lab: the board is about to change. */
   busy?: boolean
 }): ReactElement {
@@ -96,7 +99,7 @@ export function Stage({
             {reportOpen ? '▶' : '◀'}
           </span>
         </button>
-        <ReportPanel />
+        <ReportPanel series={series} />
       </div>
     </div>
   )

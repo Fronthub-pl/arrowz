@@ -33,6 +33,7 @@ function recorder() {
     start: () => void seen.push({ ...useStore.getState().params.values }),
     abort: () => {},
     hold: () => {},
+    checkSeeds: () => {},
   }
   return { control, seen }
 }

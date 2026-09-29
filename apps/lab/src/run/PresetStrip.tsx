@@ -28,6 +28,8 @@ const MODES: readonly PresetMode[] = ['square', 'portrait', 'tunnels', 'skeleton
 export function PresetStrip({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const values = useStore((state) => state.params.values)
+  // `choose` rewrites every knob before `applyPreset` can refuse a series still running.
+  const running = useStore((state) => state.series.phase === 'running')
   const current = findPreset(values)
   // `PresetLevel.id` is a `string` and the dictionary's `levels` a fixed-key
   // object, so the index needs narrowing.
@@ -141,6 +143,7 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
                     type="button"
                     data-col={c}
                     data-row={r}
+                    disabled={running}
                     {...(current?.id === option.id ? { 'aria-current': true } : {})}
                     aria-label={`${levelName} ${W}×${H} ${mode}`}
                     aria-describedby={`${panelId}-mode-${option.mode}`}

@@ -15,7 +15,12 @@ import '../design/run.css'
 
 function stub() {
   const calls = { start: 0, abort: 0 }
-  const control: RunControl = { start: () => void calls.start++, abort: () => void calls.abort++, hold: () => {} }
+  const control: RunControl = {
+    start: () => void calls.start++,
+    abort: () => void calls.abort++,
+    hold: () => {},
+    checkSeeds: () => {},
+  }
   return { control, started: () => calls.start, aborted: () => calls.abort }
 }
 
@@ -57,6 +62,7 @@ beforeEach(() => {
   state.params.reset()
   state.run.reset()
   state.result.reset()
+  state.series.reset()
   state.ui.setAuto(false)
   state.ui.setMode('advanced')
 })
@@ -89,6 +95,14 @@ describe('RunColumn', () => {
     useStore.getState().run.started(useStore.getState().params.values)
     useStore.getState().run.stopRequested()
     await expect.element(screen.getByRole('button', { name: 'Discard' })).toBeEnabled()
+  })
+
+  // The button speaks for whichever of the two is in flight.
+  it('renames Abort to Discard once a series requests a stop', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    useStore.getState().series.started(defaultParams(), 3)
+    useStore.getState().series.stopRequested()
+    await expect.element(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
   })
 
   // Abort is not a second Generate: it is live exactly while a worker is.
@@ -142,6 +156,7 @@ describe('RunColumn', () => {
       start: () => useStore.getState().run.started(useStore.getState().params.values),
       abort: () => useStore.getState().run.aborted(),
       hold: () => {},
+      checkSeeds: () => {},
     }
     const screen = await render(<Host control={live} />)
     const go = buttonOf(screen.getByRole('button', { name: 'Generate' }).element())
@@ -229,6 +244,19 @@ describe('the alternative actions', () => {
     await screen.getByRole('button', { name: 'Defaults' }).click()
     expect(useStore.getState().params.violations).toHaveLength(0)
     expect(g.started()).toBe(1)
+  })
+
+  // A series owns the knobs it is checking; a normal run does not, so it
+  // leaves both buttons enabled (unlike Generate).
+  it('disables New seed and Defaults while a series runs, not during a normal run', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    useStore.getState().run.started(useStore.getState().params.values)
+    await expect.element(screen.getByRole('button', { name: 'New seed' })).toBeEnabled()
+    await expect.element(screen.getByRole('button', { name: 'Defaults' })).toBeEnabled()
+    useStore.getState().run.reset()
+    useStore.getState().series.started(defaultParams(), 3)
+    await expect.element(screen.getByRole('button', { name: 'New seed' })).toBeDisabled()
+    await expect.element(screen.getByRole('button', { name: 'Defaults' })).toBeDisabled()
   })
 
   // Geometry, because `.fw-cmd`'s text is in the DOM whether or not the box

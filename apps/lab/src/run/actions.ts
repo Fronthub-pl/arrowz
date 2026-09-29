@@ -42,6 +42,9 @@ export function defaults(control: RunControl): void {
  * that number and a copy drifts.
  */
 export function stepSeed(control: RunControl, delta: number): void {
+  // Before the write: `control.start()` refuses during a series too, but only
+  // after this would already have rewritten the seed under it.
+  if (useStore.getState().series.phase === 'running') return
   const params = useStore.getState().params
   params.setMany({ seed: params.values.seed + delta })
   drawIfRandom()
@@ -61,6 +64,8 @@ export function stepSeed(control: RunControl, delta: number): void {
  * slice's tolerant reader, because it is a view field and not a knob.
  */
 export function applyPreset(control: RunControl, params: Partial<Params>): void {
+  // Same reason as `stepSeed`: refuse before rewriting the knobs, not after.
+  if (useStore.getState().series.phase === 'running') return
   const state = useStore.getState()
   const full: Partial<Params> = {}
   for (const spec of PARAM_SPEC) full[spec.key] = params[spec.key] ?? spec.def

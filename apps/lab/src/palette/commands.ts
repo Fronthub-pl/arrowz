@@ -6,7 +6,7 @@ import type { PlainUiKey } from '../console/viewFields'
 import { VIEW_FLAGS, VIEW_NUMBERS, VIEW_ROWS } from '../console/viewFields'
 import { openFilePicker } from '../library/BoardFileInput'
 import { applyPreset, defaults, generate, reseed } from '../run/actions'
-import type { RunControl } from '../run/useRun'
+import { inFlight, type RunControl } from '../run/useRun'
 import { readBand } from '../state/band'
 import { type Store, useStore } from '../state/store'
 import { lookOf, PALETTE_CAP } from '../state/view.slice'
@@ -159,7 +159,8 @@ function lookRows(deps: CommandDeps, state: Store): Command[] {
   ]
 }
 
-function presetRows(deps: CommandDeps): Command[] {
+/** A preset row's `run` rewrites every knob before `applyPreset` can refuse, so it is disabled during a series too. */
+function presetRows(deps: CommandDeps, running: boolean): Command[] {
   const levels = deps.dict.d.presets.levels as Partial<Record<string, string>>
   const rows: Command[] = []
   for (const level of PRESETS) {
@@ -171,9 +172,9 @@ function presetRows(deps: CommandDeps): Command[] {
         section: 'preset',
         name: deps.dict.d.presets.modes[option.mode],
         note: levels[level.id] ?? level.id,
-        value: `${W}×${H}`,
+        value: running ? deps.dict.t('cmdRunning') : `${W}×${H}`,
         hay: option.id,
-        disabled: false,
+        disabled: running,
         run: () => {
           applyPreset(deps.control, option.params)
           useStore.getState().ui.closePalette()
@@ -187,7 +188,7 @@ function presetRows(deps: CommandDeps): Command[] {
 /** Every row the palette can show, in the order it shows them. */
 export function buildCommands(deps: CommandDeps, state: Store): Command[] {
   const { dict } = deps
-  const running = state.run.phase === 'running'
+  const running = inFlight(state)
   const broken = state.params.violations.length > 0
   const run: Command[] = [
     {
@@ -236,7 +237,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
     {
       id: 'run-abort',
       section: 'run',
-      name: state.run.stopping ? dict.t('abortDiscard') : dict.t('abort'),
+      name: state.run.stopping || state.series.stopping ? dict.t('abortDiscard') : dict.t('abort'),
       note: dict.t('cmdSecRun'),
       value: running ? '' : dict.t('cmdNoRun'),
       hay: 'abort stop',
@@ -246,6 +247,25 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
         state.ui.closePalette()
       },
     },
+    // `RunColumn` hides `SeriesRow` in the simple view, so the row is absent
+    // here too rather than disabled, with nothing on screen for it to reach.
+    ...(state.ui.mode === 'simple'
+      ? []
+      : [
+          {
+            id: 'run-check-seeds',
+            section: 'run' as const,
+            name: dict.t('checkSeeds'),
+            note: dict.t('cmdSecRun'),
+            value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : '',
+            hay: 'check seeds series many rate',
+            disabled: running || broken,
+            run: () => {
+              deps.control.checkSeeds()
+              state.ui.closePalette()
+            },
+          },
+        ]),
     {
       id: 'run-solo',
       section: 'run',
@@ -308,7 +328,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
   ]
   // No export rows: each export is a closure inside `ExportButtons` holding a
   // worker or a per-board hash, reachable only by clicking its button.
-  return [...run, ...go, ...knobRows(deps, state), ...lookRows(deps, state), ...presetRows(deps)]
+  return [...run, ...go, ...knobRows(deps, state), ...lookRows(deps, state), ...presetRows(deps, running)]
 }
 
 function goRow(deps: CommandDeps, id: string, name: string, path: string): Command {

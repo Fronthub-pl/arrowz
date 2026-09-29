@@ -17,7 +17,7 @@ import '../design/run.css'
 
 function stub() {
   const calls = { start: 0 }
-  const control: RunControl = { start: () => void calls.start++, abort: () => {}, hold: () => {} }
+  const control: RunControl = { start: () => void calls.start++, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
   return { control, started: () => calls.start }
 }
 

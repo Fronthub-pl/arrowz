@@ -39,6 +39,13 @@
   opacity: 0.5;
   cursor: default;
 }
+/* The Check seeds row sits beside its count field, not stacked like the rest of `.fw-alt`. */
+.fw .fw-series {
+  flex-direction: row;
+}
+.fw .fw-series > button {
+  flex: 1;
+}
 .fw-ghost {
   flex: none;
   display: flex;
@@ -536,6 +543,13 @@
    outcome. The live `<output>` stays in `.fw-bar`, mounted at every band,
    so announcements do not depend on a column a sheet may hide (shell.css). */
 .fw .fw-go.busy {
+  opacity: 1;
+  background: linear-gradient(to right, var(--signal-fill) 0 var(--p), var(--surface) var(--p) 100%);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+/* Check seeds is Generate's meter for a series: the same fill, on its own button. */
+.fw .fw-series > button.busy {
   opacity: 1;
   background: linear-gradient(to right, var(--signal-fill) 0 var(--p), var(--surface) var(--p) 100%);
   color: var(--ink);

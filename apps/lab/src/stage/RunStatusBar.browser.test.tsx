@@ -49,6 +49,7 @@ beforeEach(() => {
   state.params.reset()
   state.run.reset()
   state.result.reset()
+  state.series.reset()
   // `boardError` outranks even the refusal, so a case that sets it would
   // otherwise decide every case after it in this file.
   state.library.reset()
@@ -119,6 +120,25 @@ describe('RunStatusBar', () => {
     state.run.stopRequested()
     const screen = await mountBar()
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('stopping'))
+  })
+
+  // A series in flight speaks for the status line, not the board's last run.
+  it('counts a series in flight, then hands the line back to the board', async () => {
+    const state = useStore.getState()
+    state.series.started(state.params.values, 20)
+    state.series.answered({ seed: 1, outcome: 'complete', pieces: 1, maxLen: 1, genMs: 1, remaining: 0 })
+    const screen = await mountBar()
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('seriesStatus', 1, 20))
+    await act(async () => state.series.finished())
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('pressGenerate'))
+  })
+
+  it('says Stopping the seeds… once a series stop is requested', async () => {
+    const state = useStore.getState()
+    state.series.started(state.params.values, 20)
+    state.series.stopRequested()
+    const screen = await mountBar()
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('seriesStopping'))
   })
 
   // An 8 × 8 run has 2 × (8 + 8) = 32 places a head can stand; the stuck report is stated.

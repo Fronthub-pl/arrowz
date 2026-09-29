@@ -36,6 +36,7 @@ function recordingControl() {
     }),
     abort: vi.fn(),
     hold: vi.fn(),
+    checkSeeds: vi.fn(),
   }
   return { control, seeds }
 }

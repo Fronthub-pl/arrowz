@@ -1,8 +1,17 @@
 import { assert, assertEquals } from '@std/assert'
-import { defaultParams, generate } from './mod.ts'
+import { defaultParams, generate, GenerateAbort } from './mod.ts'
 import { dictionary } from './lab-i18n.ts'
-import { genSeconds, reportDelta, type ReportInput, reportRows, type StatKey, type StatRow } from './lab-report.ts'
-import type { CarverStats, Metrics } from './types.ts'
+import {
+  genSeconds,
+  reportDelta,
+  type ReportInput,
+  reportRows,
+  seedRunOf,
+  type StatKey,
+  type StatRow,
+  summariseSeries,
+} from './lab-report.ts'
+import type { CarverStats, Metrics, SeedRun } from './types.ts'
 
 // The spec's sentences, verbatim: a changed word is a changed spec.
 const HELP_EN: Record<StatKey, string> = {
@@ -380,4 +389,68 @@ Deno.test('reportDelta says only which way the number moved', () => {
   assertEquals(reportDelta(2, 1)?.trend, 'up')
   assertEquals(reportDelta(1, 2)?.trend, 'down')
   assertEquals(reportDelta(0.5, 0.25)?.trend, 'up')
+})
+
+Deno.test('seedRunOf: a complete board is complete, with its arrows and longest', () => {
+  const result = generate({ ...defaultParams(), W: 8, H: 8, seed: 1 })
+  const run = seedRunOf(1, result)
+  assertEquals(run.outcome, 'complete')
+  assertEquals(run.pieces, result.board.pieces.length)
+  assertEquals(run.maxLen, result.metrics?.maxLen ?? null)
+  assertEquals(run.remaining, 0)
+})
+
+Deno.test('seedRunOf: a stopped run is stopped, whatever else it says', () => {
+  let calls = 0
+  const result = generate({ ...defaultParams(), W: 400, H: 400, seed: 7 }, {
+    trace: () => {
+      calls++
+      throw new GenerateAbort('test')
+    },
+  })
+  assertEquals(calls, 1)
+  const run = seedRunOf(7, result)
+  assertEquals(run.outcome, 'stopped')
+  assert(run.remaining > 0)
+})
+
+Deno.test('seedRunOf: incomplete and unsolvable come from ok and deadlock', () => {
+  const base = generate({ ...defaultParams(), W: 8, H: 8, seed: 1 })
+  assertEquals(
+    seedRunOf(1, { ...base, ok: false, aborted: false, deadlock: false, stuck: { remaining: 5, sizes: [5], heads: 0 } })
+      .outcome,
+    'incomplete',
+  )
+  assertEquals(
+    seedRunOf(1, { ...base, ok: false, aborted: false, deadlock: false, stuck: { remaining: 5, sizes: [5], heads: 0 } })
+      .remaining,
+    5,
+  )
+  assertEquals(seedRunOf(1, { ...base, ok: false, aborted: false, deadlock: true, stuck: null }).outcome, 'unsolvable')
+  assertEquals(seedRunOf(1, { ...base, ok: false, aborted: false, deadlock: true, stuck: null }).remaining, 0)
+})
+
+Deno.test('summariseSeries: counts every outcome and averages the complete runs only', () => {
+  const runs: SeedRun[] = [
+    { seed: 1, outcome: 'complete', pieces: 10, maxLen: 20, genMs: 5, remaining: 0 },
+    { seed: 2, outcome: 'complete', pieces: 30, maxLen: 40, genMs: 15, remaining: 0 },
+    { seed: 3, outcome: 'incomplete', pieces: 999, maxLen: 999, genMs: 999, remaining: 12 },
+    { seed: 4, outcome: 'stopped', pieces: 1, maxLen: null, genMs: 1, remaining: 50 },
+  ]
+  assertEquals(summariseSeries(runs), {
+    total: 4,
+    complete: 2,
+    incomplete: 1,
+    unsolvable: 0,
+    stopped: 1,
+    meanPieces: 20,
+    meanMaxLen: 30,
+    meanGenMs: 10,
+  })
+})
+
+Deno.test('summariseSeries: with no complete run the means are null', () => {
+  const s = summariseSeries([{ seed: 1, outcome: 'incomplete', pieces: 3, maxLen: 4, genMs: 5, remaining: 6 }])
+  assertEquals([s.meanPieces, s.meanMaxLen, s.meanGenMs], [null, null, null])
+  assertEquals(summariseSeries([]).total, 0)
 })
