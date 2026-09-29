@@ -512,8 +512,8 @@ export const EN = {
     factSeed: 'seed',
     factSource: 'source',
     factGenerated: 'generated',
-    factFile: 'File',
-    factEmpty: 'Empty cells',
+    factFile: 'file',
+    factEmpty: 'empty cells',
     fileNoMeta:
       'Opened without its meta file. Choose the board file together with its meta (the .json of the same name in the store) to get the command, the seed and Load into lab.',
     secStoredArrows: 'arrows · saved with the board',
@@ -1286,8 +1286,8 @@ export const PL: Translation = {
     factSeed: 'ziarno',
     factSource: 'źródło',
     factGenerated: 'wygenerowano',
-    factFile: 'Plik',
-    factEmpty: 'Puste pola',
+    factFile: 'plik',
+    factEmpty: 'puste pola',
     fileNoMeta:
       'Otwarta bez pliku meta. Wybierz plik planszy razem z jej meta (plik .json o tej samej nazwie w magazynie), żeby dostać komendę, ziarno i „Wczytaj do laboratorium”.',
     secStoredArrows: 'strzałki · zapisane z planszą',

@@ -46,7 +46,10 @@ export function FileColumn({ opened, control }: { opened: OpenedFile; control: R
     const view = meta === null ? viewOf(useStore.getState().view) : meta.view
     drawing.current = drawSvg(
       file,
-      { ...svgOptions({ ...view, ...look }), voids: meta?.ok === false },
+      {
+        ...svgOptions({ ...view, ...look }),
+        voids: meta === null ? useStore.getState().view.voids : meta.ok === false,
+      },
       `${stem}.svg`,
       setDrawError,
       () => {
