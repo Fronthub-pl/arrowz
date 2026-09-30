@@ -15,6 +15,7 @@ import {
   openPrClaims,
   paragraphs,
   presentSegments,
+  projectMemoryDir,
   runMemoryHook,
   sessionStart,
   staleState,
@@ -339,4 +340,9 @@ Deno.test('the committed settings run memory-guard on memory writes and at sessi
   assertStringIncludes(cmdStart, '--allow-run=gh,git')
   assertStringIncludes(cmdStart, '--allow-read="$HOME/.claude/projects" ')
   assertEquals(cmdStart.includes('--allow-net'), false)
+})
+
+Deno.test('projectMemoryDir: the project key replaces every character outside [A-Za-z0-9-] with a dash', () => {
+  assertEquals(projectMemoryDir('/h', '/Users/t/dev/.a b'), '/h/.claude/projects/-Users-t-dev--a-b/memory')
+  assertEquals(projectMemoryDir('/h', '/Users/t/dev/.a b/'), '/h/.claude/projects/-Users-t-dev--a-b/memory')
 })

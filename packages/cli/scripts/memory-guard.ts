@@ -1,7 +1,7 @@
 // Advisory checks of Claude Code's memory, measured in docs/jev-guards.md: an item that only restates
 // the code or git history (Jev), a MEMORY.md line that carries content instead of a pointer, and
 // present-tense lines that went stale. They report and never gate.
-import { dirname, join, relative } from '@std/path'
+import { dirname, fromFileUrl, join, relative } from '@std/path'
 import { type Answers, defaultJudge, type Judge, type Noul } from './jev-client.ts'
 import { excerpt, type Flag, format, MAX_FLAGS, pool } from './jev-guard.ts'
 
@@ -317,9 +317,81 @@ const run: Run = async (cmd, args, cwd) => {
   }
 }
 
-function manual(mode: string | undefined, _args: string[]): Promise<number> {
-  console.error(`usage: memory-guard.ts hook | audit (got ${mode ?? 'nothing'})`)
-  return Promise.resolve(2)
+const ROOT = fromFileUrl(new URL('../../../', import.meta.url))
+
+export function projectMemoryDir(home: string, root: string): string {
+  return join(home, '.claude', 'projects', root.replace(/\/$/, '').replace(/[^A-Za-z0-9-]/g, '-'), 'memory')
+}
+
+function notesOf(dir: string, out: string[]) {
+  for (const e of listEntries(dir)) {
+    if (e.name.startsWith('.') || e.name === 'sesje') continue
+    const path = join(dir, e.name)
+    if (e.isDirectory) notesOf(path, out)
+    else if (e.name.endsWith('.md')) out.push(path)
+  }
+}
+
+function listEntries(dir: string): Deno.DirEntry[] {
+  try {
+    return Array.from(Deno.readDirSync(dir))
+  } catch {
+    return []
+  }
+}
+
+// A worktree's own project key has no memory, so the directories can be named.
+async function audit(home: string, memoryArg?: string, notesArg?: string): Promise<number> {
+  const memoryDir = memoryArg ?? projectMemoryDir(home, ROOT)
+  const index = readOrNull(join(memoryDir, 'MEMORY.md'))
+  if (index === null) {
+    console.error(`memory: no MEMORY.md in ${memoryDir}`)
+    return 1
+  }
+  const judge = await defaultJudge()
+  const deps: Deps = { judge: judge ?? (() => Promise.resolve(null)), home, read: readOrNull, list: listOrNull, run }
+  const parts: Array<string | null> = [
+    findingsReport(
+      `MEMORY.md lines over ${MAX_INDEX_LINE} characters`,
+      longIndexLines(index, (l) => `MEMORY.md:${l}`),
+      true,
+    ),
+    await sessionStart(memoryDir, ROOT, deps, true),
+  ]
+  if (judge === null) {
+    parts.push('memory: no TYPESAFE_API_KEY, so memory items were not checked')
+  } else {
+    const flags: Flag[] = []
+    for (const file of listOrNull(memoryDir) ?? []) {
+      if (file === 'MEMORY.md' || !file.endsWith('.md')) continue
+      const r = await memoryFlags(judge, paragraphs(readOrNull(join(memoryDir, file)) ?? ''), file, Infinity)
+      for (const f of r.flags) flags.push(f)
+    }
+    const notes: string[] = []
+    const notesDir = notesArg ?? join(ROOT, '.basic-memory', 'notes')
+    notesOf(notesDir, notes)
+    for (const path of notes) {
+      const r = await memoryFlags(judge, observations(readOrNull(path) ?? ''), relative(notesDir, path), Infinity)
+      for (const f of r.flags) flags.push(f)
+    }
+    const sorted = flags.sort((a, b) => b.p - a.p)
+    parts.push(
+      sorted.length === 0
+        ? null
+        : `jev: memory items that may only restate the code or git history:\n${
+          sorted.map((f) => `- ${f.where}  p=${f.p.toFixed(2)}  ${excerpt(f.excerpt, 160)}`).join('\n')
+        }`,
+    )
+  }
+  const found = parts.filter((x): x is string => x !== null)
+  console.log(found.length === 0 ? 'memory: nothing flagged' : found.join('\n\n'))
+  return 0
+}
+
+async function manual(mode: string | undefined, args: string[]): Promise<number> {
+  if (mode === 'audit') return await audit(Deno.env.get('HOME') ?? '', args[0], args[1])
+  console.error('usage: memory-guard.ts hook | audit [memory-dir] [basic-memory-notes-dir]')
+  return 2
 }
 
 if (import.meta.main) {

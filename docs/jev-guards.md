@@ -103,6 +103,40 @@ dry run measured 78.9 % detection against an 80 % bar, the owner decided the
 dictionary guard runs by hand only (`deno task jev i18n`), not through the
 hook.
 
+## Memory guard
+
+`packages/cli/scripts/memory-guard.ts` advises on Claude Code's own memory:
+the auto-memory under `~/.claude/projects/<project>/memory/` and this
+repository's basic-memory notes (server `memory-arrowz`), never the global
+basic-memory project. Spec: `docs/superpowers/specs/2026-09-30-memory-guard-design.md`.
+
+| Check | When | How |
+|---|---|---|
+| M1: an item only restates the code or git history | a memory write (not a session log) | Jev `violates` > 0.64, at most 40 items per write |
+| M2: a `MEMORY.md` line carries content | a write to `MEMORY.md` | longer than 130 characters |
+| M3: present-tense memory that is no longer true | session start | an index line or a description's first clause calls a PR open that is not, links a missing file, or names an untracked path; one `gh` and one `git` call |
+
+By hand: `deno task memory audit [memory-dir] [notes-dir]` runs all three over
+the whole memory (defaults: this checkout's project memory and `.basic-memory/notes`);
+`deno task memory:eval` re-measures M1 and M2 on the labelled set in
+`~/.config/arrowz/memory-labels.json`, which stays outside this public
+repository (override with `ARROWZ_MEMORY_LABELS`).
+
+Measured on jev-1.13.0, 2026-09-30, on the held-out half:
+
+| Metric | Value |
+|---|---|
+| M1 false alarms / hand-made detection | 0.5 % / 96.8 % |
+| M1 on real items | precision 0.88, recall 0.24 |
+| M2 | false alarms 0 %, detection 100 % |
+
+The figures vary by one or two items between runs.
+
+M1 is a precise hint, not a sweep: it misses most real violations,
+especially status paragraphs. M3 reads only present-tense text; a stale
+claim deeper in a note is not checked. The hooks run only in sessions
+started in this repository.
+
 ## Limits
 
 - An edit inside a nested worktree under the project
