@@ -82,3 +82,7 @@ bd.db
 
 # bd init writes hook templates here; core.hooksPath stays unset, so they never run.
 hooks/
+
+# The board lives in the private Dolt remote (sync.remote); this repository is
+# public, so the auto-export stays a local snapshot.
+issues.jsonl
