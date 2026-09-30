@@ -67,7 +67,11 @@ swept yet and still carry history markers and long blocks.
 
 - Tasks live in beads (`bd`, prefix `arrowz`): `bd ready` for open work,
   `bd create`, `bd update <id> --claim`, `bd close <id> --reason "Merged in PR #N"`.
-- Every pull request up to #137 is imported as a closed issue `arrowz-pr<N>`
+- Every pull request has a bead, and the bead guard (`packages/cli/scripts/bead-guard.ts`)
+  denies `gh pr create` until the body cites it as `Bead: <id>`. Work taken from
+  an existing bead cites that bead; only work with no bead gets a new one. Claim
+  it with `--set-metadata branch=<branch>`. See `docs/bead-guard.md`.
+- Every pull request up to #138 is imported as a closed issue `arrowz-pr<N>`
   (labels `pr` plus `merged` or `not-merged`, plus the branch area such as `lab`
   or `engine`); `bd list --status closed --label lab` browses that history.
 - The Dolt database under `.beads/` is local and git-ignored; `.beads/issues.jsonl`
