@@ -172,7 +172,7 @@ different counter over 237 files; the two numbers are not comparable.)
 | 8. `useStoredBoard` into a library action | fixed in #131 | `openStoredBoard` returns its cancel and takes `read`; `openStoredBoard.test.ts` runs its exits and races in node |
 | 9. One roving-focus helper | fixed in #131 | `shell/roving.ts`: `nextIndex` for `TabRow`, `GroupRail`, `BoardsRail`, `Segmented` and `CommandPalette`, `useFocusFollowsSelection` for the four strips; `PresetStrip`'s 2-D grid stays apart by decision |
 | 10. Symbols instead of `file.ts:NN` | fixed in `0d0d809`, `fcc58af`, `6d60475`, `d0edfd9`, `428be15`, `eed9851`, `fcf0c0a`, `f6c4673`, `ffb4dd1`, `0be63c3`, `5e78da1`, `e7b0d50`, `701e83a` | Swept, and the guard fails on the pattern |
-| 11. Try the React Compiler | open | |
+| 11. Try the React Compiler | kept on `lab/react-compiler` | On by default, `LAB_REACT_COMPILER=0` turns it off; the drag trace and the full suite held (see section 11). `PaletteDialog` opts out with `'use no memo'`, and a palette test pins why |
 
 ### Smaller practice issues and dead code
 
@@ -243,7 +243,7 @@ section above).
 
 1. **The copy pass is done:** the report, the simple view and the glossary across the knobs, the view panel and the saved boards' list, all on `lab/glossary`.
 2. **Smaller correctness items:** done on `lab/correctness-2` (the `aborted` flag, the per-board view save, the worker's stale handlers and failed load, the delayed revoke; the SVG now carries the colours instead of a note). The SVG download from the drawing worker's callback was checked in WebKit and Firefox: the download fired in Playwright 1.63's WebKit and Firefox 155 engines (and Chromium as a control), each saving a valid SVG; Playwright's WebKit is not Safari itself, so Safari proper remains unchecked.
-3. **Structural refactors:** 11; 5 and 7 are done. The smaller practice issues are done on `lab/practice-issues`.
+3. **Structural refactors:** all eleven are done; 11 kept the React Compiler on `lab/react-compiler`. The smaller practice issues are done on `lab/practice-issues`.
 5. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
 6. **Observations from the live pass and deferred review minors:** the report
@@ -1055,6 +1055,22 @@ Scope: `apps/lab` at `b9a5a9d` (worktree `/Users/tomek/dev/arrowz-review`). Ever
 - **Where:** `vite.config.ts` and `vitest.config.ts` run plain `react()`. `babel-plugin-react-compiler` appears in `pnpm-lock.yaml:677` only as an optional peer and is not installed. The lint side is already on: `react-hooks` v7 `flat.recommended` in `eslint.config.js`. Several comments work around its absence, for example `run/useAutoRun.ts:17-19` ("with nothing in `apps/lab` memoised against it") and the whole-slice subscriptions under "Smaller practice issues" below.
 - **Proposal:** Enable it behind a flag, run the full browser suite and a drag trace, and keep it if both hold. The code already passes the compiler's lint rules (one `eslint-disable` in all of `src`, at `CommandPalette.tsx:188`, and it is for jsx-a11y).
 - **Size:** S to try. **Payoff:** medium if it holds.
+- **Result: kept.** `babel-plugin-react-compiler` 1.0 through `reactCompilerPreset` and `@rolldown/plugin-babel` (`@vitejs/plugin-react` 6 has no Babel of its own), in `vite.config.ts`'s `reactPlugins`, which the browser tests share.
+  - *Coverage:* 118 components and hooks compile. `useSeries` does not (the compiler cannot lower `busy++` on a variable a closure captures) and needs nothing: it memoises by hand.
+  - *Suite:* 1431 of 1431 pass with it on; a probe fetched `console/Knob.tsx` from the test server and found `react/compiler-runtime` with the flag on and not with it off, so the browser project really runs compiled code.
+  - *Drag trace:* production builds side by side, a fresh page per run, 5 runs a side, alternated; main-thread script time from CDP `Performance.getMetrics`, renders counted with React DevTools' `didFiberRender` rule. Commits are identical in every case: the compiler changes how much renders, not when.
+
+    ```
+    drag                       renders off → on      script ms, median [min–max]
+    thickness, simple view     2465 → 1615 (−34%)    148 [134–164] → 122 [118–130]
+    thickness, Preview tab     3655 → 1955 (−47%)    182 [168–183] → 130 [124–133]
+    winding (carves each step) 1911 → 1556 (−19%)    189 [180–198] → 182 [171–186]
+    board pan                     0 → 0              106 → 106
+    ```
+
+    Without it a thickness step redraws every view row's whole subtree (`NumberRow` down to `KnobTrack`); with it the rows still render, since they subscribe, but only the two whose values move (thickness, and the automatic head width that follows it) go deeper. The pan never reaches React.
+  - *The one hazard:* the compiler keys a memo on what its body reads and drops the rest of a hand-written list. `PaletteDialog`'s `commands` reads its slices through `getState()`, so compiled, the open palette would stop redrawing its rows; the suite did not notice. Today `useStore.getState()` inside the component happens to make the compiler skip it; `'use no memo'` makes that explicit, and `redraws its rows when a run starts while it is open` fails when the palette is compiled. No other `useMemo` or `useCallback` in `src` lists a value its body does not read; effects keep their lists as written.
+  - *Cost:* the main chunk grows from 557.9 kB to 623.9 kB (gzip 180.9 kB to 207.5 kB, +15%), which a local tool can afford.
 
 ### Smaller practice issues
 
