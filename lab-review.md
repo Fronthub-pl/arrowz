@@ -178,22 +178,22 @@ different counter over 237 files; the two numbers are not comparable.)
 
 | Item | Status | Note |
 | --- | --- | --- |
-| Whole-slice subscriptions | open | |
-| `specOf` written four times | open | |
+| Whole-slice subscriptions | fixed on `lab/practice-issues` | `ViewPanel`, `ColoursSection` and `SeriesSection` read their fields through `useShallow`, counted in `state/subscriptions.browser.test.tsx`; `LiveCommand`, `CommandPalette`, `BoardFrame` and `useRunLine` read every field they subscribe to |
+| `specOf` written four times | fixed on `lab/practice-issues` | `One, exported from `state/params.slice.ts`` |
 | `MIX_SPEC` exported for no test | fixed in `a2f60e0` | No longer exported |
 | `ThemeSwatchStrip` exported for no importer | fixed in `a2f60e0` | |
-| Hard-coded `'on' : 'off'` | open | Same as the LOW correctness finding |
-| `autoHeadWidth` copies the engine | open | |
-| `file: unknown` then `as BoardFile` | open | |
-| Locale mapping duplicated | open | |
-| Slice boilerplate | open | |
+| Hard-coded `'on' : 'off'` | fixed in `feb59ab` | `The palette reads `valueOn`/`valueOff`` |
+| `autoHeadWidth` copies the engine | fixed on `lab/practice-issues` | `The engine exports `autoHeadWidth`; the lab's `autoHeadChip` snaps it |
+| `file: unknown` then `as BoardFile` | fixed on `lab/practice-issues` | `decodeBoardFile` returns the file typed |
+| Locale mapping duplicated | fixed on `lab/practice-issues` | `dict.locale` |
+| Slice boilerplate | fixed on `lab/practice-issues` | `state/slice.ts`: `SliceSet`, `patcher`, `persistedFlag` |
 | `paletteUpdate(_state, colors)` | fixed in `a2f60e0` | Parameter dropped |
 | `const set = onSet` | fixed in `a2f60e0` | |
-| `params.broken` rebuilt on every commit | open | |
-| Workspace class string (`cx()`) | open | |
+| `params.broken` rebuilt on every commit | fixed on `lab/practice-issues` | `Measured: a broken knob re-rendered on every other edit; equal violations keep their array |
+| Workspace class string (`cx()`) | fixed on `lab/practice-issues` | `One site left, an array joined; no helper |
 | Very long comments | fixed in `0d0d809`, `3728763`, `fcc58af`, `6d60475`, `d0edfd9`, `428be15`, `eed9851`, `fcf0c0a`, `f6c4673`, `ffb4dd1`, `0be63c3`, `5e78da1`, `e7b0d50`, `701e83a` | No non-header block over 6 lines in scope |
-| `BoardFrame` memo keys | open | |
-| Circular type import `Console` ↔ `Workspace` | open | |
+| `BoardFrame` memo keys | obsolete | `viewOf` carries the look, so `labView` reads every field it depends on |
+| Circular type import `Console` ↔ `Workspace` | fixed on `lab/practice-issues` | `WorkspaceTab` lives in `state/ui.slice.ts` |
 | Dead code table (`KnobSlider`, `FieldHelp`, `viewHelpEntries`, `ViewField.help`, dead CSS, `console.test.ts`, `.fw-k` selector) | fixed in `a2f60e0` | |
 
 ### Fixed as a side effect
@@ -243,7 +243,7 @@ section above).
 
 1. **The copy pass is done:** the report, the simple view and the glossary across the knobs, the view panel and the saved boards' list, all on `lab/glossary`.
 2. **Smaller correctness items:** done on `lab/correctness-2` (the `aborted` flag, the per-board view save, the worker's stale handlers and failed load, the delayed revoke; the SVG now carries the colours instead of a note). The SVG download from the drawing worker's callback was checked in WebKit and Firefox: the download fired in Playwright 1.63's WebKit and Firefox 155 engines (and Chromium as a control), each saving a valid SVG; Playwright's WebKit is not Safari itself, so Safari proper remains unchecked.
-3. **Structural refactors:** 11; 5 and 7 are done.
+3. **Structural refactors:** 11; 5 and 7 are done. The smaller practice issues are done on `lab/practice-issues`.
 5. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
 6. **Observations from the live pass and deferred review minors:** the report
