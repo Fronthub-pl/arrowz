@@ -1,7 +1,6 @@
-import react from '@vitejs/plugin-react'
 import { playwright } from '@vitest/browser-playwright'
 import { defineConfig } from 'vitest/config'
-import { ISOLATION } from './vite.config.ts'
+import { ISOLATION, reactPlugins } from './vite.config.ts'
 
 export default defineConfig({
   test: {
@@ -28,7 +27,7 @@ export default defineConfig({
         },
       },
       {
-        plugins: [react()],
+        plugins: reactPlugins(),
         // Only `src/main.tsx` imports `react-dom/client`, and no test reaches
         // it: the browser run meets the module for the first time when the
         // first file renders. A cold optimizer therefore discovers it mid-run,

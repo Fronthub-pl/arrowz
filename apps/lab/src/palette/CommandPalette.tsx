@@ -29,6 +29,9 @@ export function CommandPalette({ control }: { control: RunControl }): ReactEleme
 }
 
 function PaletteDialog({ control }: { control: RunControl }): ReactElement {
+  // The compiler keys a memo on what its body reads, and `commands` reads its
+  // slices through `getState()`: compiled, the rows would stop following them.
+  'use no memo'
   const dict = useDictionary()
   const navigate = useNavigate()
   const { pathname } = useLocation()

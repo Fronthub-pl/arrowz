@@ -155,6 +155,17 @@ describe('the palette dialog', () => {
     expect(useStore.getState().ui.palette).toBe(true)
   })
 
+  // The rows read the store through `getState()`, so only the hand-kept memo
+  // list redraws them; a compiled `PaletteDialog` would key them on `deps` alone.
+  it('redraws its rows when a run starts while it is open', async () => {
+    const screen = await mount()
+    const disabled = (id: string) => screen.container.querySelector(`#${id}`)?.getAttribute('aria-disabled')
+    expect(disabled('cmd-run-generate')).toBeNull()
+    useStore.getState().run.started(useStore.getState().params.values)
+    await expect.poll(() => disabled('cmd-run-generate')).toBe('true')
+    expect(disabled('cmd-run-abort')).toBeNull()
+  })
+
   it('names all seven hotkeys on the lab, where every one of them is bound', async () => {
     const screen = await mount()
     expect(footer(screen)).toContain('generate')

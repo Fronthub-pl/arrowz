@@ -8,8 +8,8 @@ export const AUTO_DELAY_MS = 350
 /**
  * Generate AUTO_DELAY_MS after the last knob or recipe edit. Mounted once, in `App`.
  *
- * - Subscribes inside the effect: a render selector would repaint the whole
- *   shell ~60×/s during a drag, and nothing in the shell is memoised against it.
+ * - Subscribes inside the effect: a render selector would re-render `App`
+ *   ~60×/s during a drag.
  * - Watches `params.edits`, not `values`: a preset writes every knob and runs at
  *   once, and a watcher on the values could not tell it from a hand on a slider.
  * - Reads `ui.auto` both at the edit (switching it on arms the next edit, not
