@@ -90,7 +90,16 @@ export function Workspace({
             `auto` row. `presets-top` (the strip in the top bar) takes the
             simple view's rows for the same reason. */}
         <div
-          className={`fw-lab${lab ? '' : ' library'}${simple ? ' simple' : ''}${lab && !simple && presetsInTop ? ' presets-top' : ''}${solo ? ' solo' : ''}${sheet === null ? '' : ` sheet-${sheet}`}`}
+          className={[
+            'fw-lab',
+            lab ? '' : 'library',
+            simple ? 'simple' : '',
+            lab && !simple && presetsInTop ? 'presets-top' : '',
+            solo ? 'solo' : '',
+            sheet === null ? '' : `sheet-${sheet}`,
+          ]
+            .filter(Boolean)
+            .join(' ')}
         >
           {/* Every one of these keeps its slot as `null` rather than leaving
               the child list: React keeps a node by type and position, and a

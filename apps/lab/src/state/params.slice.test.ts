@@ -160,3 +160,23 @@ describe('the edit counter behind auto-generate', () => {
 test('specOf is the PARAM_SPEC row for a key', () => {
   for (const spec of PARAM_SPEC) expect(specOf(spec.key)).toBe(spec)
 })
+
+test('a knob that stays broken keeps its violation array when another knob is edited', () => {
+  reset()
+  params().set('Lmax', 5)
+  const before = params().broken.Lmax
+  expect(before).toBeDefined()
+  params().set('W', 31)
+  expect(params().broken.Lmax).toBe(before)
+})
+
+test('a changed bound replaces the array, so the row prints the new need', () => {
+  reset()
+  params().setMany({ W: 900, H: 900, pStraight: 0.6 })
+  const before = params().broken.pStraight
+  params().setMany({ W: 1000, H: 1000 })
+  const after = params().broken.pStraight
+  expect(after).not.toBe(before)
+  const rule = after?.find((v) => v.kind === 'rule')
+  expect(rule?.kind === 'rule' ? rule.need : undefined).toBe(straightFloor(params().values))
+})

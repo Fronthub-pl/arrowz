@@ -1,6 +1,8 @@
 import { defaultParams, type SeedRun } from '@arrowz/engine'
 import type { ReactNode } from 'react'
 import { beforeEach, expect, test, vi } from 'vitest'
+import { KnobTrack } from '../console/KnobRow'
+import { ValueKnob } from '../console/ValueKnob'
 import { ViewPanel } from '../console/ViewPanel'
 import { ColoursSection } from '../console/rows/ColoursSection'
 import { Section } from '../console/rows/Section'
@@ -10,11 +12,13 @@ import { renderAt } from '../harness/renderAt'
 import { SeriesSection } from '../report/SeriesSection'
 import { StatRowView } from '../report/StatRowView'
 import type { RunControl } from '../run/useRun'
+import { specOf } from './params.slice'
 import { useStore } from './store'
 
 // Every export calls through. A pure child (no store hook) renders only when
 // its parent does, so its calls count the parent's renders; a Profiler cannot,
 // since it counts commits of the whole subtree, the row that reads the field included.
+vi.mock('../console/KnobRow', { spy: true })
 vi.mock('../console/rows/Section', { spy: true })
 vi.mock('../report/StatRowView', { spy: true })
 
@@ -104,4 +108,27 @@ test('each colour row shows its own field', async () => {
     '#222222',
     '#333333',
   ])
+})
+
+test('a knob that stays broken does not re-render when another knob is edited', async () => {
+  useStore.getState().params.set('Lmax', 5)
+  const calls = await callsDuring(<ValueKnob spec={specOf('Lmax')} />, vi.mocked(KnobTrack), () =>
+    useStore.getState().params.set('W', 31),
+  )
+  expect(calls).toBe(0)
+})
+
+test('a valid knob does not re-render when another knob is edited', async () => {
+  const calls = await callsDuring(<ValueKnob spec={specOf('W')} />, vi.mocked(KnobTrack), () =>
+    useStore.getState().params.set('H', 31),
+  )
+  expect(calls).toBe(0)
+})
+
+test('editing a broken knob re-renders it', async () => {
+  useStore.getState().params.set('Lmax', 5)
+  const calls = await callsDuring(<ValueKnob spec={specOf('Lmax')} />, vi.mocked(KnobTrack), () =>
+    useStore.getState().params.set('Lmax', 6),
+  )
+  expect(calls).toBeGreaterThan(0)
 })
