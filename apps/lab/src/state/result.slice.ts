@@ -29,7 +29,7 @@ export interface Baseline {
 export interface StoredBoard {
   readonly origin: 'store'
   readonly board: BoardData
-  readonly file: unknown
+  readonly file: BoardFile
   readonly meta: BoardMeta
 }
 

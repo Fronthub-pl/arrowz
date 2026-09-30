@@ -28,7 +28,7 @@ function manualRead() {
   return { read, asked, answer }
 }
 
-function showStored(board: { meta: (typeof first)['meta']; file: unknown }) {
+function showStored(board: typeof first) {
   state().result.showPreview({ origin: 'store', board: decodeBoard(board.file), file: board.file, meta: board.meta })
 }
 

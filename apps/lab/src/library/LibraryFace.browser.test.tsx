@@ -246,3 +246,12 @@ test('with no store the rail holds only Preview', async () => {
       .map((tab) => tab.textContent),
   ).toEqual(['Preview'])
 })
+
+test('a row dates its board day first, in English and in Polish', async () => {
+  const screen = await mountPanel()
+  await act(async () => useStore.getState().library.listed(sizesFixture()))
+  const when = () => screen.container.querySelector('.when')?.textContent
+  expect(when()).toMatch(/^16\/09, \d\d:\d\d$/)
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  expect(when()).toMatch(/^16\.09, \d\d:\d\d$/)
+})

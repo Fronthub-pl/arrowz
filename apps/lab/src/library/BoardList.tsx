@@ -29,7 +29,6 @@ export function BoardList({ refresh }: { refresh(): void }): ReactElement {
   const dict = useDictionary()
   const sizes = useStore((state) => state.library.sizes)
   const listError = useStore((state) => state.library.listError)
-  const lang = useStore((state) => state.lang.lang)
   const open = useOpenBoard()
   const navigate = useNavigate()
 
@@ -39,7 +38,7 @@ export function BoardList({ refresh }: { refresh(): void }): ReactElement {
 
   const when = (meta: BoardMeta) =>
     meta.createdAt
-      ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB', {
+      ? new Date(meta.createdAt).toLocaleString(dict.locale, {
           day: '2-digit',
           month: '2-digit',
           hour: '2-digit',

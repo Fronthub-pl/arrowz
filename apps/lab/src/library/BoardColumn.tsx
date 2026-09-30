@@ -1,4 +1,3 @@
-import type { BoardFile } from '@arrowz/engine'
 import { svgOptions } from '@arrowz/engine/command'
 import { genSeconds } from '@arrowz/engine/report'
 import { type ReactElement, useState } from 'react'
@@ -46,7 +45,6 @@ function LibraryLine({ line }: { line: StateLine | null }): ReactElement {
 export function BoardColumn({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const open = useOpenPreview()
-  const lang = useStore((state) => state.lang.lang)
   const navigate = useNavigate()
   const [armed, setArmed] = useState(false)
   const { library } = useRunState()
@@ -98,7 +96,7 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
     voids: meta.ok === false,
   })
 
-  const created = meta.createdAt ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB') : ''
+  const created = meta.createdAt ? new Date(meta.createdAt).toLocaleString(dict.locale) : ''
   // The layout row alone carries the full hash and wraps anywhere: a hash
   // this long has no useful shortening, and a `title` nobody can select is
   // worse than letting the row grow. The generated row wraps only at the
@@ -128,7 +126,7 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
         </button>
       </div>
       <SavedExports
-        file={stored.file as BoardFile}
+        file={stored.file}
         options={exportOptions}
         svgName={`arrowz-${meta.W}x${meta.H}-seed${meta.seed}.svg`}
         fileName={`${meta.id}.board.json` /* the id is the layout hash */}

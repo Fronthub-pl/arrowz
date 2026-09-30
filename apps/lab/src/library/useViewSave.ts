@@ -1,4 +1,4 @@
-import type { BoardFile, View } from '@arrowz/engine'
+import type { View } from '@arrowz/engine'
 import { storeRequest } from '@arrowz/engine/command'
 import { saveBoard } from '../api/boards'
 import type { StoredBoard } from '../state/result.slice'
@@ -67,8 +67,7 @@ async function write(refresh: () => void, edited: StoredBoard, posted: View): Pr
   // file this request names decides which board the store overwrites.
   const { meta, file, board } = edited
   const name = `${meta.W}x${meta.H}/${meta.id}`
-  // Held as `unknown`; `decodeBoard` accepted it at load, and it goes back untouched.
-  const request = storeRequest(file as BoardFile, meta.params, posted, meta.source, {
+  const request = storeRequest(file, meta.params, posted, meta.source, {
     ok: meta.ok,
     pieces: meta.pieces,
     maxLen: meta.maxLen,

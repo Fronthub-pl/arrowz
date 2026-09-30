@@ -35,7 +35,7 @@ function noticeText(dict: Dict, notice: LibraryNotice): string {
 
 /** A number with one decimal, in the page's language: `41.3` and `41,3`. */
 export function oneDecimal(dict: Dict, n: number): string {
-  return n.toLocaleString(dict.lang === 'pl' ? 'pl' : 'en', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  return n.toLocaleString(dict.locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 }
 
 /** One visible line of state; `bad` is a refusal or a failure, drawn in `--error`. */

@@ -2,7 +2,7 @@ import { pieceShape } from '@arrowz/engine'
 import { VIEW_RANGE } from '@arrowz/engine/command'
 import { expect, test } from 'vitest'
 import { VIEW_KEYS } from '../state/viewSchema'
-import { autoHeadWidth, VIEW_FLAGS, VIEW_NUMBERS, VIEW_ROWS } from './viewFields'
+import { autoHeadChip, VIEW_FLAGS, VIEW_NUMBERS, VIEW_ROWS } from './viewFields'
 
 test('a step is a step a whole-number field can land on', () => {
   // A fractional step on a field the store rounds makes an arrow press a no-op or a jump of one.
@@ -52,12 +52,12 @@ test.each([0.2, 0.3, 0.45, 0.5, 0.8])('the automatic head width at stroke %d is 
   }
   const base = { cell: 100, pad: 0, width: stroke * 100, headHeight: 1 }
   const auto = pieceShape(piece, { ...base, headWidth: 0 })
-  const stated = pieceShape(piece, { ...base, headWidth: autoHeadWidth(stroke, 1e-9, 10) })
+  const stated = pieceShape(piece, { ...base, headWidth: autoHeadChip(stroke, 1e-9, 10) })
   expect(stated.head).toEqual(auto.head)
 })
 
 test('the released width is snapped to the step and held under the ceiling', () => {
-  expect(autoHeadWidth(0.2, 0.05, 0.9)).toBe(0.6)
-  expect(autoHeadWidth(0.5, 0.05, 0.9)).toBe(0.5)
-  expect(autoHeadWidth(0.9, 0.05, 0.8)).toBe(0.8)
+  expect(autoHeadChip(0.2, 0.05, 0.9)).toBe(0.6)
+  expect(autoHeadChip(0.5, 0.05, 0.9)).toBe(0.5)
+  expect(autoHeadChip(0.9, 0.05, 0.8)).toBe(0.8)
 })
