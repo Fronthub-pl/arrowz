@@ -121,7 +121,7 @@ Deno.test('openPrClaims: both word orders, Polish and English; not a negation, a
   assertEquals(openPrClaims('PR #123 otwarty (worktree x)'), [123])
   assertEquals(openPrClaims('otwarty mój PR #132'), [132])
   assertEquals(openPrClaims('open PR #7 and PR #8 open'), [7, 8])
-  assertEquals(openPrClaims('PR #90 (paleta), `main` = `72fd81c`, zero otwartych PR-ów'), [])
+  assertEquals(openPrClaims('PR #90 (x y), `main` = `abc1234`, zero otwartych PR-ów'), [])
   assertEquals(openPrClaims('PR #90 (x), zero otwartych'), [])
   assertEquals(openPrClaims('zero otwartych PR #5'), [])
   assertEquals(openPrClaims('no open PR #4'), [])
