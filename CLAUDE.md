@@ -80,8 +80,9 @@ The guard walks `apps/lab/src`, `packages/board-element/src`, `packages/engine`
 - Every pull request up to #138 is imported as a closed issue `arrowz-pr<N>`
   (labels `pr` plus `merged` or `not-merged`, plus the branch area such as `lab`
   or `engine`); `bd list --status closed --label lab` browses that history.
-- The Dolt database under `.beads/` is git-ignored; `.beads/issues.jsonl` is the
-  committed export (`export.auto` is on). Worktrees share the main checkout's
+- The Dolt database under `.beads/` is git-ignored, and so is `.beads/issues.jsonl`:
+  this repository is public, so the export (`export.auto` is on) stays a local
+  snapshot and no bead content is committed. Worktrees share the main checkout's
   database. `dolt.auto-push` sends it at most every 5 minutes to the private
   `Fronthub-pl/arrowz-beads` (`sync.remote`), never to this public repository,
   and a fresh clone restores it with `bd bootstrap`. `bd init` must not
