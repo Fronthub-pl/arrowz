@@ -51,8 +51,9 @@ lines, at `d486dd1`) and 6,466 after (17.7%, at `701e83a`). The guard
 (PR, round, Ruling, Task, handoff, R-numbers, harness facts, `file.ts:NN`),
 non-header blocks of at most 6 lines and headers of at most 24, over
 `apps/lab/src`, `packages/board-element/src` and `packages/engine/lab-*.ts`.
-The engine's other files and `packages/cli` were not swept: 25 marker lines in
-9 files there, 39 with `scripts/`. (The 22.9% in "Comment prose" below used a
+The engine's other files and `packages/cli` were swept later on
+`engine/comment-sweep` (3,104 comment lines to 2,800 over 63 files), and the
+guard now walks them too. (The 22.9% in "Comment prose" below used a
 different counter over 237 files; the two numbers are not comparable.)
 
 **Follow-ups requested during the live pass.** After the browser pass at
@@ -244,8 +245,9 @@ section above).
 1. **The copy pass is done:** the report, the simple view and the glossary across the knobs, the view panel and the saved boards' list, all on `lab/glossary`.
 2. **Smaller correctness items:** done on `lab/correctness-2` (the `aborted` flag, the per-board view save, the worker's stale handlers and failed load, the delayed revoke; the SVG now carries the colours instead of a note). The SVG download from the drawing worker's callback was checked in WebKit and Firefox: the download fired in Playwright 1.63's WebKit and Firefox 155 engines (and Chromium as a control), each saving a valid SVG; Playwright's WebKit is not Safari itself, so Safari proper remains unchecked.
 3. **Structural refactors:** all eleven are done; 11 kept the React Compiler on `lab/react-compiler`. The smaller practice issues are done on `lab/practice-issues`.
-5. **Extend the comment sweep and guard** to the engine's other files and
-   `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
+5. **The comment sweep and guard cover the engine and the CLI:** done on
+   `engine/comment-sweep`; `comments.test.ts` walks all of `packages/engine`
+   (scripts included) and `packages/cli`.
 6. **Observations from the live pass and deferred review minors:** the report
    drawer covers the board's right 45 px (and the Play and ☝ buttons) at
    1440×877, known since round 2, deferred by the user's decision. The rest is
