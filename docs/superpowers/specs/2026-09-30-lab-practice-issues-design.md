@@ -6,7 +6,8 @@ grouped by section.
 
 The goal is fewer re-renders where a component reads a field or two of a
 slice, and one source for each rule the lab now writes twice. What a person
-sees does not change, except for the one case under "Behaviour changes".
+sees does not change; "Behaviour changes" lists the two formatting calls
+that change locale and the digits they keep.
 
 Every claim below was checked against `main` at `7230418`.
 
@@ -18,7 +19,7 @@ Every claim below was checked against `main` at `7230418`.
 | `BoardFrame` memo keys | obsolete: `viewOf` now carries the look (`lookOf`), so `labView` reads every field but `voids`, which it also reads | row closed, no code |
 | Slice boilerplate | `type SetStore` 9×, `const patch` 5×, two persisted toggles | section B |
 | `specOf` written four times | 3 functions and `MIX_SPEC` | section C |
-| `autoHeadWidth` copies the engine | open, and the copy drops the engine's epsilon | section C |
+| `autoHeadWidth` copies the engine | open | section C |
 | Locale mapping duplicated | `'en-GB'` 2×, `'en'` 1× | section C |
 | `file: unknown` then `as BoardFile` | 2 casts | section C |
 | Circular type import | `Console` and `SheetBar` import `WorkspaceTab` from `routes/Workspace` | section C |
@@ -137,6 +138,12 @@ in a row without a render between.
    exports it. The lab's `console/viewFields.ts` keeps its own function under
    a new name, `autoHeadChip`: it calls the engine's with `cell = 1`, then
    snaps to the field's step and clamps to its range.
+
+   The engine's `1e-9` is a float tolerance in drawing units, not part of
+   the rule: whether a stroke within 1e-9 of 0.5 draws a stick depends on the
+   cell size the element draws at, which follows the zoom. So no chip can
+   match the element in that window, and no test pins it; the tests stay on
+   both sides of 0.5.
 3. **`dict.locale`.** `Dict` in `packages/engine/lab-i18n.ts` gains
    `readonly locale: 'pl' | 'en-GB'`. `library/BoardColumn.tsx`,
    `library/BoardList.tsx` and `stage/useRunState.ts` read it, and so does
@@ -164,7 +171,7 @@ items 2–4 lands first and `pnpm nx build engine` runs before any lab task
 that imports the new exports.
 
 **Proof.** `viewFields.test.ts` keeps its check against `pieceShape` on both
-sides of 0.5 and adds a stroke 1e-10 below 0.5. An engine test checks
+sides of 0.5, now through `autoHeadChip`. An engine test checks
 `autoHeadWidth` against `pieceShape` directly, and one checks that
 `decodeBoardFile` returns the same object and throws what `decodeBoard`
 throws. A test pins `(1.5).toLocaleString` under `dict.locale` for both
@@ -188,9 +195,6 @@ languages. `neutral.test.ts` covers the engine files touched.
 
 ## Behaviour changes
 
-- The lab's automatic head width chip for a stroke within 1e-9 below 0.5
-  (reachable only by typing or linking such a stroke) now matches what the
-  element draws: a stick as wide as the line, not 0.4 + 0.9 × stroke.
 - `useRunState` and `dict.fmt` format with `'en-GB'` instead of `'en'`. Both
   give the same digits and grouping; the locale test pins it.
 
