@@ -71,6 +71,11 @@
 # - linear.api_key  → use LINEAR_API_KEY env var instead
 # - github.token    → use GITHUB_TOKEN env var instead
 
-sync.remote: "git+https://github.com/Fronthub-pl/arrowz.git"
+sync.remote: "git+https://github.com/Fronthub-pl/arrowz-beads.git"
 export:
     auto: true
+dolt:
+    # Single writer: every worktree shares the main checkout's database under one lock.
+    auto-push: true
+    auto-push-interval: 5m
+    auto-push-timeout: 30s
