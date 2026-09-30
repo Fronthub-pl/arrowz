@@ -82,11 +82,29 @@ Deno.test('observations: one item per `- [category]` line, continuation lines jo
     '- [fact] second item',
     '- [last] third item',
   ])
+  assertEquals(observations('- [a] item\n```\ncode\n```\nafter the fence'), ['- [a] item'])
 })
 
 Deno.test('paragraphs: body paragraphs of 80+ characters, frontmatter, headings and fences skipped', () => {
   const long = 'x'.repeat(80)
-  const file = ['---', 'name: n', `description: ${long}`, '---', '', '# Heading', long, '', 'short', '', '```', long, '```', '', `${long.slice(0, 40)}`, `${long.slice(0, 40)}`].join('\n')
+  const file = [
+    '---',
+    'name: n',
+    `description: ${long}`,
+    '---',
+    '',
+    '# Heading',
+    long,
+    '',
+    'short',
+    '',
+    '```',
+    long,
+    '```',
+    '',
+    `${long.slice(0, 40)}`,
+    `${long.slice(0, 40)}`,
+  ].join('\n')
   assertEquals(paragraphs(file), [long, `${long.slice(0, 40)} ${long.slice(0, 40)}`])
 })
 
@@ -112,7 +130,7 @@ Deno.test('findingsReport: null when empty, capped at five unless all', () => {
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `deno test -A packages/cli/scripts/memory-guard.test.ts`
-Expected: FAIL — `Module not found "file:///…/packages/cli/scripts/memory-guard.ts"`.
+Expected: FAIL — `TS2307 [ERROR]: Cannot find module './memory-guard.ts'` (Deno 2.9 type-checks before it runs).
 
 - [ ] **Step 3: Write the implementation**
 
@@ -213,7 +231,12 @@ Expected: PASS, 4 tests.
 
 Change `Array.from(line).length` to `new TextEncoder().encode(line).length` (bytes) and rerun. Expected: FAIL on `assertEquals(longIndexLines(polish, …), [])` in `longIndexLines: counts characters, not bytes`: the Polish line is 130 characters but more bytes. Revert the mutation by hand.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Format**
+
+Run: `deno fmt packages/cli/scripts/`
+Expected: no error. The snippets above are already formatted the way `deno fmt` leaves them (line width 120, no semicolons, single quotes); this step only catches drift.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git add packages/cli/scripts/memory-guard.ts packages/cli/scripts/memory-guard.test.ts
@@ -274,16 +297,19 @@ Deno.test('memoryFlags: no items, no request', async () => {
 
 Deno.test('memoryReport: null without flags, a jev block with them and the skipped note', () => {
   assertEquals(memoryReport({ flags: [], skipped: 4 }), null)
-  const out = memoryReport({ flags: [{ where: 'x.md', question: 'code_fact', p: 0.9, excerpt: 'fact' }], skipped: 2 }) ?? ''
+  const out =
+    memoryReport({ flags: [{ where: 'x.md', question: 'code_fact', p: 0.9, excerpt: 'fact' }], skipped: 2 }) ?? ''
   assertStringIncludes(out, '- x.md  code_fact p=0.90  fact')
   assertStringIncludes(out, '(2 further items were not checked)')
+  const none = memoryReport({ flags: [{ where: 'x.md', question: 'code_fact', p: 0.9, excerpt: 'fact' }], skipped: 0 })
+  assertEquals(none?.includes('further items'), false)
 })
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `deno test -A packages/cli/scripts/memory-guard.test.ts`
-Expected: FAIL — `does not provide an export named 'memoryFlags'`.
+Expected: FAIL — `TS2305 [ERROR]: Module './memory-guard.ts' has no exported member 'memoryFlags'` (and the same for `memoryReport`, `MEMORY_AT`, `MAX_MEMORY_REQUESTS`).
 
 - [ ] **Step 3: Write the implementation** (add to `memory-guard.ts`; merge the imports into the existing import lines)
 
@@ -298,7 +324,8 @@ export const MEMORY_QUESTIONS: Record<string, Noul> = {
       'A reviewer applying this rule would delete the `memory_item`: "A memory note records a decision with its reason, a lesson, a gotcha or a non-obvious constraint — not a fact that is plainly readable from the code or the git history."',
     criteria: {
       true: 'The item is a plain fact about the code or git history and teaches nothing else.',
-      false: 'The item records a reason, a lesson, a gotcha, a measurement, a user decision or a non-obvious constraint.',
+      false:
+        'The item records a reason, a lesson, a gotcha, a measurement, a user decision or a non-obvious constraint.',
     },
   },
 }
@@ -330,7 +357,11 @@ export async function memoryFlags(
 
 export function memoryReport(r: { flags: Flag[]; skipped: number }): string | null {
   const note = r.skipped > 0 ? `(${r.skipped} further items were not checked)` : undefined
-  return format('memory items that may only restate the code or git history (keep a reason, a lesson or a trap)', r.flags, note)
+  return format(
+    'memory items that may only restate the code or git history (keep a reason, a lesson or a trap)',
+    r.flags,
+    note,
+  )
 }
 ```
 
@@ -343,7 +374,12 @@ Expected: PASS, 8 tests.
 
 Change `p > MEMORY_AT` to `p >= MEMORY_AT`. Expected: FAIL in `memoryFlags: flags an item strictly above MEMORY_AT` (the `reason` item at exactly `MEMORY_AT` gets flagged). Revert by hand.
 
-- [ ] **Step 6: Run the whole Deno gate and commit**
+- [ ] **Step 6: Format**
+
+Run: `deno fmt packages/cli/scripts/`
+Expected: no error. The snippets above are already formatted the way `deno fmt` leaves them (line width 120, no semicolons, single quotes); this step only catches drift.
+
+- [ ] **Step 7: Run the whole Deno gate and commit**
 
 Run: `deno task verify`
 Expected: exit 0.
@@ -380,13 +416,18 @@ Deno.test('openPrClaims: both word orders, Polish and English; not a negation, a
   assertEquals(openPrClaims('otwarty mój PR #132'), [132])
   assertEquals(openPrClaims('open PR #7 and PR #8 open'), [7, 8])
   assertEquals(openPrClaims('PR #90 (paleta), `main` = `72fd81c`, zero otwartych PR-ów'), [])
+  assertEquals(openPrClaims('PR #90 (x), zero otwartych'), [])
+  assertEquals(openPrClaims('zero otwartych PR #5'), [])
   assertEquals(openPrClaims('no open PR #4'), [])
   assertEquals(openPrClaims('PR #111, open'), [])
   assertEquals(openPrClaims('reopened PR #5'), [])
 })
 
 Deno.test('presentSegments: every index line and only the first clause of a description', () => {
-  const note = { file: 'a.md', text: '---\nname: a\ndescription: "now: PR #9 open; 2026-09-01: PR #3 open"\n---\nbody PR #4 open' }
+  const note = {
+    file: 'a.md',
+    text: '---\nname: a\ndescription: "now: PR #9 open; 2026-09-01: PR #3 open"\n---\nbody PR #4 open',
+  }
   assertEquals(presentSegments('- [A](a.md) — x\n', [note]), [
     { where: 'MEMORY.md:1', text: '- [A](a.md) — x' },
     { where: 'MEMORY.md:2', text: '' },
@@ -421,15 +462,14 @@ Deno.test('staleState: unknown PRs or files check nothing of theirs; an empty se
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `deno test -A packages/cli/scripts/memory-guard.test.ts`
-Expected: FAIL — `does not provide an export named 'openPrClaims'`.
+Expected: FAIL — `TS2305 [ERROR]: Module './memory-guard.ts' has no exported member 'openPrClaims'` (and the same for `presentSegments`, `staleState`).
 
 - [ ] **Step 3: Write the implementation**
 
 ```ts
 export type Note = { file: string; text: string }
 
-// "PR #N … open/otwarty" within one clause, or "open/otwarty (mój|my) PR #N". A comma ends the clause:
-// measured on the memory, "PR #90 (…), zero otwartych" is a negation, not a claim.
+// A comma ends the clause: in "PR #N (x), zero otwartych" the words after it negate, they do not claim.
 const OPEN_PR =
   /(?<!zero )(?<!no )\b(?:PR ?#(\d+)[^.;,\n—]{0,25}?\b(?:otwart\w*|open)\b|(?:otwart\w*|open)\s+(?:mój\s+|my\s+)?PR ?#(\d+))/gi
 
@@ -482,7 +522,9 @@ export function staleState(s: StateInput): Finding[] {
     if (s.tracked !== null) {
       for (const m of seg.text.matchAll(/`((?:apps|packages|docs)\/[^`\s*<>]+)`/g)) {
         const path = (m[1] ?? '').replace(/:\d.*$/, '').replace(/\/$/, '')
-        if (!trackedPath(s.tracked, path)) out.push({ where: seg.where, what: `names ${path}, which git does not track` })
+        if (!trackedPath(s.tracked, path)) {
+          out.push({ where: seg.where, what: `names ${path}, which git does not track` })
+        }
       }
     }
   }
@@ -497,9 +539,16 @@ Expected: PASS, 12 tests.
 
 - [ ] **Step 5: Mutation check**
 
-Remove `,` from the character class `[^.;,\n—]`. Expected: FAIL in `openPrClaims` on the `PR #90 (paleta), … zero otwartych PR-ów` and `PR #111, open` cases. Revert by hand.
+Remove `,` from the character class `[^.;,\n—]`. Expected: FAIL in `openPrClaims` on `PR #90 (x), zero otwartych` (returns `[90]`) and on `PR #111, open`. The long `PR #90 (paleta), …` case stays green either way: the 25-character window already excludes it. Revert by hand.
 
-- [ ] **Step 6: Commit**
+Then drop `(?<!zero )` from `OPEN_PR`. Expected: FAIL in `openPrClaims` on `zero otwartych PR #5`. Revert by hand.
+
+- [ ] **Step 6: Format**
+
+Run: `deno fmt packages/cli/scripts/`
+Expected: no error. The snippets above are already formatted the way `deno fmt` leaves them (line width 120, no semicolons, single quotes); this step only catches drift.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git add packages/cli/scripts/memory-guard.ts packages/cli/scripts/memory-guard.test.ts
@@ -534,7 +583,12 @@ import { autoMemoryFile, type Deps, runMemoryHook, sessionStart } from './memory
 const HOME = '/h'
 const MEM = '/h/.claude/projects/-p/memory'
 
-function deps(files: Record<string, string>, judge: Judge, gh: string | null = '', git: string | null = ''): Deps & { runs: string[] } {
+function deps(
+  files: Record<string, string>,
+  judge: Judge,
+  gh: string | null = '',
+  git: string | null = '',
+): Deps & { runs: string[] } {
   const runs: string[] = []
   return {
     runs,
@@ -552,7 +606,9 @@ function deps(files: Record<string, string>, judge: Judge, gh: string | null = '
     },
   }
 }
-const context = (out: string | null) => (out === null ? null : JSON.parse(out).hookSpecificOutput.additionalContext as string)
+const context = (
+  out: string | null,
+) => (out === null ? null : JSON.parse(out).hookSpecificOutput.additionalContext as string)
 
 Deno.test('autoMemoryFile: any project key, only files directly in memory/', () => {
   assertEquals(autoMemoryFile(HOME, `${MEM}/x.md`), { dir: MEM, file: 'x.md' })
@@ -560,6 +616,7 @@ Deno.test('autoMemoryFile: any project key, only files directly in memory/', () 
   assertEquals(autoMemoryFile(HOME, '/h/.claude/projects/-p/memoryX/x.md'), null)
   assertEquals(autoMemoryFile(HOME, `${MEM}/sub/x.md`), null)
   assertEquals(autoMemoryFile(HOME, '/h/.claude/projects/../x/memory/x.md'), null)
+  assertEquals(autoMemoryFile(HOME, '/h/.claude/memory/x.md'), null)
   assertEquals(autoMemoryFile(HOME, '/repo/docs/x.md'), null)
 })
 
@@ -572,13 +629,27 @@ Deno.test('hook: Write of an auto-memory file asks Jev per paragraph and reports
   )
   assertEquals(calls.length, 1)
   assertStringIncludes(context(out) ?? '', '- x.md  code_fact p=0.90')
+  const edit = await runMemoryHook(
+    {
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Edit',
+      tool_input: { file_path: `${MEM}/x.md`, old_string: 'a', new_string: 'fact '.repeat(20) },
+    },
+    deps({}, judge),
+  )
+  assertEquals(calls.length, 2)
+  assertStringIncludes(context(edit) ?? '', '- x.md  code_fact p=0.90')
 })
 
 Deno.test('hook: an Edit of MEMORY.md is checked by length only, no Jev request', async () => {
   const { judge, calls } = stubJudge(() => ({ violates: 1 }))
   const line = `- [T](t.md) — ${'x'.repeat(MAX_INDEX_LINE)}`
   const out = await runMemoryHook(
-    { hook_event_name: 'PostToolUse', tool_name: 'Edit', tool_input: { file_path: `${MEM}/MEMORY.md`, new_string: line } },
+    {
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Edit',
+      tool_input: { file_path: `${MEM}/MEMORY.md`, new_string: line },
+    },
     deps({}, judge),
   )
   assertEquals(calls.length, 0)
@@ -588,7 +659,11 @@ Deno.test('hook: an Edit of MEMORY.md is checked by length only, no Jev request'
 Deno.test('hook: an edit with no memory item makes no request and no output', async () => {
   const { judge, calls } = stubJudge(() => ({ violates: 1 }))
   const out = await runMemoryHook(
-    { hook_event_name: 'PostToolUse', tool_name: 'Edit', tool_input: { file_path: `${MEM}/x.md`, new_string: '## Heading\nshort' } },
+    {
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Edit',
+      tool_input: { file_path: `${MEM}/x.md`, new_string: '## Heading\nshort' },
+    },
     deps({}, judge),
   )
   assertEquals([out, calls.length], [null, 0])
@@ -599,10 +674,19 @@ Deno.test('hook: basic-memory notes are checked, session logs and other servers 
   const content = '## Observations\n- [fact] the file lives in engine.ts'
   const ask = (tool_name: string, tool_input: Record<string, unknown>) =>
     runMemoryHook({ hook_event_name: 'PostToolUse', tool_name, tool_input }, deps({}, judge))
-  assertStringIncludes(context(await ask('mcp__memory-arrowz__write_note', { title: 'T', directory: 'wiedza', content })) ?? '', 'note "T"')
+  assertStringIncludes(
+    context(await ask('mcp__memory-arrowz__write_note', { title: 'T', directory: 'wiedza', content })) ?? '',
+    'note "T"',
+  )
   assertEquals(await ask('mcp__memory-arrowz__write_note', { title: 'T', directory: 'sesje', content }), null)
-  assertEquals(await ask('mcp__memory-arrowz__edit_note', { identifier: 'arrowz/sesje/x', operation: 'append', content }), null)
-  assertEquals(await ask('mcp__memory-arrowz__edit_note', { identifier: '2026-09-30 — log', operation: 'append', content }), null)
+  assertEquals(
+    await ask('mcp__memory-arrowz__edit_note', { identifier: 'arrowz/sesje/x', operation: 'append', content }),
+    null,
+  )
+  assertEquals(
+    await ask('mcp__memory-arrowz__edit_note', { identifier: '2026-09-30 — log', operation: 'append', content }),
+    null,
+  )
   assertEquals(await ask('mcp__basic-memory__write_note', { title: 'T', directory: 'wiedza', content }), null)
   assertEquals(await ask('Write', { file_path: '/repo/docs/x.md', content }), null)
   assertEquals(calls.length, 1)
@@ -615,7 +699,13 @@ Deno.test('session start: reads the memory beside the transcript, one gh and one
     [`${MEM}/a.md`]: '---\ndescription: "PR #6 open; old"\n---\n',
   }
   const d = deps(files, judge, '6\n', 'docs/x.md\n')
-  const out = context(await runMemoryHook({ hook_event_name: 'SessionStart', transcript_path: '/h/.claude/projects/-p/s.jsonl', cwd: '/repo' }, d)) ?? ''
+  const out = context(
+    await runMemoryHook({
+      hook_event_name: 'SessionStart',
+      transcript_path: '/h/.claude/projects/-p/s.jsonl',
+      cwd: '/repo',
+    }, d),
+  ) ?? ''
   assertStringIncludes(out, '- MEMORY.md:1  PR #5 is called open, but it is not open')
   assertStringIncludes(out, '- MEMORY.md:2  links gone.md, which does not exist')
   assertEquals(out.includes('PR #6'), false)
@@ -639,7 +729,9 @@ Deno.test('the committed settings run memory-guard on memory writes and at sessi
   const hooks = JSON.parse(Deno.readTextFileSync(join(root, '.claude', 'settings.json'))).hooks
   type Entry = { matcher?: string; hooks: Array<{ command: string }> }
   const uses = (event: string) =>
-    (hooks[event] as Entry[]).filter((e) => e.hooks.some((h) => h.command.includes('memory-guard.ts') && h.command.endsWith(' hook')))
+    (hooks[event] as Entry[]).filter((e) =>
+      e.hooks.some((h) => h.command.includes('memory-guard.ts') && h.command.endsWith(' hook'))
+    )
   const post = uses('PostToolUse')
   assertEquals(post.length, 1)
   for (const tool of ['Edit', 'Write', 'mcp__memory-arrowz__write_note', 'mcp__memory-arrowz__edit_note']) {
@@ -652,7 +744,7 @@ Deno.test('the committed settings run memory-guard on memory writes and at sessi
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `deno test -A packages/cli/scripts/memory-guard.test.ts`
-Expected: FAIL — `does not provide an export named 'autoMemoryFile'`.
+Expected: FAIL — `TS2305 [ERROR]: Module './memory-guard.ts' has no exported member 'autoMemoryFile'` (and the same for `Deps`, `runMemoryHook`, `sessionStart`).
 
 - [ ] **Step 3: Write the implementation** (add to `memory-guard.ts`; merge imports)
 
@@ -707,13 +799,26 @@ export async function sessionStart(memoryDir: string, cwd: string, deps: Deps, a
     openPrs: open === null ? null : new Set(open.map(Number)),
     tracked: tracked === null ? null : new Set(tracked),
   })
-  return findingsReport('present-tense memory that is no longer true (fix the line, or move it into a dated entry)', found, all)
+  return findingsReport(
+    'present-tense memory that is no longer true (fix the line, or move it into a dated entry)',
+    found,
+    all,
+  )
 }
 
 export async function runMemoryHook(payload: unknown, deps: Deps): Promise<string | null> {
   if (typeof payload !== 'object' || payload === null) return null
-  const p = payload as { hook_event_name?: unknown; tool_name?: unknown; tool_input?: unknown; cwd?: unknown; transcript_path?: unknown }
-  const input = (typeof p.tool_input === 'object' && p.tool_input !== null ? p.tool_input : {}) as Record<string, unknown>
+  const p = payload as {
+    hook_event_name?: unknown
+    tool_name?: unknown
+    tool_input?: unknown
+    cwd?: unknown
+    transcript_path?: unknown
+  }
+  const input = (typeof p.tool_input === 'object' && p.tool_input !== null ? p.tool_input : {}) as Record<
+    string,
+    unknown
+  >
   const event = str(p.hook_event_name)
   const tool = str(p.tool_name)
   let out: string | null = null
@@ -831,10 +936,11 @@ Append this object to the `"PostToolUse"` array, after the `Edit|Write` entry of
             }
 ```
 
-Add to `deno.json` `"tasks"`, after `"jev:eval"`:
+In `deno.json`, `"jev:eval"` is the last task and has no trailing comma: add a comma after that line, then add `"memory"` as the new last task (no trailing comma):
 
 ```json
-    "memory": "deno run --allow-net=api.typesafe.ai --allow-read --allow-env=HOME,ARROWZ_TYPESAFE_ENV --allow-run=gh,git packages/cli/scripts/memory-guard.ts",
+    "jev:eval": "…unchanged…",
+    "memory": "deno run --allow-net=api.typesafe.ai --allow-read --allow-env=HOME,ARROWZ_TYPESAFE_ENV --allow-run=gh,git packages/cli/scripts/memory-guard.ts"
 ```
 
 - [ ] **Step 5: Run the tests to verify they pass**
@@ -846,6 +952,8 @@ Expected: PASS, 21 tests.
 
 (a) Change the matcher in `.claude/settings.json` to `"Edit|Write"`. Expected: FAIL in `the committed settings run memory-guard…` on `mcp__memory-arrowz__write_note`. Revert.
 (b) In `sessionStart`, replace `open === null ? null : …` with `new Set(open?.map(Number) ?? [])`. Expected: FAIL in `gh failing skips only the PR part` (a failing `gh` then flags PR #5). Revert.
+(c) In `autoMemoryFile`, change `[^/.]` to `[^/]`. Expected: FAIL in `autoMemoryFile` on `/h/.claude/memory/x.md` (it would become an auto-memory file, `relative` gives `../memory/x.md`). Revert.
+(d) In `runMemoryHook`, make an Edit read `input.content` instead of `input.new_string`. Expected: FAIL in `hook: Write of an auto-memory file …` (the Edit asks Jev nothing). Revert.
 
 - [ ] **Step 7: Simulate the real hooks against the real memory** (no commit; prints only)
 
@@ -857,7 +965,12 @@ printf '%s' "{\"hook_event_name\":\"SessionStart\",\"transcript_path\":\"$HOME/.
 
 Expected: `rc=0` and either no output or a `memory: present-tense memory…` block; read each flagged line in the memory and say in the task report whether it is really stale. The `gh`-failure path is covered by the unit test, not here.
 
-- [ ] **Step 8: Run the Deno gate and commit**
+- [ ] **Step 8: Format**
+
+Run: `deno fmt packages/cli/scripts/`
+Expected: no error. The snippets above are already formatted the way `deno fmt` leaves them (line width 120, no semicolons, single quotes); this step only catches drift.
+
+- [ ] **Step 9: Run the Deno gate and commit**
 
 Run: `deno task verify`
 Expected: exit 0.
@@ -894,7 +1007,8 @@ python3 - <<'EOF'
 import json, os
 b = json.load(open('/tmp/jev-bcq/g3/data-3b.json')); c = json.load(open('/tmp/jev-bcq/g3/data-3c.json'))
 conv = lambda xs, key: [{'id': x['id'], 'group': x['group'], 'violation': x['violation'],
-  'kind': 'natural' if x['kind'] == 'natural' else 'hand-made', 'text': x['state'][key]} for x in xs]
+  'kind': 'natural' if x['kind'] == 'natural' else 'hand-made', 'text': x['state'][key]}
+  for x in xs if not x['id'].startswith('bm-main:')]
 out = {'m1': conv(b, 'memory_item'), 'm2': conv(c, 'line')}
 p = os.path.expanduser('~/.config/arrowz/memory-labels.json')
 json.dump(out, open(p, 'w'), ensure_ascii=False, indent=1); os.chmod(p, 0o600)
@@ -902,7 +1016,7 @@ print(len(out['m1']), len(out['m2']))
 EOF
 ```
 
-Expected: `555 96`.
+Expected: `504 96`. Items whose `id` starts with `bm-main:` (51 of the 555 M1 items) come from the global basic-memory project, which the spec says is never sent to TypeSafe, and `memory:eval` re-sends every label on each run, so the conversion drops them.
 
 - [ ] **Step 2: Write the failing tests**
 
@@ -925,13 +1039,14 @@ import { projectMemoryDir } from './memory-guard.ts'
 
 Deno.test('projectMemoryDir: the project key replaces every character outside [A-Za-z0-9-] with a dash', () => {
   assertEquals(projectMemoryDir('/h', '/Users/t/dev/.a b'), '/h/.claude/projects/-Users-t-dev--a-b/memory')
+  assertEquals(projectMemoryDir('/h', '/Users/t/dev/.a b/'), '/h/.claude/projects/-Users-t-dev--a-b/memory')
 })
 ```
 
 - [ ] **Step 3: Run the tests to verify they fail**
 
 Run: `deno test -A packages/cli/scripts/memory-eval.test.ts packages/cli/scripts/memory-guard.test.ts`
-Expected: FAIL — `Module not found …memory-eval.ts` and `does not provide an export named 'projectMemoryDir'`.
+Expected: FAIL — `TS2307 [ERROR]: Cannot find module './memory-eval.ts'` and `TS2305 [ERROR]: Module './memory-guard.ts' has no exported member 'projectMemoryDir'`.
 
 - [ ] **Step 4: Implement `audit`** in `memory-guard.ts` (replace `manual`; merge imports)
 
@@ -972,7 +1087,11 @@ async function audit(home: string, memoryArg?: string, notesArg?: string): Promi
   const judge = await defaultJudge()
   const deps: Deps = { judge: judge ?? (() => Promise.resolve(null)), home, read: readOrNull, list: listOrNull, run }
   const parts: Array<string | null> = [
-    findingsReport(`MEMORY.md lines over ${MAX_INDEX_LINE} characters`, longIndexLines(index, (l) => `MEMORY.md:${l}`), true),
+    findingsReport(
+      `MEMORY.md lines over ${MAX_INDEX_LINE} characters`,
+      longIndexLines(index, (l) => `MEMORY.md:${l}`),
+      true,
+    ),
     await sessionStart(memoryDir, ROOT, deps, true),
   ]
   if (judge === null) {
@@ -1038,7 +1157,8 @@ export function heldOut(group: string): boolean {
 const pct = (x: number) => `${(100 * x).toFixed(1)} %`
 
 if (import.meta.main) {
-  const path = Deno.env.get('ARROWZ_MEMORY_LABELS') ?? join(Deno.env.get('HOME') ?? '', '.config', 'arrowz', 'memory-labels.json')
+  const path = Deno.env.get('ARROWZ_MEMORY_LABELS') ??
+    join(Deno.env.get('HOME') ?? '', '.config', 'arrowz', 'memory-labels.json')
   let labels: Labels
   try {
     labels = JSON.parse(Deno.readTextFileSync(path))
@@ -1061,7 +1181,9 @@ if (import.meta.main) {
   const falseAlarm = rates(held.filter((x) => !x.positive), MEMORY_AT).falseAlarm
   const detection = rates(held.filter((x) => x.kind === 'hand-made'), MEMORY_AT).recall
   const natural = rates(held.filter((x) => x.kind === 'natural'), MEMORY_AT)
-  const m2 = labels.m2.map((x) => ({ p: Array.from(x.text).length > MAX_INDEX_LINE ? 1 : 0, positive: x.violation }))
+  const m2 = labels.m2
+    .filter((x) => heldOut(x.group))
+    .map((x) => ({ p: Array.from(x.text).length > MAX_INDEX_LINE ? 1 : 0, positive: x.violation }))
   const m2r = rates(m2, 0.5)
   const pass = falseAlarm <= 0.03 && detection >= 0.8
   console.log([
@@ -1069,7 +1191,9 @@ if (import.meta.main) {
     '|---|---|',
     `| M1 items / answered | ${labels.m1.length} / ${m1.length} |`,
     `| M1 AUC all / held | ${auc(m1).toFixed(3)} / ${auc(held).toFixed(3)} |`,
-    `| M1 held at ${MEMORY_AT} | false alarms ${pct(falseAlarm)}, hand-made detection ${pct(detection)}, natural precision ${natural.precision.toFixed(2)} recall ${natural.recall.toFixed(2)} |`,
+    `| M1 held at ${MEMORY_AT} | false alarms ${pct(falseAlarm)}, hand-made detection ${
+      pct(detection)
+    }, natural precision ${natural.precision.toFixed(2)} recall ${natural.recall.toFixed(2)} |`,
     `| M2 at ${MAX_INDEX_LINE} characters | false alarms ${pct(m2r.falseAlarm)}, detection ${pct(m2r.recall)} |`,
     `| bar (false alarms ≤ 3 %, detection ≥ 80 %) | ${pass ? 'PASS' : 'FAIL'} |`,
   ].join('\n'))
@@ -1077,10 +1201,11 @@ if (import.meta.main) {
 }
 ```
 
-Add to `deno.json` `"tasks"`, after `"memory"`:
+In `deno.json`, `"memory"` is now the last task and has no trailing comma: add a comma after that line, then add `"memory:eval"` as the new last task (no trailing comma):
 
 ```json
-    "memory:eval": "deno run --allow-net=api.typesafe.ai --allow-read --allow-env packages/cli/scripts/memory-eval.ts",
+    "memory": "…unchanged…",
+    "memory:eval": "deno run --allow-net=api.typesafe.ai --allow-read --allow-env packages/cli/scripts/memory-eval.ts"
 ```
 
 - [ ] **Step 6: Run the tests, then the real eval and audit**
@@ -1089,15 +1214,16 @@ Run: `deno test -A packages/cli/scripts/memory-eval.test.ts packages/cli/scripts
 Expected: PASS, 23 tests.
 
 Run: `deno task memory:eval`
-Expected: exit 0; M1 held false alarms about 0.4 % and hand-made detection about 97 % (the spike's 1/232 and 30/31; Jev may move one item either way); M2 false alarms 0.0 %, detection 100.0 %. Paste the table into the task report.
+Expected: exit 0, about 10 s; bar PASS. M1 held false alarms at most 1.5 % and hand-made detection at least 90 %; Jev varies by about one item between runs, so the exact figures move (natural precision about 0.8-0.9, recall about 0.3). M2, scored on the held-out half, shows false alarms 0.0 % and detection 100.0 %. Paste the table into the task report.
 
 Run (from the worktree, whose own project key has no memory):
 `deno task memory audit "$HOME/.claude/projects/-Users-tomek-dev-arrowz/memory" /Users/tomek/dev/arrowz/.basic-memory/notes`
-Expected: exit 0, no M2 lines (the index was slimmed), M3 nothing or only lines you confirm stale, and an M1 list. Report its length; do not edit any memory in this task.
+Expected: exit 0 after about 60 s (files are asked one after another). M2 and M3 flag nothing; M1 flags on the order of 150 of about 1950 items (the audit sweeps every item; the spike sampled). Report the M1 count and read a few flags; do not edit any memory in this task.
 
 - [ ] **Step 7: Mutation check**
 
-In `heldOut`, return `=== 0`. Expected: FAIL in `heldOut: the spike split`. Revert.
+(a) In `heldOut`, return `=== 0`. Expected: FAIL in `heldOut: the spike split`. Revert.
+(b) In `projectMemoryDir`, remove `.replace(/\/$/, '')`. Expected: FAIL in `projectMemoryDir` on the path with a trailing slash (the key would end in `-`; `ROOT` always ends in `/`). Revert.
 
 - [ ] **Step 8: Documents**
 
@@ -1137,7 +1263,7 @@ claim deeper in a note is not checked. The hooks run only in sessions
 started in this repository.
 ```
 
-Replace the three `<from Step 6>` markers with the printed figures before committing.
+Replace the three `<from Step 6>` markers with the printed figures before committing, and add under the table: "The figures vary by one or two items between runs."
 
 In `CLAUDE.md`, after the sentence ending "See `docs/jev-guards.md`." of the Jev guards bullet, add a new bullet:
 
@@ -1146,7 +1272,12 @@ In `CLAUDE.md`, after the sentence ending "See `docs/jev-guards.md`." of the Jev
   way on Claude Code's memory: on each memory write and at session start.
 ```
 
-- [ ] **Step 9: Run the Deno gate and commit**
+- [ ] **Step 9: Format**
+
+Run: `deno fmt packages/cli/scripts/`
+Expected: no error. The snippets above are already formatted the way `deno fmt` leaves them (line width 120, no semicolons, single quotes); this step only catches drift.
+
+- [ ] **Step 10: Run the Deno gate and commit**
 
 Run: `deno task verify`
 Expected: exit 0.
