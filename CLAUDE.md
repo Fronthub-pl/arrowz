@@ -71,6 +71,13 @@ swept yet and still carry history markers and long blocks.
   denies `gh pr create` until the body cites it as `Bead: <id>`. Work taken from
   an existing bead cites that bead; only work with no bead gets a new one. Claim
   it with `--set-metadata branch=<branch>`. See `docs/bead-guard.md`.
+- A bead links what its work needs, so it starts from the links, not a search:
+  `--spec-id <path>` for the spec it comes from (`bd list --spec <prefix>` lists
+  a spec's beads), and metadata `plan=<paths>`, `memory=<memory:// URLs>` for the
+  basic-memory notes (`read_note` opens one directly) and `docs=<paths>` for any
+  other repository document. Lists are comma-separated; a file that exists only
+  on a branch is `<branch>:<path>`. Set them when the bead is created, and add
+  the spec, plan and session note as they are written.
 - Every pull request up to #138 is imported as a closed issue `arrowz-pr<N>`
   (labels `pr` plus `merged` or `not-merged`, plus the branch area such as `lab`
   or `engine`); `bd list --status closed --label lab` browses that history.
