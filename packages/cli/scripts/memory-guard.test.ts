@@ -276,6 +276,10 @@ Deno.test('hook: basic-memory notes are checked, session logs and other servers 
     await ask('mcp__memory-arrowz__edit_note', { identifier: '2026-09-30 — log', operation: 'append', content }),
     null,
   )
+  assertEquals(
+    await ask('mcp__memory-arrowz__write_note', { title: '2026-09-30 — log', directory: 'wiedza', content }),
+    null,
+  )
   assertEquals(await ask('mcp__basic-memory__write_note', { title: 'T', directory: 'wiedza', content }), null)
   assertEquals(await ask('Write', { file_path: '/repo/docs/x.md', content }), null)
   assertEquals(calls.length, 1)
@@ -326,5 +330,13 @@ Deno.test('the committed settings run memory-guard on memory writes and at sessi
   for (const tool of ['Edit', 'Write', 'mcp__memory-arrowz__write_note', 'mcp__memory-arrowz__edit_note']) {
     assertEquals(new RegExp(`^(?:${post[0]?.matcher})$`).test(tool), true, tool)
   }
-  assertEquals(uses('SessionStart').length, 1)
+  const start = uses('SessionStart')
+  assertEquals(start.length, 1)
+  const cmdPost = post[0]?.hooks[0]?.command ?? ''
+  const cmdStart = start[0]?.hooks[0]?.command ?? ''
+  assertStringIncludes(cmdPost, '--allow-net=api.typesafe.ai')
+  assertEquals(cmdPost.includes('--allow-run') || cmdPost.includes('.claude/projects'), false)
+  assertStringIncludes(cmdStart, '--allow-run=gh,git')
+  assertStringIncludes(cmdStart, '--allow-read="$HOME/.claude/projects" ')
+  assertEquals(cmdStart.includes('--allow-net'), false)
 })

@@ -283,7 +283,8 @@ export async function runMemoryHook(payload: unknown, deps: Deps): Promise<strin
   } else if (event === 'PostToolUse' && tool !== null && BASIC_MEMORY_TOOLS.has(tool)) {
     const place = str(input.directory) ?? str(input.identifier) ?? ''
     const content = str(input.content)
-    if (content !== null && !SESSION_LOG.test(place)) {
+    const title = str(input.title) ?? ''
+    if (content !== null && !SESSION_LOG.test(place) && !SESSION_LOG.test(title)) {
       out = memoryReport(await memoryFlags(deps.judge, observations(content), `note "${str(input.title) ?? place}"`))
     }
   }

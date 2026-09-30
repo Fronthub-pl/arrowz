@@ -15,7 +15,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "f=\"$CLAUDE_PROJECT_DIR/packages/cli/scripts/memory-guard.ts\"; [ -f \"$f\" ] || exit 0; deno run --quiet --allow-read=\"$CLAUDE_PROJECT_DIR\",\"$HOME/.claude/projects\" --allow-run=gh,git --allow-env=HOME,ARROWZ_TYPESAFE_ENV \"$f\" hook",
+                        "command": "f=\"$CLAUDE_PROJECT_DIR/packages/cli/scripts/memory-guard.ts\"; [ -f \"$f\" ] || exit 0; deno run --quiet --allow-read=\"$HOME/.claude/projects\" --allow-run=gh,git --allow-env=HOME \"$f\" hook",
                         "timeout": 10
                     }
                 ]
