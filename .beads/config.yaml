@@ -74,3 +74,8 @@
 sync.remote: "git+https://github.com/Fronthub-pl/arrowz.git"
 export:
     auto: true
+dolt:
+    # Single writer: every worktree shares the main checkout's database under one lock.
+    auto-push: true
+    auto-push-interval: 5m
+    auto-push-timeout: 30s
