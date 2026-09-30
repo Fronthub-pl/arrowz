@@ -1,5 +1,5 @@
 import { assert, assertEquals } from '@std/assert'
-import { at, DIRS, type PieceShape, pieceShape, voidStrips } from './geometry.ts'
+import { at, autoHeadWidth, DIRS, type PieceShape, pieceShape, voidStrips } from './geometry.ts'
 import type { Board, Piece } from './types.ts'
 
 // A three-cell piece heading right: head at (2,0), body at (1,0), tail at (0,0).
@@ -76,4 +76,17 @@ Deno.test('voidStrips merges empty cells into horizontal runs', () => {
     remaining: 4,
   }
   assertEquals(voidStrips(board), [{ x: 1, y: 0, len: 2 }, { x: 0, y: 1, len: 1 }, { x: 3, y: 1, len: 1 }])
+})
+
+Deno.test('autoHeadWidth is the head width pieceShape draws when the width is left automatic', () => {
+  assertEquals(autoHeadWidth(30, 100), 0.4 * 100 + 0.9 * 30)
+  assertEquals(autoHeadWidth(50, 100), 50)
+  assertEquals(autoHeadWidth(80, 100), 80)
+  // At cell 1 the width is already in cells, so stating it back is exact.
+  for (const stroke of [0.2, 0.3, 0.45, 0.5, 0.8]) {
+    const o = { cell: 1, pad: 0, width: stroke, headHeight: 1 }
+    const auto = pieceShape(right, { ...o, headWidth: 0 })
+    const stated = pieceShape(right, { ...o, headWidth: autoHeadWidth(stroke, 1) })
+    assertEquals(stated.head, auto.head)
+  }
 })

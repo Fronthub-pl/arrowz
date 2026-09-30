@@ -3,7 +3,15 @@
 // engine can read is refused with the reason, never drawn wrong.
 import { assert, assertEquals, assertMatch, assertNotEquals, assertRejects, assertThrows } from '@std/assert'
 import { defaultParams, fingerprint, generate } from './engine.ts'
-import { BOARD_FILE_VERSION, BOARD_FORMAT, BoardFileError, decodeBoard, encodeBoard, layoutHash } from './board-file.ts'
+import {
+  BOARD_FILE_VERSION,
+  BOARD_FORMAT,
+  BoardFileError,
+  decodeBoard,
+  decodeBoardFile,
+  encodeBoard,
+  layoutHash,
+} from './board-file.ts'
 import type { BoardData, BoardFile, Piece } from './types.ts'
 
 /** Same size, same owner grid, same pieces in the same order with the same ids, directions and cells. */
@@ -220,4 +228,18 @@ Deno.test('layoutHash survives the board file', async () => {
 Deno.test('layoutHash refuses a piece whose cells are not neighbours', async () => {
   const broken = handBoard(4, 4, [{ id: 0, dir: 1, cells: [{ x: 0, y: 0 }, { x: 2, y: 0 }] }])
   await assertRejects(() => layoutHash(broken), BoardFileError, 'piece 0 is not a path')
+})
+
+Deno.test('decodeBoardFile returns the object it was given, with the board decodeBoard reads from it', () => {
+  const carved = generate({ ...defaultParams(), W: 8, H: 8, seed: 1 }).board
+  const file: unknown = JSON.parse(JSON.stringify(encodeBoard(carved)))
+  const got = decodeBoardFile(file)
+  assert(got.file === file, 'the same object, not a rebuilt one')
+  assertSameBoard(got.board, decodeBoard(file))
+})
+
+Deno.test('decodeBoardFile throws what decodeBoard throws', () => {
+  const bad = { format: BOARD_FORMAT, v: BOARD_FILE_VERSION + 1 }
+  const want = assertThrows(() => decodeBoard(bad), BoardFileError)
+  assertThrows(() => decodeBoardFile(bad), BoardFileError, want.message)
 })

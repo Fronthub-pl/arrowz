@@ -1,6 +1,7 @@
 import type { View, ViewNumber } from '@arrowz/engine'
 import { viewNumberOf } from '@arrowz/engine/command'
 import { PALETTE_CAP, readPatch, VIEW_DEFAULTS, type ViewFields, type ViewKey } from './viewSchema'
+import { patcher, type SliceSet } from './slice'
 
 export { PALETTE_CAP }
 
@@ -42,8 +43,6 @@ export interface ViewState extends ViewFields {
   /** Writes the fields the patch names in one update, each normalised by `VIEW_SCHEMA`; the rest stay. */
   apply(patch: Partial<ViewFields>): void
 }
-
-type SetStore = (fn: (state: { view: ViewState }) => { view: ViewState }) => void
 
 /**
  * The CLI's view. `top` is the one field with two surfaces: a count and a
@@ -107,8 +106,8 @@ export function lookOf(view: ViewFields): Look {
   }
 }
 
-export function createViewSlice(set: SetStore): ViewState {
-  const patch = (next: Partial<ViewState>) => set((state) => ({ view: { ...state.view, ...next } }))
+export function createViewSlice(set: SliceSet<'view', ViewState>): ViewState {
+  const patch = patcher(set, 'view')
   // Every setter except `setNumber` and `toggle` goes through the schema's readers.
   const write = (raw: Partial<Record<ViewKey, unknown>>) => patch(readPatch(raw))
   return {

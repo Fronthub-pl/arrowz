@@ -1,4 +1,3 @@
-import { PARAM_SPEC, type ParamSpec } from '@arrowz/engine'
 import { SIMPLE_CHOICES } from '@arrowz/engine/simple'
 import type { ReactElement } from 'react'
 import { FlagRow, SwitchRow } from '../console/rows/FlagRow'
@@ -11,16 +10,11 @@ import { SIMPLE_VIEW_FIELDS, SIMPLE_VIEW_FLAGS } from '../console/viewFields'
 import { useDictionary } from '../i18n'
 import type { RunControl } from '../run/useRun'
 import { Segmented } from '../shell/Segmented'
+import { specOf } from '../state/params.slice'
 import type { RecipeSide } from '../state/recipe.slice'
 import { useStore } from '../state/store'
 import { applyRecipe } from './applyRecipe'
 import { PositionSlider } from './PositionSlider'
-
-function specOf(key: 'W' | 'H' | 'seed'): ParamSpec {
-  const spec = PARAM_SPEC.find((s) => s.key === key)
-  if (!spec) throw new Error(`PARAM_SPEC has no ${key}`)
-  return spec
-}
 
 /**
  * A side of the board as a knob row. It shows the knobs' side, which is what

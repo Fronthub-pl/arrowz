@@ -1,4 +1,4 @@
-import type { ViewNumber } from '@arrowz/engine'
+import { autoHeadWidth, type ViewNumber } from '@arrowz/engine'
 import type { Dictionary, UiKey } from '@arrowz/engine/i18n'
 import type { ViewFlag } from '../state/view.slice'
 import type { UnitKey } from './knobLayout'
@@ -75,14 +75,12 @@ export const SIMPLE_VIEW_FLAGS: readonly ViewFlag[] = ['rounded', 'colored', 'hi
 
 /**
  * Where the automatic head width's chip lands when it is released and the row
- * held no width before: the width the element draws at 0 for this stroke, so
- * the head does not jump. The rule is the engine's `pieceShape` (a stroke of
- * 0.5 or more draws a stick as wide as the line, a thinner one 0.4 + 0.9 ×
- * stroke), snapped to the field's step and held in its range; the test checks
- * it against `pieceShape` on both sides of 0.5.
+ * held no width before: the width the element draws at 0 for this stroke
+ * (`autoHeadWidth`, in cells), snapped to the field's step and held in its
+ * range, so the head does not jump.
  */
-export function autoHeadWidth(stroke: number, step: number, max: number): number {
-  const width = stroke >= 0.5 ? stroke : 0.4 + 0.9 * stroke
+export function autoHeadChip(stroke: number, step: number, max: number): number {
+  const width = autoHeadWidth(stroke, 1)
   // `toFixed` against the float tail a multiple of 0.05 picks up (12 × 0.05).
   return Math.min(max, Number((Math.round(width / step) * step).toFixed(6)))
 }

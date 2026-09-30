@@ -1,4 +1,4 @@
-import { type BoardSize, decodeBoard } from '@arrowz/engine'
+import { type BoardSize, decodeBoardFile } from '@arrowz/engine'
 import { type FileOutcome, readStoredBoard } from '../api/boards'
 import { useStore } from '../state/store'
 
@@ -88,10 +88,10 @@ export function openStoredBoard(
       return
     }
     try {
-      const board = decodeBoard(outcome.file)
+      const { board, file } = decodeBoardFile(outcome.file)
       if (cancelled) return
       state.library.clearNotice()
-      state.result.showPreview({ origin: 'store', board, file: outcome.file, meta })
+      state.result.showPreview({ origin: 'store', board, file, meta })
     } catch (err) {
       if (cancelled) return
       state.library.clearNotice()

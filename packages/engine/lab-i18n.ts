@@ -1422,6 +1422,8 @@ export type Lang = 'en' | 'pl'
 
 export interface Dict {
   readonly lang: Lang
+  /** The tag dates and numbers are formatted in: British English, so a date reads day first. */
+  readonly locale: 'pl' | 'en-GB'
   /** The raw sections the page reads directly: start, groups, groupHelp, presets, simple. */
   readonly d: Dictionary
   t<K extends UiKey>(key: K, ...args: UiArgs<K>): string
@@ -1447,7 +1449,8 @@ function stringAt(rec: Record<string, unknown>, key: string): string | undefined
 export function dictionary(lang: Lang): Dict {
   const d = lang === 'pl' ? PL : EN
   const specByKey = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))
-  const fmt = (n: number) => n.toLocaleString(lang === 'pl' ? 'pl' : 'en')
+  const locale = lang === 'pl' ? 'pl' : 'en-GB'
+  const fmt = (n: number) => n.toLocaleString(locale)
   // English is the source language: PARAM_SPEC, INACTIVE_REASONS/RULE_REASONS
   // and EN.ui. PL.ui is checked against EN.ui's keys by lab-i18n.test.ts, but
   // `t` still falls back to EN.ui[key] for a key a stale PL table is missing.
@@ -1473,6 +1476,7 @@ export function dictionary(lang: Lang): Dict {
   }
   return {
     lang,
+    locale,
     d,
     t,
     paramText,

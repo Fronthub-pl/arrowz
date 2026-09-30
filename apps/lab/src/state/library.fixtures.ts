@@ -1,4 +1,4 @@
-import { type BoardMeta, type BoardSize, defaultParams, encodeBoard, generate } from '@arrowz/engine'
+import { type BoardFile, type BoardMeta, type BoardSize, defaultParams, encodeBoard, generate } from '@arrowz/engine'
 import { DEFAULT_VIEW } from '@arrowz/engine/command'
 
 /**
@@ -9,7 +9,7 @@ import { DEFAULT_VIEW } from '@arrowz/engine/command'
  * The id has a real hash's length (`sha256-` and 64 hex digits) for a seed
  * below 100, so a row that clips it clips it for the real reason.
  */
-export function storedFixture(seed: number, W = 8, H = 8): { meta: BoardMeta; file: unknown } {
+export function storedFixture(seed: number, W = 8, H = 8): { meta: BoardMeta; file: BoardFile } {
   const params = { ...defaultParams(), W, H, seed }
   const result = generate(params)
   const file = encodeBoard(result.board)

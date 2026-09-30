@@ -1,4 +1,5 @@
 import type { Params, TraceInfo, WorkerOut } from '@arrowz/engine'
+import { patcher, type SliceSet } from './slice'
 
 /** The worker's `done` message, which is also what the report reads. */
 export type DoneReport = Extract<WorkerOut, { type: 'done' }>
@@ -45,10 +46,8 @@ export function runDone(state: RunState): RunState {
   return { ...state, phase: 'done', progress: null, message: null, stopping: false }
 }
 
-type SetStore = (fn: (state: { run: RunState }) => { run: RunState }) => void
-
-export function createRunSlice(set: SetStore): RunState {
-  const patch = (next: Partial<RunState>) => set((state) => ({ run: { ...state.run, ...next } }))
+export function createRunSlice(set: SliceSet<'run', RunState>): RunState {
+  const patch = patcher(set, 'run')
   return {
     ...EMPTY,
     started: (params) => patch({ ...EMPTY, phase: 'running', params }),

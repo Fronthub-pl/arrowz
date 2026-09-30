@@ -12,11 +12,12 @@ import {
   type Violation,
 } from '@arrowz/engine'
 import { MIX_START, START, type StartChoice } from '@arrowz/engine/command'
+import type { SliceSet } from './slice'
 
 const specByKey = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))
 
 /** A knob's spec. Every key here comes from PARAM_SPEC, so a miss is a bug in this file. */
-function specOf(key: ParamKey): ParamSpec {
+export function specOf(key: ParamKey): ParamSpec {
   const spec = specByKey.get(key)
   if (!spec) throw new Error(`unknown parameter ${key}`)
   return spec
@@ -36,20 +37,33 @@ export interface Indexes {
   floor: Readonly<Partial<Record<ParamKey, number>>>
 }
 
+/** Field by field, `value` and `need` included: the row prints both, and `need` moves with the board size. */
+function sameViolations(a: readonly Violation[], b: readonly Violation[]): boolean {
+  return a.length === b.length && a.every((v, i) => JSON.stringify(v) === JSON.stringify(b[i]))
+}
+
 /**
  * The three per-key indexes, recomputed once per change. Sparse on purpose: a
  * knob with nothing to say reads `undefined` twice running and does not
  * re-render. Not a per-knob selector: `straightFloor` reads W, H, warns and anticoil.
+ * A key whose violations did not change keeps `prev`'s array, so its knob does not re-render.
  */
-export function indexesOf(values: Params): Indexes {
+export function indexesOf(values: Params, prev?: Indexes): Indexes {
   const list = validateParams(values)
-  const broken: Partial<Record<ParamKey, Violation[]>> = {}
+  const found: Partial<Record<ParamKey, Violation[]>> = {}
   for (const v of list) {
     for (const key of v.kind === 'rule' ? v.keys : [v.key]) {
-      const seen = broken[key]
+      const seen = found[key]
       if (seen) seen.push(v)
-      else broken[key] = [v]
+      else found[key] = [v]
     }
+  }
+  const broken: Partial<Record<ParamKey, readonly Violation[]>> = {}
+  for (const key of Object.keys(found) as ParamKey[]) {
+    const now = found[key]
+    if (!now) continue
+    const was = prev?.broken[key]
+    broken[key] = was && sameViolations(was, now) ? was : now
   }
   const inactive: Partial<Record<ParamKey, InactiveKey>> = {}
   for (const spec of PARAM_SPEC) {
@@ -84,8 +98,6 @@ export interface ParamsState extends Indexes {
   reset(): void
 }
 
-type SetStore = (fn: (state: { params: ParamsState }) => { params: ParamsState }) => void
-
 /** Clamps a patch onto the values, reporting whether anything moved. */
 function commit(values: Params, patch: Partial<Params>): { values: Params; clamped: boolean } {
   const next = { ...values }
@@ -98,7 +110,7 @@ function commit(values: Params, patch: Partial<Params>): { values: Params; clamp
   return { values: next, clamped }
 }
 
-export function createParamsSlice(set: SetStore): ParamsState {
+export function createParamsSlice(set: SliceSet<'params', ParamsState>): ParamsState {
   const initial = defaultParams()
   const write = (patch: Partial<Params>, typed: boolean): boolean => {
     let clamped = false
@@ -110,7 +122,7 @@ export function createParamsSlice(set: SetStore): ParamsState {
           ...state.params,
           values: c.values,
           edits: typed ? state.params.edits + 1 : state.params.edits,
-          ...indexesOf(c.values),
+          ...indexesOf(c.values, state.params),
         },
       }
     })
@@ -141,14 +153,14 @@ export function createParamsSlice(set: SetStore): ParamsState {
             ...state.params,
             values: c.values,
             edits: state.params.edits + 1,
-            ...indexesOf(c.values),
+            ...indexesOf(c.values, state.params),
           },
         }
       })
     },
     reset: () => {
       const values = defaultParams()
-      set((state) => ({ params: { ...state.params, values, ...indexesOf(values) } }))
+      set((state) => ({ params: { ...state.params, values, ...indexesOf(values, state.params) } }))
     },
   }
 }

@@ -2,11 +2,10 @@ import { type ReactElement, useLayoutEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { BOARD_COLUMN_ID } from '../library/boardColumnId'
 import { REPORT_ID } from '../report/ReportPanel'
-import type { WorkspaceTab } from '../routes/Workspace'
 import { RUN_COLUMN_ID } from '../run/RunColumn'
 import { SETTINGS_ID } from '../stage/Stage'
 import { useStore } from '../state/store'
-import type { Sheet } from '../state/ui.slice'
+import type { Sheet, WorkspaceTab } from '../state/ui.slice'
 
 const SHEETS: readonly Sheet[] = ['settings', 'cli', 'report']
 

@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { panelId, tabId } from './GroupRail'
@@ -18,7 +19,14 @@ import { Section } from './rows/Section'
  */
 export function ViewPanel() {
   const dict = useDictionary()
-  const view = useStore((state) => state.view)
+  const view = useStore(
+    useShallow((state) => ({
+      highlightLongest: state.view.highlightLongest,
+      showPoints: state.view.showPoints,
+      pointColor: state.view.pointColor,
+      setPointColor: state.view.setPointColor,
+    })),
+  )
   const wanted = useStore((state) => state.ui.focusTarget)
   return (
     <div className="fw-knobs" role="tabpanel" id={panelId('preview')} aria-labelledby={tabId('preview')}>

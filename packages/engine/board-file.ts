@@ -414,3 +414,18 @@ export function decodeBoard(file: unknown): BoardData {
   }
   return board
 }
+
+/** Narrows what `readHeader` accepts: it checks every field a `BoardFile` has. */
+function assertBoardFile(file: unknown): asserts file is BoardFile {
+  readHeader(file)
+}
+
+/**
+ * `decodeBoard`, and the very object it was given, typed as the file it was
+ * checked to be: a caller that sends the file back sends it untouched.
+ */
+export function decodeBoardFile(file: unknown): { board: BoardData; file: BoardFile } {
+  const board = decodeBoard(file)
+  assertBoardFile(file)
+  return { board, file }
+}

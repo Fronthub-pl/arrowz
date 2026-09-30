@@ -1,5 +1,6 @@
 import type { Lang } from '@arrowz/engine/i18n'
 import { readStored, writeStored } from './storage'
+import type { SliceSet } from './slice'
 
 /** The key already in people's browsers, so a language chosen before is still honoured. */
 export const LANG_KEY = 'labLang'
@@ -23,9 +24,7 @@ export interface LangState {
   setLang(lang: Lang): void
 }
 
-type SetStore = (fn: (state: { lang: LangState }) => { lang: LangState }) => void
-
-export function createLangSlice(set: SetStore): LangState {
+export function createLangSlice(set: SliceSet<'lang', LangState>): LangState {
   const browser = typeof navigator === 'undefined' ? undefined : navigator.language
   return {
     lang: initialLang(readStored(LANG_KEY), browser),

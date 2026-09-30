@@ -35,7 +35,7 @@ function noticeText(dict: Dict, notice: LibraryNotice): string {
 
 /** A number with one decimal, in the page's language: `41.3` and `41,3`. */
 export function oneDecimal(dict: Dict, n: number): string {
-  return n.toLocaleString(dict.lang === 'pl' ? 'pl' : 'en', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  return n.toLocaleString(dict.locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 }
 
 /** One visible line of state; `bad` is a refusal or a failure, drawn in `--error`. */
@@ -126,6 +126,7 @@ export function useRunState(): RunState {
  */
 export function useRunLine(): Omit<RunState, 'library'> {
   const dict = useDictionary()
+  // The whole slice: the line shows `run.progress`, which is what every progress message replaces.
   const run = useStore((state) => state.run)
   // The board on screen and the store's answer for it: the result slice's,
   // which a run in flight leaves where it was.

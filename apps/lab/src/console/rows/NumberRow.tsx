@@ -6,7 +6,7 @@ import { useDictionary } from '../../i18n'
 import { useStore } from '../../state/store'
 import { DraftNumber } from '../DraftNumber'
 import { endText, KnobTrack, rowTitle } from '../KnobRow'
-import { autoHeadWidth, VIEW_ROWS } from '../viewFields'
+import { autoHeadChip, VIEW_ROWS } from '../viewFields'
 import { RowShell, rowIds } from './RowShell'
 import { useReleasableChip } from './useReleasableChip'
 
@@ -121,7 +121,7 @@ export function FieldNumberRow({
       range={range}
       step={row.step}
       unit={dict.d.units[row.unit]}
-      auto={row.auto === true ? () => autoHeadWidth(stroke, row.step, range.max) : undefined}
+      auto={row.auto === true ? () => autoHeadChip(stroke, row.step, range.max) : undefined}
       onSet={onSet}
     />
   )

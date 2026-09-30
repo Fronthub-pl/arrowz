@@ -37,7 +37,9 @@ export default defineConfig({
         // timeout (measured 2026-09-17: reproduced on demand by deleting
         // `node_modules/.vite`, which is why only CI, always cold, ever saw
         // it). Naming the module keeps its discovery in the first pass.
-        optimizeDeps: { include: ['react-dom/client'] },
+        // `zustand/react/shallow` is named for the same reason: it is a package
+        // entry of its own, so a cold cache would discover it mid-run too.
+        optimizeDeps: { include: ['react-dom/client', 'zustand/react/shallow'] },
         server: { headers: ISOLATION },
         test: {
           name: 'chromium',

@@ -177,7 +177,7 @@ Deno.test('paramText takes the label from the language, not from the spec', () =
 
 Deno.test('fmt groups by locale and short abbreviates from ten thousand', () => {
   const en = dictionary('en')
-  assertEquals(en.fmt(1234567), (1234567).toLocaleString('en'))
+  assertEquals(en.fmt(1234567), (1234567).toLocaleString(en.locale))
   assertEquals(en.short(9999), en.fmt(9999))
   assertEquals(en.short(10000), '10k')
   assertEquals(en.short(86000), '86k')
@@ -601,4 +601,13 @@ Deno.test('the command row and every parser problem have words in both languages
   assertEquals(PL.ui.cmdProblems(1), '1 problem')
   assertEquals(PL.ui.cmdProblems(3), '3 problemy')
   assertEquals(PL.ui.cmdProblems(5), '5 problemów')
+})
+
+Deno.test('locale is the tag the lab formats dates and numbers in', () => {
+  assertEquals(dictionary('en').locale, 'en-GB')
+  assertEquals(dictionary('pl').locale, 'pl')
+  // en-GB groups and rounds as en does, so moving the English tag changes no figure.
+  const one = { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+  assertEquals((1234.5).toLocaleString('en-GB', one), (1234.5).toLocaleString('en', one))
+  assertEquals((41.3).toLocaleString('pl', one), '41,3')
 })
