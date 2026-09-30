@@ -31,7 +31,7 @@
   --error: #de5c4e;
   --ui: 'Archivo Variable', Archivo, Helvetica, Arial, sans-serif;
   --mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
-  /* A finger's target where there is no hover (WCAG 2.5.5). */
+  /* The lab's 44px target for a finger or a primary control (WCAG 2.5.5). */
   --touch: 44px;
   --rule: 1px solid var(--border);
 }

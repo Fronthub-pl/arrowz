@@ -177,7 +177,7 @@
 }
 .kv-g {
   --val-n: 5ch;
-  --val-u: var(--touch);
+  --val-u: 44px;
   --end: 36px;
   --trk: 13ch;
   --row-h: 34px;

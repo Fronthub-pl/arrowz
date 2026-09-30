@@ -612,7 +612,7 @@ body {
    `--signal` too. The unselected text is `--ink` on
    `--signal-fill` (5.31:1); the chosen option is `--ink` on `--void`. The base
    rule ties with the chip's checked rule and wins by following it; the
-   checked rule here is (0,4,1). */
+   checked rule here is (0,3,1). */
 .fw-top .fw-seg button {
   border-color: var(--ink);
   color: var(--ink);
