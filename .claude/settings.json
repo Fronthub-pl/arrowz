@@ -39,11 +39,26 @@
                         "if": "Bash(gh pr *)",
                         "command": "f=\"$CLAUDE_PROJECT_DIR/packages/cli/scripts/jev-guard.ts\"; [ -f \"$f\" ] || exit 0; deno run --quiet --allow-net=api.typesafe.ai --allow-read=\"$CLAUDE_PROJECT_DIR\",\"$HOME/.config/arrowz\",/tmp,/private/tmp --allow-env=HOME,ARROWZ_TYPESAFE_ENV \"$f\" hook",
                         "timeout": 10
+                    },
+                    {
+                        "type": "command",
+                        "command": "f=\"$CLAUDE_PROJECT_DIR/packages/cli/scripts/bead-guard.ts\"; [ -f \"$f\" ] || exit 0; deno run --quiet --allow-run=bd,git --allow-read=\"$CLAUDE_PROJECT_DIR\",/tmp,/private/tmp \"$f\"",
+                        "timeout": 15
                     }
                 ]
             }
         ],
         "PostToolUse": [
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "f=\"$CLAUDE_PROJECT_DIR/packages/cli/scripts/bead-guard.ts\"; [ -f \"$f\" ] || exit 0; deno run --quiet --allow-run=bd,git --allow-read=\"$CLAUDE_PROJECT_DIR\",/tmp,/private/tmp \"$f\"",
+                        "timeout": 15
+                    }
+                ]
+            },
             {
                 "matcher": "Edit|Write",
                 "hooks": [
