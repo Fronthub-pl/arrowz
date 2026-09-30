@@ -1,6 +1,6 @@
-// The safe envelope of the generator (prototype round 11), end to end: the
-// narrowed ranges and the cross-knob rules the engine validates against, the
-// refusal in generate(), and proof that validation left the algorithm alone.
+// The safe envelope of the generator, end to end: the narrowed ranges and the
+// cross-knob rules the engine validates against, the refusal in generate(), and
+// proof that validation left the algorithm alone.
 // Run: deno test --allow-read --allow-run packages/engine/
 import { assert, assertEquals, assertMatch, assertNotEquals, assertThrows } from '@std/assert'
 import {
@@ -42,35 +42,32 @@ const withKnob = (key: ParamKey, value: number): Params => {
 /** A parameter set with junk in it, for the validation tests only: the one cast of this file. */
 const withRaw = (over: Record<string, unknown>): Params => ({ ...defaultParams(), ...over } as Params)
 
-// The envelope as measured on 2026-09-08 (~8100 runs without restarts, boards
-// up to 400x400), and narrowed again on 2026-09-12 wherever a knob's own
-// arithmetic makes its far end mean nothing. Pinned here on purpose instead of
-// read from PARAM_SPEC, so that a range drifting back to its old width fails
-// this test. `old` are the former extremes; `with` holds the companion knobs a
-// bound needs so that reaching it does not break a cross-knob rule.
+// The measured envelope ("Parameter envelope" in
+// docs/superpowers/specs/2026-09-07-arrowz-design.md), narrowed further wherever
+// a knob's own arithmetic makes its far end mean nothing. Pinned here instead of
+// read from PARAM_SPEC, so a range drifting wider fails. `old` holds the wider
+// extremes it refuses; `with` holds the companion knobs a bound needs so that
+// reaching it does not break a cross-knob rule.
 const NARROWED: { key: ParamKey; min: number; max: number; old: number[]; with?: Partial<Params> }[] = [
   { key: 'pStraight', min: 0.6, max: 1, old: [0, 0.3] },
   { key: 'warns', min: 2, max: 16, old: [0, 1] },
   { key: 'anticoil', min: 1, max: 10, old: [20] },
   { key: 'absorbLimit', min: 12, max: 64, old: [0] },
   { key: 'headTries', min: 2, max: 16, old: [1, 32] },
-  // The old 0 was an "auto" the engine read as 200, so the slider ran
-  // 0 (=200), 50, 100 ... and got STRICTER as it moved right, with 200
-  // duplicating 0 under a second board id. The number stands for itself now.
+  // 0 is refused, not read as an "auto" 200: see 'the backtrack budget is a plain number'.
   { key: 'maxBack', min: 50, max: 1000, old: [0, 200000] },
   { key: 'restarts', min: 0, max: 5, old: [10] },
   { key: 'wGiant', min: 0, max: 0.2, old: [0.5] },
   // Straightness is a weight of pStraight / (1 - pStraight): it is 1 at 0.5
-  // and BELOW 1 under it, so a knob named after straightness used to punish
+  // and BELOW 1 under it, where a knob named after straightness would punish
   // going straight. 0.5 is where it stops arguing with its own label.
   { key: 'giantStraight', min: 0.5, max: 1, old: [0, 0.3] },
   { key: 'giantSpacing', min: 1, max: 3, old: [6] },
   // sharesSum caps short plus medium at 0.9, so the top tenth of each share
-  // was a value with no legal partner.
+  // would be a value with no legal partner.
   { key: 'wShort', min: 0, max: 0.9, old: [1], with: { wMid: 0 } },
   { key: 'wMid', min: 0, max: 0.9, old: [1], with: { wShort: 0 } },
-  // A probe draws max(4, round(probeLen * (0.5 + r))), so 2 and 3 both draw 4
-  // every single time: measured on 40x40 with probe 1, one fingerprint for both.
+  // Below 4 every probe draws length 4: see the 'probe length' test.
   { key: 'probeLen', min: 4, max: 200, old: [2, 3] },
   // Only --start writes the mixing share, and it spells 0.3 to 0.7.
   { key: 'mix', min: -1, max: 0.7, old: [1] },
@@ -236,12 +233,11 @@ Deno.test('rule lmaxHole: Lmax is 0 or at least 17, at the boundary', () => {
   }
 })
 
-// Why the floor moved from 6 up to 17. The cap cuts the length buckets from
-// the top, and 17 is the first value that cuts none of them: the medium bucket
-// runs to 15, the long one starts at 16 and is drawn between 16 and max(17,
-// cap). Under a lower cap the medium and the long bucket both return the cap
-// itself, and both spend exactly one random draw doing it — so the share
-// between them changes nothing whatsoever, while the board id says it did.
+// Why the floor is 17: the cap cuts the length buckets from the top, and 17 is
+// the first value that cuts none of them (the medium bucket runs to 15, the long
+// one is drawn between 16 and max(17, cap)). Under a lower cap both buckets
+// return the cap itself with exactly one random draw, so the share between them
+// changes nothing, while the board id says it did.
 Deno.test('rule lmaxHole: under the old floor the medium share was dead weight', () => {
   const board = (Lmax: number, wMid: number): string =>
     fingerprint(generate(withDefaults({ W: 40, H: 40, Lmax, wMid }), { unchecked: true }).board)
@@ -258,22 +254,20 @@ Deno.test('probe length: below 4 every probe came out the same length', () => {
   assert(board(3) !== board(4), 'probe length 4 draws its own board')
 })
 
-// The backtrack budget used to be zero for "auto", which the engine read as
-// 200 — two stored values, one board, two ids, and a slider that grew
-// stricter as it moved right. The number is the value now; `auto` is a
-// spelling of it (see command.test.ts), and the default is what auto meant.
+// A 0 that the engine read as an "auto" 200 would be two stored values for one
+// board under two ids, and a slider that grows stricter as it moves right. The
+// number is the value; `auto` is a spelling of the default (see command.test.ts).
 Deno.test('envelope: the backtrack budget is a plain number, not a sentinel', () => {
   assertEquals(spec('maxBack').def, 200)
   assertEquals(validateParams(withDefaults({ maxBack: 0 })), [
     { kind: 'range', key: 'maxBack', value: 0, min: 50, max: 1000 },
   ])
-  // The label no longer has to explain a hole in its own range.
+  // The label has no hole in its own range to explain.
   assert(!spec('maxBack').label.includes('auto'), spec('maxBack').label)
 })
 
-// Width, height and seed step by 1, so the step says what the wholeNumbers
-// rule used to say, one knob at a time: a fraction here would go into the
-// board id and so into a file name.
+// Width, height and seed step by 1: a fraction would go into the board id and
+// so into a file name.
 Deno.test('a fractional size or seed is off the step of 1, and names only itself', () => {
   assertEquals(validateParams(withDefaults({ W: 10, H: 12, seed: 0 })), [])
   const cases: readonly [Partial<Params>, ParamKey, number][] = [
@@ -310,8 +304,8 @@ Deno.test('rule startPair: only a pair --start can spell', () => {
   assertEquals(validateParams(withDefaults({ headBias: 1, mix: 0.5 })), rule('startPair'))
   assertEquals(validateParams(withDefaults({ headBias: -1, mix: 0.5 })), rule('startPair'))
   // The hole of the share range, and the mix of 0 that is a third behaviour.
-  // Above 0.7 the knob's own range now speaks first, so the rule is left with
-  // the gap between the sentinel and the window.
+  // Above 0.7 the knob's own range speaks first, so the rule is left with the
+  // gap between the sentinel and the window.
   for (const mix of [0, 0.2] as const) {
     assertEquals(validateParams(withDefaults({ headBias: 0, mix })), rule('startPair'), `mix=${mix}`)
   }
@@ -377,9 +371,8 @@ Deno.test('generate: refuses a violation with a RangeError carrying the violatio
 })
 
 Deno.test('generate: an in-envelope board still closes with the fingerprint recorded on main', () => {
-  // Recorded on main (96b9d4a) before the envelope existed, on the Node
-  // prototype with fingerprint(): validation must not touch the algorithm,
-  // so the same call gives the same board.
+  // Pinned: validation must not touch the algorithm, so an in-envelope call
+  // carves this exact board.
   const r = generate(withDefaults({ W: 40, H: 40, seed: 1, restarts: 0 }))
   assertEquals(r.ok, true)
   assertEquals(r.restartsUsed, 0)
@@ -413,7 +406,7 @@ Deno.test('inactive: giantAnticoil is dead at or below the general penalty, and 
   // penalty puts a value that was live back to sleep, and lowering it wakes one.
   assertEquals(inactive(withDefaults({ giants: 4, anticoil: 8, giantAnticoil: 7 })), 'anticoilWins')
   assertEquals(inactive(withDefaults({ giants: 4, anticoil: 3, giantAnticoil: 6 })), null)
-  // With no skeleton at all the older reason speaks: it explains more.
+  // With no skeleton at all the skeleton's reason speaks: it explains more.
   assertEquals(inactive(withDefaults({ giants: 0, wGiant: 0, giantAnticoil: 20 })), 'skeletonOff')
 
   // What makes the dimming honest: while the rule fires the board does not move
@@ -435,8 +428,8 @@ Deno.test('inactive: giantAnticoil is dead at or below the general penalty, and 
   assertNotEquals(board(3, 6), board(3, 3), 'giantAnticoil 6 carved the board anticoil 3 already gave')
 })
 
-// The retired knobs were inert at their defaults: pinning them as constants
-// must reproduce the board a default run gave before this change.
+// The retired knobs live on as constants at the defaults where they were
+// inert, so a default run must still carve this pinned board.
 Deno.test('retiring the dead knobs leaves the default board untouched', () => {
   const r = generate({ ...defaultParams(), W: 60, H: 60, seed: 11 })
   assertEquals(fingerprint(r.board), '20244258')

@@ -1,11 +1,9 @@
-// The shortening loop of carveOne() (prototype round 12): when a freshly grown
-// path fails the leftover test, the engine looks for the longest prefix that
-// passes it — jumps of len/32 downwards, then a creep upwards one cell at a
-// time. The original creep called wouldStrand on every prefix, Θ(L²/32) per
-// trimmed path, which made big skeleton boards take minutes. The engine now
-// does it in O(L) inside Carver.prototype.shortenPath, and the acceptance
-// criterion is not "faster" but "chooses exactly the same length on every
-// path". Run: deno test --allow-read --allow-run packages/engine/
+// The shortening loop of carveOne(): when a freshly grown path fails the
+// leftover test, the engine looks for the longest prefix that passes it, in
+// jumps of len/32 downwards, then a creep upwards one cell at a time.
+// Carver.prototype.shortenPath does it in O(L), and the criterion is not
+// "faster" but "chooses exactly the same length on every path" as the plain
+// search. Run: deno test --allow-read --allow-run packages/engine/
 import { assert, assertEquals } from '@std/assert'
 import { Carver, defaultParams, fingerprint, generate, mulberry32 } from './engine.ts'
 import type { Cell, Params } from './types.ts'
@@ -17,10 +15,10 @@ function at<T>(arr: ArrayLike<T>, i: number): T {
   return v
 }
 
-// The ORIGINAL block, verbatim in behaviour, kept here as the oracle: the fast
-// method must return the same boolean and leave the path at the same length
-// as this search for every call, whatever shortcuts it takes internally.
-// It costs Θ(L²/32) per trimmed path, so it lives in a test, not in the engine.
+// The plain search, calling wouldStrand on every prefix, kept as the oracle:
+// shortenPath must return the same boolean and leave the path at the same
+// length as this for every call, whatever shortcuts it takes internally. At
+// Θ(L²/32) per trimmed path big skeleton boards take minutes, so it lives here.
 function shortenPathReference(carver: Carver, path: Cell[], failed: Set<number>): boolean {
   const step = Math.max(1, Math.floor(path.length / 32))
   for (let L = path.length - step; L >= 2; L -= step) {
@@ -135,26 +133,23 @@ Deno.test('shortenPath: agrees with the original jump-and-creep search on every 
     [],
     `shortenPath differs from the reference on ${mismatches.length} call(s) of the first differing board`,
   )
-  // Counts recorded on main with the reference replayed against the inline
-  // block (0 mismatches there); pinned so that the test cannot pass vacuously
-  // and so that a change in how often the loop runs shows up too.
+  // Pinned counts, so that the test cannot pass vacuously and a change in how
+  // often the loop runs shows up too.
   assert(calls >= 3000, `${calls} calls exercised`)
   assertEquals(trims, 1716, 'paths trimmed')
   assertEquals(refusals, 2605, 'paths refused (no prefix >= 2 passes)')
   // All 64 boards rolled into one hash (FNV-1a over the comma-joined
-  // fingerprints), recorded on main.
+  // fingerprints): a change means some board carved differently.
   let h = 2166136261
   for (const ch of fps.map((f) => f.fp).join(',')) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0
   assertEquals(h.toString(16), '78b8a0ad', 'rolled-up fingerprint of the 64 boards')
 })
 
-// Boards where the leftover test trims, recorded on main (09966e7) before
-// shortenPath existed: settings, fingerprint, piece count, and the trim
-// statistics. Every setting is inside the safe envelope. Together they cover
-// a trimmed skeleton (a 7 324-cell serpentine cut to 62 cells on 120×120
-// seed 2), trimmed ordinary paths, wGiant boards with dozens of trims, the
-// layers mode, and a board whose only shortening call refuses (80×80 seed 1
-// with giantSpan 60: zero trims, one refusal).
+// Boards where the leftover test trims, all inside the envelope, pinned so
+// shortenPath cannot change a cell. They cover a trimmed skeleton (a 7 324-cell
+// serpentine cut to 62 cells on 120×120 seed 2), trimmed ordinary paths, wGiant
+// boards with dozens of trims, the layers mode, and a board whose only
+// shortening call refuses (80×80 seed 1 with giantSpan 60: zero trims).
 const PINNED: {
   W: number
   H: number

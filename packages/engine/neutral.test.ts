@@ -44,10 +44,8 @@ Deno.test('runtime-neutral modules use no Deno, DOM, Node or process API', () =>
   }
 })
 
-// The rule "the dom lib belongs to no file here" used to carry an exception,
-// and an exception cannot be tested. It has none now, so the rule becomes a
-// test: nothing in the CLI package may reach for a browser. `Deno.` is
-// deliberately not among the patterns — that package is a Deno program.
+// Nothing in the CLI package may reach for a browser. `Deno.` is deliberately
+// not among the patterns: that package is a Deno program.
 const DOM_ONLY = [/\bdocument\./, /\bwindow\./, /\blocalStorage\b/, /\bHTMLElement\b/, /\bnavigator\./]
 
 Deno.test('no file in packages/cli reaches for the DOM', () => {

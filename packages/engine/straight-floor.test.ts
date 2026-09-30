@@ -1,16 +1,14 @@
 // The straightness a board needs to close, and the rule that enforces it.
 //
-// Round 14 (2026-09-12): 485 runs with restarts off over 100 settings, on
-// square boards from 300 to 1000 a side. Two findings drove the rule. The
+// CAMPAIGN is the measurement behind the rule, runs with restarts off on square
+// boards from 300 to 1000 a side, cell by cell: side, straightness, nook rule,
+// coiling penalty, boards closed, boards run. Two findings drive the rule. The
 // floor rises with the board on its own — 0.6 closes 500x500 but not
 // 600x600, 0.65 closes 700 but not 800, and 1000 needs 0.8. And the two
 // winding knobs move that floor both ways: closing off nooks below its
 // default, or the coiling penalty above its, makes a board behave as if it
 // were larger, while a high nook rule or a low coiling penalty makes it
 // behave smaller. Neither knob jams a board on its own at any setting.
-//
-// The table below is the campaign, cell by cell: side, straightness, nook
-// rule, coiling penalty, boards closed, boards run.
 import { assert, assertEquals } from '@std/assert'
 import { defaultParams, formatViolation, straightFloor, validateParams } from './engine.ts'
 import type { Params } from './types.ts'
@@ -126,26 +124,17 @@ const CAMPAIGN: readonly Cell[] = [
 // The price of a floor that is a step function over three knobs: six settings
 // closed every board they were given and are refused anyway. They are listed
 // rather than tolerated, so that a change to the floor has to say which of them
-// it buys back and which it adds.
-//
-// It was NINE until 2026-09-19. Four of them stood on three or four runs, and a
-// setting that really closes eight boards in ten shows a clean sweep of three
-// about half the time — so "always closed" was an artefact of the sample, not a
-// property of the setting. Run to fifteen seeds each, all four jammed
-// (500/0.65/3/10 on seed 7, 500/0.7/2/10 on seed 5, 600/0.75/2/10 on seed 14,
-// 700/0.65/4/6 on seed 7). They are ordinary jams now, and CAMPAIGN carries the
-// runs that found them.
-//
-// The first five survived fifteen seeds each, and every one of them is 1000 a
-// side — the opposite of where the thin grid was suspected to be.
+// it buys back and which it adds. The first five closed fifteen seeds each: a
+// setting that closes eight boards in ten sweeps three runs about half the
+// time, so a clean sweep of three or four is no proof it always closes.
 const CONSERVATIVE = new Set([
   '1000/0.7/8/6',
   '1000/0.8/4/8',
   '1000/0.8/4/10',
   '1000/0.85/2/6',
   '1000/0.85/3/8',
-  // Three runs only; the anticoil discount of 0.9 refuses it, on 60 runs at
-  // 0.7 with anticoil 4 that failed 5.
+  // Three runs only; the anticoil discount refuses it (see the test on a low
+  // coiling penalty below).
   '1000/0.72/5/4',
 ])
 const cellKey = (c: Cell): string => `${c[0]}/${c[1]}/${c[2]}/${c[3]}`
@@ -188,15 +177,11 @@ Deno.test('straightFloor: the floor a board of each size needs at the default wi
   }
 })
 
-// Round 15 (2026-09-13): the same walk on RECTANGLES, three seeds a point,
-// restarts off, by scripts/measure-straight-floor-shape.ts. Round 14 measured
-// squares only, where the longer side, the shorter side and the equivalent
-// square are one number, so it could not tell them apart -- and the rule it
-// produced read the longer side, on the strength of a README line about tall
-// boards being harder. That line is about the PLAYER. These shapes are about
-// the carver, and they say the floor is the equivalent square's.
-//
-// W, H, and the lowest straightness at which all three seeds closed.
+// The same walk on RECTANGLES, three seeds a point, restarts off
+// (docs/superpowers/measurements/2026-09-13-straight-floor-shape.md). On a
+// square the longer side, the shorter side and the equivalent square are one
+// number; these shapes tell them apart, and the carver's floor is the
+// equivalent square's. W, H, and the lowest straightness where all three closed.
 const SHAPES: readonly (readonly [W: number, H: number, measured: number])[] = [
   [4, 1000, 0.6],
   [100, 1000, 0.6],
@@ -217,7 +202,7 @@ Deno.test('straightFloor: on a rectangle the floor is the equivalent square, bot
     // Never under what the shape needed: that is a jam the envelope allows.
     assert(floor >= measured - 1e-9, `${W}x${H} needed ${measured} and the rule asks only ${floor}`)
     // Never more than one step over it: that is a legal board refused, which
-    // is what the longer side did to every rectangle on the list.
+    // is what reading the longer side would do to every rectangle on the list.
     assert(floor <= measured + 0.05 + 1e-9, `${W}x${H} closed at ${measured} and the rule asks ${floor}`)
   }
   // 480x1000 is the sharpest of them: its equivalent square is 692.8, just
@@ -227,8 +212,7 @@ Deno.test('straightFloor: on a rectangle the floor is the equivalent square, bot
   assertEquals(straightFloor(withDefaults({ W: 480, H: 1000 })), 0.65)
   // Equal area, different shape: the pair the campaign turned on.
   assertEquals(straightFloor(withDefaults({ W: 490, H: 1000 })), straightFloor(withDefaults({ W: 700, H: 700 })))
-  // What the old rule did: a strip of four thousand cells was asked for the
-  // straightness of a million.
+  // A strip of four thousand cells is not asked for the straightness of a million.
   assertEquals(straightFloor(withDefaults({ W: 4, H: 1000 })), 0.6)
   assertEquals(straightFloor(withDefaults({ W: 1000, H: 1000 })), 0.8)
 })
@@ -246,9 +230,9 @@ Deno.test('straightFloor: the nook rule and the coiling penalty move the floor b
   assertEquals(straightFloor(withDefaults({ W: 25, H: 50, warns: 16, anticoil: 1 })), 0.6)
 })
 
-// 2026-09-28, 10 seeds per start mode and length mix at 1000x1000 with
-// anticoil 4: 0.7 failed 5 of 60 and restarted 20, 0.75 closed all 60. At
-// 600 the discount held: 0.6 closed 60 of 60.
+// At 1000x1000 with anticoil 4, 0.7 failed 5 of 60 boards and 0.75 closed all
+// 60; at 600, 0.6 closed 60 of 60, so the discount holds there
+// (docs/superpowers/measurements/2026-09-27-envelope-leaks.md).
 Deno.test('straightFloor: a low coiling penalty lowers the floor less on a large board', () => {
   const at = (side: number, pStraight: number) => withDefaults({ W: side, H: side, pStraight, anticoil: 4 })
   assert(refused(at(1000, 0.7)), '0.7 at 1000 failed 5 of 60')

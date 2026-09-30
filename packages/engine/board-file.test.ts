@@ -175,7 +175,7 @@ Deno.test('decodeBoard refuses a header that disagrees with the body', () => {
 
 // --- the layout hash ----------------------------------------------------------
 // The name of an arrangement of arrows: ids and carving order are not part of
-// it, so a layout carved by two recipes has one name (spec §1).
+// it, so a layout carved by two recipes has one name.
 
 const LAYOUT_ID = /^sha256-[0-9a-f]{64}$/
 

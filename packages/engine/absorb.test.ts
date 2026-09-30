@@ -1,13 +1,11 @@
-// The fragment scan of Carver.absorbLeftover() (prototype round 13): the
-// original walked every cell of the board on every call, flood-filling every
-// free fragment up to the first success, and only then let the memo of failed
-// fragments skip the path search. The engine now walks a bitmap of dirty
-// cells (every cell at construction, then whatever `touch()` marks: a cell
-// that changed owner and its neighbours) and flood-fills only the fragments
-// around them. The acceptance criterion is not "faster" but "the same
-// absorbPath calls, the same absorptions, the same board" for every seed, so
-// this file keeps the ORIGINAL method as the oracle and runs every board
-// twice. Run: deno test --allow-read --allow-run packages/engine/
+// The fragment scan of Carver.absorbLeftover(): the engine walks a bitmap of
+// dirty cells (every cell at construction, then whatever `touch()` marks: a
+// cell that changed owner and its neighbours) and flood-fills only the
+// fragments around them. The criterion is not "faster" but "the same
+// absorbPath calls, the same absorptions, the same board" as a scan of every
+// cell on every call, for every seed, so this file keeps that full scan as the
+// oracle (RefCarver) and runs every board twice.
+// Run: deno test --allow-read --allow-run packages/engine/
 import { assert, assertEquals } from '@std/assert'
 import { Carver, defaultParams, DIRS, fingerprint, mulberry32 } from './engine.ts'
 import type { Cell, Params, Piece } from './types.ts'
@@ -26,9 +24,9 @@ function pop<T>(arr: T[]): T {
   return v
 }
 
-// The ORIGINAL absorbLeftover, copied verbatim from main f200c6c. It walks
+// The full-scan absorbLeftover, kept verbatim as the oracle. It walks
 // `s = 0..W*H` with a fresh Uint8Array on every call, so it costs Θ(W*H) per
-// call regardless of what changed; that is why it lives in a test now.
+// call regardless of what changed: right, but too slow for the engine.
 class RefCarver extends Carver {
   override absorbLeftover(): boolean {
     const limit = this.p.absorbLimit ?? 0
@@ -132,20 +130,17 @@ type Family = {
   side: number
   seeds: number[]
   params: Partial<Params>
-  /** Voids present from construction: a generate() option now, not a knob. */
+  /** Voids present from construction: a generate() option, not a knob. */
   voidFrac?: number
   backtracks?: boolean
 }
 
 // Absorption only runs when no head yields a path, which on boards this small
-// almost never happens inside the safe envelope: the settings below starve
-// the head draws on purpose (headTries 1, pStraight 0.2 — outside the
-// envelope, hence Carver is built directly, like `generate(.., { unchecked })`
-// would). Every family is a knob that absorbLeftover reads or that changes
-// the fragments it sees: the absorption limit, layers, a skeleton, voids
-// present from construction (the fragments no touch() ever seeds), and two
-// families that backtrack and restart. The exact-test limit (STRAND_LIMIT)
-// is a constant now, so it no longer varies across families.
+// almost never happens inside the envelope, so the families starve the head
+// draws on purpose (headTries 1, pStraight 0.2: Carver is built directly, as
+// `unchecked` would). Each family is a knob absorbLeftover reads or one that
+// changes its fragments: the limit, layers, a skeleton, voids present from
+// construction (fragments no touch() seeds), and two that backtrack and restart.
 const H1: Partial<Params> = { headTries: 1 }
 const FAMILIES: Family[] = [
   { name: 'defaults (inside the envelope)', side: 100, seeds: [1, 2], params: {} },
@@ -303,16 +298,16 @@ Deno.test('absorbLeftover: the incremental scan makes the same absorbPath calls 
     totalCalls += fam.calls
   }
   console.log(`total: ${totalAbsorbs} absorptions, ${totalCalls} absorbPath calls, ${totalBacktracks} backtracks`)
-  // Counts recorded with the oracle on main f200c6c; pinned so that a change
-  // in how often the endgame runs shows up, and so the test cannot pass vacuously.
+  // Floors under the oracle's counts: a drop means the endgame runs less often,
+  // and the comparison above is close to passing vacuously.
   assert(totalAbsorbs >= 1500, `${totalAbsorbs} absorptions exercised`)
   assert(totalBacktracks >= 100, `${totalBacktracks} backtracks exercised`)
 })
 
 Deno.test('absorbLeftover: the incremental scan visits far fewer cells than the full scan', () => {
-  // The old scan pops every free cell of the board once per call (and walks
+  // The full scan pops every free cell of the board once per call (and walks
   // all W*H indices on top of that); `remaining` at call time is exactly that
-  // pop count. The new scan reports the cells its flood fills pop in
+  // pop count. The incremental scan reports the cells its flood fills pop in
   // stats.absorbScanned. On the jam board most calls come while the board is
   // still largely free, so a full flood is tens of thousands of cells.
   const p: Params = { ...defaultParams(), W: 200, H: 200, seed: 3, ...H1, pStraight: 0.2, restarts: 0, maxBack: 50 }
