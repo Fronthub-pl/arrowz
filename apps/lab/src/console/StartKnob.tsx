@@ -1,21 +1,12 @@
-import { PARAM_SPEC, type ParamSpec } from '@arrowz/engine'
 import { isStartChoice, START, START_CHOICES, startChoiceOf } from '@arrowz/engine/command'
 import { useDictionary } from '../i18n'
+import { specOf } from '../state/params.slice'
 import { useStore } from '../state/store'
 import { rowTitle } from './KnobRow'
 import { RowShell, rowIds } from './rows/RowShell'
 import { ValueKnob } from './ValueKnob'
 
-/**
- * Read once, at module load. A `const` narrowed by a module-level `if` does not
- * stay narrowed inside a function declaration, so the check and the binding are
- * one expression.
- */
-const MIX_SPEC: ParamSpec = (() => {
-  const spec = PARAM_SPEC.find((s) => s.key === 'mix')
-  if (!spec) throw new Error('PARAM_SPEC has no mix')
-  return spec
-})()
+const MIX_SPEC = specOf('mix')
 
 /**
  * The composite `--start` control. One flag writes `headBias` and `mix`, so

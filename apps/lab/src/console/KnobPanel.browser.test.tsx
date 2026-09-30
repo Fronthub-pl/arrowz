@@ -3,6 +3,7 @@ import { dictionary } from '@arrowz/engine/i18n'
 import { act } from 'react'
 import { beforeEach, describe, expect, it, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
+import { specOf } from '../state/params.slice'
 import { useStore } from '../state/store'
 import { KnobPanel } from './KnobPanel'
 // A closed description is `.fw-vh` and the rows are a grid; a component test
@@ -22,11 +23,6 @@ beforeEach(() => {
 })
 
 const EN = dictionary('en')
-function specOf(key: ParamKey) {
-  const spec = PARAM_SPEC.find((s) => s.key === key)
-  if (spec === undefined) throw new Error(`PARAM_SPEC has no ${key}`)
-  return spec
-}
 const helpFor = (key: ParamKey) => EN.paramText(specOf(key)).help
 
 test('a panel draws every knob of its group', async () => {

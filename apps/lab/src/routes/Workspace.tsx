@@ -15,8 +15,7 @@ import { SheetBar } from '../shell/SheetBar'
 import { RunStatusBar } from '../stage/RunStatusBar'
 import { Stage } from '../stage/Stage'
 import { useStore } from '../state/store'
-
-export type WorkspaceTab = 'lab' | 'library'
+import type { WorkspaceTab } from '../state/ui.slice'
 
 /**
  * The one panel of the application's two board-bearing tabs: the lab and the

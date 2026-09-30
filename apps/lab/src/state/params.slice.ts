@@ -16,7 +16,7 @@ import { MIX_START, START, type StartChoice } from '@arrowz/engine/command'
 const specByKey = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))
 
 /** A knob's spec. Every key here comes from PARAM_SPEC, so a miss is a bug in this file. */
-function specOf(key: ParamKey): ParamSpec {
+export function specOf(key: ParamKey): ParamSpec {
   const spec = specByKey.get(key)
   if (!spec) throw new Error(`unknown parameter ${key}`)
   return spec

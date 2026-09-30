@@ -13,6 +13,9 @@ export type RailEntry = ParamGroup | 'preview'
 
 export type ViewMode = 'simple' | 'advanced'
 
+/** The two tabs `Workspace` serves: the lab and the saved boards. */
+export type WorkspaceTab = 'lab' | 'library'
+
 /**
  * What the saved boards' drawer panel shows: the boards of the chosen size, or
  * the open board's preview fields (the rail's SIZES and ELEMENT sections).

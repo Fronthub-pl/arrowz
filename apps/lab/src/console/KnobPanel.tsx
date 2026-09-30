@@ -1,6 +1,7 @@
-import { type ParamGroup, type ParamKey, PARAM_SPEC, type ParamSpec } from '@arrowz/engine'
+import { type ParamGroup, type ParamKey, PARAM_SPEC } from '@arrowz/engine'
 import type { ReactElement } from 'react'
 import { useDictionary } from '../i18n'
+import { specOf } from '../state/params.slice'
 import { useStore } from '../state/store'
 import { panelId, tabId } from './GroupRail'
 import { Knob } from './Knob'
@@ -11,12 +12,6 @@ import { StartKnob } from './StartKnob'
 /** A group's knobs, in table order. */
 function specsOf(group: ParamGroup) {
   return PARAM_SPEC.filter((spec) => spec.group === group)
-}
-
-function specOf(key: ParamKey): ParamSpec {
-  const spec = PARAM_SPEC.find((s) => s.key === key)
-  if (spec === undefined) throw new Error(`PARAM_SPEC has no ${key}`)
-  return spec
 }
 
 /**

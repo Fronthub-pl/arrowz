@@ -1,5 +1,5 @@
 import { LibraryFace } from '../library/LibraryFace'
-import type { WorkspaceTab } from '../routes/Workspace'
+import type { WorkspaceTab } from '../state/ui.slice'
 import type { RunControl } from '../run/useRun'
 import { SimplePanel } from '../simple/SimplePanel'
 import { SETTINGS_ID } from '../stage/Stage'

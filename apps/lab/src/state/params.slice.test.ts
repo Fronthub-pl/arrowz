@@ -1,7 +1,7 @@
 import { defaultParams, giantStraightFloor, PARAM_SPEC, straightFloor } from '@arrowz/engine'
 import { MIX_START, START } from '@arrowz/engine/command'
 import { beforeEach, describe, expect, it, test } from 'vitest'
-import { createParamsSlice, type ParamsState } from './params.slice'
+import { createParamsSlice, type ParamsState, specOf } from './params.slice'
 import { useStore } from './store'
 
 const params = () => useStore.getState().params
@@ -155,4 +155,8 @@ describe('the edit counter behind auto-generate', () => {
     params().reset()
     expect(params().edits).toBe(0)
   })
+})
+
+test('specOf is the PARAM_SPEC row for a key', () => {
+  for (const spec of PARAM_SPEC) expect(specOf(spec.key)).toBe(spec)
 })
