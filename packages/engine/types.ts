@@ -1,4 +1,4 @@
-// Shared domain types of the prototype. Nothing here depends on a runtime
+// Shared domain types. Nothing here depends on a runtime
 // value: the engine, the CLI, the store and the lab all import from this file,
 // so a misspelt key anywhere fails to compile.
 
@@ -339,8 +339,8 @@ export interface BoardMeta {
   view: View
   command: string
   /**
-   * The second command a board stored before the CLI had one dialect carries.
-   * Read only: nothing writes it any more, and `command` is the one command.
+   * A second command carried by boards stored under an older CLI dialect.
+   * Read only: nothing writes it, and `command` is the one command.
    */
   simpleCommand?: string
   source: string

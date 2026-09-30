@@ -1,25 +1,16 @@
 /**
- * R1, the last measurement §4 waits on: what does the trap lever do to each
- * difficulty level, on the preset options as they actually ship?
+ * What does the trap lever do to each difficulty level, on the preset options
+ * as they ship? Result (the lever cannot carry a difficulty ladder) in
+ * docs/superpowers/measurements/2026-09-12-r1-r2-measurements.md.
  *
- * Difficulty is a size today (`easy` 25 … `insane` 1000), and §4 proposes giving
- * the levels a second axis: `avoid` for the small ones, `off` in the middle,
- * `seek` at the top. Two things have to be known before that can be chosen, and
- * neither is in any recorded row:
+ * A trap count is not comparable across sizes (a 25x25 board has a few dozen
+ * pieces, a 1000x1000 board ninety thousand), so both the count and the share
+ * are recorded. `level()` gives every level a `-tunnels` option, and the lever
+ * composes with `--start`, so the pair is measured as it ships rather than at
+ * `--start=random` alone.
  *
- * 1. WHAT A LEVEL SHOWS TODAY. A trap count is not comparable across sizes — a
- *    25×25 board has a few dozen pieces and a 1000×1000 board ninety thousand —
- *    so both the count and the share are recorded. A lever that moves the share
- *    on Insane and nothing at all on Easy would make the proposal pointless
- *    exactly where it was aimed.
- * 2. WHAT IT DOES INSIDE THE BUNDLE. `level()` gives every level a `-tunnels`
- *    option, and under the §2.3 ruling the lever and `--start` now compose, so
- *    the pair has to be measured as it will be shipped rather than at
- *    `--start=random` alone.
- *
- * The lever is measured at its three shipped states (the share lost its gate,
- * see the measurements document), so `-1`, `0` and `+1` — none of which makes a
- * draw, which is why these rows are comparable with everything recorded before.
+ * The lever is measured at its three states, `-1`, `0` and `+1`; none of them
+ * makes a draw, so these rows are comparable with every other recorded row.
  *
  * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r1-levels.ts [seeds] [budgetS] [out]
  */

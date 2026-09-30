@@ -58,9 +58,8 @@ check(
   genSeconds({ genMs: 4800 }, '—') === '4.80' && genSeconds({ genMs: null }, '—') === '—',
   'lab-report is emitted correctly into dist/',
 )
-// Every failure above is named on its own line, so the summary counts rather
-// than diagnoses: it used to say "golden board(s) differ" about a failing
-// documentation check, which named the wrong file to go and look at.
+// Every failure above is named on its own line, so the summary only counts;
+// a generic "golden board(s) differ" would point at the wrong file.
 if (failures > 0) {
   console.error(`${failures} check(s) failed under Node`)
   process.exit(1)

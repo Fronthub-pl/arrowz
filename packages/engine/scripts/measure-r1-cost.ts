@@ -1,7 +1,7 @@
 /**
- * R1, second measurement: what does head scoring COST at 1000x1000, and is the
- * O(ray) read of section 7 of the adoption spec affordable inside the ranking
- * loop of carveOne?
+ * What does trap-lever head scoring COST at 1000x1000, and is an O(ray) read
+ * affordable inside the ranking loop of carveOne? Result: O(ray) is not, the
+ * O(1) table below is (see docs/superpowers/measurements/2026-09-12-r1-r2-measurements.md).
  *
  * Two numbers per cut, sampled every `stride` cuts:
  *   heads   - pairable head candidates (what carveOne ranks),
@@ -15,7 +15,7 @@
  * The run checks that the O(1) answer equals the O(ray) one for every piece,
  * and counts the cells its upkeep visits.
  *
- * The engine is NOT touched.
+ * The engine is not touched.
  *
  * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r1-cost.ts [side] [seeds] [stride]
  */
