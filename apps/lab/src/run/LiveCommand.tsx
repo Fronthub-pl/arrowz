@@ -11,6 +11,7 @@ import { CommandFigure } from './CommandFigure'
 export function LiveCommand() {
   const dict = useDictionary()
   const values = useStore((state) => state.params.values)
+  // The whole slice: the command reads every field but `voids` through `viewOf`.
   const view = useStore((state) => state.view)
   return (
     <CommandFigure

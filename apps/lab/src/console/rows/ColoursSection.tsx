@@ -1,5 +1,6 @@
 import { DEFAULT_VIEW } from '@arrowz/board-element'
 import type { ReactElement } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useDictionary } from '../../i18n'
 import { useStore } from '../../state/store'
 import { ColourRow } from './ColourRow'
@@ -15,7 +16,16 @@ import { ThemeRow } from './ThemeRow'
  */
 export function ColoursSection(): ReactElement {
   const dict = useDictionary()
-  const view = useStore((state) => state.view)
+  const view = useStore(
+    useShallow((state) => ({
+      paper: state.view.paper,
+      ink: state.view.ink,
+      highlightColor: state.view.highlightColor,
+      setPaper: state.view.setPaper,
+      setInk: state.view.setInk,
+      setHighlightColor: state.view.setHighlightColor,
+    })),
+  )
   return (
     <Section id="view-sec-colours" title={dict.t('previewColours')}>
       <ThemeRow />

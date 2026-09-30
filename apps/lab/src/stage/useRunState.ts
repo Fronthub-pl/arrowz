@@ -126,6 +126,7 @@ export function useRunState(): RunState {
  */
 export function useRunLine(): Omit<RunState, 'library'> {
   const dict = useDictionary()
+  // The whole slice: the line shows `run.progress`, which is what every progress message replaces.
   const run = useStore((state) => state.run)
   // The board on screen and the store's answer for it: the result slice's,
   // which a run in flight leaves where it was.

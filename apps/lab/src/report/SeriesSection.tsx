@@ -1,5 +1,6 @@
 import { summariseSeries, type SeriesSummary } from '@arrowz/engine/report'
 import type { ReactElement } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useDictionary } from '../i18n'
 import type { RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
@@ -29,7 +30,14 @@ function toneOf(s: SeriesSummary, error: string | null, done: boolean): 'ok' | '
  */
 export function SeriesSection({ control }: { control: RunControl }): ReactElement | null {
   const dict = useDictionary()
-  const series = useStore((state) => state.series)
+  const series = useStore(
+    useShallow((state) => ({
+      params: state.series.params,
+      runs: state.series.runs,
+      error: state.series.error,
+      phase: state.series.phase,
+    })),
+  )
   const values = useStore((state) => state.params.values)
   if (series.params === null || (series.runs.length === 0 && series.error === null)) return null
   const own = series.params
