@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Everything in the repository is in English: code, comments, tests, commit messages.
-- No `any`, no non-null assertions (`!`). `as` is allowed only where this plan puts it (the one in `only` in `state/slice.ts`).
+- No `any`, no non-null assertions (`!`). `as` is allowed only where this plan puts it: `only` in `state/slice.ts` and the key list in `indexesOf`.
 - The engine (`packages/engine/*.ts` except tests and scripts) knows neither Deno nor the DOM (`neutral.test.ts`).
 - No value-changing fallback in the engine: `fingerprints.test.ts`, `svg-golden.test.ts` and `scripts/node-smoke.mjs` stay green unchanged.
 - The lab reads the engine from `packages/engine/dist/`. After any engine change: `pnpm nx build engine --skip-nx-cache`, then grep the new export in `packages/engine/dist/`. The Nx cache is shared across worktrees; always `--skip-nx-cache`.
@@ -23,6 +23,7 @@
 - Lab formatting: `npx prettier --write <files>` in `apps/lab`, then `pnpm run fmt` as the check (`fmt` only checks). Engine formatting: `deno fmt <files>`, then `deno task fmt`.
 - Every lab task runs all of `pnpm run check`, `pnpm run lint`, `pnpm run fmt` in `apps/lab`: Vitest does not type-check, and `tsc` failures (`noUnusedLocals`, `exactOptionalPropertyTypes`) only show in `check`.
 - Browser tests: `render` is async; every browser case sets up its own state; `resetApp('advanced')` (from `src/harness/mountApp.tsx`) resets the whole store; `vitest-browser-react` unmounts between `test`s, not within one.
+- In an isolated worktree an agent may be refused `cd … && git …` compounds and heredocs: run git from the worktree root and write files with the Write tool.
 - The first `vitest run` in a fresh worktree may fail with "Vitest failed to find the runner" or fail to collect after a new dependency import; rerun once before treating it as a defect.
 
 ## Review Focus
@@ -194,7 +195,7 @@ and add `decodeBoardFile` to the `./board-file.ts` export list (alphabetical, af
 Run: `cd packages/engine && deno fmt geometry.ts board-file.ts lab-i18n.ts mod.ts geometry.test.ts board-file.test.ts lab-i18n.test.ts && deno test --allow-read --allow-run geometry.test.ts board-file.test.ts lab-i18n.test.ts`
 Expected: PASS.
 
-Run: `cd /Users/tomek/dev/arrowz && deno task verify`
+Run: `cd "$(git rev-parse --show-toplevel)" && deno task verify` (from a worktree, an absolute path would gate the main checkout)
 Expected: PASS, including `fingerprints.test.ts`, `svg-golden.test.ts`, `neutral.test.ts`, `comments.test.ts` (it sweeps `lab-i18n.ts`).
 
 Run: `pnpm nx build engine --skip-nx-cache && pnpm nx run engine:smoke --skip-nx-cache && grep -c "autoHeadWidth\|decodeBoardFile" packages/engine/dist/mod.js && grep -c "locale" packages/engine/dist/lab-i18n.js`
@@ -219,6 +220,7 @@ git commit -m "Engine: export autoHeadWidth and decodeBoardFile, and the diction
 - Modify: `apps/lab/src/library/BoardColumn.tsx`, `apps/lab/src/library/BoardList.tsx` (locale; the cast)
 - Modify: `apps/lab/src/library/openStoredBoard.ts`, `apps/lab/src/state/result.slice.ts` (`StoredBoard.file`), `apps/lab/src/library/useViewSave.ts`, `apps/lab/src/state/library.fixtures.ts`
 - Create: `apps/lab/src/stage/oneDecimal.test.ts`
+- Test: `apps/lab/src/library/LibraryFace.browser.test.tsx` (one case)
 
 **Interfaces:**
 - Consumes: Task 1's `autoHeadWidth`, `decodeBoardFile`, `Dict.locale` (through `packages/engine/dist`; build it first if this worktree has not).
@@ -241,14 +243,27 @@ test('one decimal reads 41.3 in English and 41,3 in Polish', () => {
 })
 ```
 
+Append to `apps/lab/src/library/LibraryFace.browser.test.tsx` (its `mountPanel`, `sizesFixture`, `act` and `useStore` are already there). It passes before and after this task; it is the only test that fails if `BoardList` formats with `dict.lang` instead of `dict.locale` (measured: the row then reads `09/16, 12:00 PM`):
+
+```tsx
+test('a row dates its board day first, in English and in Polish', async () => {
+  const screen = await mountPanel()
+  await act(async () => useStore.getState().library.listed(sizesFixture()))
+  const when = () => screen.container.querySelector('.when')?.textContent
+  expect(when()).toMatch(/^16\/09, \d\d:\d\d$/)
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  expect(when()).toMatch(/^16\.09, \d\d:\d\d$/)
+})
+```
+
 - [ ] **Step 2: Run to verify**
 
 Run: `cd apps/lab && pnpm vitest run --project node src/console/viewFields.test.ts src/stage/oneDecimal.test.ts`
-Expected: `viewFields.test.ts` FAILS (`autoHeadChip` is not exported). `oneDecimal.test.ts` PASSES already: it pins the form before the locale moves, so it must stay green after Step 3.
+Expected: `viewFields.test.ts` FAILS with `TypeError: autoHeadChip is not a function` (6 failed, 4 passed: the first test runs over 5 strokes). `oneDecimal.test.ts` PASSES already: it pins the form before the locale moves, so it must stay green after Step 3.
 
 - [ ] **Step 3: Implement**
 
-`apps/lab/src/console/viewFields.ts`: add `import { autoHeadWidth } from '@arrowz/engine'` and replace the whole `autoHeadWidth` function and its header with:
+`apps/lab/src/console/viewFields.ts`: change its first line, `import type { ViewNumber } from '@arrowz/engine'`, to `import { autoHeadWidth, type ViewNumber } from '@arrowz/engine'`, and replace the whole `autoHeadWidth` function and its header with:
 
 ```ts
 /**
@@ -299,15 +314,15 @@ with
 - [ ] **Step 4: Type-check and fix the test call sites `tsc` names**
 
 Run: `cd apps/lab && pnpm run check`
-Expected: PASS, or errors only in test files that build a `StoredBoard` from an `unknown` file. For each, take the file from `storedFixture` (already `BoardFile`) or from `decodeBoardFile(x).file`; never add `as BoardFile`. Rerun until PASS.
+Expected (measured): exactly one error, `src/library/openStoredBoard.test.ts(32,81): error TS2322: Type 'unknown' is not assignable to type 'BoardFile'`. Fix it in that file by replacing `function showStored(board: { meta: (typeof first)['meta']; file: unknown }) {` with `function showStored(board: typeof first) {` (`first` comes from `storedFixture`). Never add `as BoardFile`. Rerun until PASS.
 
 - [ ] **Step 5: Run the gates**
 
 Run: `cd apps/lab && npx prettier --write src && pnpm run lint && pnpm run fmt && pnpm vitest run --project node && pnpm vitest run --project chromium src/library src/stage src/console/rows src/console/ViewPanel.browser.test.tsx`
 Expected: all PASS.
 
-Run: `grep -rn "as BoardFile\|'en-GB'\|=== 'pl' ? 'pl'" apps/lab/src`
-Expected: no output.
+Run: `grep -rn "as BoardFile\|'en-GB'\|=== 'pl' ? 'pl'" apps/lab/src | grep -v '\.test\.'`
+Expected: no output (two test files name `'en-GB'` on purpose: `BoardColumn.browser.test.tsx` and `lang.slice.test.ts`).
 
 - [ ] **Step 6: Commit**
 
@@ -352,6 +367,8 @@ Expected: FAIL (`specOf` is not exported).
 
 `simple/SimplePanel.tsx`: delete the local `specOf`; add `import { specOf } from '../state/params.slice'`; remove the `@arrowz/engine` import of `PARAM_SPEC, type ParamSpec` if nothing else uses them.
 
+`console/KnobPanel.browser.test.tsx`: delete its local `function specOf(key: ParamKey)` and import `specOf` from `'../state/params.slice'` (drop `ParamKey` from its imports if `check` reports it unused).
+
 `console/StartKnob.tsx`: replace the `MIX_SPEC` block (the header comment starting "Read once, at module load" and the IIFE) with
 
 ```ts
@@ -376,8 +393,8 @@ export type WorkspaceTab = 'lab' | 'library'
 Run: `cd apps/lab && npx prettier --write src && pnpm run check && pnpm run lint && pnpm run fmt && pnpm vitest run --project node && pnpm vitest run --project chromium src/console src/simple src/shell src/routes`
 Expected: all PASS.
 
-Run: `grep -rn "function specOf\|PARAM_SPEC.find\|from '../routes/Workspace'" apps/lab/src | grep -v test`
-Expected: only `state/params.slice.ts:… export function specOf`.
+Run: `grep -rn "function specOf\|PARAM_SPEC.find\|from '../routes/Workspace'" apps/lab/src`
+Expected: only `state/params.slice.ts:… export function specOf`. (The engine's private `specOf` in `command.ts` and `lab-simple.ts` is out of scope.)
 
 - [ ] **Step 5: Commit**
 
@@ -490,7 +507,7 @@ export function persistedFlag<K extends string, S>(
 ```
 
 Run: `cd apps/lab && pnpm vitest run --project node src/state/slice.test.ts && pnpm run check`
-Expected: PASS. If `tsc` rejects the spread `{ ...state[key], [field]: on }` as not assignable to `S`, write it as `only(key, Object.assign({}, state[key], { [field]: on }))`; do not add a second `as`.
+Expected: PASS. (Measured: `tsc` accepts both spreads as written.)
 
 - [ ] **Step 4: Move the nine slices onto the template**
 
@@ -655,10 +672,24 @@ test('a new answer re-renders the series section, which reads the runs', async (
 })
 ```
 
+Also append this case. It passes before and after the narrowing; it is the only test that fails if a narrowed selector wires one field to another row (measured: with `ink: state.view.paper` all 143 `src/console` tests pass and the Ink row shows the paper colour; this case fails with `expected [ '#111111', '#111111', '#333333' ]`):
+
+```tsx
+test('each colour row shows its own field', async () => {
+  const view = useStore.getState().view
+  view.setPaper('#111111')
+  view.setInk('#222222')
+  view.setHighlightColor('#333333')
+  const screen = await renderAt(<ColoursSection />)
+  const value = (id: string) => screen.container.querySelector<HTMLInputElement>(`input#${id}`)?.value
+  expect([value('view-paper'), value('view-ink'), value('view-highlightColor')]).toEqual(['#111111', '#222222', '#333333'])
+})
+```
+
 - [ ] **Step 2: Run to verify the three narrowing cases fail**
 
 Run: `cd apps/lab && pnpm vitest run --project chromium src/state/subscriptions.browser.test.tsx`
-Expected: the three `does not re-render` cases FAIL with `expected 5 to be 0`, `expected 1 to be 0`, `expected 3 to be 0` (measured on `7230418`); the three positive controls PASS. (`answered` appends to `runs` after `finished()` too, so the series control renders.) Write the three red counts into the commit message.
+Expected: the three `does not re-render` cases FAIL with `expected 5 to be 0`, `expected 1 to be 0`, `expected 3 to be 0` (measured on `7230418`, and again by the dry run); the three positive controls and the colour-row case PASS. (`answered` appends to `runs` after `finished()` too, so the series control renders.) Write the three red counts into the commit message.
 
 - [ ] **Step 3: Narrow the three components**
 
@@ -714,7 +745,7 @@ Expected: the three `does not re-render` cases FAIL with `expected 5 to be 0`, `
 - [ ] **Step 4: Run the tests and the gates**
 
 Run: `cd apps/lab && npx prettier --write src vitest.config.ts && pnpm run check && pnpm run lint && pnpm run fmt && pnpm vitest run --project chromium src/state/subscriptions.browser.test.tsx src/console src/report src/series src/palette src/run`
-Expected: all PASS; the subscriptions file 6/6.
+Expected: all PASS; the subscriptions file 7/7.
 
 Mutation check (revert by hand afterwards): put `useStore((state) => state.view)` back in `ViewPanel.tsx` only; rerun the subscriptions file; expected exactly one failure (`a stroke edit does not re-render the preview panel`), and the colours case still passes because `ColoursSection` is not mounted inside the panel in its own case. Restore the narrowed selector; `git diff --stat` must show only the intended files.
 
@@ -802,7 +833,7 @@ test('editing a broken knob re-renders it', async () => {
 - [ ] **Step 2: Run to verify**
 
 Run: `cd apps/lab && pnpm vitest run --project node src/state/params.slice.test.ts && pnpm vitest run --project chromium src/state/subscriptions.browser.test.tsx`
-Expected: `keeps its violation array` FAILS (a fresh array each commit); `a changed bound replaces the array` PASSES (it guards the fix); `a knob that stays broken does not re-render` FAILS with `expected 1 to be 0` (measured); the valid-knob and edited-knob cases PASS.
+Expected: `keeps its violation array` FAILS (a fresh array each commit); `a changed bound replaces the array` PASSES (it guards the fix); `a knob that stays broken does not re-render` FAILS with `expected 1 to be 0` (measured); the valid-knob and edited-knob cases PASS (the file: 1 failed, 9 passed). Measured: `straightFloor` at `pStraight` 0.6 is 0.75 at 900×900 and 0.8 at 1000×1000, so the second node case's sizes hold; skip the print step.
 
 - [ ] **Step 3: Implement**
 
@@ -850,7 +881,7 @@ with
 
 (`Object.keys(...) as ParamKey[]` follows the file's existing `Object.entries(patch) as [ParamKey, number][]`: a key list, not a value.) The `inactive` loop below reads `broken[spec.key]` unchanged.
 
-In `createParamsSlice`, pass the previous indexes at the four places that call `indexesOf` on an update: `...indexesOf(c.values, state.params)` in `write` and in `setStart`, and `...indexesOf(values, state.params)` in `reset`. The initial `...indexesOf(initial)` stays.
+In `createParamsSlice`, pass the previous indexes at the three places that call `indexesOf` on an update: `...indexesOf(c.values, state.params)` in `write` and in `setStart`, and `...indexesOf(values, state.params)` in `reset`. The initial `...indexesOf(initial)` stays.
 
 In `routes/Workspace.tsx`, replace the `className={`fw-lab…`}` template with
 
@@ -912,8 +943,8 @@ In "What is still open", item 3, change `**Structural refactors:** 11; 5 and 7 a
 - [ ] **Step 2: The full gate, in a clean worktree**
 
 ```bash
-cd /Users/tomek/dev/arrowz
-git worktree add --detach ../arrowz-gate HEAD
+cd "$(git rev-parse --show-toplevel)"
+git worktree add --detach ../arrowz-gate "$(git rev-parse HEAD)"
 cd ../arrowz-gate && pnpm install --frozen-lockfile
 set -o pipefail
 deno task verify 2>&1 | tail -5
@@ -924,7 +955,7 @@ Expected: both PASS (read the result from the Nx summary, not from `$?` after a 
 
 Run: `deno task jev comments apps/lab/src/state/slice.ts apps/lab/src/state/subscriptions.browser.test.tsx packages/engine/geometry.ts packages/engine/board-file.ts` (advisory only; silent without the key). Act on a flag only if it names a real history marker or an unclear sentence.
 
-Then remove the worktree: `cd /Users/tomek/dev/arrowz && git worktree remove ../arrowz-gate`.
+Then remove the worktree from the checkout that created it: `git worktree remove ../arrowz-gate`.
 
 - [ ] **Step 3: Commit**
 
