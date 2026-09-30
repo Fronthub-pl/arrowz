@@ -24,13 +24,13 @@
 .fw-blist-hd > .kv-unit {
   flex: 1;
 }
-.fw .fw-blist-hd .kv-chip {
+.fw-blist-hd .kv-chip {
   height: 22px;
 }
 .fw-blist-rows {
   display: grid;
 }
-.fw .fw-brow {
+.fw-brow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
@@ -46,11 +46,11 @@
   text-align: left;
   cursor: pointer;
 }
-.fw .fw-brow:hover {
+.fw-brow:hover {
   background: var(--surface);
   color: var(--ink);
 }
-.fw .fw-brow[aria-current='true'] {
+.fw-brow[aria-current='true'] {
   background: var(--signal-fill);
   color: var(--ink);
   border: 0;
@@ -90,18 +90,18 @@
 /* The right column: Delete reads as destructive only on hover, and armed —
    the second press is the destructive one — it says so in `--error` rather
    than in `--warn`, which is reserved for a value that moved. */
-.fw .fw-bcol .fw-alt {
+.fw-bcol .fw-alt {
   display: flex;
   gap: 2px;
 }
-.fw .fw-bcol .fw-alt > .danger {
+.fw-bcol .fw-alt > .danger {
   flex: none;
 }
-.fw .fw-bcol .fw-alt > .danger:hover {
+.fw-bcol .fw-alt > .danger:hover {
   border-color: var(--error);
   color: var(--error);
 }
-.fw .fw-bcol .fw-alt > .danger.armed {
+.fw-bcol .fw-alt > .danger.armed {
   border-color: var(--error);
   background: var(--error);
   color: var(--void);
@@ -155,11 +155,11 @@
 
 /* A finger's target: the size tabs, the rows at their 52px, and Refresh. */
 @media (pointer: coarse), (max-width: 767px) {
-  .fw .fw-console.library .fw-rail button,
-  .fw .fw-blist-hd .kv-chip {
-    min-height: 44px;
+  .fw-console.library .fw-rail button,
+  .fw-blist-hd .kv-chip {
+    min-height: var(--touch);
   }
-  .fw .fw-brow {
+  .fw-brow {
     min-height: 52px;
   }
 }

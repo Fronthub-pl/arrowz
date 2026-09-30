@@ -143,7 +143,7 @@
 }
 .fw-docs-table td {
   padding: 6px 12px 6px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--rule);
 }
 .fw-docs-table td:last-child {
   color: var(--mist);
@@ -157,7 +157,7 @@
 .fw-docs-block > .fw-docs-pre {
   padding-top: 34px;
 }
-.fw .fw-docs-copy {
+.fw-docs-copy {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -170,7 +170,7 @@
   font-size: 11px;
   cursor: pointer;
 }
-.fw .fw-docs-copy:hover {
+.fw-docs-copy:hover {
   color: var(--ink);
   border-color: var(--ash);
 }
@@ -196,7 +196,7 @@
   .fw-docs-toc .pg > ul a {
     display: flex;
     align-items: center;
-    min-height: 44px;
+    min-height: var(--touch);
     padding-top: 0;
     padding-bottom: 0;
   }

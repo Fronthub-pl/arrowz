@@ -8,7 +8,7 @@
   grid-template-columns: 168px minmax(0, 1fr);
   gap: 1px;
   background: var(--border);
-  border-top: 1px solid var(--border);
+  border-top: var(--rule);
   min-height: 0;
 }
 .fw-rail {
@@ -94,39 +94,37 @@
   width: 28px;
   height: 22px;
   padding: 1px;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: var(--void);
 }
-/* `.fw` because `.fw button`'s `color: inherit` (0,1,1) outranked the bare
-   class and the mist never applied. */
-.fw .fw-palette-remove {
+.fw-palette-remove {
   flex: none;
   width: 22px;
   height: 22px;
   padding: 0;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: var(--void);
   color: var(--mist);
   line-height: 1;
 }
-.fw .fw-palette-remove:hover {
+.fw-palette-remove:hover {
   color: var(--error);
   border-color: var(--error);
 }
 /* Lighter than the swatch it removes: no border, `--ash`, until hover or
    focus makes it a button. */
-.fw .fw-palette-row .fw-palette-remove {
+.fw-palette-row .fw-palette-remove {
   border-color: transparent;
   color: var(--ash);
 }
-.fw .fw-palette-row:hover .fw-palette-remove,
-.fw .fw-palette-row .fw-palette-remove:focus-visible {
+.fw-palette-row:hover .fw-palette-remove,
+.fw-palette-row .fw-palette-remove:focus-visible {
   border-color: var(--border);
   color: var(--mist);
 }
-/* The cross's own hover stays red: at (0,4,0) the row's hover would otherwise
-   outrank `.fw .fw-palette-remove:hover`. */
-.fw .fw-palette-row .fw-palette-remove:hover {
+/* The cross's own hover stays red: at (0,3,0) the row's hover would otherwise
+   outrank `.fw-palette-remove:hover`. */
+.fw-palette-row .fw-palette-remove:hover {
   color: var(--error);
   border-color: var(--error);
 }
@@ -148,7 +146,7 @@
   gap: 4px;
   padding-bottom: 8px;
   margin-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--rule);
 }
 .fw-khd b {
   font-weight: 400;
@@ -218,8 +216,8 @@
   white-space: nowrap;
   color: var(--mist);
 }
-.fw .kv-g .q,
-.fw .fw-report .q {
+.kv-g .q,
+.fw-report .q {
   flex: none;
   width: 16px;
   height: 16px;
@@ -232,10 +230,10 @@
   line-height: 1;
   cursor: pointer;
 }
-.fw .kv-g .q:hover,
-.fw .kv-g .q[aria-expanded='true'],
-.fw .fw-report .q:hover,
-.fw .fw-report .q[aria-expanded='true'] {
+.kv-g .q:hover,
+.kv-g .q[aria-expanded='true'],
+.fw-report .q:hover,
+.fw-report .q[aria-expanded='true'] {
   border-color: var(--border);
   color: var(--ink);
 }
@@ -254,7 +252,7 @@
 }
 /* The value is a button that opens the inline entry; a special value shows
    its word here, in the numbers' colour and alignment. */
-.fw .kv-num {
+.kv-num {
   min-width: var(--val-n);
   padding: 0;
   border: 0;
@@ -265,7 +263,7 @@
   text-align: right;
   cursor: text;
 }
-.fw .kv-num:hover {
+.kv-num:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -301,29 +299,29 @@
 }
 /* The special value's chip: the minimum's track, pressed while the knob holds
    that value. */
-.fw .kv-chip {
+.kv-chip {
   height: 18px;
   padding: 0 3px;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: none;
   color: var(--ash);
   font: inherit;
   font-size: 10px;
   cursor: pointer;
 }
-.fw .kv-chip[aria-pressed='true'] {
+.kv-chip[aria-pressed='true'] {
   background: var(--signal-fill);
   border-color: var(--signal-fill);
   color: var(--ink);
 }
-.fw .kv-chip:not(:disabled):hover {
+.kv-chip:not(:disabled):hover {
   border-color: var(--mist);
   color: var(--ink);
 }
 /* A refused chip — the palette's add at its cap — reads as refused, not
    merely inert: a disabled control is exempt from the text contrast rule, and
    its reason is in its description. */
-.fw .kv-chip:disabled {
+.kv-chip:disabled {
   color: var(--border-strong);
   cursor: default;
 }
@@ -343,7 +341,7 @@
   min-width: 0;
   height: 24px;
   padding: 0 4px;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: var(--void);
   color: var(--ink);
   font: inherit;
@@ -475,7 +473,7 @@
 .kv-dep {
   padding-left: 12px;
 }
-.fw .kv-g .kv-dephd {
+.kv-g .kv-dephd {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -494,12 +492,12 @@
   text-align: left;
   cursor: pointer;
 }
-.fw .kv-g .kv-dephd:hover {
+.kv-g .kv-dephd:hover {
   color: var(--ink);
 }
 /* The count keeps its place at the right when a long header (the Polish one
    at 924px) wraps to a second line. */
-.fw .kv-g .kv-dephd > span:last-child {
+.kv-g .kv-dephd > span:last-child {
   flex: none;
   align-self: flex-start;
 }
@@ -588,7 +586,7 @@
   width: 24px;
   height: 20px;
   padding: 0;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: none;
   cursor: pointer;
 }
@@ -602,7 +600,7 @@
   width: max-content;
   margin: 0 var(--end) 8px auto;
   padding: 4px;
-  border: 1px solid var(--border);
+  border: var(--rule);
 }
 .kv-g .fw-swatch {
   flex: none;
@@ -640,7 +638,7 @@
     --row-h: 52px;
   }
   .kv-track {
-    height: 44px;
+    height: var(--touch);
   }
   .kv-track .rail,
   .kv-track .fill {
@@ -657,20 +655,20 @@
     top: 14px;
     height: 16px;
   }
-  .fw .kv-num {
-    min-height: 44px;
+  .kv-num {
+    min-height: var(--touch);
   }
   .kv-g .cc > select {
     height: 40px;
     padding: 0 8px;
   }
-  .fw .kv-g .q,
-  .fw .fw-report .q,
-  .fw .kv-chip {
+  .kv-g .q,
+  .fw-report .q,
+  .kv-chip {
     min-width: 32px;
     height: 32px;
   }
-  .fw .kv-g .kv-dephd {
+  .kv-g .kv-dephd {
     min-height: 48px;
   }
 }
@@ -678,7 +676,7 @@
    knob in `--signal`, no fill, so a column of switches reads as marks. Off:
    the line is `--ash` (5.9:1), not `--border-strong` (1.79:1, under the 3:1
    a control's boundary needs, WCAG 1.4.11). */
-.fw .fw-sw {
+.fw-sw {
   justify-self: end;
   position: relative;
   flex: none;
@@ -690,7 +688,7 @@
   background: none;
   cursor: pointer;
 }
-.fw .fw-sw::after {
+.fw-sw::after {
   content: '';
   position: absolute;
   top: 2px;
@@ -703,18 +701,18 @@
     transform 120ms cubic-bezier(0.2, 0, 0, 1),
     background 120ms cubic-bezier(0.2, 0, 0, 1);
 }
-.fw .fw-sw:hover {
+.fw-sw:hover {
   border-color: var(--mist);
 }
-.fw .fw-sw[aria-checked='true'] {
+.fw-sw[aria-checked='true'] {
   border-color: var(--signal);
   background: none;
 }
-.fw .fw-sw[aria-checked='true']::after {
+.fw-sw[aria-checked='true']::after {
   background: var(--signal);
   transform: translateX(14px);
 }
-.fw .fw-sw:focus-visible {
+.fw-sw:focus-visible {
   outline: 1px solid var(--ink);
   outline-offset: 2px;
 }
@@ -722,30 +720,30 @@
 /* A finger needs more than a 12px track and a text-height number. `shell.css`
    raises the tabs and Generate the same way. */
 @media (pointer: coarse), (max-width: 767px) {
-  .fw .fw-palette-remove {
-    width: 44px;
-    height: 44px;
+  .fw-palette-remove {
+    width: var(--touch);
+    height: var(--touch);
   }
   /* The drawing grows a little (36×18), the target to the design system's
      full 44×44 through `::before`. */
-  .fw .fw-sw {
+  .fw-sw {
     width: 36px;
     height: 18px;
   }
-  .fw .fw-sw::after {
+  .fw-sw::after {
     width: 12px;
     height: 12px;
   }
-  .fw .fw-sw[aria-checked='true']::after {
+  .fw-sw[aria-checked='true']::after {
     transform: translateX(18px);
   }
-  .fw .fw-sw::before {
+  .fw-sw::before {
     content: '';
     position: absolute;
     top: -14px;
     left: -5px;
-    width: 44px;
-    height: 44px;
+    width: var(--touch);
+    height: var(--touch);
   }
 }
 
@@ -832,7 +830,7 @@
 }
 @media (pointer: coarse) {
   .fw-lab .fw-stage {
-    --hd: 44px;
+    --hd: var(--touch);
   }
 }
 /* Under 700px of height the board gives up its minimum (shell.css), so its row
@@ -936,7 +934,7 @@
    rule bound, error is a refusal, and the two must not collapse into one. */
 .fw-note {
   padding: 12px;
-  border: 1px solid var(--border);
+  border: var(--rule);
   border-left: 2px solid var(--error);
   background: var(--graphite);
   color: var(--mist);
@@ -960,7 +958,7 @@
 }
 /* `--mist` for the same reason as the copy button: `--signal` is 3.81:1 here
    and is reserved for state and data. */
-.fw .fw-note.hold button {
+.fw-note.hold button {
   margin-left: 12px;
   border: 0;
   background: none;
@@ -968,12 +966,12 @@
   cursor: pointer;
   padding: 0;
 }
-.fw .fw-note.hold button:hover {
+.fw-note.hold button:hover {
   color: var(--ink);
 }
 @media (pointer: coarse), (max-width: 767px) {
-  .fw .fw-note.hold button {
-    min-height: 44px;
+  .fw-note.hold button {
+    min-height: var(--touch);
   }
 }
 
@@ -1070,9 +1068,9 @@
   .fw-lab .fw-ldrawer .fw-rail .sec {
     display: none;
   }
-  .fw .fw-lab .fw-ldrawer .fw-rail button {
+  .fw-lab .fw-ldrawer .fw-rail button {
     flex: none;
-    height: 44px;
+    height: var(--touch);
     padding: 0 16px;
   }
   /* The bound tracks go with the bounds, as in the container query above:

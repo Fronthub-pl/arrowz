@@ -70,14 +70,16 @@ body {
 .fw *::after {
   box-sizing: border-box;
 }
-.fw button {
+/* `:where` keeps this reset at (0,0,1): any class rule outranks it, so no
+   component rule needs a `.fw` prefix to paint its own colour or font. */
+:where(.fw) button {
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
   font-weight: inherit;
   color: inherit;
 }
-.fw .caps {
+.caps {
   font-size: 11px;
   line-height: 1.6;
   letter-spacing: 0.14em;
@@ -173,7 +175,7 @@ body {
   gap: 20px;
   padding: 0 16px;
   background: var(--void);
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--rule);
 }
 .fw-tabrow button {
   padding: 10px 0 8px;
@@ -229,7 +231,7 @@ body {
   transform: none;
   box-shadow: -1px 0 0 var(--border);
 }
-.fw .fw-drawer-handle {
+.fw-drawer-handle {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -237,17 +239,17 @@ body {
   gap: 10px;
   padding: 12px 0;
   border: 0;
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
+  border-left: var(--rule);
+  border-right: var(--rule);
   background: var(--void);
   color: var(--mist);
   cursor: pointer;
 }
-.fw .fw-drawer-handle:hover {
+.fw-drawer-handle:hover {
   background: var(--surface);
   color: var(--ink);
 }
-.fw .fw-drawer-handle:focus-visible {
+.fw-drawer-handle:focus-visible {
   outline-offset: -2px;
 }
 .fw-drawer-handle .t {
@@ -283,12 +285,12 @@ body {
 }
 @media (pointer: coarse) {
   .fw-stage {
-    grid-template-columns: 70px minmax(0, 1fr) 44px;
+    grid-template-columns: 70px minmax(0, 1fr) var(--touch);
   }
   .fw-drawer {
-    grid-template-columns: 44px minmax(0, 1fr);
-    width: calc(clamp(22rem, 24vw, 32rem) + 44px);
-    transform: translateX(calc(100% - 44px));
+    grid-template-columns: var(--touch) minmax(0, 1fr);
+    width: calc(clamp(22rem, 24vw, 32rem) + var(--touch));
+    transform: translateX(calc(100% - var(--touch)));
   }
 }
 /* The settings drawer: the report's, mirrored onto the stage's left edge.
@@ -333,9 +335,9 @@ body {
 }
 @media (pointer: coarse) {
   .fw-ldrawer {
-    width: calc(var(--ls-w) + 44px);
-    grid-template-columns: minmax(0, 1fr) 44px;
-    transform: translateX(calc(-100% + 44px));
+    width: calc(var(--ls-w) + var(--touch));
+    grid-template-columns: minmax(0, 1fr) var(--touch);
+    transform: translateX(calc(-100% + var(--touch)));
   }
   .fw-ldrawer.open {
     transform: none;
@@ -363,7 +365,7 @@ body {
      only shows through before it upgrades. The strip is the annotation's own
      plane (`--void`), not the paper, or a dark theme gets a light band above it. */
   background: linear-gradient(var(--void) 0 var(--fw-strip), var(--paper) 0);
-  border: 1px solid var(--border);
+  border: var(--rule);
   overflow: hidden;
 }
 .fw-board arrowz-board {
@@ -396,7 +398,7 @@ body {
    button, because `.fw-board` clips (`overflow: hidden`) and the global 2px
    offset would draw it outside the frame; `--signal` on `--void` is 4.08:1,
    above the 3:1 a focus indicator needs. */
-.fw .fw-solo {
+.fw-solo {
   position: absolute;
   top: 0;
   right: 0;
@@ -408,17 +410,17 @@ body {
   color: var(--ink);
   cursor: pointer;
 }
-.fw .fw-solo:hover {
+.fw-solo:hover {
   background: var(--surface);
 }
-.fw .fw-solo:focus-visible {
+.fw-solo:focus-visible {
   outline-offset: -2px;
 }
 /* The touch target grows to 44px here; the strip (and so the annotation's
    height too) grows with it, or the toggle would spill below it. */
 @media (pointer: coarse), (max-width: 767px) {
   .fw-board {
-    --fw-strip: 44px;
+    --fw-strip: var(--touch);
   }
 }
 
@@ -454,10 +456,10 @@ body {
 /* The 44px Reset sets the row's height here, over two lines of text. */
 @media (pointer: coarse), (max-width: 767px) {
   .fw-modeline {
-    height: max(2lh, 44px);
+    height: max(2lh, var(--touch));
   }
-  .fw .fw-modeline .fw-btn {
-    height: 44px;
+  .fw-modeline .fw-btn {
+    height: var(--touch);
   }
 }
 /* At XS the wrap has no padding, so the strip keeps the text off the edge. */
@@ -492,7 +494,7 @@ body {
   align-items: center;
   gap: 20px;
   padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--rule);
   color: var(--ash);
   flex-wrap: wrap;
 }
@@ -505,14 +507,10 @@ body {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-/* `.fw .fw-go` and not a bare `.fw-go`: the `.fw button` normalisation above
-   is (0,1,1) and would outrank (0,1,0) on `color` and `font-family`,
-   leaving the button `--ash` on the fill. The `.fw` prefix makes it (0,2,0),
-   and every rule of the component carries it. */
-.fw .fw-go {
+.fw-go {
   flex: none;
-  height: 44px;
-  min-height: 44px;
+  height: var(--touch);
+  min-height: var(--touch);
   margin-top: 12px;
   padding: 0 16px;
   border: 0;
@@ -528,33 +526,32 @@ body {
   cursor: pointer;
   transition: background 120ms cubic-bezier(0.2, 0, 0, 1);
 }
-.fw .fw-go:hover:not(:disabled) {
+.fw-go:hover:not(:disabled) {
   background: var(--signal-fill-hover);
 }
-.fw .fw-go:active:not(:disabled) {
+.fw-go:active:not(:disabled) {
   background: var(--signal-fill-press);
 }
-.fw .fw-go:disabled {
+.fw-go:disabled {
   opacity: 0.5;
   cursor: default;
 }
-.fw .fw-go:focus-visible {
+.fw-go:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: -4px;
 }
 /* One of a few (Segmented.tsx): a 24px bordered chip with the group rail's
-   selected state, so the lab has one "chosen". The `.fw` prefix for the
-   reason `.fw .fw-go` gives above. */
+   selected state, so the lab has one "chosen". */
 .fw-seg {
   display: inline-flex;
   flex: none;
   gap: 2px;
 }
-.fw .fw-seg button {
+.fw-seg button {
   flex: none;
   height: 24px;
   padding: 0 10px;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: none;
   color: var(--mist);
   cursor: pointer;
@@ -563,29 +560,29 @@ body {
     background 120ms cubic-bezier(0.2, 0, 0, 1),
     color 120ms cubic-bezier(0.2, 0, 0, 1);
 }
-.fw .fw-seg button:not([aria-checked='true']):hover {
+.fw-seg button:not([aria-checked='true']):hover {
   color: var(--ink);
   background: var(--surface);
 }
-.fw .fw-seg button[aria-checked='true'] {
+.fw-seg button[aria-checked='true'] {
   color: var(--ink);
   background: var(--signal-fill);
   border-color: transparent;
 }
 @media (pointer: coarse), (max-width: 767px) {
-  .fw .fw-seg button {
-    height: 44px;
+  .fw-seg button {
+    height: var(--touch);
   }
 }
 
 /* The console's plain button: Refresh, Load into lab, Delete, add colour.
-   `.fw button` never paints, so a classless button keeps the browser's grey
+   `:where(.fw) button` never paints, so a classless button keeps the browser's grey
    outset look. A class, not a context selector, because "add colour" moves
-   between cards. (0,2,0) outranks `.fw button`. */
-.fw .fw-btn {
+   between cards. */
+.fw-btn {
   height: 24px;
   padding: 0 10px;
-  border: 1px solid var(--border);
+  border: var(--rule);
   background: none;
   color: var(--mist);
   cursor: pointer;
@@ -594,19 +591,19 @@ body {
     background 120ms cubic-bezier(0.2, 0, 0, 1),
     color 120ms cubic-bezier(0.2, 0, 0, 1);
 }
-.fw .fw-btn:hover:not(:disabled) {
+.fw-btn:hover:not(:disabled) {
   color: var(--ink);
   background: var(--surface);
 }
 /* Disabled looks disabled: `--ash` text is the signal, dimmer but legible.
    The border stays `--border`; `--graphite` would be ~1.07:1, invisible. */
-.fw .fw-btn:disabled {
+.fw-btn:disabled {
   cursor: default;
   color: var(--ash);
 }
 @media (pointer: coarse), (max-width: 767px) {
-  .fw .fw-btn {
-    height: 44px;
+  .fw-btn {
+    height: var(--touch);
   }
 }
 
@@ -615,24 +612,24 @@ body {
    `--signal` too. The unselected text is `--ink` on
    `--signal-fill` (5.31:1); the chosen option is `--ink` on `--void`. The base
    rule ties with the chip's checked rule and wins by following it; the
-   checked rule here is (0,4,1). */
-.fw .fw-top .fw-seg button {
+   checked rule here is (0,3,1). */
+.fw-top .fw-seg button {
   border-color: var(--ink);
   color: var(--ink);
 }
 /* The same hover as every other chip in the lab — a fill, no underline — in
    the bar's own terms. `--signal-fill-hover`, not a 12% `--ink` blend over the
    plane: that measured about 4.2:1 under `--ink`. */
-.fw .fw-top .fw-seg button:not([aria-checked='true']):hover {
+.fw-top .fw-seg button:not([aria-checked='true']):hover {
   background: var(--signal-fill-hover);
   color: var(--ink);
 }
-.fw .fw-top .fw-seg button[aria-checked='true'] {
+.fw-top .fw-seg button[aria-checked='true'] {
   background: var(--void);
   color: var(--ink);
   border-color: var(--void);
 }
-.fw .fw-top :focus-visible {
+.fw-top :focus-visible {
   outline-color: var(--ink);
   /* The global ring sits outside the element by 2px (shell.css's `:root`
      rule); `.fw-top` clips (`overflow: hidden`) at 48px tall, and the
@@ -646,7 +643,7 @@ body {
 .fw-sheetbar {
   display: none;
 }
-.fw .fw-sheetbar button {
+.fw-sheetbar button {
   border: 0;
   background: none;
   color: var(--mist);
@@ -654,7 +651,7 @@ body {
 }
 
 /* The top bar's menu chip and ⌘K's word for touch exist only at XS. */
-.fw .fw-top .fw-menu-btn,
+.fw-top .fw-menu-btn,
 #cmdk .k-touch {
   display: none;
 }
@@ -674,7 +671,7 @@ body {
   }
   /* A top-bar chip like View and Language: a 1px --ink line and no fill;
      open, the chosen chip's --void. 28px drawn, 44 to the finger. */
-  .fw .fw-top .fw-menu-btn {
+  .fw-top .fw-menu-btn {
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -688,15 +685,15 @@ body {
   }
   /* The chip is 28px border-box with a 1px border, so its padding box is 26
      and `inset` counts from that: -9px gives 44 (-8px gives 42). */
-  .fw .fw-top .fw-menu-btn::before {
+  .fw-top .fw-menu-btn::before {
     content: '';
     position: absolute;
     inset: -9px -4px;
   }
-  .fw .fw-top .fw-menu-btn:hover {
+  .fw-top .fw-menu-btn:hover {
     background: var(--signal-fill-hover);
   }
-  .fw .fw-top .fw-menu-btn[aria-expanded='true'] {
+  .fw-top .fw-menu-btn[aria-expanded='true'] {
     background: var(--void);
     border-color: var(--void);
   }
@@ -721,14 +718,14 @@ body {
   .fw.menu-open .fw-top .right > .fw-seg button {
     flex: 1;
     justify-content: center;
-    min-height: 44px;
+    min-height: var(--touch);
   }
   .fw.menu-open .fw-top #cmdk {
     display: inline-flex;
     justify-content: center;
     align-items: center;
     width: 100%;
-    min-height: 44px;
+    min-height: var(--touch);
   }
   #cmdk .k-key {
     display: none;
@@ -750,11 +747,11 @@ body {
     background: var(--void);
     box-shadow: 0 -1px 0 var(--border);
   }
-  .fw .fw-sheetbar button:hover {
+  .fw-sheetbar button:hover {
     background: var(--surface);
     color: var(--ink);
   }
-  .fw .fw-sheetbar button[aria-pressed='true'] {
+  .fw-sheetbar button[aria-pressed='true'] {
     background: var(--signal-fill);
     color: var(--ink);
   }

@@ -94,8 +94,8 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  border-top: var(--rule);
+  border-bottom: var(--rule);
 }
 .fw-rsum > div {
   display: grid;
@@ -106,7 +106,7 @@
 }
 .fw-rsum > div + div {
   padding-left: 6px;
-  border-left: 1px solid var(--border);
+  border-left: var(--rule);
 }
 /* The number first on screen, the term first in the markup: `dd` is a
    box of nothing (`display: contents`), so its two children place by row. */
