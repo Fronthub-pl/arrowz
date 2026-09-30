@@ -342,7 +342,7 @@ Deno.test('session start: reads the memory beside the transcript, one gh and one
   assertEquals(d.runs.sort(), ['gh', 'git'])
   const git = d.calls.find((c) => c[0] === 'git') ?? []
   const gh = d.calls.find((c) => c[0] === 'gh') ?? []
-  assertEquals(git.includes('--full-name'), true)
+  assertEquals(git.slice(1), ['ls-files', '--full-name', ':/'])
   assertEquals(gh.join(' ').includes('--limit 200'), true)
 })
 

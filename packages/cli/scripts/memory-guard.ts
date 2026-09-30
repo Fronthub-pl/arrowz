@@ -235,7 +235,8 @@ export async function sessionStart(memoryDir: string, cwd: string, deps: Deps, a
   }
   const [prs, files] = await Promise.all([
     deps.run('gh', ['pr', 'list', '--state', 'open', '--limit', '200', '--json', 'number', '-q', '.[].number'], cwd),
-    deps.run('git', ['ls-files', '--full-name'], cwd),
+    // `:/` lists the whole repository whatever the session's cwd; `--full-name` prints paths from the top.
+    deps.run('git', ['ls-files', '--full-name', ':/'], cwd),
   ])
   const open = lines(prs)
   const tracked = lines(files)
