@@ -122,7 +122,8 @@ export function mutations(pairs: Pair[], per = 30): Pair[] {
 }
 
 const ROOT = fromFileUrl(new URL('../../../', import.meta.url))
-// The comment sweep: before it, and after the commit that restored what it cut too far.
+// Labelled comments: those in the swept files at BEFORE, marked changed when absent from the files at AFTER
+// (rewritten or cut by the comment sweep and not restored by its follow-up).
 const BEFORE = '446c853'
 const AFTER = 'e7b0d50'
 const SWEPT = (f: string) =>
@@ -179,7 +180,8 @@ async function evalComments(judge: Judge): Promise<boolean> {
   return pass
 }
 
-// MESSAGE_AT was measured seeing only the 292 commits at PICKED_AT and merged PRs <= PICK_LAST_PR; the held-out set stays anchored there so it never includes what the threshold saw.
+// MESSAGE_AT was picked on the 292 commits at PICKED_AT and the merged PRs up to PICK_LAST_PR; anchoring the
+// held-out set there keeps what the threshold saw out of it.
 const PICKED_AT = '08f1b8e'
 const PICK_SAW_COMMITS = 292
 const PICK_LAST_PR = 127

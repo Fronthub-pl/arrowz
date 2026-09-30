@@ -279,7 +279,7 @@ Deno.test('stored files are served without cache; paths escaping the store are r
     assertEquals(file.status, 200)
     assertEquals(file.headers.get('cache-control'), 'no-store, must-revalidate')
     await file.body?.cancel()
-    // The server has no page of its own to serve any more.
+    // The server has no page of its own.
     const root = await fetch(base + '/')
     assertEquals(root.status, 404)
     await root.body?.cancel()
@@ -318,7 +318,7 @@ Deno.test('DELETE /api/boards/<size>/<id> removes the layout; a missing one give
     const bad = await fetch(`${base}/api/boards/..%2F25x50/seed7-x`, { method: 'DELETE' })
     assertEquals(bad.status, 400)
     await bad.body?.cancel()
-    // A board stored under the old seed names is not a layout name: refused, not "missing".
+    // A seed-shaped name is not a layout name: refused, not "missing".
     const old = await fetch(`${base}/api/boards/10x10/seed3-00000000`, { method: 'DELETE' })
     assertEquals(old.status, 400)
     await old.body?.cancel()
@@ -365,8 +365,7 @@ Deno.test('requests for another host, and writes from another origin, are refuse
 
 Deno.test('only the store is served, with security headers', () =>
   withServer(async (base) => {
-    // Sources, configuration and a bundle path all answer the same way now:
-    // there is nothing here but the API and the store.
+    // Sources, configuration and a bundle path all answer the same way: nothing but the API and the store.
     for (const path of ['/carve.ts', '/store.ts', '/deno.json', '/dist/anything.js', '/store/..%2Fcarve.ts']) {
       const r = await fetch(base + path)
       assert(r.status === 404 || r.status === 403, `${path} gave ${r.status}`)

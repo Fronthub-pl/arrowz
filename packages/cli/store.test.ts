@@ -174,7 +174,7 @@ Deno.test('two parameter sets that carve one layout share its files and list bot
 
 // Two recipes of one layout number their pieces differently, so their files
 // differ; rewriting the file would move its fingerprint, and a saved game
-// against it would no longer load (spec §3).
+// against it would no longer load.
 Deno.test('a second recipe numbered differently leaves the board file as the first save wrote it', async () => {
   const dir = freshDir()
   const firstFile = boardFile(25, 50, [0, 2])
@@ -189,7 +189,7 @@ Deno.test('a second recipe numbered differently leaves the board file as the fir
 
 // A meta alone is not a layout: listBoards pairs it with <id>.board.json. So a
 // save that finds the board file gone writes it again, rather than reporting a
-// stored board that nothing lists, and the meta describes the bytes now there.
+// stored board that nothing lists, and the meta describes the bytes on disk.
 Deno.test('a save whose board file went missing writes it again and describes what is on disk', async () => {
   const dir = freshDir()
   const first = (await saveBoard(entry({ params: { seed: 1 } }))).meta
@@ -247,8 +247,8 @@ Deno.test('listBoards skips junk: foreign directories, json without a board file
   assertEquals(sizes[0]?.boards.length, 1)
 })
 
-// No migration (spec, Decisions): a board stored under the settings-hash name
-// stays on disk, and the store neither lists nor deletes it.
+// A board stored under a settings-hash name is not migrated: it stays on disk, and the store neither
+// lists nor deletes it.
 Deno.test('a board under an old seed name is neither listed nor deleted', async () => {
   const dir = freshDir()
   const { meta } = await saveBoard(entry())
@@ -259,8 +259,7 @@ Deno.test('a board under an old seed name is neither listed nor deleted', async 
   assert(exists(join(dir, '25x50', 'seed7-f48ddb0f.board.json')))
 })
 
-// Boards saved before the arrowhead knobs (or rounded) existed carry a view
-// without them; the store fills them with the defaults.
+// A stored view may lack the arrowhead knobs or `rounded`; the store fills them with the defaults.
 Deno.test('listBoards fills a legacy view without arrowhead fields with the defaults', () => {
   const dir = freshDir()
   Deno.mkdirSync(join(dir, '25x50'))
@@ -311,9 +310,8 @@ Deno.test('a meta carrying a stray view version reads a head height of 0 as 0', 
   assertEquals(board?.sources[0]?.view.headHeight, 0, 'the recipe is read the same way')
 })
 
-// The same for params: a board saved before a knob existed does not name it.
-// Without filling it here the page would re-save the board with a command
-// carrying `--headtries=undefined`.
+// The same for params: a stored board may not name a knob. Without filling it here the page would
+// re-save the board with a command carrying `--headtries=undefined`.
 Deno.test('listBoards fills legacy params without a knob with the engine default, in recipes too', () => {
   const dir = freshDir()
   Deno.mkdirSync(join(dir, '25x50'))
@@ -407,8 +405,7 @@ Deno.test('a save carrying aborted false over a stored aborted true recipe write
   assertEquals(run.meta.sources[0]?.aborted, false)
 })
 
-// A board stored before the closing report existed lacks the fields; the
-// reader fills them so the page never sees undefined.
+// A stored board may lack the closing-report fields; the reader fills them so the page never sees undefined.
 Deno.test('listBoards fills a legacy meta without the closing report', () => {
   const dir = freshDir()
   Deno.mkdirSync(join(dir, '25x50'))
