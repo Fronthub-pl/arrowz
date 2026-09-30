@@ -45,6 +45,8 @@
 - The Jev guards (`packages/cli/scripts/jev-guard.ts`) advise through Claude Code
   hooks on comments, commit and PR messages and the Polish dictionary; they never
   gate, and without the key they are silent. See `docs/jev-guards.md`.
+- The memory guard (`packages/cli/scripts/memory-guard.ts`) advises the same
+  way on Claude Code's memory: on each memory write and at session start.
 
 ## Comments
 

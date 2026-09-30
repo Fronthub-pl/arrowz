@@ -10,6 +10,15 @@
                         "async": true
                     }
                 ]
+            },
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "f=\"$CLAUDE_PROJECT_DIR/packages/cli/scripts/memory-guard.ts\"; [ -f \"$f\" ] || exit 0; deno run --quiet --allow-read=\"$HOME/.claude/projects\" --allow-run=gh,git --allow-env=HOME \"$f\" hook",
+                        "timeout": 10
+                    }
+                ]
             }
         ],
         "SessionEnd": [
@@ -65,6 +74,16 @@
                     {
                         "type": "command",
                         "command": "f=\"$CLAUDE_PROJECT_DIR/packages/cli/scripts/jev-guard.ts\"; [ -f \"$f\" ] || exit 0; deno run --quiet --allow-net=api.typesafe.ai --allow-read=\"$CLAUDE_PROJECT_DIR\",\"$HOME/.config/arrowz\",/tmp,/private/tmp --allow-env=HOME,ARROWZ_TYPESAFE_ENV \"$f\" hook",
+                        "timeout": 10
+                    }
+                ]
+            },
+            {
+                "matcher": "Edit|Write|mcp__memory-arrowz__write_note|mcp__memory-arrowz__edit_note",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "f=\"$CLAUDE_PROJECT_DIR/packages/cli/scripts/memory-guard.ts\"; [ -f \"$f\" ] || exit 0; deno run --quiet --allow-net=api.typesafe.ai --allow-read=\"$HOME/.config/arrowz\" --allow-env=HOME,ARROWZ_TYPESAFE_ENV \"$f\" hook",
                         "timeout": 10
                     }
                 ]
