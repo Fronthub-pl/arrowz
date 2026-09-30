@@ -1,7 +1,8 @@
 // Advisory checks of Claude Code's memory, measured in docs/jev-guards.md: an item that only restates
 // the code or git history (Jev), a MEMORY.md line that carries content instead of a pointer, and
 // present-tense lines that went stale. They report and never gate.
-import { excerpt, MAX_FLAGS } from './jev-guard.ts'
+import type { Answers, Judge, Noul } from './jev-client.ts'
+import { excerpt, type Flag, format, MAX_FLAGS, pool } from './jev-guard.ts'
 
 export const MAX_INDEX_LINE = 130
 
@@ -80,4 +81,51 @@ export function findingsReport(title: string, found: Finding[], all = false): st
   const lines = shown.map((f) => `- ${f.where}  ${f.what}`)
   if (found.length > shown.length) lines.push(`(${found.length - shown.length} more not shown)`)
   return `memory: ${title}:\n${lines.join('\n')}`
+}
+
+export const MEMORY_QUESTIONS: Record<string, Noul> = {
+  violates: {
+    type: 'noul',
+    instructions:
+      'A reviewer applying this rule would delete the `memory_item`: "A memory note records a decision with its reason, a lesson, a gotcha or a non-obvious constraint — not a fact that is plainly readable from the code or the git history."',
+    criteria: {
+      true: 'The item is a plain fact about the code or git history and teaches nothing else.',
+      false:
+        'The item records a reason, a lesson, a gotcha, a measurement, a user decision or a non-obvious constraint.',
+    },
+  },
+}
+// Held out: 0.4 % false alarms and a third of real violations found; see docs/jev-guards.md.
+export const MEMORY_AT = 0.64
+// 40 requests at 16 at a time fit the hook's 10 s at the measured ~0.35 s p95.
+export const MAX_MEMORY_REQUESTS = 40
+const CONCURRENCY = 16
+
+export function askMemory(judge: Judge, item: string): Promise<Answers | null> {
+  return judge({ memory_item: item }, MEMORY_QUESTIONS)
+}
+
+export async function memoryFlags(
+  judge: Judge,
+  items: string[],
+  where: string,
+  cap = MAX_MEMORY_REQUESTS,
+): Promise<{ flags: Flag[]; skipped: number }> {
+  const asked = items.slice(0, cap)
+  const answers = await pool(asked, CONCURRENCY, (item) => askMemory(judge, item))
+  const flags: Flag[] = []
+  answers.forEach((a, i) => {
+    const p = a?.violates ?? 0
+    if (p > MEMORY_AT) flags.push({ where, question: 'code_fact', p, excerpt: asked[i] ?? '' })
+  })
+  return { flags, skipped: items.length - asked.length }
+}
+
+export function memoryReport(r: { flags: Flag[]; skipped: number }): string | null {
+  const note = r.skipped > 0 ? `(${r.skipped} further items were not checked)` : undefined
+  return format(
+    'memory items that may only restate the code or git history (keep a reason, a lesson or a trap)',
+    r.flags,
+    note,
+  )
 }
