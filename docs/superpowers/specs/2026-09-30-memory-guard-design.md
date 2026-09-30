@@ -44,7 +44,8 @@ index was slimmed on 2026-09-30, 30 of its 66 lines held about 73 % of its
 characters as status; the cleanup that day corrected about nine note
 descriptions that still called a merged pull request open (reported by the
 cleanup, not re-measured: the files were edited in place). After the cleanup
-M3's pattern flags 0 of 136 present-tense segments (every index line and the
+M3 flags 0 of 136 present-tense segments, for open-PR claims, index links and
+repository paths alike (every index line and the
 first clause of every description), while on whole descriptions it flagged 8,
 all dated history or a negation ("zero open PRs"): hence the narrowing below.
 
@@ -117,7 +118,7 @@ request part is skipped and the rest still runs.
 
 By hand: `deno task memory audit` runs M1, M2 and M3 over the whole
 auto-memory and the repository's basic-memory notes (not `sesje/`), and
-`deno task memory eval` re-measures M1 and M2 against the private labels,
+`deno task memory:eval` re-measures M1 and M2 against the private labels,
 printing the table above. Without the key M1 is silent and M2 and M3 still
 run. Without the labels file `eval` says so and exits 1.
 
@@ -130,8 +131,9 @@ the hook routing for each row of the table (including `sesje/`, the global
 project and a non-memory file producing nothing), M2's character count on
 Polish text, M3's pattern on the measured false match ("zero otwartych
 PR-ów") and on a dated clause after the first `;`, the `gh` failure path, and
-the request cap. `neutral.test.ts` and the comment guard cover the new file
-like the rest of `packages/cli`.
+the request cap. The comment guard covers the new files like the rest of
+`packages/cli`; `neutral.test.ts` reads only the top level of `packages/cli`,
+so it does not see `scripts/`.
 
 ## Documentation
 
