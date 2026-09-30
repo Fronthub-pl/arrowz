@@ -96,7 +96,7 @@ export const MEMORY_QUESTIONS: Record<string, Noul> = {
     },
   },
 }
-// Held out: 0.4 % false alarms and a third of real violations found; see docs/jev-guards.md.
+// Held out: under 1 % false alarms and a third of real violations found; see docs/jev-guards.md.
 export const MEMORY_AT = 0.64
 // 40 requests at 16 at a time fit the hook's 10 s at the measured ~0.35 s p95.
 export const MAX_MEMORY_REQUESTS = 40
@@ -178,7 +178,8 @@ export function staleState(s: StateInput): Finding[] {
       }
     }
     if (seg.where.startsWith('MEMORY.md')) {
-      for (const m of seg.text.matchAll(/\]\(([^)\s]+\.md)\)/g)) {
+      // A target with a slash is a repository path or a URL, not a memory file.
+      for (const m of seg.text.matchAll(/\]\(([^)\s/]+\.md)\)/g)) {
         const file = m[1] ?? ''
         if (!s.exists(file)) out.push({ where: seg.where, what: `links ${file}, which does not exist` })
       }
@@ -209,6 +210,9 @@ const BASIC_MEMORY_TOOLS = new Set(['mcp__memory-arrowz__write_note', 'mcp__memo
 // A session log records what happened, which is its purpose: its folder or its dated title marks it.
 const SESSION_LOG = /(^|\/)sesje(\/|$)|^\d{4}-\d{2}-\d{2}\b/
 
+/** Audit skips what the hook skips: hidden entries, the `sesje` folder and date-named session logs. */
+export const auditSkips = (name: string) => name.startsWith('.') || name === 'sesje' || /^\d{4}-\d{2}-\d{2}/.test(name)
+
 /** The auto-memory file `path` names, under any project key; null for any other path. */
 export function autoMemoryFile(home: string, path: string): { dir: string; file: string } | null {
   const rel = relative(join(home, '.claude', 'projects'), path)
@@ -230,8 +234,8 @@ export async function sessionStart(memoryDir: string, cwd: string, deps: Deps, a
     if (text !== null) notes.push({ file, text })
   }
   const [prs, files] = await Promise.all([
-    deps.run('gh', ['pr', 'list', '--state', 'open', '--json', 'number', '-q', '.[].number'], cwd),
-    deps.run('git', ['ls-files'], cwd),
+    deps.run('gh', ['pr', 'list', '--state', 'open', '--limit', '200', '--json', 'number', '-q', '.[].number'], cwd),
+    deps.run('git', ['ls-files', '--full-name'], cwd),
   ])
   const open = lines(prs)
   const tracked = lines(files)
@@ -285,7 +289,7 @@ export async function runMemoryHook(payload: unknown, deps: Deps): Promise<strin
     const content = str(input.content)
     const title = str(input.title) ?? ''
     if (content !== null && !SESSION_LOG.test(place) && !SESSION_LOG.test(title)) {
-      out = memoryReport(await memoryFlags(deps.judge, observations(content), `note "${str(input.title) ?? place}"`))
+      out = memoryReport(await memoryFlags(deps.judge, observations(content), `note "${title === '' ? place : title}"`))
     }
   }
   if (out === null || event === null) return null
@@ -325,7 +329,7 @@ export function projectMemoryDir(home: string, root: string): string {
 
 function notesOf(dir: string, out: string[]) {
   for (const e of listEntries(dir)) {
-    if (e.name.startsWith('.') || e.name === 'sesje') continue
+    if (auditSkips(e.name)) continue
     const path = join(dir, e.name)
     if (e.isDirectory) notesOf(path, out)
     else if (e.name.endsWith('.md')) out.push(path)

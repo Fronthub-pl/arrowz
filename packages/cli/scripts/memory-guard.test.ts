@@ -2,6 +2,7 @@ import { assertEquals, assertStringIncludes } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import type { Answers, Judge } from './jev-client.ts'
 import {
+  auditSkips,
   autoMemoryFile,
   type Deps,
   findingsReport,
@@ -162,6 +163,27 @@ Deno.test('staleState: a closed PR called open, a dead link, an untracked path',
   ])
 })
 
+Deno.test('staleState: only a bare file name is a memory link', () => {
+  const found = staleState({
+    index: '- [X](docs/x.md) and [Y](https://e.x/y.md)\n- [G](gone.md)',
+    notes: [],
+    exists: () => false,
+    openPrs: null,
+    tracked: null,
+  })
+  assertEquals(found, [{ where: 'MEMORY.md:2', what: 'links gone.md, which does not exist' }])
+})
+
+Deno.test('auditSkips: hidden entries, the sesje folder and date-named logs', () => {
+  assertEquals(['.x.md', 'sesje', '2026-09-30 log.md', 'a.md', 'x-2026-09-30.md'].map(auditSkips), [
+    true,
+    true,
+    true,
+    false,
+    false,
+  ])
+})
+
 Deno.test('staleState: unknown PRs or files check nothing of theirs; an empty set flags every claim', () => {
   const input = { index: '- [A](a.md) — PR #5 open, `docs/x.md`', notes: [], exists: () => true }
   assertEquals(staleState({ ...input, openPrs: null, tracked: null }), [])
@@ -178,10 +200,12 @@ function deps(
   judge: Judge,
   gh: string | null = '',
   git: string | null = '',
-): Deps & { runs: string[] } {
+): Deps & { runs: string[]; calls: string[][] } {
   const runs: string[] = []
+  const calls: string[][] = []
   return {
     runs,
+    calls,
     judge,
     home: HOME,
     read: (p) => files[p] ?? null,
@@ -189,8 +213,9 @@ function deps(
       const names = Object.keys(files).filter((p) => dirname(p) === dir).map((p) => p.slice(dir.length + 1))
       return names.length === 0 ? null : names
     },
-    run: (cmd) => {
+    run: (cmd, args) => {
       runs.push(cmd)
+      calls.push([cmd, ...args])
       const out = cmd === 'gh' ? gh : git
       return Promise.resolve(out === null ? { code: 1, stdout: '' } : { code: 0, stdout: out })
     },
@@ -244,6 +269,17 @@ Deno.test('hook: an Edit of MEMORY.md is checked by length only, no Jev request'
   )
   assertEquals(calls.length, 0)
   assertStringIncludes(context(out) ?? '', '- MEMORY.md (edit)  ')
+})
+
+Deno.test('hook: a Write of MEMORY.md reports over-long lines with their line number', async () => {
+  const { judge, calls } = stubJudge(() => ({ violates: 1 }))
+  const content = `- [T](t.md) — short\n- [U](u.md) — ${'x'.repeat(MAX_INDEX_LINE)}\n`
+  const out = await runMemoryHook(
+    { hook_event_name: 'PostToolUse', tool_name: 'Write', tool_input: { file_path: `${MEM}/MEMORY.md`, content } },
+    deps({}, judge),
+  )
+  assertEquals(calls.length, 0)
+  assertStringIncludes(context(out) ?? '', '- MEMORY.md:2  ')
 })
 
 Deno.test('hook: an edit with no memory item makes no request and no output', async () => {
@@ -304,6 +340,10 @@ Deno.test('session start: reads the memory beside the transcript, one gh and one
   assertStringIncludes(out, '- MEMORY.md:2  links gone.md, which does not exist')
   assertEquals(out.includes('PR #6'), false)
   assertEquals(d.runs.sort(), ['gh', 'git'])
+  const git = d.calls.find((c) => c[0] === 'git') ?? []
+  const gh = d.calls.find((c) => c[0] === 'gh') ?? []
+  assertEquals(git.includes('--full-name'), true)
+  assertEquals(gh.join(' ').includes('--limit 200'), true)
 })
 
 Deno.test('session start: gh failing skips only the PR part; zero open PRs flags every claim', async () => {

@@ -135,7 +135,8 @@ The figures vary by one or two items between runs.
 M1 is a precise hint, not a sweep: it misses most real violations,
 especially status paragraphs. M3 reads only present-tense text; a stale
 claim deeper in a note is not checked. The hooks run only in sessions
-started in this repository.
+started in this repository. A session started in a worktree checks that
+worktree's own project memory, which is usually empty.
 
 ## Limits
 

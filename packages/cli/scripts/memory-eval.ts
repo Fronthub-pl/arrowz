@@ -18,6 +18,9 @@ export function heldOut(group: string): boolean {
   return (h >>> 0) % 2 === 1
 }
 
+/** The global `main` project must never reach TypeSafe (spec); its labels carry the `bm-main:` id prefix. */
+export const sendable = (items: Labelled[]) => items.filter((x) => !x.id.startsWith('bm-main:'))
+
 const pct = (x: number) => `${(100 * x).toFixed(1)} %`
 
 if (import.meta.main) {
@@ -35,6 +38,7 @@ if (import.meta.main) {
     console.error('memory eval: no TYPESAFE_API_KEY')
     Deno.exit(1)
   }
+  labels.m1 = sendable(labels.m1)
   const answers = await pool(labels.m1, 16, (x) => askMemory(judge, x.text))
   const m1: Array<Scored & { held: boolean; kind: string }> = []
   labels.m1.forEach((x, i) => {
