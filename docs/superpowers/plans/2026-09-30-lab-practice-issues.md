@@ -801,7 +801,7 @@ test('a changed bound replaces the array, so the row prints the new need', () =>
 })
 ```
 
-Before relying on the second case, print `straightFloor` at 900×900 and 1000×1000 with `pStraight: 0.6` (a one-off `node -e` over `packages/engine/dist/mod.js`, or a temporary `console.log` thrown as an error) and confirm the two differ and that 0.6 is below both; if not, pick two sizes where both hold and use them.
+The sizes hold (measured): `straightFloor` at `pStraight` 0.6 is 0.75 at 900×900 and 0.8 at 1000×1000, and 0.6 is below both.
 
 Append to `apps/lab/src/state/subscriptions.browser.test.tsx` (add `import { KnobTrack } from '../console/KnobRow'`, `import { ValueKnob } from '../console/ValueKnob'`, `import { specOf } from './params.slice'`, and `vi.mock('../console/KnobRow', { spy: true })` beside the other two mocks):
 
@@ -833,7 +833,7 @@ test('editing a broken knob re-renders it', async () => {
 - [ ] **Step 2: Run to verify**
 
 Run: `cd apps/lab && pnpm vitest run --project node src/state/params.slice.test.ts && pnpm vitest run --project chromium src/state/subscriptions.browser.test.tsx`
-Expected: `keeps its violation array` FAILS (a fresh array each commit); `a changed bound replaces the array` PASSES (it guards the fix); `a knob that stays broken does not re-render` FAILS with `expected 1 to be 0` (measured); the valid-knob and edited-knob cases PASS (the file: 1 failed, 9 passed). Measured: `straightFloor` at `pStraight` 0.6 is 0.75 at 900×900 and 0.8 at 1000×1000, so the second node case's sizes hold; skip the print step.
+Expected: `keeps its violation array` FAILS (a fresh array each commit); `a changed bound replaces the array` PASSES (it guards the fix); `a knob that stays broken does not re-render` FAILS with `expected 1 to be 0` (measured); the valid-knob and edited-knob cases PASS (the file: 1 failed, 9 passed).
 
 - [ ] **Step 3: Implement**
 
