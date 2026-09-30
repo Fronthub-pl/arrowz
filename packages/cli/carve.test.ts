@@ -137,12 +137,9 @@ Deno.test('carve.ts --svg=path also writes a copy at the path', async () => {
   assertEquals(Deno.readTextFileSync(copy), Deno.readTextFileSync(join(dir, '10x10', `${id}.svg`)))
 })
 
-// A view flag has to reach the drawing, not only the command text and the
-// meta. --sharp was parsed, printed and stored while the SVG on disk stayed
-// round, because the CLI named the fields of its SvgOptions by hand and did
-// not name this one. So this test asserts on the written characters: a
-// comparison against a toSvg call that names the same fields is a mirror and
-// agrees with itself whatever the CLI does.
+// A view flag has to reach the drawing, not only the command text and the meta. This asserts on the written
+// characters: a comparison against a toSvg call that names the same fields is a mirror and agrees with itself
+// whatever the CLI does.
 Deno.test('carve.ts --sharp writes a sharp SVG, and without it a round one', () => {
   const dir = tmp()
   const store = join(dir, 'store')
@@ -254,9 +251,8 @@ Deno.test('the note is printed once per run, not once per seed', () => {
   assertEquals(notes[0]?.includes(';'), false, notes[0])
 })
 
-// The tail of the note names what still sets the rest of the bundle, so it may
-// only name a flag that is actually on the command line: it used to promise
-// "--skeleton still sets giants, ..." on a run with no --skeleton at all.
+// The tail of the note names what still sets the rest of the bundle, so it may only name a flag that is
+// actually on the command line (no "--skeleton still sets ..." on a run without --skeleton).
 Deno.test('the note names an everyday flag only when the run was given it', () => {
   const dir = tmp()
   const without = runCarve(['--width=10', '--height=10', '--giantstep=5', '--dry-run'], dir)
@@ -269,9 +265,8 @@ Deno.test('the note names an everyday flag only when the run was given it', () =
 })
 
 // --- a value the draw had to move --------------------------------------------
-// The envelope runs after the draw, so the draw is allowed to move a value to
-// keep a rule -- and until now it moved it in silence. The pin note said
-// "--length still sets wShort" while the 0.75 it set had become 0.4.
+// The envelope runs after the draw, so the draw may move a value to keep a rule; the note must say so, or
+// "--length still sets wShort" would stand while the 0.75 it set had become 0.4.
 
 Deno.test('a value the draw had to move is said out loud, with both numbers and the rule', () => {
   const dir = tmp()
@@ -301,9 +296,8 @@ Deno.test('a moved value is said once per knob, not once per board', () => {
 })
 
 // --- a pin that changes nothing ----------------------------------------------
-// The lab has dimmed a knob with no effect since the sliders existed; the
-// command line said nothing, so a pin that could not move a single cell looked
-// exactly like one that carved a different board.
+// The lab dims a knob with no effect; the command line must say so too, or a pin that cannot move a single
+// cell looks exactly like one that carved a different board.
 
 Deno.test('a pin that can change nothing says so, in the words the lab dims it with', () => {
   const dir = tmp()
@@ -328,12 +322,8 @@ Deno.test('a pin that does something is not told that it does nothing', () => {
 
 Deno.test('the no-effect note is left off a batch that draws its knobs per seed', () => {
   const dir = tmp()
-  // --randomized draws the bundles anew for every board and the draw is not a
-  // function of the seed, so a run cannot know what the boards after the first
-  // will get. The note prints once for the whole run, so on that shape it
-  // prints nothing -- deliberately conservative: here the skeleton is off on
-  // every board (--randomized alone never turns it on), and the note still
-  // stays away, because the rule's inputs are not something the run can see.
+  // --randomized draws every board's bundles anew, so the run cannot know what later boards get and the
+  // once-per-run note stays silent, even though the skeleton is off on every board here.
   const batch = runCarve(
     ['--width=10', '--height=10', '--seed=1', '--count=2', '--randomized', '--giantstep=5'],
     dir,
@@ -388,8 +378,7 @@ Deno.test('a share pinned above the cap is refused once, by its own range', () =
     assertEquals(r.json.violations, [{ kind: 'range', key, value: 1, min: 0, max: 0.9 }], flag)
     assertEquals(entries(dir), 0, 'nothing is written')
   }
-  // The cap and the top of the range are the same number now, so the share
-  // the clamp can actually satisfy is carved instead of refused.
+  // The cap and the top of the range are the same number, so a share the clamp can satisfy is carved.
   const dir = tmp()
   const ok = dryRun(['--dry-run', '--width=10', '--height=10', '--wshort=0.9'], dir)
   assertEquals(ok.status, 0, ok.stdout + ok.stderr)
@@ -410,9 +399,8 @@ Deno.test('carve.ts --svg with invalid parameters: exit 2, both messages on stde
   assertEquals(entries(dir), 0, 'the store must not be created')
 })
 
-// A value between two stops used to carve a board with its own id: --maxback=25
-// (step 50) and --warns=2.5 both produced a board whose recorded command no
-// slider and no flag can offer back. The step is part of the envelope now.
+// A value between two stops (--maxback=25 with step 50, --warns=2.5) would carve a board whose recorded
+// command no slider and no flag can offer back, so the step is part of the envelope.
 Deno.test('a value between two steps is refused, and no board is written', () => {
   const cases: [string, Partial<Params>][] = [['--maxback=25', { maxBack: 25 }], ['--warns=2.5', { warns: 2.5 }]]
   for (const [flag, over] of cases) {
@@ -435,8 +423,8 @@ Deno.test('a value between two steps is refused, and no board is written', () =>
   assertEquals(ok.status, 0, ok.stderr)
 })
 
-// The picture flags used to take anything: --cell=-5 drew an SVG with a
-// negative viewBox, --top=-1 and --arrow-height=-3 went through in silence.
+// The picture flags are range-checked: --cell=-5 would draw an SVG with a negative viewBox, and --top=-1
+// and --arrow-height=-3 would go through in silence.
 Deno.test('a picture number outside its range is refused, and no board is written', () => {
   for (const flag of ['--cell=-5', '--cell=0', '--top=-1', '--line=0', '--arrow-height=-3', '--cell=12.5']) {
     const dir = tmp()
@@ -469,9 +457,9 @@ Deno.test('a retired flag is refused with its replacement, exit code 2', () => {
   assertEquals(entries(dir), 0, 'nothing is written')
 })
 
-// The worst of the three: --start=constructor read Object.prototype.constructor
-// out of the word table, took it for a word and carved the DEFAULT board with
-// exit 0, reporting a pin (headBias, mix) the command line never wrote.
+// The worst of the three: --start=constructor would read Object.prototype.constructor out of the word
+// table, take it for a word and carve the DEFAULT board with exit 0, reporting a pin the command line
+// never wrote.
 Deno.test('a start named after Object.prototype is refused, and no board is written', () => {
   for (const name of ['constructor', 'toString', 'valueOf']) {
     const dir = tmp()
@@ -502,9 +490,8 @@ Deno.test('carve.ts refuses an unknown flag and a missing size: exit 2, a hint, 
   assertEquals(entries(dir), 0)
 })
 
-// A mode flag is handed to the CLI untouched, so the CLI is where a value on
-// a switch and a missing value are caught: --dry-run=1 was passed through and
-// matched by nobody, so a board was written; --count alone was ignored.
+// A mode flag is handed to the CLI untouched, so the CLI is where a value on a switch and a missing value
+// are caught: --dry-run=1 must not write a board and --count alone must not be ignored.
 Deno.test('carve.ts refuses a mode flag no mode reads: exit 2, nothing written', () => {
   const dir = tmp()
   const cases: [string[], string][] = [
@@ -520,9 +507,8 @@ Deno.test('carve.ts refuses a mode flag no mode reads: exit 2, nothing written',
   }
 })
 
-// The parser's own refusals reach the CLI: a switch with a value used to turn
-// the switch on, a bare word used to be dropped into the mode list and read by
-// nobody, and a size outside the range was quietly clamped into it.
+// The parser's own refusals reach the CLI: a switch with a value, a bare word and a size outside the range
+// are refused, not turned on, dropped or clamped.
 Deno.test('carve.ts refuses a value on a switch, a stray word and a size outside the range: exit 2', () => {
   const dir = tmp()
   const cases: [string[], string][] = [
@@ -574,12 +560,9 @@ Deno.test('carve.ts refuses an unknown value of --help by name, exit code 2', ()
 })
 
 // --- boards that do not close -------------------------------------------------
-// A board that did not close still goes to the store, with its holes drawn,
-// so that a jam can be looked at in the lab and not only counted; the exit
-// code stays 1 for scripts. CARVE_TIMEOUT_S is a wall-clock budget for
-// measurements: past it the run is aborted and what was carved is stored.
-// No setting inside the envelope jams cheaply, so the budget is the fixture:
-// 400×400 takes seconds, a zero budget stops it at the first progress tick.
+// A board that did not close still goes to the store, with its holes drawn; the exit code stays 1.
+// No setting inside the envelope jams cheaply, so the CARVE_TIMEOUT_S budget is the fixture: 400×400
+// takes seconds, a zero budget stops it at the first progress tick.
 
 const LONG = ['--width=400', '--height=400', '--seed=7']
 
@@ -766,9 +749,8 @@ Deno.test('carve.ts run twice says the layout is stored and its recipe updated',
   assertEquals(readMeta(join(dir, '10x10', `${id}.json`)).sources.length, 1)
 })
 
-// Goal 4 of the spec, as behaviour: a batch writes N different layouts. The
-// second run over the same seeds finds the first three stored, saves their
-// recipes again and carves on; with the seed limit at 3 it has nothing new.
+// A batch writes N different layouts: a second run over the same seeds finds the first three stored, saves
+// their recipes again and carves on; with the seed limit at 3 it has nothing new.
 Deno.test('carve.ts --count counts new layouts only: a second batch over the same seeds moves past them', async () => {
   const dir = tmp()
   const args = ['--width=10', '--height=10', '--seed=1', '--count=3']
@@ -809,11 +791,8 @@ Deno.test('carve.ts refuses --count and --max-seeds where they cannot apply: exi
 })
 
 // --- one voice for a refusal ---------------------------------------------
-// Two layers refuse: the parser, which never saw a knob, and the envelope,
-// which has them all. They used to answer differently — `invalid arguments`
-// with a flag name and `see --help`, against `invalid parameters` with the
-// label the web page prints and `see --help for the allowed ranges`. A user
-// cannot tell which layer caught them, and should not have to.
+// Two layers refuse: the parser, which never saw a knob, and the envelope, which has them all. A user
+// cannot tell which layer caught them, so both use `invalid arguments`, a flag name and `see --help`.
 Deno.test('both layers refuse in the same words, and every line names a flag', () => {
   const cases: readonly [what: string, args: string[]][] = [
     ['the parser', ['--width=10', '--height=10', '--start=0.8']],

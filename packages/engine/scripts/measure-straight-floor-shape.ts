@@ -1,19 +1,14 @@
 /**
  * What drives the straightness floor: the longer side, the area, or the
- * shorter side?
+ * shorter side? Result in docs/superpowers/measurements/2026-09-13-straight-floor-shape.md.
  *
- * The round-14 campaign behind `straightFloor` measured SQUARES only, from 300
- * to 1000 a side, and the rule it produced reads `Math.max(W, H)`. On a square
- * every candidate rule agrees, so the campaign could not tell them apart —
- * and the rule refuses 4x1000 at anything under 0.8, a board of four thousand
- * cells.
- *
- * This run measures rectangles. For each shape it walks the straightness up
- * from 0.6 until every seed closes, and that value is the shape's floor. The
- * decisive points are the pairs of EQUAL AREA and different shape: 490x1000
- * against 700x700, and 810x1000 against 900x900. The longer side says both
- * halves of a pair differ (0.8 against 0.7, 0.8 against 0.75), the area says
- * they agree, the shorter side says the rectangles are easier still.
+ * `straightFloor` reads `Math.max(W, H)`, a rule fitted on squares only, where
+ * every candidate rule agrees. This run measures rectangles: for each shape it
+ * walks the straightness up from 0.6 until every seed closes, and that value is
+ * the shape's floor. The decisive points are pairs of equal area and different
+ * shape (490x1000 against 700x700, 810x1000 against 900x900): the longer side
+ * says the halves of a pair differ, the area says they agree, the shorter side
+ * says the rectangles are easier still.
  *
  * The envelope is bypassed (`unchecked`), because the rule under test is the
  * one that would refuse most of these boards.
@@ -34,7 +29,7 @@ type Row = {
   timedOut: boolean
   ms: number
   remaining: number
-  /** What the rule on main demands of this board. */
+  /** What `straightFloor` demands of this board. */
   ruleFloor: number
 }
 
@@ -85,7 +80,7 @@ function main(): void {
   const only = (Deno.args[3] ?? '').split(',').filter((s) => s.length > 0)
   // Shapes, cheapest first, so a run that is cut short still says something.
   // The pairs of equal area are the point of the exercise; the squares are
-  // there to reproduce the round-14 numbers with this very script.
+  // there to reproduce the earlier square-only floors with this very script.
   const shapes: { label: string; W: number; H: number }[] = [
     { label: 'strip', W: 4, H: 1000 },
     { label: 'thin', W: 100, H: 1000 },

@@ -1,7 +1,6 @@
-// Generator robustness tests. Run: deno test --allow-read --allow-run packages/engine/
-//
-// The prototype is disposable code, but the generator must close boards up to 200×200
-// without failures — these tests guard that, not eyeballing in the laboratory.
+// Generator robustness tests: the generator must close boards up to 200×200
+// without failures, and these tests guard that rather than an eye in the lab.
+// Run: deno test --allow-read --allow-run packages/engine/
 import { assert, assertEquals, assertFalse, assertNotEquals, assertThrows } from '@std/assert'
 import {
   analyse,
@@ -48,10 +47,10 @@ function at<T>(arr: ArrayLike<T>, i: number): T {
 }
 
 const carver = () => new Carver(10, 10, defaultParams(), mulberry32(1))
-// A set of cells in the GIVEN order — the order decides which cell the test
-// takes first, and the bug was precisely that the result depended on it.
+// A set of cells in the GIVEN order: the order decides which cell decomposable()
+// takes first, and its verdict must not depend on it.
 const cells = (arr: [number, number][]) => new Set(arr.map(([x, y]) => y * 10 + x))
-/** The defaults with some knobs changed: what the untyped tests passed to generate(). */
+/** The defaults with some knobs changed. */
 const withDefaults = (over: Partial<Params>): Params => ({ ...defaultParams(), ...over })
 /** The defaults with one knob set by key. */
 const withKnob = (key: ParamKey, value: number): Params => {
@@ -225,7 +224,7 @@ Deno.test('generate: closes the board 100% and solvably on several sizes and see
   const cases: [number, number, number[]][] = [
     [25, 50, [1, 2, 3, 4, 5]],
     [100, 100, [1, 2]],
-    [200, 200, [1, 5, 49]], // 5 and 49 are seeds that once failed to close
+    [200, 200, [1, 5, 49]], // 5 and 49 are the seeds of the fragments pinned above
   ]
   for (const [W, H, seeds] of cases) {
     for (const seed of seeds) {
@@ -256,10 +255,8 @@ Deno.test('generate: ok is a promise about the removal order, not only about the
 
 // Layers mode (headBias -1) is the setting that leans on absorbLeftover: it
 // leaves many leftover fragments and the generator tries to glue each one to a
-// neighbour's tail before every backtrack. The boards are recorded so that an
+// neighbour's tail before every backtrack. The boards are pinned so that an
 // optimisation of the search cannot change a single cell, only the time.
-// Recorded after the head-quarter fallback of round 9 (before it, seed 5 on
-// 200×200 needed a restart: 3514 pieces, fingerprint 6d2b542d).
 const LAYERS_GOLDEN: {
   W: number
   H: number
@@ -286,10 +283,9 @@ Deno.test('generate: layers mode reproduces the recorded boards cell for cell', 
 })
 
 Deno.test('generate: layers mode closes 400×400 without restarts or backtracks', () => {
-  // Seed 5 used to fail after three restarts and seed 7 needed one: with
-  // piece start = layers the head pool was only the shallowest quarter of the
-  // legal heads, which in the endgame are the dead pockets at the frontier,
-  // so the regions of thousands of free cells were never tried (round 9).
+  // Seeds 5 and 7 jam if the layers head pool stops at the shallowest quarter
+  // of the legal heads: in the endgame those are the dead pockets at the
+  // frontier, and the regions of thousands of free cells are never tried.
   for (const seed of [5, 7]) {
     const r = generate(withDefaults({ W: 400, H: 400, seed, headBias: -1, restarts: 0 }))
     assertEquals(r.ok, true, `seed ${seed} did not close`)
@@ -299,12 +295,9 @@ Deno.test('generate: layers mode closes 400×400 without restarts or backtracks'
 })
 
 Deno.test('generate: layers mode on 200×200 seed 5 finishes in under four seconds', () => {
-  // Before the absorption search was optimised this seed took 8.5 s (a
-  // failed first attempt with 200 backtracks, three quarters of the time in
-  // the path search re-run for the same fragments); after it ~2 s; with the
-  // head-quarter fallback it closes in one attempt in well under a second.
-  // The bound leaves a wide margin for a slow machine and still fails on
-  // the old search.
+  // It closes in one attempt in well under a second. An absorption search that
+  // re-runs the path search for the same fragments takes 8.5 s here, so the
+  // bound still fails on it and leaves a wide margin for a slow machine.
   const t0 = performance.now()
   const r = generate(withDefaults({ W: 200, H: 200, seed: 5, headBias: -1 }))
   const ms = performance.now() - t0
@@ -313,8 +306,7 @@ Deno.test('generate: layers mode on 200×200 seed 5 finishes in under four secon
 })
 
 Deno.test('generate: closes the board with the weakest nook rule, mostly short pieces and tunnels', () => {
-  // The extremes of the old ranges (warns 0, shares 0.95) are outside the safe
-  // envelope now; these are the hardest settings the envelope still allows.
+  // The hardest nook rule, short share and head bias the safe envelope allows.
   const overs: Partial<Params>[] = [{ warns: 2 }, { wShort: 0.7, wMid: 0.1 }, { headBias: 1 }]
   for (const over of overs) {
     const r = generate(withDefaults({ W: 100, H: 100, seed: 3, restarts: 0, ...over }))
@@ -324,19 +316,12 @@ Deno.test('generate: closes the board with the weakest nook rule, mostly short p
 })
 
 Deno.test('generate: a board starved of head draws closes by scanning every legal head before backtracking', () => {
-  // One draw per direction and very bendy pieces: 200×200 has dozens of legal
-  // heads in the endgame, the four draws all miss, and the generator undid
-  // fifty cuts and gave up with 39–133 legal heads still on the board (the
-  // same picture as the 1000×1000 jams of the random sweep, where every jam
-  // had 208–688 heads left). A backtrack undoes pieces elsewhere, so it does
-  // not help; scanning every head before undoing anything closes these three
-  // without a single undo. (Seed 1 of the same setting is the other jam
-  // shape: after the scan ten three-cell fragments remain whose heads sit in
-  // the corner of an L, so no path from them covers the fragment — that
-  // needs a fragment solver, not more heads.)
-  // headTries 1 and pStraight 0.2 sit outside the safe envelope on purpose:
-  // the test needs a starved search, which the envelope forbids, so it
-  // bypasses the check like the other engine-internal jam tests.
+  // One draw per direction and very bendy pieces: the four draws all miss in
+  // the endgame while dozens of legal heads remain, and a backtrack undoes
+  // pieces elsewhere, so it cannot help. Scanning every head before undoing
+  // anything closes these three seeds without an undo (seed 1 jams on L-shaped
+  // fragments that need a fragment solver, not more heads). headTries 1 and
+  // pStraight 0.2 sit outside the envelope on purpose: the search must starve.
   for (const seed of [3, 4, 6]) {
     const r = generate(withDefaults({ W: 200, H: 200, seed, headTries: 1, pStraight: 0.2, restarts: 0, maxBack: 50 }), {
       unchecked: true,
@@ -379,16 +364,11 @@ function staleHomoLines(c: Carver): string[] {
 
 Deno.test("the trap lever's line table is rebuilt by every undo", () => {
   // lineHomo (CarverOptions.trapBias) is folded forward in recomputeLines and
-  // only grows — except after an undo, where the frontier recedes and the line
-  // has to be rebuilt. Every board recorded for the R1 spike closed with zero
-  // backtracks, so that branch had never run in a measurement; the settings
-  // below are the ones that do reach it (the backtracking families of
-  // absorb.test.ts), driven through Carver directly because they sit outside
-  // the safe envelope on purpose, like the other engine-internal jam tests.
-  //
-  // undoLast is the only place cells go back to unassigned, and undoToFrontier
-  // is its only caller, so the check hangs there: after every undo the
-  // maintained table must equal a fold of the board as it now stands.
+  // only grows, except after an undo, where the line has to be rebuilt. A board
+  // that closes without a backtrack never takes that branch, so these settings
+  // are the backtracking families of absorb.test.ts, driven through Carver
+  // because they sit outside the envelope. The check hangs on undoLast: after
+  // every undo the table must equal a fold of the board as it now stands.
   class WatchedCarver extends Carver {
     undos = 0
     receded = 0
@@ -445,12 +425,10 @@ Deno.test("the trap lever's line table is rebuilt by every undo", () => {
 
 Deno.test('generate: after three missed head scans in a row the jam is left to backtracking', () => {
   // A quarter of the cells are voids: the free area is shredded into islands
-  // whose rays cross other islands, so the legal heads that exist all fail
-  // the leftover test on even a two-cell piece. The 1000×1000 jams of the
-  // random sweep look the same (board 30: 253 legal heads, 0 carvable), and
-  // scanning them before each of hundreds of backtracks only made the verdict
-  // 1.3–3.7× slower. A scan that misses three times running is a geometric
-  // jam, not a starved search: stop scanning until a scan hits again.
+  // whose rays cross other islands, so every legal head fails the leftover test
+  // even for a two-cell piece. A scan that misses three times running is such a
+  // geometric jam, not a starved search, and scanning before each of hundreds
+  // of backtracks makes the verdict 1.3–3.7× slower at 1000×1000.
   // absorbLimit 0 is outside the safe envelope, so the check is bypassed.
   const r = generate({
     ...defaultParams(),
@@ -469,13 +447,10 @@ Deno.test('generate: after three missed head scans in a row the jam is left to b
 })
 
 Deno.test('generate: head scans in one attempt are limited to the backtrack budget', () => {
-  // With more voids the shredded islands do have the odd carvable head: the
-  // scan hits, carves one piece, the draws fail again, and the next scan
-  // starts over — one full scan per piece, with ordinary carves in between
-  // that keep the miss counter at zero. Board 94 of the 1000×1000 sweep did
-  // 1 268 scans in one attempt (1 067 hits) and still jammed, at twice the
-  // time. The scan is a cheaper alternative to an undo, so it gets the same
-  // budget per attempt as the undos; after that the jam goes to backtracking.
+  // With more voids the islands have the odd carvable head: each scan hits,
+  // carves one piece and resets the miss counter, so a 1000×1000 board can
+  // scan over a thousand times in one attempt and still jam, at twice the time.
+  // A scan stands in for an undo, so it gets the same budget per attempt.
   // absorbLimit 0 is outside the safe envelope, so the check is bypassed.
   const r = generate({
     ...defaultParams(),
@@ -494,13 +469,11 @@ Deno.test('generate: head scans in one attempt are limited to the backtrack budg
 })
 
 Deno.test('generate: a jam reports how many legal heads were left at the best moment', () => {
-  // Half the cells are voids, so single free cells stay isolated and nothing
-  // can cover them: the run jams at once. The count of legal heads at the
-  // moment of the smallest leftover tells a jam of geometry (no head at all)
-  // from a jam of the search (heads exist, the carver gave up on them).
-  // absorbLimit 0 is outside the safe envelope (it lets leftovers pile up),
-  // which is exactly what this test needs: `unchecked` is the escape hatch for
-  // engine-internal tests that want a jam on purpose.
+  // Half the cells are voids, so single free cells stay isolated and the run
+  // jams at once. The count of legal heads at the smallest leftover tells a jam
+  // of geometry (no head at all) from a jam of the search (heads the carver gave
+  // up on). absorbLimit 0 lets leftovers pile up, which the envelope forbids and
+  // this test needs, hence `unchecked`.
   const r = generate({ ...defaultParams(), W: 12, H: 12, seed: 1, absorbLimit: 0, restarts: 0 }, {
     unchecked: true,
     voidFrac: 0.5,
@@ -544,7 +517,7 @@ Deno.test('validateParams: each narrowed knob rejects its old extreme with the n
   for (const [key, value, min, max] of cases) {
     const v = validateParams(withKnob(key, value))
     assertEquals(v, [{ kind: 'range', key, value, min, max }], `${key} = ${value}`)
-    // The new bound itself is still allowed.
+    // The bound itself is allowed.
     assertEquals(validateParams(withKnob(key, value < min ? min : max)), [], `${key} at the bound`)
   }
   // The spec must agree with the table the tests encode.
@@ -679,8 +652,8 @@ Deno.test('generate: unchecked skips the envelope check and carves anyway', () =
 })
 
 Deno.test('PARAM_SPEC: skeleton straightness is inactive only without a skeleton', () => {
-  // It shapes every giant regardless of giantStep (the serpentine only seeds
-  // the path), so 'stepNonZero' is gone and giantJitter keeps 'stepZero'.
+  // It shapes every giant whatever giantStep says (the serpentine only seeds
+  // the path), so no knob goes inactive for a non-zero step.
   assertEquals('stepNonZero' in INACTIVE_REASONS, false)
   const keys: ParamKey[] = ['giantStraight']
   for (const key of keys) {
@@ -722,13 +695,12 @@ Deno.test('analyse: does not overflow the stack with hundreds of thousands of pi
 })
 
 Deno.test('analyse: a dense blocking graph fits in a 256 MB heap (1000×1000 with 150 thousand pieces ran out of memory)', async () => {
-  // 400×400 covered with horizontal dominoes whose head is the LEFT cell and
-  // which point left: every ray crosses all dominoes to its left in the row,
-  // 100 on average, so the blocking graph has 8 million edges. Kept as Sets of
-  // ids plus a copy for Kahn, that graph needs over a gigabyte; two boards of
-  // the random 1000×1000 sweep (155 thousand mostly short pieces, 25 million
-  // edges) killed the CLI with "Reached heap limit" after the generator had
-  // closed them at 150 MB. The child process makes the bound a real assertion.
+  // 400×400 covered with left-pointing dominoes whose head is the LEFT cell:
+  // every ray crosses all dominoes to its left in the row, 100 on average, so
+  // the blocking graph has 8 million edges. Kept as Sets of ids plus a copy for
+  // Kahn it needs over a gigabyte, and a 1000×1000 board of short pieces (25
+  // million edges) dies with "Reached heap limit". The child process makes the
+  // bound a real assertion.
   const script = `
     import { Carver, defaultParams, mulberry32, analyse } from ${
     JSON.stringify(new URL('./engine.ts', import.meta.url).href)
@@ -757,7 +729,7 @@ Deno.test('analyse: a dense blocking graph fits in a 256 MB heap (1000×1000 wit
   assertEquals(out.code, 0, `analyse died under a 256 MB heap:\n${new TextDecoder().decode(out.stderr)}`)
   const last = new TextDecoder().decode(out.stdout).trim().split('\n').pop()
   assert(last, 'no output')
-  // The same numbers the Set-based implementation produced without the cap.
+  // What a Set-based graph computes without the cap: the storage may change, these numbers may not.
   assertEquals(JSON.parse(last), {
     N: 80000,
     solvable: true,
@@ -772,10 +744,9 @@ Deno.test('analyse: a dense blocking graph fits in a 256 MB heap (1000×1000 wit
 Deno.test('analyse: a piece bordering two hundred thousand others does not overflow the stack', () => {
   // 3×200 000: one vertical line down the left column, the other two columns
   // covered with dominoes whose head is at the right edge (all rays empty).
-  // The line shares a border with every domino, so its "longest shared border"
-  // used to be Math.max(...200 000 values) — a spread proportional to the
-  // number of pieces, which the repository rules forbid: it throws RangeError
-  // in Node and overflows the worker stack in Chrome far earlier.
+  // The line borders every domino, so a Math.max(...) over its shared borders
+  // would spread 200 000 values: a RangeError in Node, and a stack overflow in
+  // Chrome's worker far earlier.
   const W = 3, H = 200000
   const c = new Carver(W, H, defaultParams(), mulberry32(1))
   const line = []
@@ -801,8 +772,8 @@ Deno.test('analyse: a piece bordering two hundred thousand others does not overf
 })
 
 Deno.test('analyse: metrics are identical to the ones recorded with the Set-based blocking graph', () => {
-  // Recorded on 2026-09-08 before the blocking graph moved to typed arrays;
-  // the storage may change, the numbers may not (order of summation included).
+  // Pinned: the storage of the blocking graph may change, the numbers may not
+  // (order of summation included).
   const recorded: Record<string, Metrics> = {
     '25x50-seed7': {
       N: 126,
@@ -946,8 +917,8 @@ const group = (m: RegExpMatchArray, i: number): string => {
 }
 
 // The arrowhead scales with the stroke and the line ends under it: a fixed
-// head was swallowed by the round line cap from a stroke of 0.5 up, and a
-// wide head touched the heads of neighbours at a right angle.
+// head would vanish under a round line cap from a stroke of 0.5 up, and a
+// wide one would touch the heads of neighbours at a right angle.
 Deno.test('toSvg: at every stroke the arrowhead is wider than the line, inside its cell, and the line ends under it', () => {
   const { toSvg } = engineExports
   const cell = 20
@@ -998,7 +969,7 @@ Deno.test('toSvg: at every stroke the arrowhead is wider than the line, inside i
       const reach = Math.hypot(tip[0] - centre[0], tip[1] - centre[1]) / cell
       assert(reach <= 0.5 + 1e-9, `${label}: tip reaches ${reach} past the head centre`)
       // The line ends flat under the head (a round cap as wide as a stick
-      // head bulged at the base) and OVERLAPS it by 0.2 of its width, so no
+      // head would bulge at the base) and OVERLAPS it by 0.2 of its width, so no
       // anti-aliasing seam shows at the base: an arrow, wider than the line,
       // takes the line 0.2 w past the base; a stick, exactly as wide, gets a
       // 0.2 w collar behind the base instead. The tail gets its rounding from
@@ -1053,16 +1024,11 @@ Deno.test('sharp corners mitre and the tail squares off', () => {
   assert(/<rect [^>]*width="[\d.]+" height="[\d.]+"\/>/.test(svg), 'a square tail')
 })
 
-// A board file keeps the ids it was written with, and decodeBoard accepts gaps
-// in them (board-file.ts: an id is checked for being non-negative, unique and
-// below the cell count, and for nothing else). A piece's colour must therefore
-// come from its id — the number the board element paints from — and not from
-// its place in board.pieces, or one board would be drawn in one set of colours
-// on screen and exported in another.
-//
-// The two expected strings are the golden angle over the ids 5 and 7, the same
-// values the element's own hueOf pins for those ids. They are written out
-// rather than computed, so this test fails if the formula moves as well.
+// A board file keeps the ids it was written with, gaps included (see
+// decodeBoard), so a piece's colour must come from its id, the number the
+// board element paints from, and not from its place in board.pieces, or the
+// screen and the export would disagree. The expected hues (the golden angle
+// over ids 5 and 7) are written out, so the test fails if the formula moves.
 Deno.test('toSvg colours a piece by its id, not by its place in the array', () => {
   const { toSvg } = engineExports
   const board: BoardData = {
@@ -1084,7 +1050,7 @@ Deno.test('toSvg colours a piece by its id, not by its place in the array', () =
 })
 
 // The head size can be set by hand (view options, in cells). Only the width
-// still has an automatic rule, which 0 selects; the height is always taken
+// has an automatic rule, which 0 selects; the height is always taken
 // literally, so 0 there is a head of no height. A head narrower than the line
 // is pulled up to the line.
 Deno.test('toSvg: the head knobs set the size, and only the width has an automatic mode', () => {
@@ -1148,12 +1114,10 @@ Deno.test('the Carver refuses a void fraction outside [0, 1)', () => {
 })
 
 Deno.test('generate takes a partial parameter set and its hooks in the options', () => {
-  // The debug hook rather than the trace: the trace fires on a wall clock
-  // (250 ms into the run, then once a second), so a board small enough to
-  // keep this test quick would never report — measured, a 20×20 closes in
-  // 39 ms and traces zero times. A skeleton makes the carver narrate every
-  // giant piece instead, which is deterministic. The trace hook in the
-  // options is what abort.test.ts drives.
+  // The debug hook rather than the trace: the trace fires on a wall clock (see
+  // Carver.run) and a 20×20 closes in 39 ms without one, while a skeleton makes
+  // the carver narrate every giant piece, deterministically. abort.test.ts
+  // drives the trace.
   const seen: string[] = []
   const r = generate({ W: 20, H: 20, seed: 5, giants: 2 }, { debug: (msg) => seen.push(msg) })
   assertEquals(r.ok, true)
@@ -1188,12 +1152,10 @@ function neckOutOfPlace(board: BoardData): string | null {
 
 Deno.test("carver: the cell behind every head is the piece's second cell", () => {
   // toSvg and the board element draw the arrowhead from the head cell towards
-  // the exit edge and start the line at the head's BASE, one head-height
-  // behind it (pieceShape, geometry.ts). The shape is only a shape if the
-  // second cell is that base — a piece whose body leaves the head sideways
-  // renders as an arrowhead stuck on the side of a line running past it.
-  // carveOne starts every path as [head, cell behind head]; anything that
-  // rewrites a path afterwards has to keep that.
+  // the exit edge and start the line at its BASE, one head-height behind (see
+  // pieceShape). A body that leaves the head sideways renders as an arrowhead
+  // stuck on the side of a line running past it. carveOne starts every path as
+  // [head, cell behind head]; anything that rewrites a path has to keep that.
   for (const backbite of [0, 2, 8]) {
     const p: Params = { ...defaultParams(), W: 40, H: 40, seed: 7, backbite }
     const c = new Carver(p.W, p.H, p, mulberry32(p.seed))
@@ -1267,8 +1229,8 @@ Deno.test('backbite: the bite that would move the neck is refused, and so is a p
     return [path, pos]
   }
   // The tail's only own neighbour other than its predecessor is the HEAD.
-  // Biting there reverses the suffix from cells[1], which is the neck — the
-  // bug the playground caught. The move has to say no and let the loop stall.
+  // Biting there reverses the suffix from cells[1], which is the neck. The
+  // move has to say no and let the loop stall.
   const [ring, ringPos] = make([[0, 0], [0, 1], [1, 1], [1, 0]])
   assertEquals(c.backbiteTail(ring, ringPos), false)
   assertEquals(ring.map((cell) => [cell.x, cell.y]), [[0, 0], [0, 1], [1, 1], [1, 0]])

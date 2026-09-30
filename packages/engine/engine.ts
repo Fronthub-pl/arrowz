@@ -1,8 +1,6 @@
-// THROWAWAY PROTOTYPE — probe engine, not production code.
-//
-// This file is shared by the CLI (carve.ts) and the lab (apps/lab)
-// so that two copies of the algorithm never come into existence and drift apart.
-// It must not touch `process` or the DOM — everything comes in as parameters.
+// The generator, shared by the CLI (carve.ts) and the lab (apps/lab) so the
+// algorithm has one copy that cannot drift. It must not touch `process` or the
+// DOM: everything comes in as parameters.
 
 import type {
   Board,
@@ -32,11 +30,11 @@ import { at, DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED, DIRS, pieceShape, voidStrips 
 import { hueOf } from './colors.ts'
 import { assignPalette } from './palette.ts'
 
-// Retired knobs, kept as the constants their defaults always were. Each was
-// inert at that value: HUG gates its own rule on `> 1`, EDGE_HUG only feeds
-// that gate, STRAND_LIMIT's default was its maximum, GIANT_WARNS was
-// documented as "keep at 0", and GIANT_SPACE_PENALTY only applies when the
-// spacing radius is above 1.
+// Constants, not knobs. HUG, EDGE_HUG and GIANT_SPACE_PENALTY are inert at these
+// values: HUG gates its own rule on `> 1`, EDGE_HUG only feeds that gate, and the
+// penalty only applies when the spacing radius is above 1. GIANT_WARNS 0 lets the
+// giant ignore Warnsdorff. STRAND_LIMIT is the largest fragment `decomposable`
+// tests exactly (30 cells fit its 32-bit masks).
 const HUG = 1
 const EDGE_HUG = 0
 const STRAND_LIMIT = 30
@@ -100,11 +98,9 @@ type CarverOptions = {
   voidFrac?: number | undefined
   ruleB?: boolean | undefined
   /**
-   * MEASUREMENT ONLY (R1 spike, not a knob): the sign is the direction and the
-   * magnitude is the share of cuts that rank by it. +1 ranks heads whose line
-   * prefix has a single owner first, so the piece ends up with exactly one
-   * blocker and looks ready to leave; -1 ranks them last; -0.4 does that on
-   * four cuts in ten and ranks the rest as today; 0 leaves ranking untouched.
+   * Overrides the `trapBias` knob for measurement only: any value in [-1, 1],
+   * so a fractional share (see `Carver.trapBias`) stays measurable
+   * (scripts/measure-r1-share.ts). The knob itself is -1, 0 or 1.
    */
   trapBias?: number | undefined
 }
@@ -121,10 +117,10 @@ class Carver implements Board {
   /** Cap on consecutive tail backbites (the `backbite` knob); 0 disables the move. */
   backbiteCap: number
   /**
-   * MEASUREMENT ONLY (R1 spike): +1 prefers heads whose line prefix belongs to
-   * a SINGLE piece, -1 avoids them, 0 is off, and a magnitude below 1 is the
-   * SHARE of cuts that rank that way. Such a head becomes a piece with exactly
-   * one blocker — a piece that looks ready to leave (`almost`).
+   * +1 prefers heads whose line prefix belongs to a single piece, -1 avoids
+   * them, 0 is off, and a magnitude below 1 is the share of cuts that rank that
+   * way. Such a head becomes a piece with exactly one blocker, one that looks
+   * ready to leave (`almost`).
    */
   trapBias: number
   /** Per direction and line: -1 empty prefix, -2 several owners, >= 0 the sole owner. */
@@ -171,14 +167,9 @@ class Carver implements Board {
     // Clamped here as well as in the envelope, because generate()'s
     // `unchecked` path hands over a Params that validateParams never saw.
     this.backbiteCap = Math.max(0, Math.floor(params.backbite))
-    // The knob is the source. The option overrides it because the share the
-    // three-state was chosen over is only reachable this way and has to stay
-    // measurable (scripts/measure-r1-share.ts); the override is clamped here,
-    // since validateParams never sees it.
+    // Clamped here: validateParams never sees the override.
     this.trapBias = Math.max(-1, Math.min(1, opts.trapBias ?? params.trapBias))
-    // The upkeep is folded into recomputeLines, so it costs the lines a cut
-    // moves rather than a pass over the board; it is only paid when the spike
-    // asks for it.
+    // The line table is kept only while trapBias is on (see `recomputeLines`).
     const homo = this.trapBias !== 0
     this.lineHomo = homo
       ? [new Int32Array(W).fill(-1), new Int32Array(H).fill(-1), new Int32Array(W).fill(-1), new Int32Array(H).fill(-1)]
@@ -231,14 +222,10 @@ class Carver implements Board {
     this.version = 0
     this.touched = new Int32Array(W * H)
     this.absorbMemo = new Map() // first cell of the fragment -> { version, pieces }
-    // Dirty cells of the incremental fragment scan of absorbLeftover, one bit
-    // per cell: a cell that changed owner or lies next to one (set by touch),
-    // or the smallest cell of a fragment the scan discovered and did not get
-    // to evaluate. The scan walks the bits in index order and clears the ones
-    // it processes; after a successful absorption the rest stay set for the
-    // next call. Every bit is set at construction: the first scan sees the
-    // whole board — the initial state, the voids of `voidFrac` that no touch()
-    // ever reports, and, since a restart is a new Carver, every attempt.
+    // Dirty bits of absorbLeftover's fragment scan, one per cell (see `touch`).
+    // All start set, so the first scan of every attempt (a restart is a new
+    // Carver) sees the whole board, voids of `voidFrac` included: no touch()
+    // ever reports them.
     this.absorbDirty = new Int32Array((W * H + 31) >> 5).fill(-1)
     this.absorbFull = true // the first scan floods every fragment to the end
     // Scratch of the scan: the visited stamp of the flood fills, their stack,
@@ -306,9 +293,8 @@ class Carver implements Board {
 
   recomputeLines(cells: readonly Cell[]): void {
     const { W, H, owner, depth } = this
-    // MEASUREMENT ONLY (R1 spike): this is the one place a frontier depth
-    // changes, so it is also the one place the line table can change — folding
-    // here costs the lines that moved, where a scan per cut cost all of them.
+    // The one place a frontier depth changes, so the one place lineHomo can:
+    // folding here costs only the lines a cut moved, not a scan of every line.
     const homo = this.trapBias !== 0
     const cols = new Set<number>(), rows = new Set<number>()
     for (const c of cells) {
@@ -353,21 +339,12 @@ class Carver implements Board {
 
   // ------------------------------------------------ leftover shape test
 
-  // Can a set of cells be decomposed into paths of length >= 2?
-  //
-  // Every path of k >= 2 cells splits into segments of 2 and 3 cells, so the
-  // question reduces to a cover by dominoes and path-trominoes
-  // (Akiyama–Avis–Era). Dynamic programming over bitmasks: the cell with the
-  // lowest bit must belong to some segment, we try every segment through it
-  // and memoise the losing masks.
-  //
-  // THE PREVIOUS VERSION WAS WRONG: it grew the path only from the starting
-  // cell, so the start had to be an endpoint. An L-tromino iterated from the
-  // corner and a straight triple started from the middle came out as
-  // "non-decomposable", and the result depended on the order of cells in the
-  // set. In the endgame the generator rejected valid paths and declared a
-  // jam that did not exist. K(1,3) — e.g. the T tetromino — is the smallest
-  // genuine counterexample, the plus-pentomino the next one.
+  // Can a set of cells be decomposed into paths of length >= 2? Every such path
+  // splits into segments of 2 and 3 cells (Akiyama–Avis–Era), so this is a DP
+  // over bitmasks: the lowest cell must lie in some segment, try each segment
+  // through it and memoise the losing masks. Growing one path from a start cell
+  // instead would miss sets whose start is not an endpoint. The T tetromino,
+  // K(1,3), is the smallest connected set of 2+ cells with none.
   decomposable(cellSet: ReadonlySet<number>): boolean {
     const n = cellSet.size
     if (n === 0) return true
@@ -886,19 +863,17 @@ class Carver implements Board {
     return Math.round(this.p.giantSpan * Math.max(this.W, this.H))
   }
 
-  // Lmax = 0 means automatic: 2.5 × the longer side, as in §7 of the spec.
-  // A fixed value (formerly 125) truncated the long bucket on large boards.
+  // Lmax = 0 means automatic, 2.5 × the longer side: a fixed cap would
+  // truncate the long bucket on large boards.
   lmax(): number {
     return this.p.Lmax > 0 ? this.p.Lmax : Math.round(2.5 * Math.max(this.W, this.H))
   }
 
   targetLength(_progress: number): number {
     const { rng, p } = this
-    // FLAW IN THE ORIGINAL HYPOTHESIS: I assumed long shapes only succeed late,
-    // because the admissible area grows. Not true — from the very first step a
-    // piece can run STRAIGHT INWARD from the edge (its ray passes through its
-    // own cells). What is constrained is SIDEWAYS movement, not length. The cap
-    // stays disabled.
+    // No cap by progress: from the very first step a piece can run straight
+    // inward from the edge (its ray passes through its own cells), so what is
+    // constrained early is sideways movement, not length.
     const cap = this.lmax()
     const r = rng()
     let lo: number, hi: number
@@ -971,18 +946,13 @@ class Carver implements Board {
   }
 
   /**
-   * Carves one piece. Normally each direction draws `headTries` heads per
-   * pool; with `scanAll` every legal head of every pool is tried once, in
-   * random order — the FULL SCAN that `run()` makes before it undoes anything.
-   */
-  /**
    * The backbite move of Mansfield (2006), applied to the TAIL, and what the
    * `backbite` knob buys: pick an own cell adjacent to the tail that is not its
    * predecessor, drop the edge that would close the loop, and reverse the
    * suffix behind it. The cell set is unchanged, the path stays simple, and
    * cells[0] — the head, hence the ray, the blockers and the piece's place in
    * the blocking graph — is never touched. Returns false when the tail has no
-   * own neighbour to bite (then the growth loop stalls as it does today).
+   * own neighbour to bite (then the growth loop stalls).
    */
   backbiteTail(path: Cell[], pathPos: Map<number, number>): boolean {
     // Four cells, not three: a bite at position 0 would reverse the suffix from
@@ -1019,11 +989,11 @@ class Carver implements Board {
   }
 
   /**
-   * MEASUREMENT ONLY (R1 spike). Folds one line's newly assigned prefix cells
-   * into lineHomo. A head whose line prefix has a single owner becomes a piece
-   * with exactly one blocker, so this is the O(1) read behind trapBias. The
-   * prefix only grows, except after an undo, where the line is rebuilt — which
-   * is why `lineHomoSeen` is compared against the new depth rather than trusted.
+   * Folds one line's newly assigned prefix cells into lineHomo, the O(1) read
+   * behind trapBias (a head whose line prefix has a single owner becomes a
+   * piece with exactly one blocker). The prefix only grows, except after an
+   * undo, where the line is rebuilt — which is why `lineHomoSeen` is compared
+   * against the new depth rather than trusted.
    */
   foldHomo(d: number, line: number, upTo: number): void {
     const { W, H, owner } = this
@@ -1064,9 +1034,8 @@ class Carver implements Board {
 
   /**
    * Orders heads by how deep their line's frontier has advanced: deepest first
-   * for tunnels, shallowest for layers. A comparator over the depth array does
-   * what a map/sort/map did, without a wrapper object per head, and the order
-   * is the same because the keys are the same and the sort is stable.
+   * for tunnels, shallowest for layers. A comparator over the depth array, so
+   * no wrapper object per head; the sort is stable, so ties keep line order.
    */
   orderByDepth(cells: Cell[], d: number, bias: number): void {
     const dep = at(this.depth, d)
@@ -1082,6 +1051,11 @@ class Carver implements Board {
     return { x: k, y: line }
   }
 
+  /**
+   * Carves one piece. Normally each direction draws `headTries` heads per
+   * pool; with `scanAll` every legal head of every pool is tried once, in
+   * random order — the FULL SCAN that `run()` makes before it undoes anything.
+   */
   carveOne(scanAll = false): boolean {
     const { rng, p } = this
     const progress = 1 - this.remaining / (this.W * this.H)
@@ -1116,22 +1090,17 @@ class Carver implements Board {
       // straight shapes), the rest the shallowest (layers -> bends, but high f0).
       // These two goals pull in opposite directions, so we look for a ratio.
       const bias = p.mix >= 0 ? (rng() < p.mix ? 1 : -1) : p.headBias
-      // MEASUREMENT ONLY (R1 spike): the magnitude of trapBias is the share of
-      // cuts that rank by the trap bit; the rest rank as today. NO DRAW IS MADE
-      // at 0 or at a full +-1, so both endpoints leave the recorded boards
-      // exactly as they were — a draw whose outcome is never in doubt would
-      // still shift the random stream, which is the trap `mix` documents.
+      // The magnitude of trapBias is the share of cuts that rank by the trap
+      // bit. No draw at 0 or at ±1: a draw whose outcome is never in doubt
+      // still shifts the random stream, and with it every board.
       const share = Math.abs(this.trapBias)
       const useTrap = share === 0 ? false : share === 1 ? true : rng() < share
       let ranked = heads
       if (useTrap) {
-        // MEASUREMENT ONLY (R1 spike): whether the line prefix has one owner,
-        // i.e. whether this head would become a piece that LOOKS ready, is the
-        // OUTER key — and the depth ranking above orders each bucket from the
-        // inside, so `--start` still reaches the board instead of being
-        // shadowed by the lever. A boolean key needs a stable partition, not a
-        // sort; at `--start=random` there is no inner order to apply, which is
-        // why every board recorded there comes out cell for cell the same.
+        // Whether the line prefix has one owner (would this head become a piece
+        // that looks ready?) is the outer key and the depth ranking orders each
+        // bucket, so `--start` is not shadowed by the lever. A boolean key needs
+        // a stable partition, not a sort.
         const want = this.trapBias > 0
         const homo = at(this.lineHomo, d)
         const first: Cell[] = [], rest: Cell[] = []
@@ -1150,19 +1119,12 @@ class Carver implements Board {
         this.orderByDepth(heads, d, bias)
         ranked = heads
       }
-      // SEVERAL TRIES PER DIRECTION. One try is enough on a small board, where
-      // there are a dozen or so candidates. At 400x400 there can be several
-      // hundred legal heads, and the chance that the one drawn happens to give
-      // a path passing the leftover test drops — and the generator undoes
-      // hundreds of cuts instead of drawing again.
-      //
-      // QUARTERS. A biased cut draws from the first quarter of the ranked list
-      // (the shallowest lines for layers, the deepest for tunnels). If every
-      // try there fails, the next quarters are tried in turn before the
-      // direction is given up: in the endgame of a large board the shallowest
-      // lines are exactly the dead pockets at the frontier, while the heads of
-      // the regions of thousands of free cells sit in the deeper quarters —
-      // and a backtrack undoes pieces elsewhere, so it never helps (round 9).
+      // Several tries per direction: at 400x400 there are hundreds of legal
+      // heads, and one draw rarely passes the leftover test. A biased cut tries
+      // the first quarter of the ranked list, then the next ones in turn: in a
+      // large board's endgame the first quarter is the dead pockets at the
+      // frontier, the heads of big free regions sit deeper, and a backtrack
+      // never helps there (it undoes pieces elsewhere).
       const quarter = Math.max(1, Math.ceil(ranked.length / 4))
       const pools: Cell[][] = bias === 0 && !useTrap
         ? [[...ranked]]
@@ -1257,8 +1219,7 @@ class Carver implements Board {
                 // It eats dead ends before they close instead of stranding them.
                 w *= Math.pow(warns, 3 - deg)
               }
-              // HUG: a bonus for hugging other pieces. Hypothesis — this is what
-              // should give the impression of "wrapping" instead of coiling on itself.
+              // HUG: a bonus for hugging other pieces; off while HUG is 1.
               if (HUG > 1 && foreign > 0) w *= Math.pow(HUG, foreign)
               // ANTICOIL: a penalty for touching one's own path. The tail cell we
               // come from does not count — hence own - 1.
@@ -1285,7 +1246,7 @@ class Carver implements Board {
                 }
                 // A PENALTY, not a ban. A ban would make turning around impossible:
                 // moving from lane to lane requires crossing the spacing zone, so the
-                // snake got stuck after two hundred cells regardless of the ordered length.
+                // snake gets stuck after about two hundred cells whatever the ordered length.
                 if (near > 0) w *= Math.pow(GIANT_SPACE_PENALTY, -near)
               }
               cand.push({ x: nx, y: ny, dd, w })
@@ -1394,49 +1355,28 @@ class Carver implements Board {
   }
 
   /**
-   * LEFTOVER ABSORPTION — the endgame safety net.
+   * LEFTOVER ABSORPTION, the endgame safety net. When no head yields a legal
+   * path, small fragments remain (non-decomposable, like a cross with three
+   * leaves, or with no legal head order). Instead of undoing cuts, the TAIL END
+   * of a neighbouring piece (contact point to tail) and the whole fragment are
+   * relaid as one Hamiltonian path. That never changes the blocking graph: the
+   * head, neck and ray stay, so the piece exits as before; the tail-end cells
+   * stay with the same piece, so later rays through them still hit an earlier
+   * piece; and no ray crosses a free cell (a head was the first unassigned cell
+   * of its line, and backtracking removes only later pieces), so the fragment
+   * blocks nobody new. Extending the tail is tried first, as the cheapest; a
+   * fragment over `absorbLimit` cells needs carving, not one clump.
    *
-   * When no head yields a legal path, small fragments remain: sometimes
-   * non-decomposable (a cross with three leaves), sometimes decomposable but
-   * with no legal head order. Instead of undoing cuts blindly, we REWRITE THE
-   * TAIL END of a neighbouring piece: its cells from the contact point with the
-   * fragment to the tail, plus the whole fragment, are laid out as a new
-   * Hamiltonian path.
-   *
-   * This is always legal and does not change the blocking graph:
-   *  - the head, neck and ray stay the same, so the piece exits just as
-   *    before; the body follows the head's track, its shape does not matter;
-   *  - the tail-end cells stay with the same piece (the same index in the
-   *    solution order), so the rays of later pieces that pass through them
-   *    still hit an earlier piece;
-   *  - no ray passes through a free cell (the head was the first unassigned
-   *    cell on its line at the moment of carving, and backtracking removes only
-   *    later pieces), so assigning the fragment blocks nobody new.
-   *
-   * Extending the tail is a special case (empty tail end) and is tried first,
-   * because it is the cheapest. We only absorb fragments of up to
-   * `absorbLimit` cells: a large free area needs ordinary carving, not gluing
-   * into a single clump. One call absorbs one fragment and returns true so the
-   * generator tries carving normally again.
-   *
-   * The fragments are tried in the order of their smallest cell index, a
-   * fragment whose memo is still valid is skipped (see MEMO below), and the
-   * call returns at the first success. The scan that finds them is
-   * INCREMENTAL: the original walked every cell of the board on every call;
-   * this one walks a bitmap of DIRTY cells and flood-fills only the fragments
-   * around them. Every cell is dirty at construction, so the first call sees
-   * the whole board; afterwards touch() marks every cell that changed owner
-   * and its neighbours, a success marks the neighbours of the rewritten tail,
-   * and the fragments the walk discovered but did not get to before the
-   * success are marked again. That evaluates a SUPERSET of the fragments the
-   * full walk would evaluate, in the same order, with the same memo check, so
-   * the absorptions are identical: a fragment can change, appear, or lose its
-   * memo only through an owner change in it or next to it, or through the
-   * rewritten tail of a candidate piece (which every such fragment touches at
-   * a position >= 1). A fragment above the limit is dropped: it can only come
-   * under the limit when a cell inside it is assigned, and that assignment's
-   * touch() marks every part it splits into. Marking too much only costs a
-   * flood fill; marking too little would change boards.
+   * Fragments are tried by smallest cell index, a still-valid memo skips one
+   * (see MEMO below), and the scan is incremental over `absorbDirty`: touch()
+   * marks changed cells and their neighbours, a success marks the neighbours
+   * of the rewritten tail and re-marks fragments found but not yet evaluated.
+   * A fragment can change, appear or lose its memo only through an owner
+   * change in or beside it, or a rewritten candidate tail (which it touches at
+   * a position >= 1), so the scan evaluates a superset of what a walk over
+   * every cell would, in the same order, and absorbs the same. A fragment over
+   * the limit is dropped: the assignment that shrinks it marks every part it
+   * splits into. Marking too little would change boards.
    */
   absorbLeftover(): boolean {
     const limit = this.p.absorbLimit ?? 0
@@ -1455,22 +1395,11 @@ class Carver implements Board {
       }
       return m.get(i)
     }
-    // DISCOVERY: the fragment of free cells around a dirty cell, with a size
-    // limit. Only its smallest cell `s`, its size and `changed` — the newest
-    // change among the fragment's cells and their neighbours — are kept; all
-    // three are independent of the cell the flood starts from and of the
-    // order in which the neighbours are taken, so this flood is unrolled.
-    // Every flood has its own stamp, and any stamp from this call (>= base)
-    // means "already visited in this scan".
-    //
-    // The incremental scan STOPS a flood as soon as the fragment is over the
-    // limit — a dirty cell next to the carving frontier lies in the big free
-    // area, and walking all of it on every call is what made the old scan
-    // slow. An unseen cell whose flood reaches a cell that a stopped flood
-    // marked is in that same over-limit fragment (a fragment under the limit
-    // is always flooded completely, so its cells never meet an unseen dirty
-    // cell); it is dropped without walking further. The first scan visits
-    // every cell anyway, so it floods to the end and never meets that case.
+    // DISCOVERY: the fragment of free cells around a dirty cell. Only its
+    // smallest cell `s`, its size and `changed` (the newest change among its
+    // cells and their neighbours) are kept; none depends on the start cell or
+    // the neighbour order, so the flood is unrolled. Each flood has its own
+    // stamp, and any stamp >= base means "already seen in this scan".
     const heap = this.absorbHeap // discovered fragments { s, changed }, a min-heap on s
     heap.length = 0
     const base = this.absorbSeenGen + 1
@@ -1540,6 +1469,11 @@ class Carver implements Board {
             }
           }
         }
+        // Past the first scan a flood stops once over the limit: a dirty cell
+        // at the frontier lies in the big free area, too costly to walk every
+        // call. A flood that meets a cell a stopped flood marked is in the same
+        // over-limit fragment (one under the limit is always flooded whole), so
+        // it is dropped too. The first scan floods to the end and never meets that.
         if (tooBig && partial) {
           stack.length = 0
           break
@@ -1576,8 +1510,7 @@ class Carver implements Board {
       }
       return top
     }
-    // EVALUATION of one fragment, from the memo check on exactly like the
-    // full walk did. Returns true after an absorption.
+    // EVALUATION of one fragment, memo check first. Returns true after an absorption.
     const evaluate = (s: number, changed: number): boolean => {
       // MEMO: s is the smallest index of its fragment (every free cell before
       // it already belongs to an earlier fragment), so it identifies the
@@ -1587,8 +1520,8 @@ class Carver implements Board {
       if (memo && memo.version >= changed && memo.pieces.every((pc) => (pc.tailVersion ?? 0) <= memo.version)) {
         return false
       }
-      // The fragment again, flood-filled from s exactly like the full walk
-      // did: the candidate order below follows the order of `comp`.
+      // The whole fragment, flood-filled from s: the candidate order below
+      // follows `comp`, so the flood order shapes the board.
       const comp: number[] = []
       const compGen = ++this.absorbSeenGen
       absorbSeen[s] = compGen
@@ -1654,15 +1587,12 @@ class Carver implements Board {
       absorbMemo.set(s, { version: this.version, pieces: list.map((c) => c.pc) })
       return false
     }
-    // THE WALK over the dirty bits in index order, lazily evaluating the
-    // discovered fragments in the order of s like the full walk did: a
-    // fragment under the limit that contains cell i has its smallest cell
-    // less than `span` indices below i, so once the walk is span past the
-    // smallest discovered s, that fragment is the next one. A bit is cleared
-    // when its cell is processed; on a success the walk stops and the bits
-    // after it stay set, and the fragments still in the heap are marked dirty
-    // again — the full walk would reach them all on its next call. Not
-    // discovering the rest is what keeps a hit as cheap as it was.
+    // THE WALK over the dirty bits in index order evaluates fragments in order
+    // of s: one under the limit that contains cell i has its smallest cell less
+    // than `span` below i, so once the walk is span past the smallest pending
+    // s, that fragment is next. On a success the walk stops, so a hit discovers
+    // nothing more: the later bits stay set and the fragments still in the heap
+    // are marked again for the next call.
     const dirty = this.absorbDirty
     const span = limit * (W + 1)
     const hit = (): boolean => {
@@ -1699,11 +1629,10 @@ class Carver implements Board {
    * as cell indices, or null.
    *
    * Depth-first search with the Warnsdorff order (fewest free exits first,
-   * ties in DIRS order) and a budget of 20 000 nodes shared by the starts —
-   * the same order and the same budget as the original Set-based search, so
-   * the same board comes out of the same seed; only the allocations are gone:
-   * membership is a stamp in a typed array and the per-depth candidate lists
-   * live in one preallocated buffer.
+   * ties in DIRS order) and a budget of 20 000 nodes shared by the starts;
+   * both decide which board a seed gives. Membership is a stamp in a typed
+   * array and the per-depth candidate lists live in one preallocated buffer,
+   * so the search allocates nothing per node.
    */
   absorbPath(comp: readonly number[], pc: Piece, k: number): Int32Array | null {
     const { W, H, absRegion, absUsed } = this
@@ -1886,25 +1815,12 @@ class Carver implements Board {
       // tail — this does not change the blocking graph, whereas a backtrack with
       // thousands of pieces hits a random region of the board.
       if (this.absorbLeftover()) continue
-      // FULL SCAN of the legal heads before the first undo. The draws above
-      // sample a handful of heads per direction; on a large board there are
-      // hundreds, and every jam of the random 1000×1000 sweep still had
-      // 208–688 legal heads when it gave up — the search starved, the
-      // geometry was fine. A backtrack undoes the newest neighbour of the
-      // leftover, i.e. pieces in the region being carved, so it does not put
-      // the missed heads back in play; trying each of them once does.
-      //
-      // Two bounds keep the scan from paying for jams it cannot fix. Three
-      // misses in a row switch it off until it hits again: a board whose
-      // legal heads all fail the leftover test (the shredded 1000×1000 boards
-      // of the sweep: 253 heads, 0 carvable) is a geometric jam, and scanning
-      // it before each of hundreds of backtracks made the verdict 1.3–3.7×
-      // slower. And one attempt gets as many scans as it gets undos: on a
-      // shredded board with the odd carvable head the scan hits, carves one
-      // piece, the draws fail again and the next scan starts over — board 94
-      // did 1 268 scans (1 067 hits) in one attempt, still jammed, at twice
-      // the time. The scan is the cheaper alternative to an undo, so it
-      // shares the undo budget; after that the jam goes to backtracking.
+      // FULL SCAN of the legal heads before the first undo: the draws sample a
+      // few heads per direction, yet 1000×1000 jams kept hundreds of legal heads
+      // that a backtrack (it undoes the region being carved) never brings back.
+      // Three misses in a row switch it off until it hits again (a board whose
+      // heads all fail is a geometric jam: scanning it was up to 3.7× slower),
+      // and it shares the undo budget, or odd carvable heads keep it scanning.
       if (scanMisses < 3 && (this.stats.headScans ?? 0) < maxBacktracks) {
         this.stats.headScans = (this.stats.headScans ?? 0) + 1
         if (this.carveOne(true)) {
@@ -1938,11 +1854,10 @@ function analyse(board: BoardData, ruleB = true): Metrics {
   const N = pieces.length
   // The blocking graph lives in typed arrays: the distinct pieces crossed by
   // the rays of piece i are `edges[start[i] .. start[i + 1])`, in ray order.
-  // A 1000×1000 board of 150 thousand short pieces has 25 million such pairs;
-  // as a Set of ids per piece (plus the copy Kahn consumed) that graph blew
-  // the Node heap after the generator had closed the board at 150 MB.
-  // `stamp[o]` remembers which piece last recorded o, so a piece crossed by
-  // several rays (or twice by one ray) is counted once, as the Set did.
+  // A 1000×1000 board of 150 thousand short pieces has 25 million such pairs,
+  // which a Set of ids per piece does not fit in the Node heap. `stamp[o]` is
+  // the piece that last recorded o, so a piece crossed by several rays (or
+  // twice by one ray) is counted once.
   let edges = new Int32Array(Math.max(1024, N * 8))
   let edgeCount = 0
   const start = new Int32Array(N + 1)
@@ -2381,11 +2296,6 @@ function toSvg(board: BoardData, opts: SvgOptions = {}): string {
   return out.join('\n')
 }
 
-/**
- * The full set of parameters with default values. A single source of truth for
- * the CLI and for the lab — adding a knob here is enough for it to appear in
- * both.
- */
 // An inactive knob = it has no effect on the result under the current settings.
 // The lab dims such fields and shows the reason, so that nobody measures a
 // change that does not exist. `inactive(p)` returns a reason KEY from
@@ -2400,6 +2310,11 @@ const skeletonOff = (p: Params): InactiveKey | null => (p.giants <= 0 && p.wGian
  */
 export const MIX_SHARE = { min: 0.3, max: 0.7 } as const
 
+/**
+ * The full set of parameters with default values. A single source of truth for
+ * the CLI and for the lab — adding a knob here is enough for it to appear in
+ * both.
+ */
 const PARAM_TABLE = [
   {
     key: 'W',
@@ -2427,10 +2342,9 @@ const PARAM_TABLE = [
     group: 'board',
     min: 0,
     // The ceiling the generator actually has: `mulberry32` keeps 32 bits of
-    // state (`seed >>> 0`), so 2**32 wraps back to 0. The old 999999 was the
-    // first lab field's arbitrary limit, justified by no commit or spec, and a
-    // million is thin for randomly drawn seeds: a repeat becomes likelier than
-    // not after roughly 1200 draws, against roughly 77 000 here.
+    // state (`seed >>> 0`), so 2**32 wraps back to 0. A million would be thin
+    // for randomly drawn seeds: a repeat becomes likelier than not after
+    // roughly 1200 draws, against roughly 77 000 here.
     max: 2 ** 32 - 1,
     step: 1,
     def: 7,
@@ -2655,7 +2569,7 @@ const PARAM_TABLE = [
   },
   // giantStraight acts on every skeleton regardless of giantStep: the
   // serpentine only seeds the path, the tail keeps growing on this weight
-  // (see growPiece), and the giants that wGiant adds later grow entirely on
+  // (see carveOne), and the giants that wGiant adds later grow entirely on
   // it. So it is inactive only when there is no skeleton at all.
   {
     key: 'giantStraight',
@@ -2679,8 +2593,7 @@ const PARAM_TABLE = [
     def: 6,
     // The engine reads Math.max(anticoil, giantAnticoil) and nothing else, so
     // at or below the general penalty this knob cannot change a single cell --
-    // which is where its default sits (6 against 6). The lab said nothing about
-    // that until now; the README always did.
+    // which is where its default sits (6 against 6).
     inactive: (p) => skeletonOff(p) ?? (p.giantAnticoil <= p.anticoil ? 'anticoilWins' : null),
     help:
       "How strongly a skeleton arrow avoids touching itself. The shape group's coil penalty applies too and the higher one wins, so this matters only above it.",
@@ -2777,46 +2690,33 @@ export function defaultParams(): Params {
   return p
 }
 
-// The safe envelope beyond the per-knob ranges: combinations and holes that
-// the measurements showed to jam or leave boards unclosed. Each rule names the
-// knobs it involves so that the lab can mark their rows. Texts are keyed like
-// INACTIVE_REASONS; the lab translates them (lab-i18n PL.reasons).
 /**
- * The straightness a board needs to close, measured in round 14 (2026-09-12,
- * 485 runs with restarts off over 100 settings, squares from 300 to 1000 a
- * side; see HISTORY.md).
+ * The straightness a board needs to close, fitted to 485 runs with restarts
+ * off over 100 settings, squares from 300 to 1000 a side
+ * (packages/engine/HISTORY.md, the straightness floor).
  *
- * Two things raise it. The board's SIZE does, on its own and with every other
- * knob at its default: 0.6 closes 500x500 but not 600, 0.65 closes 700 but
- * not 800, and 1000 needs 0.8. And the two winding knobs move it both ways — a nook rule below its default, or a coiling penalty above
- * its, leaves more crumbs at the frontier and makes a board behave as if it
- * were LARGER; a high nook rule or a low coiling penalty makes it behave
- * smaller. Neither knob jams a board on its own at any setting, which is why
- * their own ranges are untouched and the coupling lives here.
+ * Two things raise it. The board's SIZE does, with every other knob at its
+ * default: 0.6 closes 500x500 but not 600, 0.65 closes 700 but not 800, and
+ * 1000 needs 0.8. And the two winding knobs move it both ways: a nook rule
+ * below its default, or a coiling penalty above its, leaves more crumbs at the
+ * frontier and makes a board behave as if it were LARGER; a high nook rule or
+ * a low coiling penalty makes it behave smaller. Neither knob jams a board on
+ * its own at any setting, so their ranges stay whole and the coupling lives here.
  *
- * The factors are fitted to the campaign, not derived: they refuse every one
- * of the settings that jammed even once, and five that never did
- * (straight-floor.test.ts lists those five by name). It was nine until deeper
- * seeding in 2026-09-19 turned four of them into ordinary jams: they had been
- * standing on three or four runs each.
+ * The factors are fitted, not derived: they refuse every setting that jammed
+ * even once, and a few that never did (CONSERVATIVE in straight-floor.test.ts).
  *
- * Which size, though? Round 14 measured squares only, and on a square every
- * candidate agrees. Round 15 (2026-09-13, rectangles; see the measurements
- * document) settled it: what counts is the EQUIVALENT SQUARE, the geometric
- * mean of the two sides. 250x1000 closes at 0.6 like the 500x500 of the same
- * area, not at the 0.8 the longer side used to demand of it, and the two
- * equal-area pairs land where the mean says they land. The rule used to read
- * the longer side on the strength of a README line about a tall board being
- * harder -- which is true, and is about the PLAYER: a tall board has shorter
- * corridors, so fewer arrows are free at once. The carver does not care.
- *
- * On a square the mean is the side, so every number round 14 measured, and
- * every one of the settings it costs, is exactly as it was.
+ * The size is the EQUIVALENT SQUARE, the geometric mean of the two sides:
+ * 250x1000 closes at 0.6 like the 500x500 of the same area, and equal-area
+ * pairs land where the mean says they land
+ * (docs/superpowers/measurements/2026-09-13-straight-floor-shape.md). A tall
+ * board is harder for the PLAYER (shorter corridors, fewer arrows free at
+ * once), not for the carver.
  */
 export function straightFloor(p: Params): number {
   const nooks = p.warns <= 2 ? 1.5 : p.warns === 3 ? 1.2 : p.warns >= 6 ? 0.85 : 1
-  // 0.9, not the 0.8 fitted in round 14: at 1000x1000 with anticoil 4, 0.8
-  // left the floor at 0.7, which failed 5 of 60; 0.75 closed all 60.
+  // 0.9 for anticoil <= 4, not less: a floor of 0.7 at 1000x1000 failed 5 of 60
+  // runs and 0.75 closed all 60 (docs/superpowers/measurements/2026-09-27-envelope-leaks.md).
   const coiling = p.anticoil >= 7 ? 1.2 : p.anticoil <= 4 ? 0.9 : 1
   const side = Math.sqrt(p.W * p.H) * nooks * coiling
   const steps = Math.max(0, Math.floor((side - STRAIGHT_FREE) / STRAIGHT_STRIDE))
@@ -2852,6 +2752,12 @@ const STRAIGHT_STRIDE = 150
 const STRAIGHT_BASE = 0.6
 const STRAIGHT_TOP = 1
 
+/**
+ * The safe envelope beyond the per-knob ranges: combinations and holes that
+ * the measurements showed to jam or leave boards unclosed. Each rule names the
+ * knobs it involves so that the lab can mark their rows. Texts are keyed like
+ * INACTIVE_REASONS; the lab translates them (lab-i18n PL.reasons).
+ */
 export const RULES: readonly {
   key: RuleKey
   keys: readonly ParamKey[]
@@ -2884,8 +2790,8 @@ export const RULES: readonly {
   {
     key: 'straightFloor',
     keys: ['pStraight', 'warns', 'anticoil'],
-    // One value, one complaint: a knob already outside its own range has its
-    // own line, and a floor computed from it would be nonsense anyway.
+    // It also reads W and H, which `keys` does not name, so it skips an
+    // out-of-range input itself (one value, one complaint; see validateParams).
     check: (p) => STRAIGHT_KEYS.some((k) => !inRange(p, k)) || p.pStraight >= straightFloor(p) - 1e-9,
     need: straightFloor,
   },
@@ -2933,13 +2839,10 @@ export function validateParams(params: Params): Violation[] {
     }
   }
   // One value, one complaint, for rules as well as knobs: a rule computed from
-  // a value already outside its own range says nothing the range line does not
-  // — and it says it about a SECOND knob, which the caller may never have
-  // written. `--wmid=0.95` used to answer with its own range and with the sum
-  // rule naming `--wshort`, a knob nobody had touched. straightFloor has
-  // guarded itself this way since round 14; the guard belongs to every rule.
-  // A step violation does not silence anything: the value is still in range,
-  // so the rule's arithmetic still means what it says.
+  // a value outside its range repeats the range line about a SECOND knob the
+  // caller may never have written (`--wmid=0.95` would blame `--wshort` via
+  // the sum rule). A step violation silences nothing: the value is still in
+  // range, so the rule's arithmetic still means what it says.
   const outOfRange = new Set(out.filter((v) => v.kind === 'range').map((v) => v.key))
   for (const r of RULES) {
     if (r.keys.some((k) => outOfRange.has(k))) continue
@@ -3013,14 +2916,14 @@ export function snapToStep(value: number, step: number, min: number): number {
   return Number((min + Math.round((value - min) / step) * step).toFixed(6))
 }
 
-// Pulls a value loaded from outside (URL, preset, stored board) into the
-// knob's range and onto its grid; anything that is not a finite number (an
-// emptied field) falls back to the default. Both halves matter: a value
-// between two stops is a step violation, which would leave the panel red
-// with no control able to fix it. Pure, so it can be tested without the page.
-// This is the range and the step of one knob only. A cross-knob rule — a
-// straightness floor that depends on the board's size — is never clamped:
-// the surface shows it and the run refuses, so no value moves unrecorded.
+/**
+ * Pulls a value loaded from outside (URL, preset, stored board) into the
+ * knob's range and onto its grid; anything that is not a finite number (an
+ * emptied field) falls back to the default. The grid matters too: a value
+ * between two stops is a step violation no control can fix. A cross-knob rule
+ * (a straightness floor that depends on the board size) is never clamped: the
+ * surface shows it and the run refuses, so no value moves unrecorded.
+ */
 export function clampParam(spec: ParamSpec, value: number): { value: number; clamped: boolean } {
   if (!Number.isFinite(value)) return { value: spec.def, clamped: true }
   const v = snapToStep(Math.min(spec.max, Math.max(spec.min, value)), spec.step, spec.min)

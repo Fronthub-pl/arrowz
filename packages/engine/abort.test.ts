@@ -17,7 +17,7 @@ const THRASH = {
   restarts: 2,
   maxBack: 1000,
 }
-/** The voids of the thrash live in the options now, beside the escape hatch. */
+/** The voids of the thrash are an option of generate, beside the escape hatch that lets them in. */
 const THRASH_OPTS: GenerateOptions = { unchecked: true, voidFrac: 0.3 }
 
 Deno.test('generate: a GenerateAbort thrown from trace ends the run, keeps the partial board and skips the restarts', () => {

@@ -1,30 +1,24 @@
 /**
- * Two gaps the R1 sweeps left open, both of them about paths no recorded row
- * ever took.
+ * Two paths no other trap-lever run takes; result in
+ * docs/superpowers/measurements/2026-09-12-r1-r2-measurements.md.
  *
- * A. DOES trapBias SHADOW `--start`? The ranking branch is a chain:
+ * A. Does trapBias shadow `--start`? The ranking branch is a chain
  *    `if (trapBias !== 0) ... else if (freeBias !== 0) ... else if (bias !== 0)`
- *    (engine.ts), and `bias` is the only place the carver ever reads
- *    `headBias` — and it reads it only while `mix` is below 0 (the RULES entry
- *    `startPair` says as much). So with the trap lever on, `--start` should
- *    have no effect at all, and because no draw is made for it either, the
- *    boards should be identical DOWN TO THE FINGERPRINT. That is a sharper
- *    check than any statistic: if the three `--start` settings collapse onto
- *    one hash, the flag is provably dead and the pair needs an `inactive`
- *    reason (or the ranking needs to become a secondary key). `mix` is swept
- *    too, because there the draw IS made and only its result is thrown away:
- *    the board id should change while the ranking does not.
+ *    (engine.ts), and `bias` is the only place the carver reads `headBias`,
+ *    and only while `mix` is below 0 (the RULES entry `startPair`). So with the
+ *    lever on, `--start` should have no effect and the boards should be
+ *    identical down to the fingerprint: if the three `--start` settings
+ *    collapse onto one hash, the flag is provably dead. `mix` is swept too:
+ *    there the draw is made and thrown away: the board id changes, the ranking not.
  *
- * B. HAS THE UNDO PATH EVER RUN? Every recorded trapBias row has
- *    `backtracks: 0`, so the rebuild branch of the fold (`upTo < from`) had
- *    never executed in a measurement. The two families below are the repo's
- *    known backtracking boards (absorb.test.ts): they are re-run with the trap
- *    lever on, and the line table is checked against a from-scratch fold of the
- *    finished board. A stale entry left behind by an undo shows up as a
- *    mismatch.
+ * B. Has the undo path ever run? Ordinary runs have `backtracks: 0`, so the
+ *    rebuild branch of the fold (`upTo < from`) would go unexercised. The two
+ *    families below are the repo's known backtracking boards (absorb.test.ts):
+ *    they are re-run with the lever on, and the line table is checked against a
+ *    from-scratch fold of the finished board: a stale entry left by an undo is
+ *    a mismatch.
  *
- * Both parts run at small sizes on purpose: they ask whether a path is taken
- * and whether it is correct, not how a metric scales.
+ * Both parts run at small sizes: they ask whether a path is taken and correct.
  *
  * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r1-start-shadow.ts [out]
  */

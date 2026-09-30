@@ -1,4 +1,4 @@
-// THROWAWAY PROTOTYPE — measurement tool over the engine in engine.ts.
+// Measurement tool over the engine in engine.ts.
 // Run: deno task report [--<knob>=value ...] [--only=Name] [--runs=N] [--show]
 //      deno task report --bench=N [--only=Name] [--<knob>=value ...]
 //
@@ -57,10 +57,8 @@ const debug = Deno.env.get('GIANT_DEBUG') ? (msg: string) => console.error(msg) 
 /** The hooks as the Carver takes them, beside the knobs: only the ones that are on. */
 const hooks: Pick<GenerateOptions, 'trace' | 'debug'> = { ...(trace ? { trace } : {}), ...(debug ? { debug } : {}) }
 
-// report.ts's own flags are not engine parameters and the shared parser does
-// not know them — it refuses whatever it does not recognise — so they are
-// taken off argv before parseArgs sees the rest, the same way carve.ts used
-// to take --advanced off before calling the old parser.
+// report.ts's own flags are not engine parameters and the shared parser refuses whatever it does not
+// recognise, so they are taken off argv before parseArgs sees the rest.
 const argvIn = Deno.args
 const REPORT_FLAGS = new Set(['runs', 'bench', 'only', 'mid', 'square', 'portrait', 'show'])
 const isReportFlag = (a: string): boolean => a.startsWith('--') && REPORT_FLAGS.has(a.slice(2).split('=')[0] ?? '')

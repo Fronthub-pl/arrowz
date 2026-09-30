@@ -1,34 +1,23 @@
-// THROWAWAY PROTOTYPE — CLI layer over the engine in engine.ts.
-// Run: deno task carve --width=N --height=N [options] [mode]
+// CLI layer over the engine in engine.ts. Run: deno task carve --width=N --height=N [options] [mode]
 //
-// One mode. The everyday flags of the simple lab view — a size, the sliders
-// --length and --winding in 0..1, --skeleton, --seed, the picture (--colored,
-// --line, --arrow-width, --arrow-height) and --randomized — stand beside
-// every engine knob, each spelled as its PARAM_SPEC key in lower case. An
-// everyday flag sets a whole bundle of knobs; a knob written on the command
-// line is PINNED: the bundle is drawn first and the pin is written over it,
-// so a pin changes only the knob it names. Each pin is named once per run on
-// stderr, because --dry-run owns stdout.
+// The everyday flags of the simple lab view (a size, --length and --winding in 0..1, --skeleton, --seed, the
+// picture flags --colored --line --arrow-width --arrow-height, --randomized) stand beside every engine knob,
+// each spelled as its PARAM_SPEC key in lower case. An everyday flag sets a whole bundle of knobs; a knob
+// written on the command line is PINNED: the bundle is drawn first and the pin is written over it. Each pin
+// is named once per run on stderr, because --dry-run owns stdout.
 //
-// Always one board file → packages/cli/boards/ (+ an SVG preview with --svg,
-// + a copy with --svg=path), or with --dry-run one JSON line and nothing
-// written. Modes:
+// Always one board file -> packages/cli/boards/, or with --dry-run one JSON line and nothing written. Modes:
 //   --svg[=path]    an SVG preview in the store as well (+ a copy at path)
-//   --dry-run       one board, nothing written: one JSON line on stdout with
-//                   the id (the layout hash the store would name it by),
-//                   metrics, the pinned knobs and the fingerprint
-//   --count=N       N closed boards of different layouts on the seeds from
-//                   --seed up, skipping any that does not close or whose layout
-//                   is already stored (its recipe is saved all the same);
-//                   --max-seeds=M gives up after M seeds (default 2·N); exit 1
-//                   when it gives up
+//   --dry-run       one JSON line on stdout: the id (the layout hash the store would name it by), metrics,
+//                   the pinned knobs and the fingerprint
+//   --count=N       N closed boards of different layouts on the seeds from --seed up, skipping any that
+//                   does not close or whose layout is already stored (its recipe is saved all the same);
+//                   --max-seeds=M gives up after M seeds (default 2*N); exit 1 when it gives up
 //   --help, -h      usage; --help=knobs adds the table of every knob
-// A retired spelling (--advanced, --board, --straight, --w) and an unknown
-// flag are refused by name with exit code 2, and so are parameters outside
-// the safe envelope (validateParams), before any generation. A board that
-// does not close is stored too (its preview draws the holes), and the exit
-// code is 1; CARVE_TIMEOUT_S=N aborts a run after N seconds and stores what
-// was carved.
+// A retired spelling (--advanced, --board, --straight, --w), an unknown flag and parameters outside the safe
+// envelope (validateParams) are refused by name with exit code 2, before any generation. A board that does
+// not close is stored too (its preview draws the holes) and the exit code is 1; CARVE_TIMEOUT_S=N aborts a
+// run after N seconds and stores what was carved.
 import type { BoardMeta, GenerateOptions, ParamKey, Params, TraceInfo, Violation } from '@arrowz/engine'
 import {
   DIRS,
@@ -99,10 +88,8 @@ const hooks: Pick<GenerateOptions, 'trace' | 'debug'> = { ...(trace ? { trace } 
 const parsed = parseArgs(Deno.args)
 const view = parsed.view
 const rest = parsed.rest
-// Mode flags (not engine parameters) — read from what is left after the
-// parser. Every reader marks what it took, so an entry nobody took is caught
-// below rather than ignored: --dry-run=1 is not --dry-run, and --count
-// without a value is not --count=N.
+// Mode flags (not engine parameters) are read from what the parser left; every reader marks what it took
+// (see `unread`).
 const used = new Set<string>()
 const has = (flag: string): boolean => {
   const hit = rest.includes(`--${flag}`)
@@ -193,9 +180,8 @@ function unreadReason(arg: string): string {
   if (eq < 0 && VALUED_MODES.has(name)) return `${arg} needs a value`
   return `${arg} is read by no mode`
 }
-// A mode flag the readers above did not take is input nobody acts on:
-// --dry-run=1 used to write a board because carve.ts matches --dry-run
-// exactly, and --count alone was dropped on the floor.
+// A mode flag the readers above did not take is input nobody acts on: --dry-run=1 is not --dry-run and
+// --count alone is not --count=N, so both are refused instead of dropped.
 const unread = rest.filter((a) => !used.has(a))
 if (unread.length) refuseErrors(unread.map(unreadReason))
 
@@ -253,9 +239,8 @@ const givenFlags = new Set(Deno.args.map((a) => {
 }))
 /**
  * Whether what still sets the rest of a bundle is here to be named: the
- * difficulty baseline always is, an everyday flag only when it was given. The
- * note used to promise that "--skeleton still sets giants, ..." on a command
- * line with no --skeleton on it.
+ * difficulty baseline always is, an everyday flag only when it was given;
+ * otherwise the note would promise "--skeleton still sets ..." with no --skeleton given.
  */
 function bundleNamed(bundle: BundleKey): boolean {
   return bundle === 'difficulty' || givenFlags.has(`--${bundle}`)
@@ -264,9 +249,8 @@ function bundleNamed(bundle: BundleKey): boolean {
 const INACTIVE_BY_KEY = new Map(PARAM_SPEC.filter((s) => s.inactive).map((s) => [s.key, s.inactive]))
 /**
  * Why a pinned knob does nothing under these very settings, in the words the
- * lab dims its row with (INACTIVE_REASONS), or null when it does something.
- * The lab has said this since the knobs had sliders; the command line said
- * nothing at all, so `--giantanticoil=3` looked like a setting and was a no-op.
+ * lab dims its row with (INACTIVE_REASONS), or null when it does something;
+ * without it `--giantanticoil=3` would look like a setting and be a no-op.
  *
  * A batch that DRAWS its knobs per seed is the one case left out: the reason
  * usually turns on other knobs, `--randomized` gives every board its own, and
@@ -300,9 +284,8 @@ for (const key of parsed.pins) {
 
 /**
  * A knob the draw had to move to keep a rule, said once per knob for the whole
- * run. Without it the pin note was a half-truth: `--length=0 --wmid=0.5` said
- * "--length still sets wShort" while the share it set, 0.75, had been moved to
- * 0.4 to keep the pair under the cap, and nothing anywhere said so.
+ * run. Without it the pin note is a half-truth: `--length=0 --wmid=0.5` would say
+ * "--length still sets wShort" while the share it set had been moved to keep the pair under the cap.
  *
  * Once per KNOB, not once per move: with --randomized every board draws its own
  * numbers, so the first board that moves a knob speaks for the run and the rest
@@ -333,13 +316,10 @@ function forSeed(seed: number): Params {
 }
 
 // --- one board into the store (or, with --dry-run, nowhere) ----------------
-// Every run lands here, because making a board is what the CLI does. The
-// store gets the board file and its meta, and an SVG preview
-// only with --svg. A dry run generates, measures and encodes exactly as a real
-// run would, draws no SVG (the board file is what gets stored; boardBytes is
-// its size), and writes nothing: stdout carries one JSON line so that
-// scripts can compare boards across runtimes without a file — the
-// fingerprint is the same one the engine tests freeze recorded boards with.
+// The store gets the board file and its meta, and an SVG preview only with --svg. A dry run generates,
+// measures and encodes exactly as a real run would, draws no SVG, and writes nothing: stdout carries one
+// JSON line so scripts can compare boards across runtimes; the fingerprint is the one the engine tests
+// freeze boards with.
 
 /** What one stored board left on disk, as the report line names it. */
 function storedNames(meta: BoardMeta, svgOut: string | null): string {

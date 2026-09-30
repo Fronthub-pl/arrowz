@@ -1,8 +1,5 @@
-// The README tables are a copy of the knob table `--help=knobs` prints, and a
-// copy drifts. Round 11 gave the ranges a test (`envelope.test.ts`), but
-// nothing ever compared the documentation with them — so the README kept
-// promising `--maxback` "50–1000, steps of 50" while 25 and 75 went through,
-// and kept a "Whole numbers" rule that had been deleted.
+// The README tables are a copy of the knob table `--help=knobs` prints, and a copy drifts.
+// `envelope.test.ts` tests the ranges; this compares the documentation with them.
 //
 // Both languages carry the same tables. The prose is translated; the machine
 // columns — flag, range, step, default — are not, and this test is what says
@@ -21,8 +18,7 @@ const READMES = ['README.md', 'README.pl.md'] as const
  * The boards whose stored file names both READMEs print: `deno task carve
  * --width=40 --height=40 --seed=7` (and its `--svg` twin), and the 25×25 of the
  * store tree, `deno task carve --width=25 --height=25` at the default seed 7.
- * The first names were copied by hand and went stale when the settings hash
- * changed; these are checked.
+ * The names embed the settings hash, so they are checked rather than copied.
  */
 const DOCUMENTED_BOARDS = [{ W: 40, H: 40, seed: 7 }, { W: 25, H: 25, seed: 7 }] as const
 
@@ -75,13 +71,9 @@ for (const file of READMES) {
     })
   })
 
-  // The knobs in no bundle are a hand-written list in the prose, and a knob
-  // lands there by DEFAULT — so the sentence goes stale by doing nothing at
-  // all. It said eight for a round after `trapbias` had become the ninth. The
-  // list is read back off the page and compared with the one BUNDLES implies;
-  // the board knobs and `mix` are left out of it, because `--width`, `--height`
-  // and `--seed` are nobody's bundle and `--start` is the one thing that writes
-  // `mix`.
+  // A knob lands in the hand-written unbundled list by default, so the sentence goes stale by doing
+  // nothing. The list is read off the page and compared with the one BUNDLES implies; the board knobs
+  // and `mix` are left out (`--width`, `--height` and `--seed` are nobody's bundle, `--start` writes `mix`).
   Deno.test(`${file}: the knobs in no bundle are the ones the page lists`, () => {
     const lines = text.split('\n')
     const start = lines.findIndex((l) => l.trim() === '<!-- unbundled -->')
@@ -111,12 +103,9 @@ for (const file of READMES) {
     })
   })
 
-  // The warning at the end of a row is advice about THIS knob, so every
-  // setting it names has to be one the flag would take. Six of the eight
-  // pointed at values outside their own row: "--headtries at 1", when 1 had
-  // been below the minimum since round 11. Board sizes (400×400) are not
-  // settings and are skipped; the bold lead-in is matched rather than the
-  // word "Careful", so the Polish page is read by the same rule.
+  // The warning at the end of a row is advice about THIS knob, so every setting it names has to be one
+  // the flag would take. Board sizes (400×400) are not settings and are skipped; the bold lead-in is
+  // matched rather than the word "Careful", so the Polish page is read by the same rule.
   Deno.test(`${file}: a warning only names settings its own flag would take`, () => {
     const rows = tableAt(text, '<!-- knob-table -->', file)
     let checked = 0
@@ -137,11 +126,8 @@ for (const file of READMES) {
     assert(checked >= 8, `only ${checked} numbers checked`)
   })
 
-  // The page shows what a refusal looks like. Until now nothing checked that it
-  // still looks like that: the transcript said `invalid parameters:` with the
-  // label the web page prints, months after the CLI had stopped saying either.
-  // The command above the block is re-run through the parser and the envelope,
-  // and the block has to be what the CLI would print.
+  // The page shows what a refusal looks like: the command above the block is re-run through the parser
+  // and the envelope, and the block has to be what the CLI would print.
   Deno.test(`${file}: a documented refusal is the one the CLI prints`, () => {
     const lines = text.split('\n')
     let command: string | null = null
@@ -169,11 +155,8 @@ for (const file of READMES) {
     assert(checked >= 1, `${file} shows no refusal`)
   })
 
-  // The range in the prose is a THIRD copy of the seed bounds, beside the knob
-  // table above and the CLI's own help, and the only one nothing read: widening
-  // the ceiling to 2**32-1 left both pages saying "0 to 999999" two screens
-  // above a table that said otherwise. Found by an anchor rather than by its
-  // heading, for the same reason the tables are — the headings are translated.
+  // The range in the prose is a third copy of the seed bounds, beside the knob table and the CLI's own
+  // help. Found by an anchor rather than by its heading, because the headings are translated.
   Deno.test(`${file}: the seed paragraph states the range PARAM_SPEC gives`, () => {
     const spec = PARAM_SPEC.find((s) => s.key === 'seed')
     assert(spec, 'PARAM_SPEC has no seed')
@@ -207,11 +190,9 @@ for (const file of READMES) {
   })
 }
 
-// Every picture in both READMEs is rebuilt by `deno task docs` from the record
-// of how it was made, and that task is in no verification gate: narrowing
-// probeLen to 4 left `--probelen=2` in the manifest, and nothing said so until
-// somebody ran the task. Parsing is enough to catch it and costs nothing —
-// carving thirty boards would not fit in a test run.
+// Every picture in both READMEs is rebuilt by `deno task docs` from the record of how it was made, and
+// that task is in no verification gate. Parsing the recorded commands is enough to catch a stale one and
+// costs nothing; carving thirty boards would not fit in a test run.
 Deno.test('every documented picture is still a command the CLI accepts', () => {
   const manifest = JSON.parse(Deno.readTextFileSync(join(root, 'docs', 'images', 'manifest.json')))
   const entries = (manifest as { images?: { out: string; flags: string[] }[] }).images

@@ -1,11 +1,11 @@
 /**
- * R1 measurement (section 10.2 of docs/superpowers/specs/2026-09-12-prior-art-adoption-design.md):
- * is a piece's blocking depth already known at carve time, and what does its
- * distribution look like, so that head scoring has bands to aim at?
+ * Is a piece's blocking depth already known at carve time, and what does its
+ * distribution look like, so that head scoring has bands to aim at? Result in
+ * docs/superpowers/measurements/2026-09-12-r1-r2-measurements.md.
  *
- * The engine is NOT touched. `Carver` is exported, so the measurement is a
+ * The engine is not touched. `Carver` is exported, so the measurement is a
  * subclass that records, after every cut, the depth of the new piece as read
- * from the board AS IT IS AT THAT MOMENT:
+ * from the board as it is at that moment:
  *
  *   depth(i) = 0 if the ray from the head to the exit edge crosses no piece,
  *              1 + max depth(blockers) otherwise.
@@ -292,7 +292,7 @@ function main(): void {
   const side = Number(Deno.args[0] ?? 1000)
   const seeds = Number(Deno.args[1] ?? 3)
   const out = Deno.args[2] ?? `/tmp/arrowz-measure/r1-${side}.jsonl`
-  // R1 x R2: with the tail backbite on, the age invariant and the carve-time
+  // With the tail backbite on, the age invariant and the carve-time
   // depth must still hold — the move never touches cells[0].
   const backbite = Number(Deno.args[3] ?? 0)
   const modes: { label: string; params: Partial<Params> }[] = [

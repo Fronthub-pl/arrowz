@@ -1,6 +1,5 @@
-// The palette has one home now (colors.ts). These are the checks the board
-// element's view.ts used to carry for its own copy: the element re-exports
-// these functions, and view.test.ts proves the re-export is this same code.
+// The board element re-exports these functions, and its view.test.ts runs the
+// same checks on the re-export.
 import { assert, assertEquals } from '@std/assert'
 import { hueBytes, hueDegrees, hueOf } from './colors.ts'
 

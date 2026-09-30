@@ -107,7 +107,7 @@ Deno.test('buildCommand: a head knob at its default adds no flag; a zero height 
 Deno.test('words are accepted and printed back', () => {
   const { params } = parseArgs([...SIZE, '--lmax=auto', '--maxback=auto', '--giantstep=random'])
   assertEquals(params.Lmax, 0)
-  assertEquals(params.maxBack, 200) // not a sentinel any more: auto is a spelling of the number
+  assertEquals(params.maxBack, 200) // not a sentinel: auto is a spelling of the number
   assertEquals(params.giantStep, 0)
   // The flag itself, not the command: a knob at its default is left out of the
   // command altogether, so "the command has no --lmax=0 in it" could never go
@@ -126,10 +126,10 @@ Deno.test("START is read-only: the words and the share range are the parser's ow
   assertEquals([START.mix.min, START.mix.max], [0.3, 0.7])
 })
 
-// The window of shares --start can spell used to be written out three times:
-// here, in the startPair rule and in the sentence the rule is reported with.
-// One of them is the source, and the knob's own range may not run past it —
-// a stored mix above 0.7 would be a board no command text names.
+// The window of shares --start can spell is needed here, in the startPair rule
+// and in the sentence the rule is reported with. One of them is the source, and
+// the knob's own range may not run past it — a stored mix above 0.7 would be a
+// board no command text names.
 Deno.test('the mixing window has one source, and the knob range stops at it', () => {
   assertEquals(START.mix, MIX_SHARE)
   const mix = PARAM_SPEC.find((s) => s.key === 'mix')
@@ -140,9 +140,8 @@ Deno.test('the mixing window has one source, and the knob range stops at it', ()
   assertEquals(mix.min, -1)
 })
 
-// `auto` used to be a second value (0) that the engine silently read as 200:
-// the same board twice, under two ids, from two spellings. Now it is one
-// value with two spellings, and the id cannot tell them apart.
+// `auto` is 200 spelled as a word, so the id cannot tell the two spellings
+// apart (see the backtrack budget test in envelope.test.ts).
 Deno.test('the backtrack budget: auto is a spelling of 200, not a value of its own', () => {
   const auto = parseArgs([...SIZE, '--maxback=auto']).params
   const plain = parseArgs([...SIZE, '--maxback=200']).params
@@ -228,9 +227,8 @@ Deno.test('parseArgs: width and height are required, everything else defaults to
   assertEquals(parseArgs(['--width=25']).errors, ['missing --height'])
 })
 
-// The one flag that used to mean two things. --straight read the slider from
-// its straight end and inverted it; --winding IS the slider, so 0 is the
-// straightest board and nothing is inverted on the way in.
+// --winding IS the shape slider, so 0 is the straightest board and nothing is
+// inverted on the way in.
 Deno.test('parseArgs: --winding is the shape slider itself, with no inversion', () => {
   const r = parseArgs([...SIZE, '--length=0.25', '--winding=0.8', '--seed=3', '--skeleton', '--randomized'])
   assertEquals(r.errors, [])
@@ -318,17 +316,10 @@ Deno.test('retired spellings name their replacement, and unknown flags are refus
   assert(errors.some((e) => e.includes('--nope')), errors.join('; '))
 })
 
-// The size is a knob (it is stored and hashed), but it arrives as an everyday
-// flag, and normalizeChoice rounds and clamps it for the lab's sake. So the
-// parser has to refuse what that clamp would otherwise swallow: --width=2000
-// used to give a 1000-wide board and exit 0, while --seed=1.5 was refused.
 // Every dictionary the command line indexes is a plain object literal, so a
-// name off Object.prototype read back as a value: --start=constructor pinned
-// the pair --start=random spells and carved the default board with exit 0,
-// --lmax=constructor pinned a native function as a knob value, and
-// --constructor was answered as a retired flag whose replacement text was that
-// function. A key that came from the command line must reach an own property
-// of the dictionary or nothing at all.
+// name off Object.prototype would read back as a value: --start=constructor
+// as the pair --start=random spells, --lmax=constructor as a native function.
+// A key from the command line must reach an own property or nothing at all.
 Deno.test('a name off Object.prototype is not a word, not a knob value and not a retired flag', () => {
   const freeLmax = parseArgs(SIZE).params.Lmax
   for (const name of ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__']) {
@@ -353,9 +344,8 @@ Deno.test('a name off Object.prototype is not a word, not a knob value and not a
   }
 })
 
-// The picture flags took anything: --cell=-5 and --top=-1 passed without a
-// word, and a negative cell is an SVG with a negative viewBox. Each has a
-// range now, wide enough for every picture README shows.
+// A negative cell is an SVG with a negative viewBox, so every picture number
+// has a range, wide enough for every picture README shows.
 Deno.test('parseArgs: every picture number is bounded, at both ends', () => {
   for (const [field, r] of Object.entries(VIEW_RANGE)) {
     const flag = VIEW_FLAG[field as ViewNumber]
@@ -376,10 +366,13 @@ Deno.test('parseArgs: the two picture numbers counted in whole units refuse a fr
   assertEquals(parseArgs([...SIZE, '--top=2.5']).errors, ['--top=2.5 is not a whole number'])
   // The ratios are ratios: a fraction is the point of them.
   assertEquals(parseArgs([...SIZE, '--line=0.55', '--arrow-height=0.75']).errors, [])
-  // auto is still the fifth word of the legend, and it is inside the range.
+  // auto is the fifth word of the legend, and it is inside the range.
   assertEquals(parseArgs([...SIZE, '--arrow-width=auto']).view.headWidth, DEFAULT_VIEW.headWidth)
 })
 
+// The size is a knob (stored and hashed) that arrives as an everyday flag, and
+// normalizeChoice rounds and clamps it for the lab. The parser refuses what
+// that clamp would swallow: --width=2000 is an error, not a 1000-wide board.
 Deno.test('parseArgs: the size takes whole numbers inside its own range', () => {
   assertEquals(parseArgs(['--width=2000', '--height=50']).errors, ['--width=2000 is outside 4..1000'])
   assertEquals(parseArgs(['--width=3', '--height=50']).errors, ['--width=3 is outside 4..1000'])
@@ -391,9 +384,9 @@ Deno.test('parseArgs: the size takes whole numbers inside its own range', () => 
   assertEquals(parseArgs(['--width=4', '--height=1000']).params.H, 1000)
 })
 
-// A switch is on or off; a value on one used to turn it ON, so --skeleton=off
-// asked for a skeleton. A bare word used to land in the mode list and be read
-// by nobody. Both contradict "an unknown flag is refused".
+// A switch is on or off: a value on one would turn it ON (--skeleton=off
+// asking for a skeleton), and a bare word would be read by nobody. Both
+// contradict "an unknown flag is refused".
 Deno.test('parseArgs: a switch takes no value, and a stray word is not an argument', () => {
   for (const flag of ['--skeleton=off', '--randomized=false', '--sharp=no', '--colored=0']) {
     assertEquals(parseArgs([...SIZE, flag]).errors, [`${flag} takes no value`], flag)
@@ -509,8 +502,8 @@ Deno.test('--help is short, --help=knobs lists every knob flag once', () => {
   assert(!knobs.includes('--headbias'), 'a surface knob has no flag of its own')
 })
 
-// Two ways of counting one table drifted apart once: the short help promised
-// 19 knob flags where --help=knobs printed 25 rows.
+// The short help counts the knob flags (KNOB_FLAGS) apart from the rows
+// --help=knobs prints, so the two can drift.
 Deno.test('--help: "and N more" counts the rows --help=knobs prints', () => {
   const lines = helpText({ knobs: true }).split('\n')
   const header = lines.findIndex((l) => l.trimStart().startsWith('flag '))
@@ -563,8 +556,8 @@ function rangeOf(text: string, flag: string): string {
   return value.trim()
 }
 
-// The table used to join the words to the raw bounds, so it offered values the
-// tool refuses: --lmax=auto|0..5000 (0 is what `auto` spells, and 1..5 break
+// Joining the words to the raw bounds would offer values the tool refuses:
+// --lmax=auto|0..5000 (0 is what `auto` spells, and 1..5 break
 // the lmaxHole rule), --maxback=auto|0..1000, --giantstep=random|0..40, and
 // --giantspacing=off|1..3 where the flag takes off|2|3.
 Deno.test('helpText: a knob row prints the values its flag really takes', () => {
@@ -577,8 +570,8 @@ Deno.test('helpText: a knob row prints the values its flag really takes', () => 
   assert(helpText().includes('--lmax=auto|17..5000'), helpText())
 })
 
-// Spec §8: the table is where a flag gets copied from, so a row nobody can
-// type is a bug in the row.
+// The table is where a flag gets copied from, so a row nobody can type is a
+// bug in the row.
 Deno.test('helpText: every flag --help=knobs prints parses with the first value it offers', () => {
   const text = helpText({ knobs: true })
   const lines = text.split('\n')
@@ -670,10 +663,8 @@ Deno.test('--sharp round-trips, and a rounded board prints no switch', () => {
 
 // --- one voice for a refusal ---------------------------------------------
 // The parser and the envelope refuse the same kind of thing at two different
-// moments, and they used to say it two different ways: the parser named the
-// flag (`--start=0.8 is outside 0.3..0.7`), the envelope named the label the
-// web page prints beside the field (`straightness bias: 0.2 is outside
-// 0.6..1`), and a broken rule named nothing the user could type at all.
+// moments, and both name the flag the user types (`--start=0.8 is outside
+// 0.3..0.7`), not the label the web page prints beside the field.
 Deno.test('flagViolation: a refusal names the flag, the way the parser does', () => {
   assertEquals(
     flagViolation({ kind: 'range', key: 'pStraight', value: 0.2, min: 0.6, max: 1 }),
@@ -814,8 +805,8 @@ Deno.test('storeRequest builds the command from the parameters it is given', () 
 
 Deno.test('storeRequest carries nulls through: a stored board reports missing figures as null', () => {
   // Both callers need this: the lab sends `maxLen: null` for a run without
-  // metrics, and a re-POST of a stored board copies BoardMeta, whose ok,
-  // pieces and genMs are nullable (types.ts:281-284).
+  // metrics, and a re-POST of a stored board copies BoardMeta, whose figures
+  // are nullable.
   const req = storeRequest({ v: 1 } as never, defaultParams(), DEFAULT_VIEW, 'lab', {
     ok: null,
     pieces: null,

@@ -1,11 +1,11 @@
 // Guards the comment rule in CLAUDE.md ("Comments say why, once, in the
-// fewest lines") over the lab, the board element and the engine's lab files:
+// fewest lines") over the lab, the board element, the engine and the CLI:
 // no history markers in comment text, no block over 6 lines, and no module or
 // API header over 24. Only comment text is scanned, so test names and
 // dictionary strings may name a round or a ruling freely. Two blind spots: an
 // apostrophe in JSX text hides a comment later on its line, and a bare URL in
 // JSX text reads as a `//` comment.
-import { dirname, fromFileUrl, join, relative } from '@std/path'
+import { dirname, fromFileUrl, join, relative, SEPARATOR } from '@std/path'
 import { assert, assertEquals } from '@std/assert'
 import { commentBlocks, commentLines, MAX_BLOCK, MAX_HEADER } from './comment-lines.ts'
 
@@ -18,8 +18,9 @@ export const MARKERS = [
   /\b[\w-]+\.(ts|tsx|css|mjs):\d+/,
   /\bTask \d/,
   /\b[Hh]andoff \d/,
-  // Bare plan-ruling tags ("spec R7"). Measured over the scoped corpus: every
-  // \bR\d+\b hit was a ruling reference, none a CSS/colour/math identifier,
+  /\b(main|commit) \(?[0-9a-f]{7,40}\b/,
+  // Bare plan-ruling tags (an R and a number). Measured over the scoped corpus: every
+  // hit was a ruling or spec-item reference, none a CSS/colour/math identifier,
   // so the plain form needs no narrowing.
   /\bR\d+\b/,
 ]
@@ -79,7 +80,7 @@ const root = join(here, '..', '..')
 function walk(dir: string, exts: string[], out: string[]) {
   for (const e of Deno.readDirSync(dir)) {
     const path = join(dir, e.name)
-    if (e.isDirectory && e.name !== 'node_modules') walk(path, exts, out)
+    if (e.isDirectory && e.name !== 'node_modules' && e.name !== 'dist') walk(path, exts, out)
     else if (e.isFile && exts.some((x) => e.name.endsWith(x))) out.push(path)
   }
 }
@@ -88,9 +89,8 @@ function scopedFiles(): string[] {
   const files: string[] = []
   walk(join(root, 'apps', 'lab', 'src'), ['.ts', '.tsx', '.css'], files)
   walk(join(root, 'packages', 'board-element', 'src'), ['.ts'], files)
-  for (const e of Deno.readDirSync(here)) {
-    if (e.isFile && /^lab-.*\.ts$/.test(e.name)) files.push(join(here, e.name))
-  }
+  walk(here, ['.ts', '.mjs'], files)
+  walk(join(root, 'packages', 'cli'), ['.ts'], files)
   return files.sort()
 }
 
@@ -106,11 +106,22 @@ function report(kind: Offence['kind']): string[] {
   return lines
 }
 
-Deno.test('the comment guard walks the lab, the board element and the engine lab files', () => {
+Deno.test('the comment guard walks the lab, the board element, the engine and the CLI', () => {
   const files = scopedFiles()
-  assert(files.length > 150, `only ${files.length} files found: the walk is wrong`)
+  assert(files.length > 220, `only ${files.length} files found: the walk is wrong`)
   assert(files.some((f) => f.endsWith('.css')), 'no stylesheet found: the walk is wrong')
-  assert(files.some((f) => f.endsWith(join('engine', 'lab-i18n.ts'))), 'lab-i18n.ts not found: the walk is wrong')
+  for (
+    const f of [
+      'engine/lab-i18n.ts',
+      'engine/engine.ts',
+      'engine/scripts/node-smoke.mjs',
+      'cli/carve.ts',
+      'cli/scripts/jev-guard.ts',
+    ]
+  ) {
+    assert(files.some((p) => p.endsWith(f.split('/').join(SEPARATOR))), `${f} not found: the walk is wrong`)
+  }
+  assert(!files.some((f) => f.includes(`${join('engine', 'dist')}`)), 'the walk entered the engine build output')
 })
 
 Deno.test({
@@ -167,6 +178,12 @@ Deno.test('rule: task labels are markers, a task queue is not', () => {
 Deno.test('rule: handoff labels are markers, an ordinary handoff is not', () => {
   assertEquals(offences('// handoff 2 moved this drawer', false).length, 1)
   assertEquals(offences('// a smooth handoff between threads', false).length, 0)
+})
+
+Deno.test('rule: a commit on main is a marker, a hex colour is not', () => {
+  assertEquals(offences('// copied verbatim from main f200c6c', false).length, 1)
+  assertEquals(offences('// recorded on main (96b9d4a) before the envelope', false).length, 1)
+  assertEquals(offences('// the paper is #f200c6c in the main palette', false).length, 0)
 })
 
 Deno.test('rule: a bare plan-ruling tag is a marker, a run-together identifier is not', () => {

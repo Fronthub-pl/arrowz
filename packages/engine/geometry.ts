@@ -83,8 +83,7 @@ export function autoHeadWidth(width: number, cell: number): number {
 }
 
 /**
- * The shape of one piece. The arithmetic is the one toSvg had inline, in the
- * same order, so extracting it left the CLI output byte-identical:
+ * The shape of one piece:
  * - the head is exactly headHeight cells tall, whatever that says;
  * - a thin line (under half a cell) gets an arrow: an isosceles triangle
  *   0.4 of a cell plus 0.9 of the line width wide;

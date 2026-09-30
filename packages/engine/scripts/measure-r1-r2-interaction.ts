@@ -1,32 +1,22 @@
 /**
- * R1 x R2: do the trap lever and the tail backbite interact, what does the
- * trap lever cost in wall clock, and does R1 still close the most winding
- * legal corner of the envelope?
+ * Do the trap lever (`trapBias`) and the tail backbite interact, what does the
+ * trap lever cost in wall clock, and does it still close the most winding legal
+ * corner of the envelope? Result in docs/superpowers/measurements/2026-09-12-r1-r2-measurements.md.
  *
- * Three questions the earlier sweeps left open, in one grid because they share
- * the same runs:
+ * One grid answers three questions, because they share the runs:
  *
- * 1. INTERACTION. The R1 spike swept trapBias at backbite 0 and
- *    `measure-r2-backbite.ts` swept backbite at trapBias 0, so the corner where
- *    both are on was never recorded. The grid below is trapBias {-1, 0, 1} x
- *    backbite {0, 8}, several seeds, so the span of the pair rests on more than
- *    one board.
- *
- * 2. COST ATTRIBUTION. trapBias keeps `lineHomo` up to date (foldHomo) AND
- *    ranks the heads, with the quarter pools that follow from ranking at all,
- *    exactly like `--start` does. `tunnels` (headBias 1) is the control: it
- *    pays the ranking and allocates no line table, so the gap between it and
- *    trapBias is what the table costs. The original run carried a second
- *    control, the `freeBias` spike, which agreed with `tunnels` to within a
- *    twentieth and went out with the knob's PR.
- *
- * 3. THE ENVELOPE CORNER FOR R1. `edge` (warns 6, anticoil 4, pStraight on the
- *    straightness floor) was run for R2 only; every recorded trapBias row sits
- *    at the defaults. The corner rows below close that gap.
+ * 1. Interaction: trapBias {-1, 0, 1} x backbite {0, 8}, several seeds, so the
+ *    span of the pair rests on more than one board.
+ * 2. Cost attribution: trapBias keeps `lineHomo` up to date (foldHomo) and ranks
+ *    the heads, exactly like `--start` does. `tunnels` (headBias 1) is the
+ *    control: it pays the ranking and allocates no line table, so the gap
+ *    between it and trapBias is what the table costs.
+ * 3. The envelope corner: `edge` (warns 6, anticoil 4, pStraight on the
+ *    straightness floor) for the trap lever, not only for the backbite.
  *
  * Both options are measurement only (see CarverOptions): at 0 the engine takes
- * no branch and makes no draw, so the `trap 0 / backbite 0` rows are today's
- * boards cell for cell.
+ * no branch and makes no draw, so the `trap 0 / backbite 0` rows are the
+ * default boards cell for cell.
  *
  * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r1-r2-interaction.ts [side] [seeds] [budgetS] [out]
  */
@@ -140,7 +130,7 @@ function configs(side: number): Config[] {
   const square = { W: side, H: side }
   // The most winding LEGAL setting at this size: warns 6 and anticoil 4 pull
   // the straightness floor down to 0.65 and pStraight sits exactly on it. Same
-  // corner as the R2 sweep, so the rows are comparable.
+  // corner as the backbite sweep, so the rows are comparable.
   const edge = { ...square, warns: 6, anticoil: 4, pStraight: 0.65 }
   const out: Config[] = []
   for (const trapBias of [0, -1, 1]) {
@@ -162,7 +152,7 @@ function configs(side: number): Config[] {
     trapBias: 0,
     backbite: 0,
   })
-  // The envelope corner. trapBias 0 / backbite 0 is the reference point; the R2
+  // The envelope corner. trapBias 0 / backbite 0 is the reference point; the backbite
   // sweep already covers trap 0 at cap 8, so the pair is measured at +-1 only.
   out.push({ set: 'edge', label: 'trap 0 / bb 0', params: edge, trapBias: 0, backbite: 0 })
   for (const trapBias of [-1, 1]) {

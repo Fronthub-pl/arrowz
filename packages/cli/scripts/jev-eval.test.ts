@@ -60,7 +60,7 @@ Deno.test('messageRates: an unanswered item counts neither as clean nor as flagg
   const r = messageRates(good, goodA, bad, badA)
   assertEquals(r.answered, 2)
   assertEquals(r.total, 6)
-  // Dividing by the full arrays (the old bug) would give 1/4 and 1/2; over answered items it is 1/1 both ways.
+  // Dividing by the full arrays would give 1/4 and 1/2; over answered items it is 1/1 both ways.
   assertEquals(r.falseAlarm, 1)
   assertEquals(r.detection, 1)
 })

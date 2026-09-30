@@ -127,13 +127,9 @@ export async function saveBoard(
   const kept = before?.sources ?? []
   const sources = replaced ? kept.map((r) => (r.id === recipeId ? recipe : r)) : kept.concat(recipe)
   const boardText = JSON.stringify(board)
-  // A meta that is missing or unreadable means the file beside it, if any, is
-  // not vouched for: it is written again, with this save's numbering. A board
-  // file that is not there counts as new for the bytes in the same way — the
-  // meta has to describe the file that is actually on disk, and listBoards
-  // pairs a meta with its board file, so a save that skipped the write would
-  // leave a layout nothing lists. `layoutExisted` is unmoved by either: it
-  // reports what it documents, that a meta for this layout was already stored.
+  // A missing or unreadable meta means the board file beside it is not vouched for, so it is written
+  // again; a missing board file counts as new the same way, because the meta must describe the file on
+  // disk and listBoards pairs the two. `layoutExisted` is unmoved by either: it only reports a stored meta.
   const writesFile = before === null || !exists(boardPath)
   // The stored meta whose board file this save leaves alone, if any: its
   // fingerprint and size still describe that file.
@@ -178,7 +174,7 @@ export async function saveBoard(
  * Returns false when there was nothing to remove. A size directory left empty
  * is removed too, so the list does not keep an empty size. Names are
  * validated: they come straight from a URL, and a name that is not a layout
- * hash — a board stored under the old seed names included — is refused.
+ * hash is refused.
  */
 export function deleteBoard(size: string, id: string): boolean {
   if (!/^\d+x\d+$/.test(size) || !LAYOUT_ID.test(id)) throw new Error(`invalid board name ${size}/${id}`)

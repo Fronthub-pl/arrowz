@@ -1,4 +1,4 @@
-// The game of §10 of the design, reduced to what a board can decide on its
+// The game, reduced to what a board can decide on its
 // own: whether a click is a legal move, which piece blocked it, and whether
 // the board is empty. Lives, the stopwatch, streaks and scoring belong to the
 // host, so nothing here counts them.

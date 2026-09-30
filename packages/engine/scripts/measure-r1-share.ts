@@ -1,19 +1,12 @@
 /**
- * R1, the last open gate: is the SHARE monotone?
+ * Is the share of trap-ranked cuts monotone in the magnitude of `trapBias`?
+ * Result (it is not, so the knob is three-state) in docs/superpowers/measurements/2026-09-12-r1-r2-measurements.md.
  *
- * The design wants one signed knob whose sign is the direction and whose
- * magnitude is the share of cuts that rank by the trap bit, with a step of
- * 0.05. Only three points of that range were ever measured — -1, 0 and +1 —
- * and an interior that is not monotone would make forty stops that do not mean
- * anything in order, which is exactly what the parameter audit spent seven PRs
- * removing. So this sweeps the interior at 1000x1000 and reports the trap count
- * per point.
- *
- * Three seeds per point, not one: the interaction run found a 2x seed spread at
- * the low corner, so a single seed per point could draw a staircase out of
- * noise. The endpoints make no draw (see carveOne), so 0 and +-1 here are the
- * same boards the earlier runs recorded, and the interior can be read against
- * them directly.
+ * Sweeps the interior of the range at 1000x1000 and reports the trap count per
+ * point, three seeds per point: seeds spread up to 2x at the low corner, so a
+ * single seed could draw a staircase out of noise. The endpoints make no draw
+ * (see carveOne), so 0 and +-1 are the same boards as in the other trap-lever
+ * runs and the interior can be read against them.
  *
  * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r1-share.ts [side] [seeds] [budgetS] [out]
  */

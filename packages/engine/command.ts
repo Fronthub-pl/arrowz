@@ -141,9 +141,8 @@ function dropPrefix(argv: string[]): string[] {
 
 /**
  * An own-property read of one of the dictionaries below. They are plain object
- * literals, so a key that came from the command line would otherwise reach
- * Object.prototype: `--start=constructor` used to read a native function and
- * take it for a word. A key from outside must find an own property or nothing.
+ * literals, so a key from the command line would otherwise reach Object.prototype
+ * (`--start=constructor` would read a native function as a word).
  */
 function own<T>(dict: Readonly<Record<string, T>>, key: string): T | undefined {
   return Object.hasOwn(dict, key) ? dict[key] : undefined
@@ -371,10 +370,8 @@ export const DEFAULT_VIEW: View = {
  * The SvgOptions a view implies: every field of the view that `toSvg` reads,
  * under the name `toSvg` reads it by — `View.stroke` is `SvgOptions.strokeRatio`.
  *
- * The one place the translation lives. Naming the fields by hand at each call
- * site is how `--sharp` and the lab's rounding checkbox came to be parsed,
- * printed and stored while the drawing never changed: a field added to `View`
- * was silently dropped on the way to `toSvg`. `voids` has no home in a view,
+ * The one place the translation lives: a field named by hand at a call site is
+ * silently dropped on the way to `toSvg` when `View` gains one. `voids` has no home in a view,
  * so callers that need it spread it over the result. The look is resolved
  * here too: the theme under the stated colours, as the element resolves it.
  */
@@ -548,12 +545,10 @@ export const KNOB_ROWS: readonly KnobRow[] = (() => {
  * A violation in the command line's own vocabulary.
  *
  * The parser and the envelope refuse the same kind of thing at two different
- * moments, and they used to say it two different ways: the parser named the
- * flag (`--start=0.8 is outside 0.3..0.7`), the envelope named the label the
- * web page prints beside the field (`straightness bias: 0.2 is outside
- * 0.6..1`), and a broken rule named nothing a user could type at all. On this
- * surface every line starts with the flag to change; `formatViolation` in the
- * engine keeps the label form, which is the one the web page wants.
+ * moments. On this surface every line starts with the flag to change
+ * (`--start=0.8 is outside 0.3..0.7`); `formatViolation` in the engine keeps
+ * the label form (`straightness bias: 0.2 is outside 0.6..1`), which the web
+ * page wants.
  */
 export function flagViolation(v: Violation): string {
   if (v.kind === 'rule') return `${ruleFlags(v.keys).join(', ')}: ${formatViolation(v)}`
@@ -598,8 +593,7 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
   list(PICTURE_FLAGS)
   out.push('')
   if (!knobs) {
-    // Spelled by the same helper the knob table uses: the summary named three
-    // ranges in a string literal, and one of them had already drifted.
+    // Spelled by the same helper the knob table uses, so a range cannot drift from the table.
     const start = [...Object.keys(START.words), `${MIX_SHARE.min}..${MIX_SHARE.max}`].join('|')
     out.push(`Knobs: --lmax=${rangeText('Lmax')}, --start=${start}, --restarts=${rangeText('restarts')},`)
     // Counted off the knob table itself, so the short help cannot promise
@@ -679,7 +673,6 @@ export function buildCommand(params: Params, view: Partial<View> = {}): string {
       if (!isDefaultStart(params)) parts.push(startFlag(params))
       continue
     }
-    // A Params has every knob, so the old "is it there at all" guard is gone.
     if (params[s.key] !== s.def) parts.push(knobFlag(params, s.key))
   }
   if (v.cell !== fit) parts.push(`--cell=${v.cell}`)
@@ -856,10 +849,7 @@ export const VIEW_RANGE: Readonly<Record<ViewNumber, Readonly<{ min: number; max
   // 0 is the automatic width, worked out from the line. The ceiling is where a
   // tip stops reading as a tip, not where one can still be drawn: at 0.9 of a
   // square the head is already as wide as the cell it sits in. That is the
-  // element demo's bound, where the effect is watched on a slider rather than
-  // argued about. These bounds used to be 2 and 3, justified by the biggest
-  // head the READMEs happened to draw — but a picture of an extreme shows what
-  // excess looks like; it is not a licence for it. The picture moved instead.
+  // element demo's bound, where the effect is watched on a slider.
   headWidth: { min: 0, max: 0.9, whole: false },
   // 0 is a tip of no height at all, which the prose documents on purpose. 1.2
   // is a little past one whole square: room for a deliberately tall head, short
@@ -910,9 +900,8 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     if (!pins.includes(key)) pins.push(key)
     pinned[key] = value
   }
-  // A switch is on or off, so a value on one says nothing the switch can
-  // carry: --skeleton=off used to turn the skeleton ON, like --colored=0 the
-  // colours. Refused by name instead.
+  // A switch is on or off, so a value on one (--skeleton=off) says nothing the
+  // switch can carry: refused by name rather than read as "on".
   const switchOn = (a: string, raw: string | null): boolean => {
     if (raw === null) return true
     problems.push({ kind: 'noValue', arg: a })
@@ -924,8 +913,8 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       rest.push(a)
       continue
     }
-    // A token that is not a flag used to go into rest, where no mode reader
-    // ever looked at it: silently ignored input, which is what exit 2 is for.
+    // A token that is not a flag is refused: in rest no mode reader would look at it,
+    // and silently ignored input is what exit 2 is for.
     if (!a.startsWith('--')) {
       problems.push({ kind: 'unexpectedArgument', arg: a })
       continue
@@ -990,10 +979,9 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
         problems.push({ kind: 'outside', arg: a, min: 0, max: 1 })
         continue
       }
-      // The size is a knob, and normalizeChoice rounds and clamps it for the
-      // lab (a URL hash, a stored board). The clamp has to stay there, so the
-      // refusal belongs here: --width=2000 used to give a 1000-wide board and
-      // exit 0, while --seed=1.5 was refused by the envelope.
+      // The size is a knob, and normalizeChoice rounds and clamps it for the lab
+      // (a URL hash, a stored board). The clamp has to stay there, so the CLI
+      // refuses out-of-range sizes here instead (--width=2000, not a 1000-wide board).
       const sizeKey = SIZE_KEYS.get(name)
       if (sizeKey) {
         const s = specOf(sizeKey)
