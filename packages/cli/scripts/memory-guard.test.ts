@@ -9,7 +9,10 @@ import {
   memoryFlags,
   memoryReport,
   observations,
+  openPrClaims,
   paragraphs,
+  presentSegments,
+  staleState,
 } from './memory-guard.ts'
 
 Deno.test('observations: one item per `- [category]` line, continuation lines joined, fences skipped', () => {
@@ -112,4 +115,51 @@ Deno.test('memoryReport: null without flags, a jev block with them and the skipp
   assertStringIncludes(out, '(2 further items were not checked)')
   const none = memoryReport({ flags: [{ where: 'x.md', question: 'code_fact', p: 0.9, excerpt: 'fact' }], skipped: 0 })
   assertEquals(none?.includes('further items'), false)
+})
+
+Deno.test('openPrClaims: both word orders, Polish and English; not a negation, a list or another word', () => {
+  assertEquals(openPrClaims('PR #123 otwarty (worktree x)'), [123])
+  assertEquals(openPrClaims('otwarty mój PR #132'), [132])
+  assertEquals(openPrClaims('open PR #7 and PR #8 open'), [7, 8])
+  assertEquals(openPrClaims('PR #90 (paleta), `main` = `72fd81c`, zero otwartych PR-ów'), [])
+  assertEquals(openPrClaims('PR #90 (x), zero otwartych'), [])
+  assertEquals(openPrClaims('zero otwartych PR #5'), [])
+  assertEquals(openPrClaims('no open PR #4'), [])
+  assertEquals(openPrClaims('PR #111, open'), [])
+  assertEquals(openPrClaims('reopened PR #5'), [])
+})
+
+Deno.test('presentSegments: every index line and only the first clause of a description', () => {
+  const note = {
+    file: 'a.md',
+    text: '---\nname: a\ndescription: "now: PR #9 open; 2026-09-01: PR #3 open"\n---\nbody PR #4 open',
+  }
+  assertEquals(presentSegments('- [A](a.md) — x\n', [note]), [
+    { where: 'MEMORY.md:1', text: '- [A](a.md) — x' },
+    { where: 'MEMORY.md:2', text: '' },
+    { where: 'a.md description', text: 'now: PR #9 open' },
+  ])
+})
+
+Deno.test('staleState: a closed PR called open, a dead link, an untracked path', () => {
+  const found = staleState({
+    index: '- [A](a.md) — PR #5 open\n- [B](gone.md) — see `packages/cli/nope.ts` and `apps/lab/src`',
+    notes: [],
+    exists: (f) => f === 'a.md',
+    openPrs: new Set([6]),
+    tracked: new Set(['apps/lab/src/main.tsx']),
+  })
+  assertEquals(found, [
+    { where: 'MEMORY.md:1', what: 'PR #5 is called open, but it is not open' },
+    { where: 'MEMORY.md:2', what: 'links gone.md, which does not exist' },
+    { where: 'MEMORY.md:2', what: 'names packages/cli/nope.ts, which git does not track' },
+  ])
+})
+
+Deno.test('staleState: unknown PRs or files check nothing of theirs; an empty set flags every claim', () => {
+  const input = { index: '- [A](a.md) — PR #5 open, `docs/x.md`', notes: [], exists: () => true }
+  assertEquals(staleState({ ...input, openPrs: null, tracked: null }), [])
+  assertEquals(staleState({ ...input, openPrs: new Set<number>(), tracked: null }).map((f) => f.what), [
+    'PR #5 is called open, but it is not open',
+  ])
 })

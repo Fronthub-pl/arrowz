@@ -129,3 +129,67 @@ export function memoryReport(r: { flags: Flag[]; skipped: number }): string | nu
     note,
   )
 }
+
+export type Note = { file: string; text: string }
+
+// A comma ends the clause: in "PR #N (x), zero otwartych" the words after it negate, they do not claim.
+const OPEN_PR =
+  /(?<!zero )(?<!no )\b(?:PR ?#(\d+)[^.;,\n—]{0,25}?\b(?:otwart\w*|open)\b|(?:otwart\w*|open)\s+(?:mój\s+|my\s+)?PR ?#(\d+))/gi
+
+/** Pull requests that `text` calls open. */
+export function openPrClaims(text: string): number[] {
+  const out: number[] = []
+  for (const m of text.matchAll(OPEN_PR)) out.push(Number(m[1] ?? m[2]))
+  return out
+}
+
+/** The text of the memory that speaks of the present: every index line, and each description's first clause. */
+export function presentSegments(index: string, notes: Note[]): Array<{ where: string; text: string }> {
+  const out = index.split('\n').map((text, i) => ({ where: `MEMORY.md:${i + 1}`, text }))
+  for (const n of notes) {
+    const first = /^description:\s*"?(.*)$/m.exec(n.text)?.[1]?.split(/[;—]|\. /)[0]
+    if (first) out.push({ where: `${n.file} description`, text: first })
+  }
+  return out
+}
+
+export type StateInput = {
+  index: string
+  notes: Note[]
+  exists: (file: string) => boolean
+  openPrs: Set<number> | null
+  tracked: Set<string> | null
+}
+
+function trackedPath(tracked: Set<string>, path: string): boolean {
+  if (tracked.has(path)) return true
+  for (const t of tracked) if (t.startsWith(`${path}/`)) return true
+  return false
+}
+
+/** Present-tense lines that are no longer true; a null source (gh or git unavailable) checks nothing of its own. */
+export function staleState(s: StateInput): Finding[] {
+  const out: Finding[] = []
+  for (const seg of presentSegments(s.index, s.notes)) {
+    if (s.openPrs !== null) {
+      for (const n of openPrClaims(seg.text)) {
+        if (!s.openPrs.has(n)) out.push({ where: seg.where, what: `PR #${n} is called open, but it is not open` })
+      }
+    }
+    if (seg.where.startsWith('MEMORY.md')) {
+      for (const m of seg.text.matchAll(/\]\(([^)\s]+\.md)\)/g)) {
+        const file = m[1] ?? ''
+        if (!s.exists(file)) out.push({ where: seg.where, what: `links ${file}, which does not exist` })
+      }
+    }
+    if (s.tracked !== null) {
+      for (const m of seg.text.matchAll(/`((?:apps|packages|docs)\/[^`\s*<>]+)`/g)) {
+        const path = (m[1] ?? '').replace(/:\d.*$/, '').replace(/\/$/, '')
+        if (!trackedPath(s.tracked, path)) {
+          out.push({ where: seg.where, what: `names ${path}, which git does not track` })
+        }
+      }
+    }
+  }
+  return out
+}
