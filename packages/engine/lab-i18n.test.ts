@@ -177,7 +177,7 @@ Deno.test('paramText takes the label from the language, not from the spec', () =
 
 Deno.test('fmt groups by locale and short abbreviates from ten thousand', () => {
   const en = dictionary('en')
-  assertEquals(en.fmt(1234567), (1234567).toLocaleString('en'))
+  assertEquals(en.fmt(1234567), (1234567).toLocaleString(en.locale))
   assertEquals(en.short(9999), en.fmt(9999))
   assertEquals(en.short(10000), '10k')
   assertEquals(en.short(86000), '86k')

@@ -178,19 +178,19 @@ different counter over 237 files; the two numbers are not comparable.)
 
 | Item | Status | Note |
 | --- | --- | --- |
-| Whole-slice subscriptions | fixed on `lab/practice-issues` | `ViewPanel`, `ColoursSection` and `SeriesSection` read their fields through `useShallow`, counted in `state/subscriptions.browser.test.tsx`; `LiveCommand`, `CommandPalette`, `BoardFrame` and `useRunLine` read every field they subscribe to |
-| `specOf` written four times | fixed on `lab/practice-issues` | `One, exported from `state/params.slice.ts`` |
+| Whole-slice subscriptions | fixed on `lab/practice-issues` | `ViewPanel`, `ColoursSection` and `SeriesSection` read their fields through `useShallow`, counted in `state/subscriptions.browser.test.tsx`; `LiveCommand`, `CommandPalette`, `BoardFrame` and `useRunLine` subscribe to the whole slice on purpose, with the reason beside the selector |
+| `specOf` written four times | fixed on `lab/practice-issues` | One, exported from `state/params.slice.ts` |
 | `MIX_SPEC` exported for no test | fixed in `a2f60e0` | No longer exported |
 | `ThemeSwatchStrip` exported for no importer | fixed in `a2f60e0` | |
-| Hard-coded `'on' : 'off'` | fixed in `feb59ab` | `The palette reads `valueOn`/`valueOff`` |
-| `autoHeadWidth` copies the engine | fixed on `lab/practice-issues` | `The engine exports `autoHeadWidth`; the lab's `autoHeadChip` snaps it |
+| Hard-coded `'on' : 'off'` | fixed in `feb59ab` | The palette reads `valueOn`/`valueOff` |
+| `autoHeadWidth` copies the engine | fixed on `lab/practice-issues` | The engine exports `autoHeadWidth`; the lab's `autoHeadChip` snaps it |
 | `file: unknown` then `as BoardFile` | fixed on `lab/practice-issues` | `decodeBoardFile` returns the file typed |
 | Locale mapping duplicated | fixed on `lab/practice-issues` | `dict.locale` |
 | Slice boilerplate | fixed on `lab/practice-issues` | `state/slice.ts`: `SliceSet`, `patcher`, `persistedFlag` |
 | `paletteUpdate(_state, colors)` | fixed in `a2f60e0` | Parameter dropped |
 | `const set = onSet` | fixed in `a2f60e0` | |
-| `params.broken` rebuilt on every commit | fixed on `lab/practice-issues` | `Measured: a broken knob re-rendered on every other edit; equal violations keep their array |
-| Workspace class string (`cx()`) | fixed on `lab/practice-issues` | `One site left, an array joined; no helper |
+| `params.broken` rebuilt on every commit | fixed on `lab/practice-issues` | Measured: a broken knob re-rendered on every other edit; equal violations keep their array |
+| Workspace class string (`cx()`) | fixed on `lab/practice-issues` | One site left, an array joined; no helper |
 | Very long comments | fixed in `0d0d809`, `3728763`, `fcc58af`, `6d60475`, `d0edfd9`, `428be15`, `eed9851`, `fcf0c0a`, `f6c4673`, `ffb4dd1`, `0be63c3`, `5e78da1`, `e7b0d50`, `701e83a` | No non-header block over 6 lines in scope |
 | `BoardFrame` memo keys | obsolete | `viewOf` carries the look, so `labView` reads every field it depends on |
 | Circular type import `Console` ↔ `Workspace` | fixed on `lab/practice-issues` | `WorkspaceTab` lives in `state/ui.slice.ts` |
