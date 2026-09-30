@@ -63,6 +63,18 @@ The guard walks only `apps/lab/src`, `packages/board-element/src` and
 `packages/engine/lab-*.ts`; the engine's other files and `packages/cli` are not
 swept yet and still carry history markers and long blocks.
 
+## Task board (beads)
+
+- Tasks live in beads (`bd`, prefix `arrowz`): `bd ready` for open work,
+  `bd create`, `bd update <id> --claim`, `bd close <id> --reason "Merged in PR #N"`.
+- Every pull request up to #137 is imported as a closed issue `arrowz-pr<N>`
+  (labels `pr` plus `merged` or `not-merged`, plus the branch area such as `lab`
+  or `engine`); `bd list --status closed --label lab` browses that history.
+- The Dolt database under `.beads/` is local and git-ignored; `.beads/issues.jsonl`
+  is the committed export (`export.auto` is on). Worktrees share the main
+  checkout's database. `bd init` must not repoint `core.hooksPath`: the
+  jbcontext `post-commit` hook lives in `.git/hooks`.
+
 <!-- jbcontext-instructions-start -->
 # Tools
 
