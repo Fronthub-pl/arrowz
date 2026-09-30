@@ -35,8 +35,9 @@ per-knob convention. Three or more are one selector under `useShallow`
 
 **Sites.**
 
-- `console/ViewPanel.tsx` reads `view.highlightLongest` and `view.showPoints`
-  only: two boolean selectors. Today every stroke drag re-renders the panel.
+- `console/ViewPanel.tsx` reads `highlightLongest`, `showPoints`,
+  `pointColor` and `setPointColor`: `useShallow`. Today every stroke edit
+  re-renders the whole panel and `ColoursSection` under it.
 - `console/rows/ColoursSection.tsx` reads `paper`, `ink`, `highlightColor`
   and their three setters: `useShallow`.
 - `report/SeriesSection.tsx` reads `params`, `runs`, `error` and `phase`,
@@ -51,19 +52,30 @@ per-knob convention. Three or more are one selector under `useShallow`
 - `useRunLine` in `stage/useRunState.ts` shows `run.progress`, which is what
   changes on every progress message.
 
-**Proof.** A harness helper, `harness/countRenders.tsx`, wraps a tree in
-React's `<Profiler>` and returns the number of commits of that subtree. The
-browser project runs React's development build, where `onRender` fires. One
-test per narrowed site:
+**Proof.** React's `<Profiler>` cannot tell these apart: it counts commits of
+a whole subtree, and the stroke row inside `ViewPanel` subscribes to the
+stroke itself, so a Profiler around the panel reads 1 before and after the
+fix (measured). The tests count calls of a *pure child* instead, a component
+with no store hook that renders only when its parent does, through
+`vi.mock(path, { spy: true })` (the pattern of `stage/BoardMode.browser.test.tsx`):
 
-- a stroke edit commits `ViewPanel` 0 times;
-- a stroke edit commits `ColoursSection` 0 times;
-- a seed-count commit commits `SeriesSection` 0 times.
+| Component | Pure child counted | Edit | Calls on `main` | After narrowing |
+| --- | --- | --- | --- | --- |
+| `ViewPanel` | `Section` | stroke | 5 | 0 |
+| `ViewPanel` | `Section` | `showPoints` (read) | 5 | 5 |
+| `ColoursSection` | `Section` | stroke | 1 | 0 |
+| `ColoursSection` | `Section` | paper (read) | 1 | 1 |
+| `SeriesSection` | `StatRowView` | seed count | 3 | 0 |
 
-Each test also has a positive control in the same file: an edit to a field
-the component does read commits it at least once, so a count of 0 is not an
-unmounted tree. Each test is run once red against the whole-slice selector
-before the fix, and the red count goes in the commit message.
+All five were measured by a probe on `7230418` with the narrowing applied
+and reverted. The rows marked "read" are the positive controls: they keep a
+count of 0 from meaning an unmounted tree. Every case is its own `test`,
+because `vitest-browser-react` unmounts between tests, not within one.
+
+The first run after adding the `zustand/react/shallow` import failed to
+collect (the cold optimizer re-bundling mid-run, which `vitest.config.ts`
+already guards against for `react-dom/client`); the second passed. So
+`zustand/react/shallow` joins `optimizeDeps.include` in the chromium project.
 
 ## B. One slice template
 
@@ -127,7 +139,8 @@ in a row without a render between.
    snaps to the field's step and clamps to its range.
 3. **`dict.locale`.** `Dict` in `packages/engine/lab-i18n.ts` gains
    `readonly locale: 'pl' | 'en-GB'`. `library/BoardColumn.tsx`,
-   `library/BoardList.tsx` and `stage/useRunState.ts` read it.
+   `library/BoardList.tsx` and `stage/useRunState.ts` read it, and so does
+   the dictionary's own `fmt`, which writes the same mapping with `'en'`.
 4. **`BoardFile` without casts.** The engine adds, next to `decodeBoard`:
 
    ```ts
@@ -163,19 +176,23 @@ languages. `neutral.test.ts` covers the engine files touched.
   `routes/Workspace.tsx` become a local array joined with `' '` after
   `filter(Boolean)`. No `cx()` helper: this is the only site left. The
   layout tests that read `solo`, `sheet-*` and `presets-top` pass unchanged.
-- **`params.broken`.** Measured first with `countRenders`: a knob that stays
-  broken while another knob is edited. If it commits, `indexesOf` keeps the
-  previous array for a key whose violations are equal, compared per key by
-  the violations' kind and keys, and the test becomes the guard. If it does
-  not commit, nothing changes and the row records the measurement.
+- **`params.broken`.** Measured: with `Lmax` at 5 (the `lmaxHole` rule) the
+  `Lmax` knob's pure child `KnobTrack` is called once when `W` is edited; a
+  valid knob (`W`) is called 0 times when `H` is edited. So `indexesOf` takes
+  the previous indexes and keeps a key's previous array when its violations
+  are equal field by field, `value` and `need` included: the row prints them,
+  and `need` of the `straightFloor` rule moves with `W` and `H`, so a compare
+  on `kind` and `key` alone would leave a stale bound on screen. The probe's case becomes the
+  guard, with the valid knob as the negative control and an edit of `Lmax`
+  itself as the positive one.
 
 ## Behaviour changes
 
 - The lab's automatic head width chip for a stroke within 1e-9 below 0.5
   (reachable only by typing or linking such a stroke) now matches what the
   element draws: a stick as wide as the line, not 0.4 + 0.9 × stroke.
-- `useRunState` formats seconds with `'en-GB'` instead of `'en'`. Both give
-  the same text for one decimal; the locale test pins it.
+- `useRunState` and `dict.fmt` format with `'en-GB'` instead of `'en'`. Both
+  give the same digits and grouping; the locale test pins it.
 
 ## Out of scope
 
