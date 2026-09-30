@@ -1,6 +1,9 @@
 import { assertEquals, assertStringIncludes } from '@std/assert'
+import { dirname, fromFileUrl, join } from '@std/path'
 import type { Answers, Judge } from './jev-client.ts'
 import {
+  autoMemoryFile,
+  type Deps,
   findingsReport,
   longIndexLines,
   MAX_INDEX_LINE,
@@ -12,6 +15,8 @@ import {
   openPrClaims,
   paragraphs,
   presentSegments,
+  runMemoryHook,
+  sessionStart,
   staleState,
 } from './memory-guard.ts'
 
@@ -162,4 +167,164 @@ Deno.test('staleState: unknown PRs or files check nothing of theirs; an empty se
   assertEquals(staleState({ ...input, openPrs: new Set<number>(), tracked: null }).map((f) => f.what), [
     'PR #5 is called open, but it is not open',
   ])
+})
+
+const HOME = '/h'
+const MEM = '/h/.claude/projects/-p/memory'
+
+function deps(
+  files: Record<string, string>,
+  judge: Judge,
+  gh: string | null = '',
+  git: string | null = '',
+): Deps & { runs: string[] } {
+  const runs: string[] = []
+  return {
+    runs,
+    judge,
+    home: HOME,
+    read: (p) => files[p] ?? null,
+    list: (dir) => {
+      const names = Object.keys(files).filter((p) => dirname(p) === dir).map((p) => p.slice(dir.length + 1))
+      return names.length === 0 ? null : names
+    },
+    run: (cmd) => {
+      runs.push(cmd)
+      const out = cmd === 'gh' ? gh : git
+      return Promise.resolve(out === null ? { code: 1, stdout: '' } : { code: 0, stdout: out })
+    },
+  }
+}
+const context = (
+  out: string | null,
+) => (out === null ? null : JSON.parse(out).hookSpecificOutput.additionalContext as string)
+
+Deno.test('autoMemoryFile: any project key, only files directly in memory/', () => {
+  assertEquals(autoMemoryFile(HOME, `${MEM}/x.md`), { dir: MEM, file: 'x.md' })
+  assertEquals(autoMemoryFile(HOME, '/h/.claude/projects/-other-worktree/memory/MEMORY.md')?.file, 'MEMORY.md')
+  assertEquals(autoMemoryFile(HOME, '/h/.claude/projects/-p/memoryX/x.md'), null)
+  assertEquals(autoMemoryFile(HOME, `${MEM}/sub/x.md`), null)
+  assertEquals(autoMemoryFile(HOME, '/h/.claude/projects/../x/memory/x.md'), null)
+  assertEquals(autoMemoryFile(HOME, '/h/.claude/memory/x.md'), null)
+  assertEquals(autoMemoryFile(HOME, '/repo/docs/x.md'), null)
+})
+
+Deno.test('hook: Write of an auto-memory file asks Jev per paragraph and reports flags', async () => {
+  const { judge, calls } = stubJudge(() => ({ violates: 0.9 }))
+  const body = `---\nname: x\n---\n\n${'fact '.repeat(20)}\n`
+  const out = await runMemoryHook(
+    { hook_event_name: 'PostToolUse', tool_name: 'Write', tool_input: { file_path: `${MEM}/x.md`, content: body } },
+    deps({}, judge),
+  )
+  assertEquals(calls.length, 1)
+  assertStringIncludes(context(out) ?? '', '- x.md  code_fact p=0.90')
+  const edit = await runMemoryHook(
+    {
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Edit',
+      tool_input: { file_path: `${MEM}/x.md`, old_string: 'a', new_string: 'fact '.repeat(20) },
+    },
+    deps({}, judge),
+  )
+  assertEquals(calls.length, 2)
+  assertStringIncludes(context(edit) ?? '', '- x.md  code_fact p=0.90')
+})
+
+Deno.test('hook: an Edit of MEMORY.md is checked by length only, no Jev request', async () => {
+  const { judge, calls } = stubJudge(() => ({ violates: 1 }))
+  const line = `- [T](t.md) — ${'x'.repeat(MAX_INDEX_LINE)}`
+  const out = await runMemoryHook(
+    {
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Edit',
+      tool_input: { file_path: `${MEM}/MEMORY.md`, new_string: line },
+    },
+    deps({}, judge),
+  )
+  assertEquals(calls.length, 0)
+  assertStringIncludes(context(out) ?? '', '- MEMORY.md (edit)  ')
+})
+
+Deno.test('hook: an edit with no memory item makes no request and no output', async () => {
+  const { judge, calls } = stubJudge(() => ({ violates: 1 }))
+  const out = await runMemoryHook(
+    {
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Edit',
+      tool_input: { file_path: `${MEM}/x.md`, new_string: '## Heading\nshort' },
+    },
+    deps({}, judge),
+  )
+  assertEquals([out, calls.length], [null, 0])
+})
+
+Deno.test('hook: basic-memory notes are checked, session logs and other servers are not', async () => {
+  const { judge, calls } = stubJudge(() => ({ violates: 0.9 }))
+  const content = '## Observations\n- [fact] the file lives in engine.ts'
+  const ask = (tool_name: string, tool_input: Record<string, unknown>) =>
+    runMemoryHook({ hook_event_name: 'PostToolUse', tool_name, tool_input }, deps({}, judge))
+  assertStringIncludes(
+    context(await ask('mcp__memory-arrowz__write_note', { title: 'T', directory: 'wiedza', content })) ?? '',
+    'note "T"',
+  )
+  assertEquals(await ask('mcp__memory-arrowz__write_note', { title: 'T', directory: 'sesje', content }), null)
+  assertEquals(
+    await ask('mcp__memory-arrowz__edit_note', { identifier: 'arrowz/sesje/x', operation: 'append', content }),
+    null,
+  )
+  assertEquals(
+    await ask('mcp__memory-arrowz__edit_note', { identifier: '2026-09-30 — log', operation: 'append', content }),
+    null,
+  )
+  assertEquals(await ask('mcp__basic-memory__write_note', { title: 'T', directory: 'wiedza', content }), null)
+  assertEquals(await ask('Write', { file_path: '/repo/docs/x.md', content }), null)
+  assertEquals(calls.length, 1)
+})
+
+Deno.test('session start: reads the memory beside the transcript, one gh and one git call', async () => {
+  const { judge } = stubJudge(() => null)
+  const files = {
+    [`${MEM}/MEMORY.md`]: '- [A](a.md) — PR #5 open\n- [G](gone.md) — x',
+    [`${MEM}/a.md`]: '---\ndescription: "PR #6 open; old"\n---\n',
+  }
+  const d = deps(files, judge, '6\n', 'docs/x.md\n')
+  const out = context(
+    await runMemoryHook({
+      hook_event_name: 'SessionStart',
+      transcript_path: '/h/.claude/projects/-p/s.jsonl',
+      cwd: '/repo',
+    }, d),
+  ) ?? ''
+  assertStringIncludes(out, '- MEMORY.md:1  PR #5 is called open, but it is not open')
+  assertStringIncludes(out, '- MEMORY.md:2  links gone.md, which does not exist')
+  assertEquals(out.includes('PR #6'), false)
+  assertEquals(d.runs.sort(), ['gh', 'git'])
+})
+
+Deno.test('session start: gh failing skips only the PR part; zero open PRs flags every claim', async () => {
+  const { judge } = stubJudge(() => null)
+  const files = { [`${MEM}/MEMORY.md`]: '- [A](a.md) — PR #5 open', [`${MEM}/a.md`]: 'x' }
+  assertEquals(await sessionStart(MEM, '/repo', deps(files, judge, null)), null)
+  assertStringIncludes(await sessionStart(MEM, '/repo', deps(files, judge, '')) ?? '', 'PR #5 is called open')
+})
+
+Deno.test('session start: no MEMORY.md, nothing to say', async () => {
+  const { judge } = stubJudge(() => null)
+  assertEquals(await sessionStart(MEM, '/repo', deps({}, judge)), null)
+})
+
+Deno.test('the committed settings run memory-guard on memory writes and at session start', () => {
+  const root = join(dirname(fromFileUrl(import.meta.url)), '..', '..', '..')
+  const hooks = JSON.parse(Deno.readTextFileSync(join(root, '.claude', 'settings.json'))).hooks
+  type Entry = { matcher?: string; hooks: Array<{ command: string }> }
+  const uses = (event: string) =>
+    (hooks[event] as Entry[]).filter((e) =>
+      e.hooks.some((h) => h.command.includes('memory-guard.ts') && h.command.endsWith(' hook'))
+    )
+  const post = uses('PostToolUse')
+  assertEquals(post.length, 1)
+  for (const tool of ['Edit', 'Write', 'mcp__memory-arrowz__write_note', 'mcp__memory-arrowz__edit_note']) {
+    assertEquals(new RegExp(`^(?:${post[0]?.matcher})$`).test(tool), true, tool)
+  }
+  assertEquals(uses('SessionStart').length, 1)
 })

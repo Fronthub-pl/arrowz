@@ -1,7 +1,8 @@
 // Advisory checks of Claude Code's memory, measured in docs/jev-guards.md: an item that only restates
 // the code or git history (Jev), a MEMORY.md line that carries content instead of a pointer, and
 // present-tense lines that went stale. They report and never gate.
-import type { Answers, Judge, Noul } from './jev-client.ts'
+import { dirname, join, relative } from '@std/path'
+import { type Answers, defaultJudge, type Judge, type Noul } from './jev-client.ts'
 import { excerpt, type Flag, format, MAX_FLAGS, pool } from './jev-guard.ts'
 
 export const MAX_INDEX_LINE = 130
@@ -192,4 +193,154 @@ export function staleState(s: StateInput): Finding[] {
     }
   }
   return out
+}
+
+export type Run = (cmd: string, args: string[], cwd: string) => Promise<{ code: number; stdout: string } | null>
+export type Deps = {
+  judge: Judge
+  home: string
+  read: (path: string) => string | null
+  list: (dir: string) => string[] | null
+  run: Run
+}
+
+const str = (v: unknown) => (typeof v === 'string' ? v : null)
+const BASIC_MEMORY_TOOLS = new Set(['mcp__memory-arrowz__write_note', 'mcp__memory-arrowz__edit_note'])
+// A session log records what happened, which is its purpose: its folder or its dated title marks it.
+const SESSION_LOG = /(^|\/)sesje(\/|$)|^\d{4}-\d{2}-\d{2}\b/
+
+/** The auto-memory file `path` names, under any project key; null for any other path. */
+export function autoMemoryFile(home: string, path: string): { dir: string; file: string } | null {
+  const rel = relative(join(home, '.claude', 'projects'), path)
+  const m = /^([^/.][^/]*)\/memory\/([^/]+\.md)$/.exec(rel)
+  return m === null ? null : { dir: dirname(path), file: m[2] ?? '' }
+}
+
+const lines = (r: { code: number; stdout: string } | null) =>
+  r !== null && r.code === 0 ? r.stdout.split('\n').filter((l) => l !== '') : null
+
+export async function sessionStart(memoryDir: string, cwd: string, deps: Deps, all = false): Promise<string | null> {
+  const index = deps.read(join(memoryDir, 'MEMORY.md'))
+  if (index === null) return null
+  const listed = deps.list(memoryDir)
+  const notes: Note[] = []
+  for (const file of listed ?? []) {
+    if (file === 'MEMORY.md' || !file.endsWith('.md')) continue
+    const text = deps.read(join(memoryDir, file))
+    if (text !== null) notes.push({ file, text })
+  }
+  const [prs, files] = await Promise.all([
+    deps.run('gh', ['pr', 'list', '--state', 'open', '--json', 'number', '-q', '.[].number'], cwd),
+    deps.run('git', ['ls-files'], cwd),
+  ])
+  const open = lines(prs)
+  const tracked = lines(files)
+  const found = staleState({
+    index,
+    notes,
+    exists: (f) => listed === null || listed.includes(f),
+    openPrs: open === null ? null : new Set(open.map(Number)),
+    tracked: tracked === null ? null : new Set(tracked),
+  })
+  return findingsReport(
+    'present-tense memory that is no longer true (fix the line, or move it into a dated entry)',
+    found,
+    all,
+  )
+}
+
+export async function runMemoryHook(payload: unknown, deps: Deps): Promise<string | null> {
+  if (typeof payload !== 'object' || payload === null) return null
+  const p = payload as {
+    hook_event_name?: unknown
+    tool_name?: unknown
+    tool_input?: unknown
+    cwd?: unknown
+    transcript_path?: unknown
+  }
+  const input = (typeof p.tool_input === 'object' && p.tool_input !== null ? p.tool_input : {}) as Record<
+    string,
+    unknown
+  >
+  const event = str(p.hook_event_name)
+  const tool = str(p.tool_name)
+  let out: string | null = null
+
+  if (event === 'SessionStart') {
+    const transcript = str(p.transcript_path)
+    if (transcript !== null) out = await sessionStart(join(dirname(transcript), 'memory'), str(p.cwd) ?? '.', deps)
+  } else if (event === 'PostToolUse' && (tool === 'Write' || tool === 'Edit')) {
+    const path = str(input.file_path)
+    const target = path === null ? null : autoMemoryFile(deps.home, path)
+    const written = tool === 'Edit' ? str(input.new_string) : str(input.content)
+    if (target !== null && written !== null && target.file === 'MEMORY.md') {
+      const where = tool === 'Edit' ? () => 'MEMORY.md (edit)' : (l: number) => `MEMORY.md:${l}`
+      const title = `MEMORY.md lines over ${MAX_INDEX_LINE} characters (the index points; the file holds the content)`
+      out = findingsReport(title, longIndexLines(written, where))
+    } else if (target !== null && written !== null) {
+      out = memoryReport(await memoryFlags(deps.judge, paragraphs(written), target.file))
+    }
+  } else if (event === 'PostToolUse' && tool !== null && BASIC_MEMORY_TOOLS.has(tool)) {
+    const place = str(input.directory) ?? str(input.identifier) ?? ''
+    const content = str(input.content)
+    if (content !== null && !SESSION_LOG.test(place)) {
+      out = memoryReport(await memoryFlags(deps.judge, observations(content), `note "${str(input.title) ?? place}"`))
+    }
+  }
+  if (out === null || event === null) return null
+  return JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: out } })
+}
+
+function readOrNull(path: string): string | null {
+  try {
+    return Deno.readTextFileSync(path)
+  } catch {
+    return null
+  }
+}
+
+function listOrNull(dir: string): string[] | null {
+  try {
+    return Array.from(Deno.readDirSync(dir)).filter((e) => e.isFile).map((e) => e.name)
+  } catch {
+    return null
+  }
+}
+
+const run: Run = async (cmd, args, cwd) => {
+  try {
+    const o = await new Deno.Command(cmd, { args, cwd, stdout: 'piped', stderr: 'null' }).output()
+    return { code: o.code, stdout: new TextDecoder().decode(o.stdout) }
+  } catch {
+    return null
+  }
+}
+
+function manual(mode: string | undefined, _args: string[]): Promise<number> {
+  console.error(`usage: memory-guard.ts hook | audit (got ${mode ?? 'nothing'})`)
+  return Promise.resolve(2)
+}
+
+if (import.meta.main) {
+  const [mode, ...args] = Deno.args
+  if (mode === 'hook') {
+    let out: string | null = null
+    try {
+      const raw = await new Response(Deno.stdin.readable).text()
+      // The key is read only when M1 asks: a locked 1Password would cost 2 s on every write.
+      let real: Promise<Judge | null> | null = null
+      const judge: Judge = async (state, questions) => {
+        real ??= defaultJudge()
+        const j = await real
+        return j === null ? null : j(state, questions)
+      }
+      const home = Deno.env.get('HOME') ?? ''
+      out = await runMemoryHook(JSON.parse(raw), { judge, home, read: readOrNull, list: listOrNull, run })
+    } catch {
+      out = null
+    }
+    if (out !== null) console.log(out)
+    Deno.exit(0)
+  }
+  Deno.exit(await manual(mode, args))
 }
