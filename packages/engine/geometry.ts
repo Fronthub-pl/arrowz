@@ -73,6 +73,16 @@ export interface PieceShape {
 }
 
 /**
+ * The head width drawn when it is left automatic (headWidth 0), in the units
+ * of `width` and `cell`: a stick as wide as the line from half a cell up, else
+ * 0.4 of a cell plus 0.9 of the line. The 1e-9 is float tolerance in drawing
+ * units. See `pieceShape` for why these numbers.
+ */
+export function autoHeadWidth(width: number, cell: number): number {
+  return width >= 0.5 * cell - 1e-9 ? width : 0.4 * cell + 0.9 * width
+}
+
+/**
  * The shape of one piece. The arithmetic is the one toSvg had inline, in the
  * same order, so extracting it left the CLI output byte-identical:
  * - the head is exactly headHeight cells tall, whatever that says;
@@ -100,9 +110,7 @@ export function pieceShape(pc: Piece, o: ShapeOptions): PieceShape {
   const { dx, dy } = at(DIRS, pc.dir)
   const headCell = at(pc.cells, 0)
   const hx = cx(headCell.x), hy = cy(headCell.y)
-  const stick = w >= 0.5 * cell - 1e-9
-  const autoWidth = stick ? w : 0.4 * cell + 0.9 * w
-  const half = Math.max(w, o.headWidth > 0 ? o.headWidth * cell : autoWidth) / 2
+  const half = Math.max(w, o.headWidth > 0 ? o.headWidth * cell : autoHeadWidth(w, cell)) / 2
   const height = o.headHeight * cell
   const tip = 0.48 * cell
   const tx = hx + dx * tip, ty = hy + dy * tip
