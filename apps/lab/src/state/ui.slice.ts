@@ -1,6 +1,7 @@
 import { type ParamGroup, PARAM_SPEC } from '@arrowz/engine'
 import { narrow, readBand } from './band'
 import { readStored, writeStored } from './storage'
+import { patcher, persistedFlag, type SliceSet } from './slice'
 
 /**
  * The groups, in the order PARAM_SPEC introduces them. Derived rather than
@@ -111,10 +112,10 @@ export interface UiState {
   setBoardMode(mode: BoardMode): void
 }
 
-type SetStore = (fn: (state: { ui: UiState }) => { ui: UiState }) => void
-
-export function createUiSlice(set: SetStore): UiState {
-  const patch = (next: Partial<UiState>) => set((state) => ({ ui: { ...state.ui, ...next } }))
+export function createUiSlice(set: SliceSet<'ui', UiState>): UiState {
+  const patch = patcher(set, 'ui')
+  const report = persistedFlag(set, 'ui', 'report', REPORT_KEY)
+  const settings = persistedFlag(set, 'ui', 'settings', SETTINGS_KEY)
   return {
     // The rail opens on the board group, one group at a time.
     entry: 'board',
@@ -147,28 +148,10 @@ export function createUiSlice(set: SetStore): UiState {
     closePalette: () => patch({ palette: false }),
     // Read inside the update, like `toggleSolo`.
     togglePalette: () => set((state) => ({ ui: { ...state.ui, palette: !state.ui.palette } })),
-    setReport: (report) => {
-      writeStored(REPORT_KEY, report ? 'open' : 'closed')
-      patch({ report })
-    },
-    // Read inside the update, like `toggleSolo`.
-    toggleReport: () =>
-      set((state) => {
-        const report = !state.ui.report
-        writeStored(REPORT_KEY, report ? 'open' : 'closed')
-        return { ui: { ...state.ui, report } }
-      }),
-    setSettings: (settings) => {
-      writeStored(SETTINGS_KEY, settings ? 'open' : 'closed')
-      patch({ settings })
-    },
-    // Read inside the update, like `toggleSolo`.
-    toggleSettings: () =>
-      set((state) => {
-        const settings = !state.ui.settings
-        writeStored(SETTINGS_KEY, settings ? 'open' : 'closed')
-        return { ui: { ...state.ui, settings } }
-      }),
+    setReport: report.set,
+    toggleReport: report.toggle,
+    setSettings: settings.set,
+    toggleSettings: settings.toggle,
     setSheet: (sheet) => patch({ sheet }),
     // Read inside the update, like `toggleSolo`.
     toggleSheet: (sheet) => set((state) => ({ ui: { ...state.ui, sheet: state.ui.sheet === sheet ? null : sheet } })),

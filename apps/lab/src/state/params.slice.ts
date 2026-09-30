@@ -12,6 +12,7 @@ import {
   type Violation,
 } from '@arrowz/engine'
 import { MIX_START, START, type StartChoice } from '@arrowz/engine/command'
+import type { SliceSet } from './slice'
 
 const specByKey = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))
 
@@ -84,8 +85,6 @@ export interface ParamsState extends Indexes {
   reset(): void
 }
 
-type SetStore = (fn: (state: { params: ParamsState }) => { params: ParamsState }) => void
-
 /** Clamps a patch onto the values, reporting whether anything moved. */
 function commit(values: Params, patch: Partial<Params>): { values: Params; clamped: boolean } {
   const next = { ...values }
@@ -98,7 +97,7 @@ function commit(values: Params, patch: Partial<Params>): { values: Params; clamp
   return { values: next, clamped }
 }
 
-export function createParamsSlice(set: SetStore): ParamsState {
+export function createParamsSlice(set: SliceSet<'params', ParamsState>): ParamsState {
   const initial = defaultParams()
   const write = (patch: Partial<Params>, typed: boolean): boolean => {
     let clamped = false

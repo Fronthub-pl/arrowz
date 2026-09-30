@@ -1,6 +1,7 @@
 import type { BoardData, BoardFile, BoardMeta, Params, View } from '@arrowz/engine'
 import type { ReportInput } from '@arrowz/engine/report'
 import type { SaveOutcome } from '../api/boards'
+import type { SliceSet } from './slice'
 
 /**
  * The board on screen and what is read off it: the report, both exports, the
@@ -115,9 +116,7 @@ export function showResult(state: ResultState, next: ShownResult): ResultState {
   }
 }
 
-type SetStore = (fn: (state: { result: ResultState }) => { result: ResultState }) => void
-
-export function createResultSlice(set: SetStore): ResultState {
+export function createResultSlice(set: SliceSet<'result', ResultState>): ResultState {
   return {
     shown: null,
     baseline: null,

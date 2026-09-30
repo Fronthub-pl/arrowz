@@ -1,5 +1,6 @@
 import { defaultChoice, type Recipe, recipeOf } from '@arrowz/engine/simple'
 import { readStored, writeStored } from './storage'
+import type { SliceSet } from './slice'
 
 /** The key and format already in people's browsers, so a stored recipe still opens. */
 export const RECIPE_KEY = 'labSimple'
@@ -38,9 +39,7 @@ function parse(raw: string | null): unknown {
   }
 }
 
-type SetStore = (fn: (state: { recipe: RecipeState }) => { recipe: RecipeState }) => void
-
-export function createRecipeSlice(set: SetStore): RecipeState {
+export function createRecipeSlice(set: SliceSet<'recipe', RecipeState>): RecipeState {
   const write = (next: (current: Recipe) => Recipe, debounced: boolean) =>
     set((state) => {
       // Through `recipeOf` on every write: it clamps a side into the engine's

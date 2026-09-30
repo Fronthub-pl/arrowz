@@ -1,5 +1,6 @@
 import type { Params, SeedRun } from '@arrowz/engine'
 import { SERIES_DEFAULT, SERIES_MAX, SERIES_MIN } from '../series/seeds'
+import { patcher, type SliceSet } from './slice'
 
 export type SeriesPhase = 'idle' | 'running' | 'done'
 
@@ -29,10 +30,8 @@ export interface SeriesState {
 
 const EMPTY = { phase: 'idle', params: null, planned: 0, runs: [], stopping: false, error: null } as const
 
-type SetStore = (fn: (state: { series: SeriesState }) => { series: SeriesState }) => void
-
-export function createSeriesSlice(set: SetStore): SeriesState {
-  const patch = (next: Partial<SeriesState>) => set((state) => ({ series: { ...state.series, ...next } }))
+export function createSeriesSlice(set: SliceSet<'series', SeriesState>): SeriesState {
+  const patch = patcher(set, 'series')
   return {
     ...EMPTY,
     runs: [],

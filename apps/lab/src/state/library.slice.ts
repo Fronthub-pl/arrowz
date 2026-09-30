@@ -1,5 +1,6 @@
 import type { BoardSize } from '@arrowz/engine'
 import type { OpenProblem } from '../library/readBoardFiles'
+import { patcher, type SliceSet } from './slice'
 
 /**
  * Something the library did, as opposed to something it is: a line computed
@@ -57,10 +58,8 @@ export interface LibraryState {
   reset(): void
 }
 
-type SetStore = (fn: (state: { library: LibraryState }) => { library: LibraryState }) => void
-
-export function createLibrarySlice(set: SetStore): LibraryState {
-  const patch = (next: Partial<LibraryState>) => set((state) => ({ library: { ...state.library, ...next } }))
+export function createLibrarySlice(set: SliceSet<'library', LibraryState>): LibraryState {
+  const patch = patcher(set, 'library')
   return {
     sizes: null,
     loading: false,
