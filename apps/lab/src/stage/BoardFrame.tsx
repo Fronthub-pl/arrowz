@@ -8,6 +8,7 @@ import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardModeLine, BoardModeSwitch, useBoardSession } from './BoardMode'
+import { BusyVeil } from './BusyVeil'
 
 /**
  * The paper frame around the one `<arrowz-board>`, and what sits on it: the
@@ -137,6 +138,7 @@ export function BoardFrame(): ReactElement {
           onLifeLost={session.onLifeLost}
           onFinished={session.onFinished}
         />
+        <BusyVeil />
         {named === null ? null : (
           <span className="fw-anno">
             {named.seed === null

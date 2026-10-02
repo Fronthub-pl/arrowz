@@ -15,6 +15,7 @@ import { SheetBar } from '../shell/SheetBar'
 import { RunStatusBar } from '../stage/RunStatusBar'
 import { Stage } from '../stage/Stage'
 import { useStore } from '../state/store'
+import { inFlight } from '../run/useRun'
 import type { WorkspaceTab } from '../state/ui.slice'
 
 /**
@@ -47,7 +48,7 @@ export function Workspace({
   const simple = useStore((state) => state.ui.mode === 'simple')
   const solo = useStore((state) => state.ui.solo)
   const sheet = useStore((state) => state.ui.sheet)
-  const running = useStore((state) => state.run.phase === 'running')
+  const running = useStore(inFlight)
   // Mounted here and not in the library panel: `Console` unmounts the panel on
   // the lab face, so a hook there could never run its "the address names no
   // board, clear the preview" branch, and the stored board would stay on the

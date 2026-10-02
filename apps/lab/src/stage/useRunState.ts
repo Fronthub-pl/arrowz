@@ -38,6 +38,9 @@ export function oneDecimal(dict: Dict, n: number): string {
   return n.toLocaleString(dict.locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 }
 
+/** One decimal, as every place that shows a share rounds it. */
+const tenths = (n: number) => Math.round(n * 10) / 10
+
 /** One visible line of state; `bad` is a refusal or a failure, drawn in `--error`. */
 export interface StateLine {
   readonly text: string
@@ -54,7 +57,13 @@ export interface RunState {
    * that failed to load, or null when there is neither.
    */
   readonly library: StateLine | null
-  /** The share of the carve in flight done, 0–100, or null when none runs or it has not reported yet. */
+  /** What Generate and the board's veil say while a carve or a series runs; null when neither does. */
+  readonly meter: Meter | null
+}
+
+/** A process in flight in a few words, and its share done to one decimal (null before a carve reports). */
+export interface Meter {
+  readonly label: string
   readonly percent: number | null
 }
 
@@ -71,7 +80,7 @@ export interface RunState {
  */
 export function useRunState(): RunState {
   const dict = useDictionary()
-  const { live: runLive, run, percent } = useRunLine()
+  const { live: runLive, run, meter } = useRunLine()
   const preview = useStore((state) => state.result.preview)
   const boardError = useStore((state) => state.library.boardError)
   const notice = useStore((state) => state.library.notice)
@@ -116,12 +125,12 @@ export function useRunState(): RunState {
           )
   }
 
-  return { live, run, library, percent }
+  return { live, run, library, meter }
 }
 
 /**
- * The run's half of `useRunState`: the run's sentence, its line and its share
- * done, without the saved boards. The run column reads only this, so it mounts
+ * The run's half of `useRunState`: the run's sentence, its line and its meter,
+ * without the saved boards. The run column reads only this, so it mounts
  * without a router, as its tests mount it.
  */
 export function useRunLine(): Omit<RunState, 'library'> {
@@ -142,20 +151,30 @@ export function useRunLine(): Omit<RunState, 'library'> {
   let text: string
   let rest: string | null = null
   let bad = false
-  let percent: number | null = null
   // Whether this line is speaking for a run at all. `saved` is a fact about the
   // board on screen, not about whatever the line is saying, so appending it to
   // the refusal would glue a board nobody is looking at onto the knobs' error.
   let reportsRun = false
+  let meter: Meter | null = null
   // A series has no board of its own, so it owns the line while it runs; once
   // done the line goes back to the board on screen, and the counts stay in
   // the Seeds section.
   if (seriesPhase === 'running') {
     text = seriesStopping ? dict.t('seriesStopping') : dict.t('seriesStatus', seriesDone, seriesPlanned)
+    meter = { label: text, percent: seriesPlanned === 0 ? 0 : tenths((100 * seriesDone) / seriesPlanned) }
   } else if (run.phase === 'running') {
+    const p = run.progress
+    const share = p === null ? null : tenths(100 * (1 - p.remaining / p.total))
+    meter = {
+      label: run.stopping
+        ? dict.t('stopping')
+        : share === null
+          ? dict.t('generating')
+          : dict.t('generatingPct', oneDecimal(dict, share)),
+      percent: share,
+    }
     if (run.stopping) text = dict.t('stopping')
     else {
-      const p = run.progress
       if (p === null) {
         // The size is the run's, not the console's: it is read at the moment
         // `run()` fires, and a knob edited during a carve must not rewrite the
@@ -169,7 +188,7 @@ export function useRunLine(): Omit<RunState, 'library'> {
       } else {
         // The share done is measured in cells left, not pieces made, and the two
         // counts are abbreviated with `short`, not `fmt`.
-        percent = 100 * (1 - p.remaining / p.total)
+        const percent = 100 * (1 - p.remaining / p.total)
         const seconds = oneDecimal(dict, p.ms / 1000)
         // The dictionary's `progress` carries `<b>` markup, and an `aria-live`
         // region has to be text, so the tags are stripped here and the
@@ -235,5 +254,5 @@ export function useRunLine(): Omit<RunState, 'library'> {
   const answer = !reportsRun || saved === null ? '' : ` — ${saved.ok ? dict.t('saved') : dict.t('notSaved')}`
   const runLive = `${text}${answer}`
 
-  return { live: runLive, run: { text: rest ?? runLive, bad }, percent }
+  return { live: runLive, run: { text: rest ?? runLive, bad }, meter }
 }
