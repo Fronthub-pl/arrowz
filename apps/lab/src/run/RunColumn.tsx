@@ -51,10 +51,9 @@ export function RunColumn({
   const auto = useStore((state) => state.ui.auto)
   const setAuto = useStore((state) => state.ui.setAuto)
   const simple = useStore((state) => state.ui.mode === 'simple')
-  const { run: line, percent } = useRunLine()
-  // One decimal everywhere the share shows: the label, the fill and the
-  // progressbar's value say the same number.
-  const share = percent === null ? null : Math.round(percent * 10) / 10
+  // The label, the fill and the progressbar's value say the same number (`Meter`).
+  const { run: line, meter } = useRunLine()
+  const share = carving ? (meter?.percent ?? null) : null
 
   // Starting a run disables Generate and ending one disables Abort; HTML's focus
   // fixup (two frames later, see `twoFrames`) would drop the focus
@@ -97,11 +96,7 @@ export function RunColumn({
         style={carving ? ({ '--p': `${share ?? 0}%` } as CSSProperties) : undefined}
         aria-describedby={carving ? PROGRESS_ID : undefined}
       >
-        {!carving
-          ? dict.t('generate')
-          : share === null
-            ? dict.t('generating')
-            : dict.t('generatingPct', oneDecimal(dict, share))}
+        {carving && meter !== null ? meter.label : dict.t('generate')}
       </button>
       {carving ? (
         <div

@@ -416,6 +416,45 @@ body {
 .fw-solo:focus-visible {
   outline-offset: -2px;
 }
+
+/* The veil over a board about to be replaced (`BusyVeil`), below the strip so
+   the annotation and the solo toggle stay readable. It shows after 300ms, so a
+   carve `auto` finishes in milliseconds never flashes, and lets the pointer
+   through, so the board still pans. */
+.fw-veil {
+  position: absolute;
+  inset: var(--fw-strip) 0 0 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--void) 60%, transparent);
+  pointer-events: none;
+  animation: fw-veil-in 150ms ease-out 300ms both;
+}
+.fw-veil-card {
+  display: grid;
+  gap: 8px;
+  min-width: 14rem;
+  padding: 12px 16px;
+  background: var(--graphite);
+  border: var(--rule);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.fw-veil-bar {
+  height: 4px;
+  background: linear-gradient(to right, var(--signal) var(--p), var(--border) 0);
+}
+@keyframes fw-veil-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fw-veil {
+    animation-duration: 1ms;
+  }
+}
 /* The touch target grows to 44px here; the strip (and so the annotation's
    height too) grows with it, or the toggle would spill below it. */
 @media (pointer: coarse), (max-width: 767px) {
