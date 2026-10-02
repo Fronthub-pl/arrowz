@@ -56,8 +56,8 @@ same recipe": Generate twice on one seed.
   live line (`useRunState`, today " — saved" or " — not saved (no store
   server)") becomes one of:
   - new layout: " — saved" (unchanged);
-  - known layout, new recipe: " — already in the library; recipe added";
-  - known layout, same recipe: " — already in the library; recipe updated".
+  - known layout, new recipe: " — layout already stored; recipe added";
+  - known layout, same recipe: " — layout already stored; recipe updated".
   The library's live line about an open stored board (`savedBoard`) is not
   touched: it describes a board, not a save.
 - **Recipes are listed only when there are two or more.** With one, the list

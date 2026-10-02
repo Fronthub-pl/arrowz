@@ -22,7 +22,8 @@ import { cancelPendingSave } from './useViewSave'
 
 /**
  * The stage's right column on the saved boards, in the run column's track: the
- * open board's command, Load into lab, Delete, two exports, and its facts. With
+ * open board's command, Load into lab, Delete, two exports, its facts, and
+ * its recipes. With
  * no board open it says how to open one instead of offering an empty command.
  *
  * `Workspace` keys it by the open board: an armed Delete, a Copied label and a

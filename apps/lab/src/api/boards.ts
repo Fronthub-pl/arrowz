@@ -1,7 +1,8 @@
 import type { BoardMeta, BoardSize, StoreRequest } from '@arrowz/engine'
 
 export type SaveOutcome =
-  { ok: true; meta: BoardMeta; layoutExisted: boolean; recipeExisted: boolean } | { ok: false; error: string }
+  | { ok: true; meta: BoardMeta; layoutExisted: boolean; recipeExisted: boolean }
+  | { ok: false; error: string; stale?: true }
 
 /** The listing, or why it could not be had — the library says different things about the two. */
 export type ListOutcome = { ok: true; sizes: BoardSize[] } | { ok: false; error: string }
@@ -75,8 +76,12 @@ export async function saveBoard(request: StoreRequest): Promise<SaveOutcome> {
     // and `useStoreSave` has no `.catch`, so the status line would never learn.
     try {
       const body: unknown = await response.json()
-      if (!isSaveAnswer(body))
+      if (!isSaveAnswer(body)) {
+        // A bare meta is what a store server from before the save flags answers.
+        if (typeof body === 'object' && body !== null && typeof (body as { id?: unknown }).id === 'string')
+          return { ok: false, error: 'the store answered with a meta alone: an older store server', stale: true }
         return { ok: false, error: 'the store answered 201 without the meta and the two save flags' }
+      }
       return { ok: true, meta: body.meta, layoutExisted: body.layoutExisted, recipeExisted: body.recipeExisted }
     } catch (err) {
       return {

@@ -19,7 +19,7 @@ function assertNever(value: never): never {
 
 /** The store's answer for a run's board: new to the library, or a layout it already had. */
 function saveText(dict: Dict, saved: SaveOutcome): string {
-  if (!saved.ok) return dict.t('notSaved')
+  if (!saved.ok) return dict.t(saved.stale === true ? 'savedOldStore' : 'notSaved')
   if (!saved.layoutExisted) return dict.t('saved')
   return dict.t(saved.recipeExisted ? 'savedKnownRecipe' : 'savedKnownLayout')
 }

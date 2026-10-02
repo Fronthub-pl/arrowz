@@ -227,6 +227,22 @@ test('saveBoard refuses a 201 without the meta and the two flags', async () => {
   try {
     const params = { ...defaultParams(), W: 8, H: 8, seed: 1 }
     const outcome = await saveBoard(storeRequest(encodeBoard(generate(params).board), params, DEFAULT_VIEW, 'lab'))
+    expect(outcome).toEqual({
+      ok: false,
+      error: 'the store answered with a meta alone: an older store server',
+      stale: true,
+    })
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('saveBoard keeps an unreadable 201 a plain failure, not an older server', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = () => Promise.resolve(new Response(JSON.stringify({ meta: null }), { status: 201 }))
+  try {
+    const params = { ...defaultParams(), W: 8, H: 8, seed: 1 }
+    const outcome = await saveBoard(storeRequest(encodeBoard(generate(params).board), params, DEFAULT_VIEW, 'lab'))
     expect(outcome).toEqual({ ok: false, error: 'the store answered 201 without the meta and the two save flags' })
   } finally {
     globalThis.fetch = original

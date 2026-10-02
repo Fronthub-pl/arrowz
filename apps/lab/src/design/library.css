@@ -150,10 +150,10 @@
   white-space: normal;
 }
 
-/* A board's recipes, at the facts' type size: one block each, a rule above. */
+/* A board's recipes: one block each, a rule above; the command and its button
+   keep the page's size, only the head and facts take the facts' 11px. */
 .fw-recipes {
   margin: 12px 0 0;
-  font-size: 11px;
 }
 .fw-recipes ol {
   display: grid;
@@ -171,6 +171,10 @@
 }
 .fw-recipe p {
   margin: 0;
+}
+.fw-rhead,
+.fw-rfacts {
+  font-size: 11px;
 }
 .fw-rfacts {
   color: var(--ash);
@@ -190,9 +194,9 @@
     min-height: 52px;
   }
 }
-/* M and S: the open board's column is the bar the lab's run
-   column is (run.css), and its facts and recipes stay out of it — the XS sheet shows them
-   again, being the column's own layout. */
+/* M and S: the open board's column is the bar the lab's run column is
+   (run.css), and its facts and recipes stay out of it; the XS sheet shows
+   them again, being the column's own layout. */
 @media (min-width: 768px) and (max-width: 1279px) {
   .fw-lab:not(.solo) .fw-bcol .fw-bmeta,
   .fw-lab:not(.solo) .fw-bcol .fw-recipes {
