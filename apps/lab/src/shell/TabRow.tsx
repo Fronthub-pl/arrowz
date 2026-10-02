@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
+import { useStore } from '../state/store'
 import { nextIndex, useFocusFollowsSelection } from './roving'
 
 // The strip is the application's only navigation, so the route is the
@@ -22,6 +23,9 @@ export function TabRow() {
   const navigate = useNavigate()
   const current = selectedIndex(useLocation().pathname)
   const focusRef = useFocusFollowsSelection(current)
+  const lastBoards = useStore((state) => state.ui.lastBoards)
+  // The saved boards come back on the board they showed (`useRememberBoards`).
+  const target = (tab: (typeof TABS)[number]) => (tab.path === '/boards' ? lastBoards : tab.path)
 
   // Arrow keys move the selection and the focus together; the pattern wraps at
   // both ends, and Home/End jump. The listener sits on each tab, not on the
@@ -31,7 +35,7 @@ export function TabRow() {
     if (next === null) return
     event.preventDefault()
     const tab = TABS[next]
-    if (tab) void navigate(tab.path)
+    if (tab) void navigate(target(tab))
   }
 
   return (
@@ -48,7 +52,7 @@ export function TabRow() {
           {...(i === current ? { 'aria-controls': tab.panel } : {})}
           tabIndex={i === current ? 0 : -1}
           ref={i === current ? focusRef : undefined}
-          onClick={() => void navigate(tab.path)}
+          onClick={() => void navigate(target(tab))}
           onKeyDown={onKeyDown}
         >
           {dict.t(tab.key)}

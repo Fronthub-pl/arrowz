@@ -10,6 +10,7 @@ import { useAutoRun } from './run/useAutoRun'
 import { useRun } from './run/useRun'
 import { useSeries } from './series/useSeries'
 import { usePaletteKey, useWorkspaceKeys } from './shell/hotkeys'
+import { useRememberBoards } from './shell/lastBoards'
 import { selectedIndex, TabRow } from './shell/TabRow'
 import { TopBar } from './shell/TopBar'
 import { useBandReset } from './shell/useBandReset'
@@ -53,6 +54,7 @@ function Shell() {
   const advanced = useStore((state) => state.ui.mode === 'advanced')
   const presetsInTop = low && advanced && tabIndex === 0
   useStoreSave()
+  useRememberBoards()
   useWorkspaceKeys(onWorkspace, control)
   usePaletteKey()
   useDocumentLang()

@@ -78,6 +78,11 @@ export interface UiState {
   /** The saved boards' drawer panel. */
   boards: BoardsPanel
   /**
+   * The saved boards' last address, where their tab and ⌘K go back to: the
+   * open board lives only in the address. Never remembered, never in the hash.
+   */
+  lastBoards: string
+  /**
    * The DOM id of a control a palette jump asked for — `knob-<key>` or
    * `view-<field>` — waiting for the render that puts it in the tree. The
    * console's `useFocusRequest` consumes it and clears it, so a later render
@@ -107,6 +112,7 @@ export interface UiState {
   /** Puts the remembered drawer back, for a window 1024px or wider again. */
   restoreSettings(): void
   showBoards(panel: BoardsPanel): void
+  setLastBoards(path: string): void
   requestFocus(id: string): void
   clearFocusRequest(): void
   setBoardMode(mode: BoardMode): void
@@ -131,6 +137,7 @@ export function createUiSlice(set: SliceSet<'ui', UiState>): UiState {
     sheet: null,
     menu: false,
     boards: 'list',
+    lastBoards: '/boards',
     focusTarget: null,
     boardMode: 'view',
     select: (entry) => patch({ entry }),
@@ -160,6 +167,7 @@ export function createUiSlice(set: SliceSet<'ui', UiState>): UiState {
     closeSettingsForNarrow: () => patch({ settings: false }),
     restoreSettings: () => patch({ settings: readStored(SETTINGS_KEY) !== 'closed' }),
     showBoards: (boards) => patch({ boards }),
+    setLastBoards: (lastBoards) => patch({ lastBoards }),
     requestFocus: (focusTarget) => patch({ focusTarget }),
     clearFocusRequest: () => patch({ focusTarget: null }),
     setBoardMode: (boardMode) => patch({ boardMode }),

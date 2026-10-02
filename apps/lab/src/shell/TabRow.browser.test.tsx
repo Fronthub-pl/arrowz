@@ -1,7 +1,8 @@
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, useLocation } from 'react-router'
 import { expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
+import { useStore } from '../state/store'
 import { TabRow } from './TabRow'
 
 const mount = (path: string) =>
@@ -51,6 +52,27 @@ test('the right arrow moves the selection, and Home/End reach the ends', async (
   await expect.element(screen.getByRole('tab', { name: 'Docs', selected: true })).toBeVisible()
   await userEvent.keyboard('{Home}')
   await expect.element(screen.getByRole('tab', { name: 'Lab', selected: true })).toBeVisible()
+})
+
+function Address() {
+  return <p data-testid="address">{useLocation().pathname}</p>
+}
+
+test('the arrow onto the saved boards goes back to the board they showed', async () => {
+  useStore.getState().ui.setLastBoards('/boards/8x8/sha256-0101')
+  try {
+    const screen = await render(
+      <MemoryRouter initialEntries={['/']}>
+        <TabRow />
+        <Address />
+      </MemoryRouter>,
+    )
+    await screen.getByRole('tab', { name: 'Lab' }).click()
+    await userEvent.keyboard('{ArrowRight}')
+    await expect.element(screen.getByTestId('address')).toHaveTextContent('/boards/8x8/sha256-0101')
+  } finally {
+    useStore.getState().ui.setLastBoards('/boards')
+  }
 })
 
 // Wrapping is what the pattern asks for and what a mouse user never discovers.
