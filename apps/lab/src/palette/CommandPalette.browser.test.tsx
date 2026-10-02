@@ -67,9 +67,14 @@ describe('the palette dialog', () => {
     const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
     await expect.poll(() => document.activeElement === input).toBe(true)
     const first = input?.getAttribute('aria-activedescendant')
+    // This case fails rarely and for no known cause; the message says whether
+    // the key reached the input and where the focus was.
+    let reached = false
+    input?.addEventListener('keydown', () => (reached = true), { once: true })
     await userEvent.keyboard('{ArrowDown}')
     const second = input?.getAttribute('aria-activedescendant')
-    expect(second).not.toBe(first)
+    const state = `key reached the input: ${reached}, focus on ${document.activeElement?.tagName}, document focused: ${document.hasFocus()}`
+    expect(second, state).not.toBe(first)
     expect(document.activeElement).toBe(input)
     const active = screen.container.querySelector(`#${CSS.escape(second ?? '')}`)
     expect(active?.getAttribute('aria-selected')).toBe('true')

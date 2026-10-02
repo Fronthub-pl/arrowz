@@ -243,7 +243,8 @@ export const EN = {
       'How thick the arrows are, as a share of a cell. 0.2 = a hairline; 0.9 = fills the cell and leaves the arrowhead no room.',
     topHelp: 'How many of the longest arrows the highlight marks. 0 marks none.',
     pointColorHelp: 'Colour of the dot grid.',
-    showPointsHelp: 'Draws one dot per cell under the arrows, like the ruling of a notebook page.',
+    showPointsHelp:
+      'Draws one dot per cell under the arrows, like the ruling of a notebook page. Hidden while the board is zoomed too far out for the dots to read.',
     roundedHelp: 'Rounds the corners where an arrow turns, and rounds off its tail.',
     coloredHelp:
       'Gives every arrow a colour of its own: from your palette, else from the theme, else automatic colours.',
@@ -1062,7 +1063,8 @@ export const PL: Translation = {
       'Grubość strzałek jako część komórki. 0,2 = cienka kreska; 0,9 = wypełnia komórkę i nie zostawia miejsca na grot.',
     topHelp: 'Ile najdłuższych strzałek zaznacza wyróżnienie. 0 nie zaznacza żadnej.',
     pointColorHelp: 'Kolor siatki kropek.',
-    showPointsHelp: 'Rysuje po kropce na komórkę pod strzałkami, jak linie w zeszycie.',
+    showPointsHelp:
+      'Rysuje po kropce na komórkę pod strzałkami, jak linie w zeszycie. Znika, gdy plansza jest zbyt oddalona, by kropki dało się odczytać.',
     roundedHelp: 'Zaokrągla rogi, na których strzałka skręca, i zaokrągla jej ogon.',
     coloredHelp: 'Każda strzałka dostaje własny kolor: z Twojej palety, inaczej z motywu, inaczej automatycznie.',
     highlightLongestHelp: 'Rysuje najdłuższe strzałki kolorem wyróżnienia, na wierzchu pozostałych.',
