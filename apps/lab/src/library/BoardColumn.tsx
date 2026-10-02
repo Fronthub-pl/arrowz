@@ -123,7 +123,11 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
       <LibraryLine line={library} />
       <div className="fw-alt">
         <button type="button" className={armed ? 'danger armed' : 'danger'} onClick={remove}>
-          {armed ? dict.t('confirmDelete') : dict.t('deleteBoard')}
+          {!armed
+            ? dict.t('deleteBoard')
+            : meta.sources.length >= 2
+              ? dict.t('confirmDeleteRecipes', meta.sources.length)
+              : dict.t('confirmDelete')}
         </button>
       </div>
       <SavedExports

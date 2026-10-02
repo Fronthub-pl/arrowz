@@ -747,3 +747,18 @@ test('a recipe’s facts carry its updated date, not its created one', async () 
   expect(facts).toContain(new Date(updatedAt).toLocaleString(locale))
   expect(facts).not.toContain(new Date(createdAt).toLocaleString(locale))
 })
+
+test('armed, Delete names how many recipes go with a board that has two', async () => {
+  const screen = await mountDetail()
+  await showTwo()
+  await userEvent.click(screen.getByRole('button', { name: 'Delete from disk' }))
+  await expect.element(screen.getByRole('button', { name: 'Really delete? Its 2 recipes go too.' })).toBeVisible()
+})
+
+// One recipe, not `stored`'s empty `sources`: a count drawn from one recipe up would pass on an empty one.
+test('armed, Delete of a one-recipe board asks as before', async () => {
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: two.meta.sources.slice(1) })
+  await userEvent.click(screen.getByRole('button', { name: 'Delete from disk' }))
+  await expect.element(screen.getByRole('button', { name: 'Really delete?' })).toBeVisible()
+})
