@@ -1,5 +1,5 @@
 import { THEMES } from '@arrowz/board-element'
-import { decodeBoard } from '@arrowz/engine'
+import { type BoardMeta, decodeBoard } from '@arrowz/engine'
 import { dictionary } from '@arrowz/engine/i18n'
 import { genSeconds } from '@arrowz/engine/report'
 import { act, type ReactNode } from 'react'
@@ -453,11 +453,11 @@ function generatedText(): string {
 }
 
 /** The store's list and file endpoints for the one fixture board, so `useStoredBoard` finds it the way a person's click would. */
-function stubStore() {
+function stubStore(meta: BoardMeta = stored.meta) {
   vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
     const url = String(input)
     if (url.includes('/api/boards'))
-      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }]))
+      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [meta] }]))
     if (url.includes('/store/')) return Promise.resolve(Response.json(stored.file))
     return Promise.resolve(new Response('{}', { status: 404 }))
   })
@@ -470,11 +470,11 @@ function stubStore() {
  * track width. `sheet` opens the phone's Board sheet, the only way its facts
  * reach the screen under 768px.
  */
-async function openLibraryDetail(w: number, h: number, sheet = false) {
+async function openLibraryDetail(w: number, h: number, sheet = false, meta: BoardMeta = stored.meta) {
   await page.viewport(w, h)
   resetApp('advanced')
-  stubStore()
-  window.history.pushState({}, '', `/boards/8x8/${stored.meta.id}`)
+  stubStore(meta)
+  window.history.pushState({}, '', `/boards/8x8/${meta.id}`)
   const screen = await render(<App />)
   await expect.poll(() => screen.container.querySelector('#board-column .fw-cmdfig')).not.toBeNull()
   if (sheet) await act(async () => useStore.getState().ui.setSheet('cli'))
@@ -762,3 +762,37 @@ test('armed, Delete of a one-recipe board asks as before', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Delete from disk' }))
   await expect.element(screen.getByRole('button', { name: 'Really delete?' })).toBeVisible()
 })
+
+// 1400 is the L band and 375 the phone's Board sheet: the two places the list is on screen.
+test.each([
+  [1400, 900, false],
+  [375, 812, true],
+] as const)(
+  'at %dx%d the recipe list fits the column',
+  async (w, h, sheet) => {
+    try {
+      const screen = await openLibraryDetail(w, h, sheet, two.meta)
+      const column = screen.container.querySelector<HTMLElement>('#board-column')
+      const list = screen.container.querySelector<HTMLElement>('#board-column .fw-recipes')
+      if (column === null || list === null) throw new Error('no recipe list in the column')
+      expect(getComputedStyle(list).display).not.toBe('none')
+      expect(column.scrollWidth).toBeLessThanOrEqual(column.clientWidth)
+      for (const item of list.querySelectorAll<HTMLElement>('.fw-recipe'))
+        expect(item.scrollWidth).toBeLessThanOrEqual(item.clientWidth)
+    } finally {
+      await page.viewport(414, 896)
+    }
+  },
+  40_000,
+)
+
+test('at 860x900 the recipe list stays off the bar, with the facts', async () => {
+  try {
+    const screen = await openLibraryDetail(860, 900, false, two.meta)
+    const list = screen.container.querySelector<HTMLElement>('#board-column .fw-recipes')
+    if (list === null) throw new Error('the list is not rendered')
+    expect(getComputedStyle(list).display).toBe('none')
+  } finally {
+    await page.viewport(414, 896)
+  }
+}, 40_000)
