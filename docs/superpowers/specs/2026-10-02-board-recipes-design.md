@@ -132,7 +132,7 @@ Each case is red before its change.
     with one.
 - **Layout:** `LayoutInvariants` through the full gate, since the column
   gains a section. The fixture boards used there have one recipe, so the
-  list's own geometry is checked by one case at 1440×900 and in the XS sheet
+  list's own geometry is checked by one case at 1400×900 (the L band, a width the file's facts cases already use) and in the XS sheet
   with a two-recipe fixture: no horizontal overflow of the column.
 - **Live check:** the lab on a store in `/tmp` holding a board saved twice
   with different `restarts`: the status line after a rerun, the list, loading

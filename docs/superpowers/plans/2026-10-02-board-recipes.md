@@ -105,7 +105,14 @@ Four cases read the meta straight from the body. Replace each `const meta: Board
     const { meta }: Answer = await r.json()
 ```
 
-They are in the cases `'POST /api/boards saves, GET lists, the board file is served from the store'`, `'POST passes metrics.aborted through to the stored meta'`, `'POST keeps only the knobs of PARAM_SPEC'`, and the case that posts a board with a `junk` key. Find them with `rg -n "const meta: BoardMeta = await" packages/cli/store-server.test.ts`; all four must change.
+Six cases read the meta straight from the body; `rg -n ": BoardMeta = await" packages/cli/store-server.test.ts` lists all seven reads. Change:
+
+- `const meta: BoardMeta = await resp.json()` → `const { meta }: Answer = await resp.json()` in 'POST /api/boards saves, GET lists, …' and in the case that posts a board with a `junk` key;
+- `const meta: BoardMeta = await r.json()` → `const { meta }: Answer = await r.json()` in 'POST passes metrics.aborted …' and 'POST keeps only the knobs of PARAM_SPEC';
+- `const meta: BoardMeta = await (await post(base, body)).json()` → `const { meta }: Answer = await (await post(base, body)).json()` in 'DELETE /api/boards/<size>/<id> removes the layout; …';
+- `const looked: BoardMeta = await first.json()` → `const { meta: looked }: Answer = await first.json()` and `const plain: BoardMeta = await second.json()` → `const { meta: plain }: Answer = await second.json()` in 'a posted look is stored lower-case, …'.
+
+Afterwards the same rg prints nothing.
 
 - [ ] **Step 5: Run the file**
 
@@ -162,6 +169,10 @@ test('saveBoard says when the store already had the layout and the recipe', asyn
     if (!first.ok || !again.ok) throw new Error('the store refused the board this case needs')
     expect([first.layoutExisted, first.recipeExisted]).toEqual([false, false])
     expect([again.layoutExisted, again.recipeExisted]).toEqual([true, true])
+    // Same board file, another knob: the server hashes the file, so this is the same layout.
+    const other = await saveBoard({ ...request, params: { ...request.params, restarts: 1 } })
+    if (!other.ok) throw new Error('the store refused the second recipe')
+    expect([other.layoutExisted, other.recipeExisted]).toEqual([true, false])
     await deleteBoard('14x14', first.meta.id)
   } finally {
     globalThis.fetch = original
@@ -187,7 +198,13 @@ Check that every name these cases use (`defaultParams`, `generate`, `encodeBoard
 - [ ] **Step 2: Run them to verify they fail**
 
 Run, from `apps/lab`: `pnpm vitest run --project node-integration src/api/boards.node.test.ts`
-Expected: FAIL. `answer.meta` is undefined, `first.layoutExisted` is undefined, and the last case gets `ok: true`.
+Expected: FAIL, three cases.
+
+- 'saveBoard says when the store already had the layout and the recipe': `expected [ undefined, undefined ] to deeply equal [ false, false ]`.
+- 'saveBoard refuses a 201 without the meta and the two flags': it gets `{ ok: true, meta: { id: 'sha256-00' } }`.
+- The existing 'deleteBoard removes a board, …': `the store answered 400`, because `saved.meta` is the whole answer and its `id` is undefined.
+
+The changed proxy case already passes, because Task 1's server answers `{ meta, … }`.
 
 - [ ] **Step 3: Implement**
 
@@ -299,16 +316,23 @@ In `apps/lab/src/stage/RunStatusBar.browser.test.tsx`, inside `describe('RunStat
     },
   )
 
-  it('says in Polish that the layout was already stored', async () => {
-    const PL = dictionary('pl')
-    useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } }))
-    const state = useStore.getState()
-    state.run.started(state.params.values)
-    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
-    state.result.stored(CLOSED.board, { ok: true, meta: storedFixture(1).meta, layoutExisted: true, recipeExisted: false })
-    const screen = await mountBar()
-    await expect.element(screen.getByRole('status')).toMatchTextContent(`${PL.t('closed')} — ${PL.t('savedKnownLayout')}`)
-  })
+  it.each([
+    [false, false, 'saved'],
+    [true, false, 'savedKnownLayout'],
+    [true, true, 'savedKnownRecipe'],
+  ] as const)(
+    'in Polish, after a save with layoutExisted %s and recipeExisted %s the line ends in %s',
+    async (layoutExisted, recipeExisted, key) => {
+      const PL = dictionary('pl')
+      useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } }))
+      const state = useStore.getState()
+      state.run.started(state.params.values)
+      state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+      state.result.stored(CLOSED.board, { ok: true, meta: storedFixture(1).meta, layoutExisted, recipeExisted })
+      const screen = await mountBar()
+      await expect.element(screen.getByRole('status')).toMatchTextContent(`${PL.t('closed')} — ${PL.t(key)}`)
+    },
+  )
 ```
 
 (`beforeEach` already puts the language back to `en`.)
@@ -316,7 +340,7 @@ In `apps/lab/src/stage/RunStatusBar.browser.test.tsx`, inside `describe('RunStat
 - [ ] **Step 2: Run them to verify they fail**
 
 Run, from `apps/lab`: `pnpm vitest run --project chromium src/stage/RunStatusBar.browser.test.tsx`
-Expected: the `saved` row passes (it is today's text) and the other three cases FAIL: the two keys do not exist yet, and the line reads "— saved" whatever the flags say.
+Expected: the two `saved` rows pass (today's text) and the other four FAIL: the two keys do not exist yet, and the line reads "— saved" whatever the flags say.
 
 - [ ] **Step 3: Add the words**
 
@@ -342,7 +366,7 @@ In `apps/lab/src/stage/useRunState.ts`, add the import:
 import type { SaveOutcome } from '../api/boards'
 ```
 
-Add, below `noticeText`:
+Add the import after the `@arrowz/engine/report` import. Add, below `noticeText`:
 
 ```ts
 /** The store's answer for a run's board: new to the library, or a layout it already had. */
@@ -379,7 +403,7 @@ Expected: PASS, the new cases and the existing "not saved" ones.
 ```bash
 deno fmt packages/engine/lab-i18n.ts && (cd packages/engine && deno test -A lab-i18n.test.ts)
 cd apps/lab && npx prettier --write src/stage/useRunState.ts src/stage/RunStatusBar.browser.test.tsx && cd ../..
-pnpm nx run lab:check --skip-nx-cache
+pnpm nx run lab:check --skip-nx-cache && pnpm nx run lab:lint --skip-nx-cache && pnpm nx run lab:fmt --skip-nx-cache
 git add packages/engine/lab-i18n.ts apps/lab/src/stage/useRunState.ts apps/lab/src/stage/RunStatusBar.browser.test.tsx
 git commit -m "lab: say after a run when its layout was already in the library
 
@@ -604,6 +628,30 @@ test('a recipe with no timing and no date says so without a stray separator', as
   const facts = screen.container.querySelector('.fw-recipe .fw-rfacts')?.textContent
   expect(facts).toBe('seed 1 · lab · — s')
 })
+
+test('a stopped recipe says so in its head', async () => {
+  const [older, latest] = two.meta.sources
+  if (older === undefined || latest === undefined) throw new Error('the fixture has two recipes')
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: [{ ...older, aborted: true }, latest] })
+  const heads = [...screen.container.querySelectorAll('.fw-recipe .fw-rhead')].map((p) => p.textContent)
+  expect(heads).toEqual(['Recipe 1 · stopped', 'Recipe 2 · latest'])
+})
+
+// The board's view has pad 4; the recipe's 7 shows the recipe's view was applied, not the board's.
+test('Load into lab on a recipe brings that recipe’s look', async () => {
+  const [older, latest] = two.meta.sources
+  if (older === undefined || latest === undefined) throw new Error('the fixture has two recipes')
+  const initial = useStore.getState().view
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: [{ ...older, view: { ...older.view, pad: 7 } }, latest] })
+  try {
+    await userEvent.click(screen.getByRole('button', { name: 'Load into lab: recipe 1' }))
+    expect(useStore.getState().view.pad).toBe(7)
+  } finally {
+    useStore.setState({ view: initial })
+  }
+})
 ```
 
 - [ ] **Step 2: Run them to verify they fail**
@@ -613,7 +661,7 @@ pnpm nx build engine --skip-nx-cache
 cd apps/lab && pnpm vitest run --project chromium src/library/BoardColumn.browser.test.tsx
 ```
 
-Expected: the first new case passes (nothing renders a list yet; its value is shown by the mutation in Step 7). The other three FAIL: no "Recipes (2)" text, no "Load into lab: recipe 1" button, no `.fw-rfacts`.
+Expected: the first new case passes (nothing renders a list yet; its value is shown by the mutation in Step 7). The other five FAIL: no "Recipes (2)" text, no "Load into lab: recipe 1" button, no `.fw-rfacts`, no `.fw-rhead`.
 
 - [ ] **Step 3: Add the words**
 
@@ -829,9 +877,10 @@ test('armed, Delete names how many recipes go with a board that has two', async 
     .toBeVisible()
 })
 
+// One recipe, not `stored`'s empty `sources`: a count drawn from one recipe up would pass on an empty one.
 test('armed, Delete of a one-recipe board asks as before', async () => {
   const screen = await mountDetail()
-  await show()
+  await showTwo({ ...two.meta, sources: two.meta.sources.slice(1) })
   await userEvent.click(screen.getByRole('button', { name: 'Delete from disk' }))
   await expect.element(screen.getByRole('button', { name: 'Really delete?' })).toBeVisible()
 })
@@ -888,6 +937,7 @@ Expected: PASS. The existing delete cases find the armed button with `/really de
 ```bash
 deno fmt packages/engine/lab-i18n.ts && (cd packages/engine && deno test -A lab-i18n.test.ts)
 cd apps/lab && npx prettier --write src/library/BoardColumn.tsx src/library/BoardColumn.browser.test.tsx && cd ../..
+pnpm nx run lab:check --skip-nx-cache && pnpm nx run lab:lint --skip-nx-cache && pnpm nx run lab:fmt --skip-nx-cache
 git add packages/engine/lab-i18n.ts apps/lab/src/library/BoardColumn.tsx apps/lab/src/library/BoardColumn.browser.test.tsx
 git commit -m "lab: say how many recipes an armed Delete removes
 
@@ -983,7 +1033,7 @@ pnpm nx run-many -t verify --skip-nx-cache
 
 Expected: both pass, `LayoutInvariants` included. If a `LayoutInvariants` floor moves, the list is not the cause (its fixtures have one recipe); investigate before touching a number.
 
-- [ ] **Step 5: Live look**
+- [ ] **Step 5: Live look (done by the controller, not the implementer)**
 
 Start a store on a scratch directory and the lab against it (never the real `packages/cli/boards`):
 
