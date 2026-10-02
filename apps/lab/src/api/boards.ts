@@ -1,6 +1,7 @@
 import type { BoardMeta, BoardSize, StoreRequest } from '@arrowz/engine'
 
-export type SaveOutcome = { ok: true; meta: BoardMeta } | { ok: false; error: string }
+export type SaveOutcome =
+  { ok: true; meta: BoardMeta; layoutExisted: boolean; recipeExisted: boolean } | { ok: false; error: string }
 
 /** The listing, or why it could not be had — the library says different things about the two. */
 export type ListOutcome = { ok: true; sizes: BoardSize[] } | { ok: false; error: string }
@@ -40,6 +41,24 @@ export async function readStoredBoard(size: string, id: string): Promise<FileOut
   }
 }
 
+/** The store server's 201 body for POST /api/boards. */
+interface SaveAnswer {
+  meta: BoardMeta
+  layoutExisted: boolean
+  recipeExisted: boolean
+}
+
+function isSaveAnswer(body: unknown): body is SaveAnswer {
+  if (typeof body !== 'object' || body === null) return false
+  const { meta, layoutExisted, recipeExisted } = body as Record<string, unknown>
+  return (
+    typeof meta === 'object' &&
+    meta !== null &&
+    typeof layoutExisted === 'boolean' &&
+    typeof recipeExisted === 'boolean'
+  )
+}
+
 export async function saveBoard(request: StoreRequest): Promise<SaveOutcome> {
   let response: Response
   try {
@@ -55,7 +74,10 @@ export async function saveBoard(request: StoreRequest): Promise<SaveOutcome> {
     // An unparseable 201 is a failure too; an unguarded `await` would reject,
     // and `useStoreSave` has no `.catch`, so the status line would never learn.
     try {
-      return { ok: true, meta: (await response.json()) as BoardMeta }
+      const body: unknown = await response.json()
+      if (!isSaveAnswer(body))
+        return { ok: false, error: 'the store answered 201 without the meta and the two save flags' }
+      return { ok: true, meta: body.meta, layoutExisted: body.layoutExisted, recipeExisted: body.recipeExisted }
     } catch (err) {
       return {
         ok: false,

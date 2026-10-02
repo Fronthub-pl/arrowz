@@ -713,7 +713,10 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
   const sizes = [{ size: '8x8', W: 8, H: 8, cells: 64, boards: [meta] }]
   vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
     const url = String(input)
-    if (init?.method === 'POST') return Promise.resolve(new Response(JSON.stringify(meta), { status: 201 }))
+    if (init?.method === 'POST')
+      return Promise.resolve(
+        new Response(JSON.stringify({ meta, layoutExisted: true, recipeExisted: true }), { status: 201 }),
+      )
     if (url.includes('/api/boards')) return Promise.resolve(new Response(JSON.stringify(sizes), { status: 200 }))
     if (url.includes('/store/')) return Promise.resolve(new Response(JSON.stringify(file), { status: 200 }))
     return Promise.resolve(new Response('{}', { status: 404 }))
