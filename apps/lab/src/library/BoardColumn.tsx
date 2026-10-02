@@ -14,6 +14,7 @@ import { FileColumn } from './FileColumn'
 import { loadIntoLab } from './loadIntoLab'
 import { raiseNotice } from './notices'
 import { OpenFileButton } from './OpenFileButton'
+import { RecipeList } from './RecipeList'
 import { SavedExports } from './SavedExports'
 import { refreshLibrary } from './useLibraryList'
 import { useOpenPreview } from './useOpenPreview'
@@ -139,6 +140,7 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
           </div>
         ))}
       </dl>
+      <RecipeList meta={meta} control={control} />
     </section>
   )
 }

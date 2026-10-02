@@ -9,7 +9,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { App } from '../App'
 import { resetApp } from '../harness/mountApp'
 import { renderAt } from '../harness/renderAt'
-import { storedFixture } from '../state/library.fixtures'
+import { storedFixture, twoRecipesFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import { BoardColumn } from './BoardColumn'
 import { BoardPreview } from './BoardPreview'
@@ -85,6 +85,15 @@ async function show() {
     useStore
       .getState()
       .result.showPreview({ origin: 'store', board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+  )
+}
+
+const two = twoRecipesFixture(1)
+
+/** Puts the two-recipe board on the stage; its id is `stored`'s, so `mountDetail`'s address names it. */
+async function showTwo(meta = two.meta) {
+  await act(async () =>
+    useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(two.file), file: two.file, meta }),
   )
 }
 
@@ -648,5 +657,66 @@ test.each(['en', 'pl'] as const)('in %s every fact’s term ends before its valu
     if (dt === null || dd === null) throw new Error('a fact without its term or value')
     expect(dt.scrollWidth, dt.textContent ?? '').toBeLessThanOrEqual(dt.clientWidth)
     expect(dd.getBoundingClientRect().left).toBeGreaterThanOrEqual(dt.getBoundingClientRect().right)
+  }
+})
+
+// One recipe, not `stored`'s empty `sources`: a list drawn from one recipe up would pass on an empty one.
+test('a board with one recipe lists none: the column’s command is that recipe', async () => {
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: two.meta.sources.slice(1) })
+  await expect.element(screen.getByRole('button', { name: /^load into lab$/i })).toBeVisible()
+  expect(screen.container.querySelector('.fw-recipes')).toBeNull()
+})
+
+test('a board with two recipes lists both, numbered, the latest marked', async () => {
+  const screen = await mountDetail()
+  await showTwo()
+  await expect.element(screen.getByText('Recipes (2)')).toBeVisible()
+  const heads = [...screen.container.querySelectorAll('.fw-recipe .fw-rhead')].map((p) => p.textContent)
+  expect(heads).toEqual(['Recipe 1', 'Recipe 2 · latest'])
+  await expect.element(screen.getByRole('figure', { name: 'Command of recipe 1' })).toMatchTextContent(/--restarts=5/)
+  await expect.element(screen.getByRole('figure', { name: 'Command of recipe 2' })).toMatchTextContent(/--restarts=1/)
+})
+
+// Both recipes share the seed, so only the number tells their buttons apart.
+test('Load into lab on the older recipe sets that recipe’s knobs and goes to the lab', async () => {
+  const screen = await mountDetail()
+  await showTwo()
+  await userEvent.click(screen.getByRole('button', { name: 'Load into lab: recipe 1' }))
+  expect(useStore.getState().params.values.restarts).toBe(5)
+  expect(run.seeds).toEqual([two.meta.seed])
+  await expect.element(screen.getByTestId('address')).toHaveTextContent('/')
+})
+
+test('a recipe with no timing and no date says so without a stray separator', async () => {
+  const [older, latest] = two.meta.sources
+  if (older === undefined || latest === undefined) throw new Error('the fixture has two recipes')
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: [{ ...older, genMs: null, updatedAt: '' }, latest] })
+  const facts = screen.container.querySelector('.fw-recipe .fw-rfacts')?.textContent
+  expect(facts).toBe('seed 1 · lab · — s')
+})
+
+test('a stopped recipe says so in its head', async () => {
+  const [older, latest] = two.meta.sources
+  if (older === undefined || latest === undefined) throw new Error('the fixture has two recipes')
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: [{ ...older, aborted: true }, latest] })
+  const heads = [...screen.container.querySelectorAll('.fw-recipe .fw-rhead')].map((p) => p.textContent)
+  expect(heads).toEqual(['Recipe 1 · stopped', 'Recipe 2 · latest'])
+})
+
+// The board's view has pad 4; the recipe's 7 shows the recipe's view was applied, not the board's.
+test('Load into lab on a recipe brings that recipe’s look', async () => {
+  const [older, latest] = two.meta.sources
+  if (older === undefined || latest === undefined) throw new Error('the fixture has two recipes')
+  const initial = useStore.getState().view
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: [{ ...older, view: { ...older.view, pad: 7 } }, latest] })
+  try {
+    await userEvent.click(screen.getByRole('button', { name: 'Load into lab: recipe 1' }))
+    expect(useStore.getState().view.pad).toBe(7)
+  } finally {
+    useStore.setState({ view: initial })
   }
 })

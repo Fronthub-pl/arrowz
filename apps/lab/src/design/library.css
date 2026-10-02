@@ -149,6 +149,33 @@
   text-overflow: clip;
   white-space: normal;
 }
+
+/* A board's recipes, at the facts' type size: one block each, a rule above. */
+.fw-recipes {
+  margin: 12px 0 0;
+  font-size: 11px;
+}
+.fw-recipes ol {
+  display: grid;
+  gap: 12px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.fw-recipe {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 6px;
+  box-shadow: 0 -1px 0 var(--border);
+}
+.fw-recipe p {
+  margin: 0;
+}
+.fw-rfacts {
+  color: var(--ash);
+  overflow-wrap: anywhere;
+}
 .fw-bcol > .fw-lib-empty {
   margin: 0;
 }
@@ -164,10 +191,11 @@
   }
 }
 /* M and S: the open board's column is the bar the lab's run
-   column is (run.css), and its facts stay out of it — the XS sheet shows them
+   column is (run.css), and its facts and recipes stay out of it — the XS sheet shows them
    again, being the column's own layout. */
 @media (min-width: 768px) and (max-width: 1279px) {
-  .fw-lab:not(.solo) .fw-bcol .fw-bmeta {
+  .fw-lab:not(.solo) .fw-bcol .fw-bmeta,
+  .fw-lab:not(.solo) .fw-bcol .fw-recipes {
     display: none;
   }
 }
