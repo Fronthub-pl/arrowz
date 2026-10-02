@@ -26,7 +26,8 @@ export function observations(text: string): string[] {
       continue
     }
     if (fence) continue
-    if (/^- \[[^\]]+\]/.test(l)) {
+    // Not a `[ ]`/`[x]` checkbox, a `[[wiki link]]` or a `[text](link)` bullet.
+    if (/^- \[(?![ xX]\])[^\][]+\](?!\()/.test(l)) {
       flush()
       cur = l.trim()
     } else if (cur !== null && l.trim() !== '' && !/^(- |#)/.test(l)) {
@@ -76,6 +77,7 @@ export function longIndexLines(text: string, where: (line: number) => string): F
   return out
 }
 
+/** One `memory:` block listing `found`, capped at MAX_FLAGS unless `all`; null when nothing was found. */
 export function findingsReport(title: string, found: Finding[], all = false): string | null {
   if (found.length === 0) return null
   const shown = all ? found : found.slice(0, MAX_FLAGS)
@@ -134,21 +136,40 @@ export function memoryReport(r: { flags: Flag[]; skipped: number }): string | nu
 export type Note = { file: string; text: string }
 
 // A comma ends the clause: in "PR #N (x), zero otwartych" the words after it negate, they do not claim.
+// "open question" and "otwarte pytanie" speak of a question, not of the pull request.
 const OPEN_PR =
-  /(?<!zero )(?<!no )\b(?:PR ?#(\d+)[^.;,\n—]{0,25}?\b(?:otwart\w*|open)\b|(?:otwart\w*|open)\s+(?:mój\s+|my\s+)?PR ?#(\d+))/gi
+  /(?<!zero )(?<!no )\b(?:PR ?#(\d+)[^.;,\n—]{0,25}?\b(?:otwart\w*|open)\b(?!\s+(?:questions?|pytan\w*))|(?:otwart\w*|open)\s+(?:mój\s+|my\s+)?PR ?#(\d+))/gi
+const NEGATION = /\b(?:not|nie|never|nigdy|no longer)\b|n't\b/i
 
 /** Pull requests that `text` calls open. */
 export function openPrClaims(text: string): number[] {
   const out: number[] = []
-  for (const m of text.matchAll(OPEN_PR)) out.push(Number(m[1] ?? m[2]))
+  for (const m of text.matchAll(OPEN_PR)) if (!NEGATION.test(m[0])) out.push(Number(m[1] ?? m[2]))
   return out
+}
+
+/** The frontmatter `description`, unquoted; a `>` or `|` block is joined into one line. */
+function description(text: string): string | null {
+  const lines = /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(text)?.[1]?.split('\n') ?? []
+  const i = lines.findIndex((l) => l.startsWith('description:'))
+  if (i < 0) return null
+  const value = (lines[i] ?? '').slice('description:'.length).trim()
+  if (/^[>|][+-]?$/.test(value)) {
+    const block: string[] = []
+    for (const l of lines.slice(i + 1)) {
+      if (!/^\s/.test(l)) break
+      block.push(l.trim())
+    }
+    return block.join(' ')
+  }
+  return /^(["'])(.*)\1$/.exec(value)?.[2] ?? value
 }
 
 /** The text of the memory that speaks of the present: every index line, and each description's first clause. */
 export function presentSegments(index: string, notes: Note[]): Array<{ where: string; text: string }> {
   const out = index.split('\n').map((text, i) => ({ where: `MEMORY.md:${i + 1}`, text }))
   for (const n of notes) {
-    const first = /^description:\s*"?(.*)$/m.exec(n.text)?.[1]?.split(/[;—]|\. /)[0]
+    const first = description(n.text)?.split(/[;—]|\. /)[0]
     if (first) out.push({ where: `${n.file} description`, text: first })
   }
   return out
@@ -328,7 +349,8 @@ export function projectMemoryDir(home: string, root: string): string {
   return join(home, '.claude', 'projects', root.replace(/\/$/, '').replace(/[^A-Za-z0-9-]/g, '-'), 'memory')
 }
 
-function notesOf(dir: string, out: string[]) {
+/** Basic-memory note files under `dir`, appended to `out`; see `auditSkips`. */
+export function notesOf(dir: string, out: string[]) {
   for (const e of listEntries(dir)) {
     if (auditSkips(e.name)) continue
     const path = join(dir, e.name)
@@ -393,7 +415,7 @@ async function audit(home: string, memoryArg?: string, notesArg?: string): Promi
   return 0
 }
 
-async function manual(mode: string | undefined, args: string[]): Promise<number> {
+export async function manual(mode: string | undefined, args: string[]): Promise<number> {
   if (mode === 'audit') return await audit(Deno.env.get('HOME') ?? '', args[0], args[1])
   console.error('usage: memory-guard.ts hook | audit [memory-dir] [basic-memory-notes-dir]')
   return 2

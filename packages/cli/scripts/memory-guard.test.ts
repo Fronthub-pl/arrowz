@@ -7,11 +7,13 @@ import {
   type Deps,
   findingsReport,
   longIndexLines,
+  manual,
   MAX_INDEX_LINE,
   MAX_MEMORY_REQUESTS,
   MEMORY_AT,
   memoryFlags,
   memoryReport,
+  notesOf,
   observations,
   openPrClaims,
   paragraphs,
@@ -42,6 +44,11 @@ Deno.test('observations: one item per `- [category]` line, continuation lines jo
     '- [last] third item',
   ])
   assertEquals(observations('- [a] item\n```\ncode\n```\nafter the fence'), ['- [a] item'])
+})
+
+Deno.test('observations: a link bullet, a checkbox or a wiki link is not an item', () => {
+  const note = ['- [T](/x.md)', '- [ ] todo', '- [x] done', '- [[Other note]]', '- [lesson] kept'].join('\n')
+  assertEquals(observations(note), ['- [lesson] kept'])
 })
 
 Deno.test('paragraphs: body paragraphs of 80+ characters, frontmatter, headings and fences skipped', () => {
@@ -136,6 +143,16 @@ Deno.test('openPrClaims: both word orders, Polish and English; not a negation, a
   assertEquals(openPrClaims('reopened PR #5'), [])
 })
 
+Deno.test('openPrClaims: a negation after the number, or an open question, is not a claim', () => {
+  assertEquals(openPrClaims('PR #3 is not open'), [])
+  assertEquals(openPrClaims("PR #3 isn't open"), [])
+  assertEquals(openPrClaims('PR #3 is no longer open'), [])
+  assertEquals(openPrClaims('PR #3 nie jest otwarty'), [])
+  assertEquals(openPrClaims('PR #3 open question'), [])
+  assertEquals(openPrClaims('PR #3: otwarte pytanie o kolory'), [])
+  assertEquals(openPrClaims('PR #3 still open'), [3])
+})
+
 Deno.test('presentSegments: every index line and only the first clause of a description', () => {
   const note = {
     file: 'a.md',
@@ -146,6 +163,21 @@ Deno.test('presentSegments: every index line and only the first clause of a desc
     { where: 'MEMORY.md:2', text: '' },
     { where: 'a.md description', text: 'now: PR #9 open' },
   ])
+})
+
+Deno.test('presentSegments: the first clause ends at an em dash or a sentence stop', () => {
+  const desc = (d: string) => presentSegments('', [{ file: 'a.md', text: `---\ndescription: ${d}\n---\n` }])[1]?.text
+  assertEquals(desc('"PR #9 open — PR #3 open"'), 'PR #9 open ')
+  assertEquals(desc('"PR #9 open. PR #3 open"'), 'PR #9 open')
+  assertEquals(desc('"v0.9 ships"'), 'v0.9 ships')
+})
+
+Deno.test('presentSegments: the description is read from the frontmatter, unquoted, folded blocks joined', () => {
+  const desc = (text: string) => presentSegments('', [{ file: 'a.md', text }]).slice(1).map((s) => s.text)
+  assertEquals(desc('---\ndescription: "PR #9 open"\n---\n'), ['PR #9 open'])
+  assertEquals(desc("---\ndescription: 'PR #9 open'\n---\n"), ['PR #9 open'])
+  assertEquals(desc('---\ndescription: >-\n  PR #9\n  open; old\nname: a\n---\n'), ['PR #9 open'])
+  assertEquals(desc('---\nname: a\n---\ndescription: PR #4 open\n'), [])
 })
 
 Deno.test('staleState: a closed PR called open, a dead link, an untracked path', () => {
@@ -161,6 +193,13 @@ Deno.test('staleState: a closed PR called open, a dead link, an untracked path',
     { where: 'MEMORY.md:2', what: 'links gone.md, which does not exist' },
     { where: 'MEMORY.md:2', what: 'names packages/cli/nope.ts, which git does not track' },
   ])
+})
+
+Deno.test('staleState: a path is checked without its :line or trailing slash, and a glob is not a path', () => {
+  const found = (index: string) =>
+    staleState({ index, notes: [], exists: () => true, openPrs: null, tracked: new Set(['docs/a.md', 'apps/x/y.ts']) })
+  assertEquals(found('`docs/a.md:12` and `apps/x/` and `packages/*/z.ts`'), [])
+  assertEquals(found('`docs/b.md:12`').map((f) => f.what), ['names docs/b.md, which git does not track'])
 })
 
 Deno.test('staleState: only a bare file name is a memory link', () => {
@@ -373,6 +412,7 @@ Deno.test('the committed settings run memory-guard on memory writes and at sessi
   }
   const start = uses('SessionStart')
   assertEquals(start.length, 1)
+  assertEquals(start[0]?.matcher, '')
   const cmdPost = post[0]?.hooks[0]?.command ?? ''
   const cmdStart = start[0]?.hooks[0]?.command ?? ''
   assertStringIncludes(cmdPost, '--allow-net=api.typesafe.ai')
@@ -380,6 +420,37 @@ Deno.test('the committed settings run memory-guard on memory writes and at sessi
   assertStringIncludes(cmdStart, '--allow-run=gh,git')
   assertStringIncludes(cmdStart, '--allow-read="$HOME/.claude/projects" ')
   assertEquals(cmdStart.includes('--allow-net'), false)
+})
+
+Deno.test('notesOf: Markdown notes in nested folders, skipping what auditSkips names', async () => {
+  const dir = await Deno.makeTempDir()
+  try {
+    for (const f of ['wiedza/a.md', 'wiedza/b.txt', 'sesje/s.md', '.hidden/h.md', '2026-09-30 log.md', 'top.md']) {
+      await Deno.mkdir(join(dir, dirname(f)), { recursive: true })
+      await Deno.writeTextFile(join(dir, f), 'x')
+    }
+    const out: string[] = []
+    notesOf(dir, out)
+    assertEquals(out.map((p) => p.slice(dir.length + 1)).sort(), ['top.md', 'wiedza/a.md'])
+  } finally {
+    await Deno.remove(dir, { recursive: true })
+  }
+})
+
+Deno.test('manual: audit takes the memory directory argument and fails without its MEMORY.md; unknown mode is usage', async () => {
+  const dir = await Deno.makeTempDir()
+  const errors: string[] = []
+  const error = console.error
+  console.error = (msg: string) => errors.push(msg)
+  try {
+    assertEquals(await manual('audit', [dir]), 1)
+    assertEquals(await manual('nope', []), 2)
+  } finally {
+    console.error = error
+    await Deno.remove(dir)
+  }
+  assertEquals(errors[0], `memory: no MEMORY.md in ${dir}`)
+  assertStringIncludes(errors[1] ?? '', 'usage: memory-guard.ts')
 })
 
 Deno.test('projectMemoryDir: the project key replaces every character outside [A-Za-z0-9-] with a dash', () => {
