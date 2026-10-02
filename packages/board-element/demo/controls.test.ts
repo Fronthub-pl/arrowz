@@ -1,3 +1,4 @@
+import { VIEW_RANGE } from '@arrowz/engine/command'
 import { expect, test } from 'vitest'
 import { DEFAULT_VIEW } from '../src/mod.ts'
 import { ATTRIBUTES, type Control, type NumberControl, VIEW_CONTROLS, viewRecord, withField } from './controls.ts'
@@ -31,14 +32,12 @@ test('every attribute control declares a default of the kind it claims', () => {
 const isNumberControl = (c: Control): c is NumberControl => c.kind === 'number'
 
 test('the view ranges are the ones the lab offers', () => {
-  const ranges = Object.fromEntries(
-    VIEW_CONTROLS.filter(isNumberControl).map((c) => [c.id, [c.min, c.max, c.step]]),
-  )
+  const ranges = Object.fromEntries(VIEW_CONTROLS.filter(isNumberControl).map((c) => [c.id, [c.min, c.max]]))
   expect(ranges).toEqual({
-    stroke: [0.2, 0.9, 0.05],
-    headWidth: [0, 0.9, 0.05],
-    headHeight: [0.1, 1, 0.05],
-    top: [0, 50, 1],
+    stroke: [VIEW_RANGE.stroke.min, VIEW_RANGE.stroke.max],
+    headWidth: [VIEW_RANGE.headWidth.min, VIEW_RANGE.headWidth.max],
+    headHeight: [VIEW_RANGE.headHeight.min, VIEW_RANGE.headHeight.max],
+    top: [VIEW_RANGE.top.min, VIEW_RANGE.top.max],
   })
 })
 

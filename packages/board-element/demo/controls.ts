@@ -11,6 +11,7 @@ import {
   DEFAULT_VIEW,
   PAD_RANGE,
 } from '../src/mod.ts'
+import { VIEW_RANGE } from '@arrowz/engine/command'
 
 /** What a control holds: a flag, a number, or a string (colour or language). */
 export type ControlValue = boolean | number | string
@@ -126,8 +127,8 @@ export const VIEW_CONTROLS: readonly Control[] = [
     label: 'stroke',
     hint: 'Line width as a fraction of a cell.',
     def: DEFAULT_VIEW.stroke,
-    min: 0.2,
-    max: 0.9,
+    min: VIEW_RANGE.stroke.min,
+    max: VIEW_RANGE.stroke.max,
     step: 0.05,
   },
   {
@@ -136,8 +137,8 @@ export const VIEW_CONTROLS: readonly Control[] = [
     label: 'headWidth',
     hint: 'Arrowhead width in cells; 0 is automatic.',
     def: DEFAULT_VIEW.headWidth,
-    min: 0,
-    max: 0.9,
+    min: VIEW_RANGE.headWidth.min,
+    max: VIEW_RANGE.headWidth.max,
     step: 0.05,
   },
   {
@@ -146,8 +147,8 @@ export const VIEW_CONTROLS: readonly Control[] = [
     label: 'headHeight',
     hint: 'Arrowhead height in cells.',
     def: DEFAULT_VIEW.headHeight,
-    min: 0.1,
-    max: 1,
+    min: VIEW_RANGE.headHeight.min,
+    max: VIEW_RANGE.headHeight.max,
     step: 0.05,
   },
   {
@@ -170,8 +171,8 @@ export const VIEW_CONTROLS: readonly Control[] = [
     label: 'top',
     hint: 'How many of the longest pieces are drawn highlighted and on top.',
     def: DEFAULT_VIEW.top,
-    min: 0,
-    max: 50,
+    min: VIEW_RANGE.top.min,
+    max: VIEW_RANGE.top.max,
     step: 1,
   },
   {
