@@ -350,7 +350,8 @@ function goRow(deps: CommandDeps, id: string, name: string, path: string): Comma
     hay: path,
     disabled: false,
     run: () => {
-      deps.navigate(path)
+      // As the tab does: see `useRememberBoards`.
+      deps.navigate(path === '/boards' ? useStore.getState().ui.lastBoards : path)
       useStore.getState().ui.closePalette()
     },
   }

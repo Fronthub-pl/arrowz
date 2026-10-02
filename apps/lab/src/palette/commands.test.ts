@@ -14,7 +14,9 @@ function deps(): CommandDeps & { went: string[] } {
 }
 
 beforeEach(() => {
-  useStore.setState((state) => ({ ui: { ...state.ui, mode: 'advanced', entry: 'board', palette: false } }))
+  useStore.setState((state) => ({
+    ui: { ...state.ui, mode: 'advanced', entry: 'board', palette: false, lastBoards: '/boards' },
+  }))
   useStore.getState().params.reset()
   useStore.getState().run.reset()
   useStore.getState().result.reset()
@@ -162,6 +164,15 @@ describe('the catalogue', () => {
     const rows = buildCommands(handed, useStore.getState())
     rows.find((row) => row.id === 'go-boards')?.run()
     expect(handed.went).toEqual(['/boards'])
+  })
+
+  it('goes to the board the saved boards tab showed last', () => {
+    useStore.setState((state) => ({ ui: { ...state.ui, lastBoards: '/boards/8x8/sha256-0101' } }))
+    const handed = deps()
+    buildCommands(handed, useStore.getState())
+      .find((row) => row.id === 'go-boards')
+      ?.run()
+    expect(handed.went).toEqual(['/boards/8x8/sha256-0101'])
   })
 
   it('lists Open file… under go, never disabled', () => {
