@@ -1337,7 +1337,7 @@ export const PL: Translation = {
     factEmpty: 'puste pola',
     recipesTitle: (n) => `Przepisy (${n})`,
     recipeName: (i) => `Przepis ${i}`,
-    recipeLatest: 'ostatni',
+    recipeLatest: 'najnowszy',
     recipeStopped: 'zatrzymany',
     recipeCommand: (i) => `Komenda przepisu ${i}`,
     recipeCaption: 'CLI · ten przepis',

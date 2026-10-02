@@ -1,5 +1,6 @@
 import { THEMES } from '@arrowz/board-element'
 import { decodeBoard } from '@arrowz/engine'
+import { dictionary } from '@arrowz/engine/i18n'
 import { genSeconds } from '@arrowz/engine/report'
 import { act, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
@@ -719,4 +720,30 @@ test('Load into lab on a recipe brings that recipe’s look', async () => {
   } finally {
     useStore.setState({ view: initial })
   }
+})
+
+// The fixture puts the latest last; a re-saved recipe is replaced in place, so in a stored board it can be first.
+test('the latest mark follows the meta’s params, not the recipe’s place in the list', async () => {
+  const [older, latest] = two.meta.sources
+  if (older === undefined || latest === undefined) throw new Error('the fixture has two recipes')
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: [latest, older] })
+  await expect.element(screen.getByText('Recipes (2)')).toBeVisible()
+  const heads = [...screen.container.querySelectorAll('.fw-recipe .fw-rhead')].map((p) => p.textContent)
+  expect(heads).toEqual(['Recipe 1 · latest', 'Recipe 2'])
+})
+
+// Distinct createdAt and updatedAt: the date shown is the last save, not the first.
+test('a recipe’s facts carry its updated date, not its created one', async () => {
+  const [older, latest] = two.meta.sources
+  if (older === undefined || latest === undefined) throw new Error('the fixture has two recipes')
+  const locale = dictionary('en').locale
+  const createdAt = '2026-01-02T03:04:05.000Z'
+  const updatedAt = '2026-08-09T10:11:12.000Z'
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: [{ ...older, createdAt, updatedAt }, latest] })
+  await expect.element(screen.getByText('Recipes (2)')).toBeVisible()
+  const facts = screen.container.querySelector('.fw-recipe .fw-rfacts')?.textContent ?? ''
+  expect(facts).toContain(new Date(updatedAt).toLocaleString(locale))
+  expect(facts).not.toContain(new Date(createdAt).toLocaleString(locale))
 })

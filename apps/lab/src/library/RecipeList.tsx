@@ -29,7 +29,7 @@ export function RecipeList({ meta, control }: { meta: BoardMeta; control: RunCon
           const n = at + 1
           const head = [
             dict.t('recipeName', n),
-            recipe.id === latest ? dict.t('recipeLatest') : '',
+            boardId(recipe.params) === latest ? dict.t('recipeLatest') : '',
             recipe.aborted ? dict.t('recipeStopped') : '',
           ]
           const date = recipe.updatedAt ? new Date(recipe.updatedAt).toLocaleString(dict.locale) : ''
