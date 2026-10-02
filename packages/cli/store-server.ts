@@ -323,7 +323,12 @@ export function createStoreServer(): (req: Request) => Promise<Response> {
         }
         const checked = checkPost(json)
         if ('error' in checked) return send(400, JSON.stringify({ error: checked.error }))
-        return send(201, JSON.stringify((await saveBoard(checked.ok)).meta))
+        const saved = await saveBoard(checked.ok)
+        // The flags let the lab tell a new board from a layout it already had.
+        return send(
+          201,
+          JSON.stringify({ meta: saved.meta, layoutExisted: saved.layoutExisted, recipeExisted: saved.recipeExisted }),
+        )
       }
       // Segments are matched on the raw path and decoded one by one, so an
       // encoded slash cannot smuggle a directory step into a name.
