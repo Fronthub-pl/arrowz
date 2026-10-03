@@ -233,6 +233,9 @@ test('a run is saved only when asked, once per run, and the outcome is appended'
         timeout: 30_000,
       })
       .toBe(true)
+    await expect
+      .element(status, { timeout: 5_000 })
+      .toMatchTextContent(/^Board complete: every cell filled\. — not saved \(⌘G or Save board\)$/)
 
     // The switch on. The guard keys on the file object's identity, not its
     // value: the second press carves an equal board, which must post again.

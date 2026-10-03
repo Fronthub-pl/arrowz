@@ -197,10 +197,54 @@ describe('RunStatusBar', () => {
     await expect.element(screen.getByRole('status')).toMatchTextContent(`${EN.t('closed')} — ${EN.t('notSaved')}`)
     const next = { ...CLOSED, board: { ...CLOSED.board } }
     await act(async () => {
-      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().run.started(useStore.getState().params.values, true)
       useStore.getState().completeRun({ board: RESULT.board, file: next.board, report: next })
     })
-    await expect.poll(() => screen.getByRole('status').element().textContent).toBe(EN.t('closed'))
+    await expect
+      .poll(() => screen.getByRole('status').element().textContent)
+      .toBe(`${EN.t('closed')} — ${EN.t('saving')}`)
+  })
+
+  // The whole text: `toMatchTextContent` matches a substring.
+  it('says a dry run was not saved, and how to save it', async () => {
+    const state = useStore.getState()
+    state.run.started(state.params.values)
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    const screen = await mountBar()
+    await expect
+      .poll(() => screen.getByRole('status').element().textContent)
+      .toBe(`${EN.t('closed')} — ${EN.t('notSavedDryRun')}`)
+  })
+
+  it('says it in Polish too', async () => {
+    const PL = dictionary('pl')
+    useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } }))
+    const state = useStore.getState()
+    state.run.started(state.params.values)
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    const screen = await mountBar()
+    await expect
+      .poll(() => screen.getByRole('status').element().textContent)
+      .toBe(`${PL.t('closed')} — ${PL.t('notSavedDryRun')}`)
+  })
+
+  // Between `completeRun` and `useStoreSave`'s effect nothing has gone out yet;
+  // the line must not say "not saved" for that frame.
+  it('says saving for a run that asked, before and while its save is pending', async () => {
+    const state = useStore.getState()
+    state.run.started(state.params.values, true)
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    const screen = await mountBar()
+    const text = () => screen.getByRole('status').element().textContent
+    await expect.poll(text).toBe(`${EN.t('closed')} — ${EN.t('saving')}`)
+    await act(async () => useStore.getState().result.saving(CLOSED.board))
+    await expect.poll(text).toBe(`${EN.t('closed')} — ${EN.t('saving')}`)
+  })
+
+  it('appends nothing to a stopped board, which cannot be saved', async () => {
+    finish(stoppedRun(1))
+    const screen = await mountBar()
+    await expect.poll(() => screen.getByRole('status').element().textContent).toBe(EN.t('stopped'))
   })
 
   // The line speaks for the board the library has on screen, and the store's
