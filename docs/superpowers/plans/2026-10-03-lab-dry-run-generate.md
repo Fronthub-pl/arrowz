@@ -22,6 +22,8 @@
 - Nx shares its cache between worktrees: run every gate with `--skip-nx-cache`.
 - `nx run lab:fmt` only checks; format with `npx prettier --write <files>` in `apps/lab`.
 - No attribution lines in commit messages.
+- A new test case goes at the end of its file (or of the `describe` named), unless the step names the case it follows.
+- Never edit anything under `packages/cli/boards/` (the user's real, git-ignored store).
 
 ## Review Focus
 
@@ -29,12 +31,12 @@
 2. **A double click on Save board posts once.** → Task 2, `saveShown` twice while pending.
 3. **Save board pressed while a new carve runs** saves the board on screen, and its late answer must not land on the next board. → Task 2, answer-after-replacement case.
 4. **⌘G with the focus in a knob field, or with Alt, or held down (repeat)** starts nothing; plain ⌘G also stops the browser's "find next". → Task 5, LabLayout case with `cancelable: true` and phases recorded through `useStore.subscribe`.
-5. **A fourth button in the run row at M/S (768–1279 px)** must keep the `bar-row` invariant (controls ≤ 104 px tall). → Task 4, Step 6 runs `LayoutInvariants` and stops if it fails.
+5. **A fourth button in the run row at M/S (768–1279 px)** must keep the `bar-row` invariant (controls ≤ 104 px tall); in Polish the full "Zapisz planszę" breaks it, so the bar shows `saveShort`. → Task 4, Step 6 runs `LayoutInvariants` and stops if it fails.
 
 ## Setup (once, before Task 1)
 
 ```bash
-cd /Users/tomek/dev/arrowz-dry-run-generate
+cd <your worktree of lab/dry-run-generate>
 pnpm --version || corepack enable pnpm
 pnpm install
 pnpm nx build board-element --skip-nx-cache   # builds the engine too
@@ -192,7 +194,7 @@ pnpm vitest run --project node src/state/store.test.ts src/state/ui.slice.test.t
 pnpm vitest run --project chromium src/run/useRun.browser.test.tsx src/state/preferences.browser.test.ts src/worker/useGenerator.browser.test.tsx
 ```
 
-Expected: FAIL (`setSaveEvery is not a function`, `shown.save` undefined, `saves` equal `[undefined]`).
+Expected: FAIL (`setSaveEvery is not a function` — in useRun's `beforeEach`, so every case there; `shown.save`/`run.save` undefined).
 
 - [ ] **Step 3: Implement**
 
@@ -367,7 +369,7 @@ git commit -m "lab: a run carries the intent to save, decided when it starts"
   - `saveRefusal(state: Store): SaveRefusal | null`.
   - `postShown(shown: ShownResult): void`.
   - `saveShown(): void`.
-  - Dictionary `ui` keys (EN / PL): `saveBoard`, `saveEvery`, `generateAndSave`, `notSavedDryRun`, `saving`, `saveNoBoard`, `saveStopped`, `savePending`, `saveDone`.
+  - Dictionary `ui` keys (EN / PL): `saveBoard`, `saveShort`, `saveEvery`, `generateAndSave`, `notSavedDryRun`, `saving`, `saveNoBoard`, `saveStopped`, `savePending`, `saveDone`.
 
 - [ ] **Step 1: Add the dictionary keys and rebuild the engine**
 
@@ -375,6 +377,7 @@ In `packages/engine/lab-i18n.ts`, `EN.ui`, after `savedOldStore`:
 
 ```ts
     saveBoard: 'Save board',
+    saveShort: 'Save',
     saveEvery: 'save every board',
     generateAndSave: 'Generate and save',
     notSavedDryRun: 'not saved (⌘G or Save board)',
@@ -395,6 +398,7 @@ In `PL.ui`, after its `savedOldStore`:
 
 ```ts
     saveBoard: 'Zapisz planszę',
+    saveShort: 'Zapisz',
     saveEvery: 'zapisuj każdą planszę',
     generateAndSave: 'Generuj i zapisz',
     notSavedDryRun: 'nie zapisano (⌘G albo Zapisz planszę)',
@@ -406,11 +410,12 @@ In `PL.ui`, after its `savedOldStore`:
 ```
 
 ```ts
-    storeEmpty: 'Magazyn jest pusty. Zapisz planszę w laboratorium (Zapisz planszę albo ⌘G) albo uruchom deno task carve.',
+    storeEmpty:
+      'Magazyn jest pusty. Zapisz planszę w laboratorium (Zapisz planszę albo ⌘G) albo uruchom deno task carve.',
 ```
 
 ```bash
-cd packages/engine && deno task test && cd ../..
+cd packages/engine && deno fmt lab-i18n.ts && deno task verify && cd ../..
 pnpm nx build engine --skip-nx-cache
 grep -c "notSavedDryRun" packages/engine/dist/lab-i18n.js   # expect 2
 ```
@@ -935,7 +940,7 @@ git commit -m "lab: the run line says a dry run was not saved, and saving while 
 - Test: `apps/lab/src/run/RunColumn.browser.test.tsx`
 
 **Interfaces:**
-- Consumes: `saveRefusal`, `saveShown` (`library/saveShown.ts`), `ui.saveEvery`, `ui.setSaveEvery`, keys `saveBoard`, `saveEvery` and the four refusals.
+- Consumes: `saveRefusal`, `saveShown` (`library/saveShown.ts`), `ui.saveEvery`, `ui.setSaveEvery`, keys `saveBoard`, `saveShort`, `saveEvery` and the four refusals.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -967,6 +972,7 @@ add `state.ui.setSaveEvery(false)` to `beforeEach`, add `afterEach(() => vi.rest
     const screen = await render(<RunColumn control={stub().control} />)
     await expect.element(screen.getByRole('switch', { name: 'save every board' })).toBeInTheDocument()
     expect(screen.getByRole('switch').elements()).toHaveLength(1)
+    await expect.element(screen.getByRole('button', { name: 'Save board' })).toBeInTheDocument()
   })
 ```
 
@@ -981,6 +987,16 @@ describe('Save board', () => {
     const screen = await render(<RunColumn control={stub().control} />)
     expect(save(screen).disabled).toBe(true)
     expect(save(screen).title).toBe('No board to save yet')
+  })
+
+  // The bar shows the short word; the accessible name is the full one and contains it.
+  it('shows a short label and keeps the full name, in both languages', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    expect(save(screen).textContent).toBe('Save')
+    await act(async () => useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } })))
+    const pl = buttonOf(screen.getByRole('button', { name: 'Zapisz planszę' }).element())
+    expect(pl.textContent).toBe('Zapisz')
+    await act(async () => useStore.setState((s) => ({ lang: { ...s.lang, lang: 'en' } })))
   })
 
   // Read once after the click: a poll would wait out the pending state (the fetch never answers).
@@ -1050,13 +1066,16 @@ In `.fw-alt`, after the Abort button:
           {stopping ? dict.t('abortDiscard') : dict.t('abort')}
         </button>
         {/* The board on screen, not a new run: shared with the palette's row. */}
+        {/* Short text: in Polish the full name wraps the M/S bar to a third row
+            (128 px against 104). The name keeps both words and contains the text. */}
         <button
           type="button"
           onClick={saveShown}
           disabled={refusal !== null}
+          aria-label={dict.t('saveBoard')}
           title={refusal === null ? undefined : dict.t(refusal)}
         >
-          {dict.t('saveBoard')}
+          {dict.t('saveShort')}
         </button>
 ```
 
@@ -1091,7 +1110,7 @@ Expected: clean.
 cd apps/lab && pnpm vitest run --project chromium src/routes/LayoutInvariants.browser.test.tsx src/routes/LabLayout.browser.test.tsx
 ```
 
-Expected: PASS. If `bar-row` reports `controls … px tall` or any invariant fails at M/S (768–1279 px), **stop and report the failing states and measured heights**. Where the button lives is the spec's decision (the run row), so neither the threshold in `harness/invariants.ts` nor the placement is moved without the user.
+Expected: PASS. Measured in the dry run with the short label: controls 88 px at 1024×768 in English and Polish (the full Polish name gave 128 px against the 104 px limit), 48–88 px at 768×1024. If `bar-row` or any invariant still fails at M/S (768–1279 px), **stop and report the failing states and measured heights**: neither the threshold in `harness/invariants.ts` nor the placement is moved without the user.
 
 - [ ] **Step 7: Commit**
 
@@ -1109,6 +1128,8 @@ git commit -m "lab: Save board and the save-every switch in the run column"
 - Modify: `apps/lab/src/run/actions.ts` (`generateAndSave`)
 - Modify: `apps/lab/src/shell/hotkeys.ts` (`isHotkeyRefused` split, ⌘G in `useWorkspaceKeys`)
 - Modify: `apps/lab/src/palette/commands.ts` (two rows)
+- Modify: `apps/lab/src/palette/CommandPalette.tsx` (the memo's dependencies: the Save board row reads `saveRefusal`)
+- Test: `apps/lab/src/palette/CommandPalette.browser.test.tsx`
 - Test: `apps/lab/src/run/actions.test.ts`, `apps/lab/src/palette/commands.test.ts`, `apps/lab/src/routes/LabLayout.browser.test.tsx`, `apps/lab/src/routes/Workspace.browser.test.tsx`
 
 **Interfaces:**
@@ -1117,7 +1138,7 @@ git commit -m "lab: Save board and the save-every switch in the run column"
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `apps/lab/src/run/actions.test.ts` (match its existing imports; add `generateAndSave` to the `./actions` import and `RunControl` type if absent):
+Append to `apps/lab/src/run/actions.test.ts`. Its vitest import has no `test`; make it `import { beforeEach, describe, expect, it, test } from 'vitest'`, and add `generateAndSave` to the `./actions` import and the `RunControl` type if absent:
 
 ```ts
 test('generateAndSave starts a run that asks to save', () => {
@@ -1128,7 +1149,7 @@ test('generateAndSave starts a run that asks to save', () => {
 })
 ```
 
-In `apps/lab/src/palette/commands.test.ts`: import `finish, finishedRun` from `'../state/result.fixtures'`; in `'never disables a row without giving one of D7’s reasons'` extend the reasons:
+In `apps/lab/src/palette/commands.test.ts`: import `finish, finishedRun` from `'../state/result.fixtures'` and add `vi` to the vitest import; in `'never disables a row without giving one of D7’s reasons'` extend the reasons:
 
 ```ts
     const reasons = [
@@ -1186,6 +1207,33 @@ and add:
     finish(finishedRun(1))
     expect(row()?.disabled).toBe(false)
     expect(row()?.value).toBe('')
+    const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+    try {
+      useStore.getState().ui.openPalette()
+      row()?.run()
+      expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
+      expect(row()?.value).toBe('Saving…')
+      expect(useStore.getState().ui.palette).toBe(false)
+    } finally {
+      fetch.mockRestore()
+    }
+  })
+```
+
+In `apps/lab/src/palette/CommandPalette.browser.test.tsx` (add `import { act } from 'react'` and `import { finish, finishedRun } from '../state/result.fixtures'`), inside its main `describe`:
+
+```tsx
+  // The memo's dependencies are kept by hand; an answer arriving while the palette is open must reach the row.
+  it('updates the Save board row when the store answers while it is open', async () => {
+    const run = finishedRun(1)
+    finish(run)
+    useStore.getState().result.saving(run.file)
+    const screen = await mount()
+    const row = () =>
+      [...screen.container.querySelectorAll('[role="option"]')].find((o) => o.textContent?.includes('Save board'))
+    await expect.poll(() => row()?.textContent).toContain('Saving…')
+    await act(async () => useStore.getState().result.stored(run.file, { ok: false, error: 'no store server' }))
+    await expect.poll(() => row()?.textContent).not.toContain('Saving…')
   })
 ```
 
@@ -1226,8 +1274,16 @@ test('⌘G and Ctrl+G generate and save, and refuse Alt, a repeat and a field', 
   const phases: string[] = []
   const unsubscribe = useStore.subscribe((state) => void phases.push(state.run.phase))
   try {
-    for (const refused of [{ altKey: true }, { repeat: true }]) {
+    for (const refused of [{ altKey: true }, { repeat: true }, { isComposing: true }]) {
       press(document.body, { key: 'g', metaKey: true, ...refused })
+    }
+    // Consumed closer to the target, as `f`'s case does it.
+    const cancel = (event: KeyboardEvent) => event.preventDefault()
+    document.addEventListener('keydown', cancel, { capture: true })
+    try {
+      press(document.body, { key: 'g', metaKey: true, cancelable: true })
+    } finally {
+      document.removeEventListener('keydown', cancel, { capture: true })
     }
     expect(phases).not.toContain('running')
 
@@ -1390,6 +1446,21 @@ and after the `run-generate` row:
         state.ui.closePalette()
       },
     },
+```
+
+`apps/lab/src/palette/CommandPalette.tsx` — the `commands` memo lists by hand every slice a row reads; the Save board row reads the store's answer, so its refusal joins the list:
+
+```ts
+import { saveRefusal } from '../library/saveShown'
+```
+
+```ts
+  const view = useStore((state) => state.view)
+  const refusal = useStore(saveRefusal)
+```
+
+```ts
+    [deps, values, violations, running, seriesStopping, runStopping, mode, lang, view, refusal],
 ```
 
 - [ ] **Step 4: Run the tests to verify they pass**

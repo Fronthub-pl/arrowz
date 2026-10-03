@@ -70,7 +70,11 @@ running again. The status line says when a board on screen was not saved.
   - a save of it is pending (a double click posts once);
   - the store already answered `ok` for it.
   After a failed save (no store server, an old one) it is enabled again, so
-  the save can be retried.
+  the save can be retried. The button shows the short word ("Save" /
+  "Zapisz"); its accessible name is the full "Save board" / "Zapisz planszę",
+  which contains it. Measured: the full Polish label wraps the M/S bar at
+  1024×768 to a third row (controls 128 px against `bar-row`'s 104); the short
+  one keeps 88 px in both languages.
 - **Pending is part of the answer.** `result.saved` becomes
   `SaveOutcome | 'pending' | null`, still for `shown.file` and no other file.
   A new `result.saving(file)` sets `'pending'` under the same file check as
@@ -95,7 +99,8 @@ English is the source, Polish the translation (`packages/engine/lab-i18n.ts`).
 
 | Key | English |
 |---|---|
-| `saveBoard` | Save board |
+| `saveBoard` | Save board (accessible name, palette row) |
+| `saveShort` | Save (the button's text) |
 | `saveEvery` | save every board (lower case, as `autoRun`) |
 | `generateAndSave` | Generate and save |
 | `notSavedDryRun` | not saved (⌘G or Save board) |
