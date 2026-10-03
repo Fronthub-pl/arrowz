@@ -259,7 +259,7 @@ export function useRunLine(): Omit<RunState, 'library'> {
   // The store's answer is appended, never substituted: a missing store must not
   // overwrite what the run reported. Only the three branches that report a board
   // this run produced set `reportsRun`, next to their text, so the two cannot drift.
-  const answer = !reportsRun || saved === null ? '' : ` — ${saveText(dict, saved)}`
+  const answer = !reportsRun || saved === null || saved === 'pending' ? '' : ` — ${saveText(dict, saved)}`
   const runLive = `${text}${answer}`
 
   return { live: runLive, run: { text: rest ?? runLive, bad }, meter }

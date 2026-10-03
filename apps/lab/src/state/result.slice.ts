@@ -52,13 +52,15 @@ export type Preview = StoredBoard | OpenedFile
 export interface ResultState {
   shown: ShownResult | null
   baseline: Baseline | null
-  /** The store's answer for `shown.file`, and for no other file. */
-  saved: SaveOutcome | null
+  /** The store's answer for `shown.file`, or `'pending'` while one is awaited; for no other file. */
+  saved: SaveOutcome | 'pending' | null
   /** Why the last SVG export of `shown.file` failed, and of no other file. */
   exportError: string | null
   /** The board the library shows, beside the run's own and never instead of it. */
   preview: Preview | null
   stored(file: BoardFile, outcome: SaveOutcome): void
+  /** A save of `file` has gone out; a no-op for a file no longer shown, as `stored` is. */
+  saving(file: BoardFile): void
   /** An SVG export of `file` failed with `error`, or is starting again and clears it with null. */
   exported(file: BoardFile, error: string | null): void
   /** The library draws a stored board or an opened file. The run's result is untouched. */
@@ -135,6 +137,10 @@ export function createResultSlice(set: SliceSet<'result', ResultState>): ResultS
     // update whose result is the state object itself.
     stored: (file, saved) =>
       set((state) => (state.result.shown?.file === file ? { result: { ...state.result, saved } } : state)),
+    saving: (file) =>
+      set((state) =>
+        state.result.shown?.file === file ? { result: { ...state.result, saved: 'pending' as const } } : state,
+      ),
     exported: (file, exportError) =>
       set((state) => (state.result.shown?.file === file ? { result: { ...state.result, exportError } } : state)),
     showPreview: (preview) => set((state) => ({ result: { ...state.result, preview } })),

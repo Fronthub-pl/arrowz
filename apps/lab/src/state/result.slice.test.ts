@@ -198,3 +198,13 @@ test('a new preview view without a preview does nothing', () => {
   result().previewView({ ...storedFixture(3).meta.view, stroke: 0.9 })
   expect(useStore.getState().result).toBe(before)
 })
+
+test('saving marks the shown board pending, and is dropped for a board no longer shown', () => {
+  finish(ONE)
+  result().saving({ ...ONE.file })
+  expect(result().saved).toBeNull()
+  result().saving(ONE.file)
+  expect(result().saved).toBe('pending')
+  finish(TWO)
+  expect(result().saved).toBeNull()
+})

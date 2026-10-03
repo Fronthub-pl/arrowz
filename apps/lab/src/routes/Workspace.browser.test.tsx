@@ -15,11 +15,11 @@ import '../design/index.css'
 /**
  * Whether the store has answered for a board other than `before`. `saved` alone
  * cannot say it: a run in flight keeps the last result and its answer, so right
- * after a press `saved` still describes the board before it.
+ * after a press `saved` still describes the board before it; `'pending'` is no answer yet.
  */
 function savedAfter(before: unknown): boolean {
   const { shown, saved } = useStore.getState().result
-  return shown !== null && shown.file !== before && saved !== null
+  return shown !== null && shown.file !== before && saved !== null && saved !== 'pending'
 }
 
 /**
@@ -206,43 +206,45 @@ test('the lab panel is hidden off-route and shown on it', async () => {
 }, 20_000)
 
 // Under StrictMode, whose double-invoked mount effect is what the save guard's
-// ref survives. Counting the POSTs, because `saved !== null` holds for a run
-// posted twice too. `fetch` is spied on, not stubbed, so the POST still fails for real.
-test('a finished run is offered to the store once per run, and the outcome is appended', async () => {
+// ref survives. The spy goes on before the mount, so the load run is counted
+// too; spied, not stubbed, so the POST still fails for real.
+test('a run is saved only when asked, once per run, and the outcome is appended', async () => {
   await clearOfTheDrawer()
-  // Reset like `mountApp`, but rendered inside StrictMode.
   resetApp('advanced')
-  const screen = await render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  )
-  // The page carves on load, and that run posts too. Its POST is awaited here
-  // rather than counted, so the spy is installed on a quiet page and the counts
-  // below are this test's own presses, whenever the load save lands.
-  await expect.poll(() => useStore.getState().result.saved !== null, { timeout: 30_000 }).toBe(true)
   const fetchSpy = vi.spyOn(window, 'fetch')
-  // The method is part of the predicate: `listBoards()` GETs this same address,
-  // and an address-only filter would count that as a save.
+  // The method is part of the predicate: `listBoards()` GETs this same address.
   const posts = () =>
     fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards' && call[1]?.method === 'POST')
   try {
+    const screen = await render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+    await loadRunDone()
     const generate = screen.getByRole('button', { name: 'Generate' })
+    const status = screen.getByRole('status', { name: 'Run status' })
+
+    // The switch is off: Generate is a dry run.
     const loaded = useStore.getState().result.shown?.file
     await generate.click()
-    await expect.poll(() => savedAfter(loaded), { timeout: 30_000 }).toBe(true)
-    // No store server answers in the browser test, so the outcome is a failure,
-    // and the run's own outcome must survive beside it. The whole line is
-    // asserted: a bar that *substituted* the store's answer would match less.
-    expect(useStore.getState().run.phase).toBe('done')
     await expect
-      .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
-      .toMatchTextContent(/^Board complete: every cell filled\. — (not )?saved/)
-    expect(posts()).toHaveLength(1)
+      .poll(() => useStore.getState().result.shown?.file !== loaded && useStore.getState().run.phase === 'done', {
+        timeout: 30_000,
+      })
+      .toBe(true)
 
-    // The guard keys on the file object's identity, not its value: the second
-    // press carves a board equal to the first in every field, so a value guard
-    // would post once and swallow the second run.
+    // The switch on. The guard keys on the file object's identity, not its
+    // value: the second press carves an equal board, which must post again.
+    useStore.getState().ui.setSaveEvery(true)
+    const dry = useStore.getState().result.shown?.file
+    await generate.click()
+    await expect.poll(() => savedAfter(dry), { timeout: 30_000 }).toBe(true)
+    // The load run and the dry run posted nothing.
+    expect(posts()).toHaveLength(1)
+    await expect
+      .element(status, { timeout: 5_000 })
+      .toMatchTextContent(/^Board complete: every cell filled\. — (not )?saved/)
     const first = useStore.getState().result.shown?.file
     await generate.click()
     await expect.poll(() => savedAfter(first), { timeout: 20_000 }).toBe(true)
@@ -378,9 +380,8 @@ test('the knobs on screen are the knobs the run used', async () => {
 test('the saved board carries the view on screen', async () => {
   await clearOfTheDrawer()
   const screen = await mountApp()
-  // The load run's own save is awaited before the spy goes on, as in the
-  // StrictMode case; the length assertion below still says which POST this is.
-  await expect.poll(() => useStore.getState().result.saved !== null, { timeout: 30_000 }).toBe(true)
+  // The load run is a dry run and posts nothing, so the spy's window holds this case's POST alone.
+  await loadRunDone()
   const fetchSpy = vi.spyOn(window, 'fetch')
   try {
     await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
@@ -393,6 +394,7 @@ test('the saved board carries the view on screen', async () => {
     // exercises the save's own zeroing rather than a setter that might zero it first.
     useStore.setState((s) => ({ view: { ...s.view, highlightLongest: true, top: 5 } }))
     const loaded = useStore.getState().result.shown?.file
+    useStore.getState().ui.setSaveEvery(true)
     await screen.getByRole('button', { name: 'Generate' }).click()
     await expect.poll(() => savedAfter(loaded), { timeout: 30_000 }).toBe(true)
 
