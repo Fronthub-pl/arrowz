@@ -189,6 +189,19 @@ function presetRows(deps: CommandDeps, series: boolean): Command[] {
   return rows
 }
 
+/**
+ * A run row's `run`: the lab first, then the action. Off the lab the stage
+ * shows a stored board or nothing, so a run or a save there would act on a
+ * board that is not on screen.
+ */
+function onLab(deps: CommandDeps, state: Store, act: () => void): () => void {
+  return () => {
+    deps.navigate('/')
+    act()
+    state.ui.closePalette()
+  }
+}
+
 /** Every row the palette can show, in the order it shows them. */
 export function buildCommands(deps: CommandDeps, state: Store): Command[] {
   const { dict } = deps
@@ -206,10 +219,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : 'g',
       hay: 'generate',
       disabled: running || broken,
-      run: () => {
-        generate(deps.control)
-        state.ui.closePalette()
-      },
+      run: onLab(deps, state, () => generate(deps.control)),
     },
     {
       id: 'run-generate-save',
@@ -219,10 +229,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : '⌘G',
       hay: 'generate save store keep',
       disabled: running || broken,
-      run: () => {
-        generateAndSave(deps.control)
-        state.ui.closePalette()
-      },
+      run: onLab(deps, state, () => generateAndSave(deps.control)),
     },
     {
       id: 'run-save',
@@ -233,10 +240,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       value: refusal === null ? '' : dict.t(refusal),
       hay: 'save store keep',
       disabled: refusal !== null,
-      run: () => {
-        saveShown()
-        state.ui.closePalette()
-      },
+      run: onLab(deps, state, () => saveShown()),
     },
     {
       id: 'run-reseed',
@@ -248,10 +252,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       value: running ? dict.t('cmdRunning') : '[ ]',
       hay: 'seed',
       disabled: running,
-      run: () => {
-        reseed(deps.control)
-        state.ui.closePalette()
-      },
+      run: onLab(deps, state, () => reseed(deps.control)),
     },
     {
       id: 'run-defaults',
@@ -261,10 +262,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       value: running ? dict.t('cmdRunning') : '',
       hay: 'defaults reset',
       disabled: running,
-      run: () => {
-        defaults(deps.control)
-        state.ui.closePalette()
-      },
+      run: onLab(deps, state, () => defaults(deps.control)),
     },
     {
       id: 'run-abort',
@@ -292,10 +290,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
             value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : '',
             hay: 'check seeds series many rate',
             disabled: running || broken,
-            run: () => {
-              deps.control.checkSeeds()
-              state.ui.closePalette()
-            },
+            run: onLab(deps, state, () => deps.control.checkSeeds()),
           },
         ]),
     {
