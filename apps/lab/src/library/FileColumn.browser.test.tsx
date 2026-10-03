@@ -48,6 +48,8 @@ test('with its meta, Load into lab sets the knobs and starts one run', async () 
   await userEvent.click(page.getByRole('button', { name: 'Load into lab' }))
   expect(useStore.getState().params.values.seed).toBe(3)
   expect(control.start).toHaveBeenCalledTimes(1)
+  // A file from disk is not in the store, whatever id its meta carries: no stored layout to compare with.
+  expect(control.start).toHaveBeenCalledWith()
 })
 
 test('with its meta, the command is shown and there is still no Delete', async () => {

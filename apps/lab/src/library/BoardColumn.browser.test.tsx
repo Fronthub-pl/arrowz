@@ -686,6 +686,8 @@ test('Load into lab on the older recipe sets that recipe’s knobs and goes to t
   await userEvent.click(screen.getByRole('button', { name: 'Load into lab: recipe 1' }))
   expect(useStore.getState().params.values.restarts).toBe(5)
   expect(run.seeds).toEqual([two.meta.seed])
+  // The run is told which stored layout it re-carves, so its dry run can be compared with it.
+  expect(run.control.start).toHaveBeenCalledWith({ storedId: two.meta.id })
   await expect.element(screen.getByTestId('address')).toHaveTextContent('/')
 })
 
@@ -796,3 +798,10 @@ test('at 860x900 the recipe list stays off the bar, with the facts', async () =>
     await page.viewport(414, 896)
   }
 }, 40_000)
+
+test('Load into lab tells the run which stored layout it re-carves', async () => {
+  const screen = await mountDetail()
+  await show()
+  await userEvent.click(screen.getByRole('button', { name: 'Load into lab', exact: true }))
+  expect(run.control.start).toHaveBeenCalledWith({ storedId: stored.meta.id })
+})
