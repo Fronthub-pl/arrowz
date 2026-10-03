@@ -152,6 +152,11 @@ describe('the catalogue', () => {
     finish(finishedRun(1))
     expect(row()?.disabled).toBe(false)
     expect(row()?.value).toBe('')
+    // It saves the board on screen, so a carve going does not turn it off.
+    useStore.getState().run.started(useStore.getState().params.values)
+    expect(row()?.disabled).toBe(false)
+    expect(row()?.value).toBe('')
+    useStore.getState().run.reset()
     const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
     try {
       useStore.getState().ui.openPalette()

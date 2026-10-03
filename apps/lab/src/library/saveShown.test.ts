@@ -38,3 +38,9 @@ test('allows a retry after a failed save', () => {
   useStore.getState().result.stored(ONE.file, { ok: false, error: 'no store server' })
   expect(saveRefusal(useStore.getState())).toBeNull()
 })
+
+test('treats a stale answer as saved: an older store server did save the board', () => {
+  finish(ONE)
+  useStore.getState().result.stored(ONE.file, { ok: false, error: 'x', stale: true })
+  expect(saveRefusal(useStore.getState())).toBe('saveDone')
+})

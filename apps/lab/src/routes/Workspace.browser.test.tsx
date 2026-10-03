@@ -427,8 +427,7 @@ test('the saved board carries the view on screen', async () => {
     await screen.getByRole('button', { name: 'Generate' }).click()
     await expect.poll(() => savedAfter(loaded), { timeout: 30_000 }).toBe(true)
 
-    // Filtered, not `find`: earlier tests never await their own save, so a POST
-    // of theirs can land inside this spy's window.
+    // Filtered by address and method: the spy also sees the library's GETs.
     const posts = fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards' && call[1]?.method === 'POST')
     expect(posts).toHaveLength(1)
     const request = JSON.parse(String(posts[0]?.[1]?.body)) as StoreRequest

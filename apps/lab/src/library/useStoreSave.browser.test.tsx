@@ -16,7 +16,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-/** The parsed body of the one POST an auto-save sends. */
+/** The parsed body of the first POST the spy saw. */
 function posted(fetch: MockInstance<typeof globalThis.fetch>): StoreRequest {
   const call = fetch.mock.calls.find(([, init]) => init?.method === 'POST')
   return JSON.parse(String(call?.[1]?.body)) as StoreRequest

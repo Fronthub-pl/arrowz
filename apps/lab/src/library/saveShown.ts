@@ -10,14 +10,15 @@ export type SaveRefusal = 'saveNoBoard' | 'saveStopped' | 'savePending' | 'saveD
 
 /**
  * Save board's rule. A stopped board is a look at where a run got to, not a
- * board to keep. A failed save is not refused: it can be tried again.
+ * board to keep. A failed save is not refused: it can be tried again, except a
+ * stale answer, where an older store server did save the board.
  */
 export function saveRefusal(state: Store): SaveRefusal | null {
   const { shown, saved } = state.result
   if (shown === null) return 'saveNoBoard'
   if (shown.report.aborted) return 'saveStopped'
   if (saved === 'pending') return 'savePending'
-  if (saved !== null && saved.ok) return 'saveDone'
+  if (saved !== null && (saved.ok || saved.stale === true)) return 'saveDone'
   return null
 }
 
