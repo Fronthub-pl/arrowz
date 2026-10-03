@@ -5,7 +5,7 @@ import { useStore } from '../state/store'
 
 /** Not `Generator`, which would shadow the standard library's `Generator<T>`. */
 export interface GeneratorHandle {
-  start(params: Params): void
+  start(params: Params, save: boolean): void
   abort(): void
 }
 
@@ -85,9 +85,9 @@ export function useGenerator(): GeneratorHandle {
 
   return useMemo<GeneratorHandle>(
     () => ({
-      start(params) {
+      start(params, save) {
         if (busy.current) kill()
-        actions().started(params)
+        actions().started(params, save)
         busy.current = true
         // A fresh flag per run: a flag raised for the old run must not stop the new one.
         stop.current = crossOriginIsolated ? new Int32Array(new SharedArrayBuffer(4)) : null

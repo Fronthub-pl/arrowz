@@ -14,6 +14,8 @@ export interface RunState {
   phase: RunPhase
   /** The parameters this run was started with — not the knobs on screen. */
   params: Params | null
+  /** Whether the board this run makes is to be saved, decided when it started (`useRun.start`). */
+  save: boolean
   progress: TraceInfo | null
   message: string | null
   /**
@@ -24,7 +26,7 @@ export interface RunState {
   wasAborted: boolean
   /** Stop was pressed and the worker has not answered yet; a second Stop discards. */
   stopping: boolean
-  started(params: Params): void
+  started(params: Params, save?: boolean): void
   progressed(info: TraceInfo): void
   failed(message: string): void
   aborted(): void
@@ -35,6 +37,7 @@ export interface RunState {
 const EMPTY = {
   phase: 'idle',
   params: null,
+  save: false,
   progress: null,
   message: null,
   wasAborted: false,
@@ -50,7 +53,7 @@ export function createRunSlice(set: SliceSet<'run', RunState>): RunState {
   const patch = patcher(set, 'run')
   return {
     ...EMPTY,
-    started: (params) => patch({ ...EMPTY, phase: 'running', params }),
+    started: (params, save = false) => patch({ ...EMPTY, phase: 'running', params, save }),
     progressed: (progress) => patch({ progress }),
     failed: (message) => patch({ phase: 'error', progress: null, message, stopping: false }),
     // The only transition that leaves a mark on an otherwise empty slice: the

@@ -1,9 +1,11 @@
+import { act } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { MemoryRouter } from 'react-router'
 import { buildCommand } from '@arrowz/engine/command'
 import type { RunControl } from '../run/useRun'
+import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
 import { CommandPalette } from './CommandPalette'
@@ -240,6 +242,19 @@ describe('the palette dialog', () => {
     abort.focus()
     await userEvent.keyboard('{Escape}')
     expect(useStore.getState().ui.palette).toBe(false)
+  })
+
+  // The memo's dependencies are kept by hand; an answer arriving while the palette is open must reach the row.
+  it('updates the Save board row when the store answers while it is open', async () => {
+    const run = finishedRun(1)
+    finish(run)
+    useStore.getState().result.saving(run.file)
+    const screen = await mount()
+    const row = () =>
+      [...screen.container.querySelectorAll('[role="option"]')].find((o) => o.textContent?.includes('Save board'))
+    await expect.poll(() => row()?.textContent).toContain('Saving…')
+    await act(async () => useStore.getState().result.stored(run.file, { ok: false, error: 'no store server' }))
+    await expect.poll(() => row()?.textContent).not.toContain('Saving…')
   })
 })
 

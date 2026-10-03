@@ -14,7 +14,7 @@ function Harness({ drive }: { drive: (g: GeneratorHandle) => void | (() => void)
   return null
 }
 
-const start = (params: Parameters<GeneratorHandle['start']>[0]) => (g: GeneratorHandle) => g.start(params)
+const start = (params: Parameters<GeneratorHandle['start']>[0]) => (g: GeneratorHandle) => g.start(params, false)
 
 // Each test states its own timeout: Vitest's default 5 s is shorter than the
 // polls, whose failure would then name nothing. Budget = polls + fixed waits
@@ -104,7 +104,7 @@ test('without isolation, abort terminates the worker and nothing arrives afterwa
     await render(
       <Harness
         drive={(g) => {
-          g.start({ ...defaultParams(), W: 200, H: 200, seed: 9 })
+          g.start({ ...defaultParams(), W: 200, H: 200, seed: 9 }, false)
           const id = setTimeout(() => g.abort(), 30)
           return () => clearTimeout(id)
         }}
@@ -126,7 +126,7 @@ test('Stop on a traced run hands back the board laid so far', async () => {
   useStore.getState().run.reset()
   useStore.getState().result.reset()
   const handle = await mountHandle()
-  await act(async () => handle().start({ ...defaultParams(), W: 600, H: 600, seed: 11 }))
+  await act(async () => handle().start({ ...defaultParams(), W: 600, H: 600, seed: 11 }, false))
   await expect.poll(() => useStore.getState().run.progress !== null, { timeout: 20_000 }).toBe(true)
   await act(async () => handle().abort())
   expect(useStore.getState().run.stopping).toBe(true)
@@ -145,7 +145,7 @@ test('a second Stop while stopping discards the run', async () => {
   vi.stubGlobal('Worker', HeldWorker)
   try {
     const handle = await mountHandle()
-    await act(async () => handle().start({ ...defaultParams(), W: 16, H: 16, seed: 5 }))
+    await act(async () => handle().start({ ...defaultParams(), W: 16, H: 16, seed: 5 }, false))
     await act(async () => handle().abort())
     expect(useStore.getState().run.stopping).toBe(true)
     await act(async () => handle().abort())
@@ -165,7 +165,7 @@ test('a run that finishes unstopped after Stop ends the stop request', async () 
   vi.stubGlobal('Worker', HeldWorker)
   try {
     const handle = await mountHandle()
-    await act(async () => handle().start({ ...defaultParams(), W: 8, H: 8, seed: 1 }))
+    await act(async () => handle().start({ ...defaultParams(), W: 8, H: 8, seed: 1 }, false))
     await act(async () => handle().abort())
     const { report, file } = finishedRun(1)
     const data: WorkerOut = { ...report, board: file }
@@ -231,9 +231,9 @@ test('a message from a worker already replaced changes nothing', async () => {
   try {
     const handle = await mountHandle()
     await act(async () => {
-      handle().start({ ...defaultParams(), W: 16, H: 16, seed: 5 })
+      handle().start({ ...defaultParams(), W: 16, H: 16, seed: 5 }, false)
       handle().abort()
-      handle().start({ ...defaultParams(), W: 16, H: 16, seed: 6 })
+      handle().start({ ...defaultParams(), W: 16, H: 16, seed: 6 }, false)
     })
     expect(HeldWorker.made).toHaveLength(2)
     const data: WorkerOut = { type: 'error', message: 'from the old worker' }
@@ -252,13 +252,21 @@ test('after a worker error the next run builds a new worker', async () => {
   vi.stubGlobal('Worker', HeldWorker)
   try {
     const handle = await mountHandle()
-    await act(async () => handle().start({ ...defaultParams(), W: 16, H: 16, seed: 5 }))
+    await act(async () => handle().start({ ...defaultParams(), W: 16, H: 16, seed: 5 }, false))
     await act(async () => HeldWorker.made[0]?.onerror?.(new ErrorEvent('error', { message: 'chunk 404' })))
     expect(useStore.getState().run.phase).toBe('error')
-    await act(async () => handle().start({ ...defaultParams(), W: 16, H: 16, seed: 6 }))
+    await act(async () => handle().start({ ...defaultParams(), W: 16, H: 16, seed: 6 }, false))
     expect(HeldWorker.made).toHaveLength(2)
     expect(HeldWorker.made[1]?.posted).toBe(1)
   } finally {
     vi.unstubAllGlobals()
   }
 }, 15_000)
+
+test('a start hands the run slice its intent to save', async () => {
+  const handle = await mountHandle()
+  await act(async () => handle().start({ ...defaultParams(), W: 8, H: 8, seed: 1 }, true))
+  expect(useStore.getState().run.save).toBe(true)
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 20_000 }).toBe('done')
+  expect(useStore.getState().result.shown?.save).toBe(true)
+}, 30_000)

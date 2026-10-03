@@ -1,9 +1,11 @@
 import { act, useRef } from 'react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { defaultParams, encodeBoard, generate, PARAM_SPEC } from '@arrowz/engine'
 import { twoFrames } from '../harness/frames'
+import { storedFixture } from '../state/library.fixtures'
+import { finish, finishedRun, stoppedRun } from '../state/result.fixtures'
 import type { DoneReport } from '../state/run.slice'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
@@ -62,8 +64,12 @@ beforeEach(() => {
   state.result.reset()
   state.series.reset()
   state.ui.setAuto(false)
+  state.ui.setSaveEvery(false)
   state.ui.setMode('advanced')
+  useStore.setState((s) => ({ lang: { ...s.lang, lang: 'en' } }))
 })
+
+afterEach(() => vi.restoreAllMocks())
 
 describe('RunColumn', () => {
   it('is a region a screen reader can name', async () => {
@@ -167,6 +173,20 @@ describe('RunColumn', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Abort' }).element())
   })
 
+  // The save turns its own button off (pending, then saved): the focus must not fall on <body>.
+  it('keeps the focus on a control when Save board is pressed from the keyboard', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+    finish(finishedRun(1))
+    const screen = await render(<Host control={stub().control} />)
+    const save = buttonOf(screen.getByRole('button', { name: 'Save board' }).element())
+    save.focus()
+    expect(document.activeElement).toBe(save)
+
+    await userEvent.keyboard('{Enter}')
+    await twoFrames()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element())
+  })
+
   // A fix that read `running` instead of its transition would pull the focus
   // away on every commit. Defaults is the probe: it is never disabled.
   it('leaves a focus that is on neither button where the user put it', async () => {
@@ -183,13 +203,24 @@ describe('RunColumn', () => {
     expect(document.activeElement).toBe(defaults)
   })
 
-  // Only visible here: the column's switch is the store's field, not local state.
+  // Only visible here: the column's switches are the store's fields, not local state.
   // A knob row opens its own description with its `?`, so no descriptions switch.
-  it('flips the store from its switch, and has no descriptions switch', async () => {
+  it('flips auto and save-every from their switches, and has no descriptions switch', async () => {
     const screen = await render(<RunColumn control={stub().control} />)
     await screen.getByRole('switch', { name: 'generate right after a change' }).click()
     expect(useStore.getState().ui.auto).toBe(true)
+    await screen.getByRole('switch', { name: 'save every board' }).click()
+    expect(useStore.getState().ui.saveEvery).toBe(true)
+    expect(screen.getByRole('switch').elements()).toHaveLength(2)
+  })
+
+  // Auto-run is a knob's companion, so the simple view has none; saving is not.
+  it('keeps the save-every switch in the simple view', async () => {
+    useStore.getState().ui.setMode('simple')
+    const screen = await render(<RunColumn control={stub().control} />)
+    await expect.element(screen.getByRole('switch', { name: 'save every board' })).toBeInTheDocument()
     expect(screen.getByRole('switch').elements()).toHaveLength(1)
+    await expect.element(screen.getByRole('button', { name: 'Save board' })).toBeInTheDocument()
   })
 })
 
@@ -294,6 +325,60 @@ describe('the alternative actions', () => {
     // The box never paints over Generate, which followed the command down.
     expect(pre.getBoundingClientRect().bottom).toBeLessThanOrEqual(go().top)
     expect(go().top).toBeGreaterThan(before)
+  })
+})
+
+describe('Save board', () => {
+  const save = (screen: Awaited<ReturnType<typeof render>>) =>
+    buttonOf(screen.getByRole('button', { name: 'Save board' }).element())
+
+  it('is off with no board, and says why', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    expect(save(screen).disabled).toBe(true)
+    expect(save(screen).title).toBe('No board to save yet')
+  })
+
+  // The bar shows the short word; the accessible name is the full one and contains it.
+  it('shows a short label and keeps the full name, in both languages', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    expect(save(screen).textContent).toBe('Save')
+    await act(async () => useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } })))
+    const pl = buttonOf(screen.getByRole('button', { name: 'Zapisz planszę' }).element())
+    expect(pl.textContent).toBe('Zapisz')
+  })
+
+  // Read once after the click: a poll would wait out the pending state (the fetch never answers).
+  it('saves the board on screen without a run, and is off while the save is pending', async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+    const g = stub()
+    finish(finishedRun(1))
+    const screen = await render(<RunColumn control={g.control} />)
+    expect(save(screen).disabled).toBe(false)
+    await screen.getByRole('button', { name: 'Save board' }).click()
+    expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
+    expect(g.started()).toBe(0)
+    await expect.poll(() => save(screen).disabled).toBe(true)
+    expect(save(screen).title).toBe('Saving…')
+  })
+
+  it('is off for a stopped board', async () => {
+    finish(stoppedRun(1))
+    const screen = await render(<RunColumn control={stub().control} />)
+    expect(save(screen).disabled).toBe(true)
+    expect(save(screen).title).toBe('A stopped board is not saved')
+  })
+
+  it('is off once the store took the board, and on again after a failed save', async () => {
+    const run = finishedRun(1)
+    finish(run)
+    useStore
+      .getState()
+      .result.stored(run.file, { ok: true, meta: storedFixture(1).meta, layoutExisted: false, recipeExisted: false })
+    const screen = await render(<RunColumn control={stub().control} />)
+    expect(save(screen).disabled).toBe(true)
+    expect(save(screen).title).toBe('This board is saved')
+    await act(async () => useStore.getState().result.stored(run.file, { ok: false, error: 'no store server' }))
+    await expect.poll(() => save(screen).disabled).toBe(false)
   })
 })
 

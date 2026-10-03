@@ -84,3 +84,11 @@ test('below 1024px the drawer starts closed and closing it there writes nothing'
   expect(wide.ui.settings).toBe(true)
   localStorage.removeItem('labSettings')
 })
+
+// A forgotten switch must not save silently after a reload, so it is never remembered.
+test('the save-every switch writes nothing to storage', () => {
+  const before = JSON.stringify(Object.entries(localStorage).sort())
+  useStore.getState().ui.setSaveEvery(true)
+  expect(JSON.stringify(Object.entries(localStorage).sort())).toBe(before)
+  useStore.getState().ui.setSaveEvery(false)
+})

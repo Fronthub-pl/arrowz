@@ -1,10 +1,10 @@
 import { PARAM_SPEC } from '@arrowz/engine'
 import { PRESETS } from '@arrowz/engine/presets'
 import { exportCell } from '@arrowz/engine/simple'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, test } from 'vitest'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
-import { applyPreset, defaults, generate, reseed, stepSeed } from './actions'
+import { applyPreset, defaults, generate, generateAndSave, reseed, stepSeed } from './actions'
 
 function fakeControl(): RunControl & { started: number } {
   const control = {
@@ -115,4 +115,16 @@ describe('the run actions, which the column and the palette share', () => {
     expect(control.started).toBe(0)
     useStore.getState().series.reset()
   })
+})
+
+test('generateAndSave starts a run that asks to save', () => {
+  const asked: unknown[] = []
+  const control: RunControl = {
+    start: (opts) => void asked.push(opts),
+    abort: () => {},
+    hold: () => {},
+    checkSeeds: () => {},
+  }
+  generateAndSave(control)
+  expect(asked).toEqual([{ save: true }])
 })
