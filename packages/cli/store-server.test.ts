@@ -41,7 +41,7 @@ Deno.test('POST /api/boards saves, GET lists, the board file is served from the 
     }
     const resp = await post(base, body)
     assertEquals(resp.status, 201)
-    const meta: BoardMeta = await resp.json()
+    const { meta }: Answer = await resp.json()
     assertMatch(meta.id, /^sha256-[0-9a-f]{64}$/)
     const list: BoardSize[] = await (await fetch(base + '/api/boards')).json()
     assertEquals(list[0]?.size, '25x50')
@@ -83,6 +83,9 @@ const validBody = () => ({
   command: 'x',
   source: 'lab',
 })
+
+/** The body of a 201 from POST /api/boards. */
+type Answer = { meta: BoardMeta; layoutExisted: boolean; recipeExisted: boolean }
 
 Deno.test('POST refuses fields the store would write or the page would show unchecked', () =>
   withServer(async (base) => {
@@ -132,13 +135,27 @@ Deno.test('POST refuses fields the store would write or the page would show unch
     assertEquals(await (await fetch(base + '/api/boards')).json(), [])
   }))
 
+Deno.test('POST answers with the meta and whether the layout and the recipe were already stored', () =>
+  withServer(async (base) => {
+    const body = validBody()
+    const first: Answer = await (await post(base, body)).json()
+    assertEquals([first.layoutExisted, first.recipeExisted], [false, false])
+    const again: Answer = await (await post(base, body)).json()
+    assertEquals([again.layoutExisted, again.recipeExisted], [true, true])
+    // `restarts` is a knob, so it is another recipe; the empty board is the same layout.
+    const other: Answer = await (await post(base, { ...body, params: { ...body.params, restarts: 1 } })).json()
+    assertEquals([other.layoutExisted, other.recipeExisted], [true, false])
+    assertEquals(other.meta.id, first.meta.id)
+    assertEquals(other.meta.sources.length, 2)
+  }))
+
 Deno.test('a posted look is stored lower-case, and a view without one takes the default look', () =>
   withServer(async (base) => {
     const b = validBody()
     const withLook = { ...b, view: { ...b.view, ink: '#ABCDEF', theme: 'gruvbox-dark', pad: 7, showPoints: true } }
     const first = await post(base, withLook)
     assertEquals(first.status, 201)
-    const looked: BoardMeta = await first.json()
+    const { meta: looked }: Answer = await first.json()
     assertEquals(
       [looked.view.ink, looked.view.theme, looked.view.pad, looked.view.showPoints],
       ['#abcdef', 'gruvbox-dark', 7, true],
@@ -146,7 +163,7 @@ Deno.test('a posted look is stored lower-case, and a view without one takes the 
     const bare = { ...b, board: emptyFile(12, 12), params: { ...b.params, W: 12, H: 12 } }
     const second = await post(base, bare)
     assertEquals(second.status, 201)
-    const plain: BoardMeta = await second.json()
+    const { meta: plain }: Answer = await second.json()
     assertEquals(plain.view, { ...DEFAULT_VIEW, ...b.view, rounded: true })
   }))
 
@@ -163,7 +180,7 @@ Deno.test('POST passes metrics.aborted through to the stored meta', () =>
     const body = { ...validBody(), metrics: { aborted: true } }
     const r = await post(base, body)
     assertEquals(r.status, 201)
-    const meta: BoardMeta = await r.json()
+    const { meta }: Answer = await r.json()
     assertEquals(meta.aborted, true)
   }))
 
@@ -173,7 +190,7 @@ Deno.test('POST keeps only the knobs of PARAM_SPEC', () =>
     const body = { ...b, params: { ...b.params, ruleB: false, voidFrac: 0.5, junk: 1 } }
     const r = await post(base, body)
     assertEquals(r.status, 201)
-    const meta: BoardMeta = await r.json()
+    const { meta }: Answer = await r.json()
     // ruleB and voidFrac are generate() options, not knobs: they never reach a stored board.
     assert(!('ruleB' in meta.params))
     assert(!('voidFrac' in meta.params))
@@ -231,7 +248,7 @@ Deno.test('POST stores the board file as the engine writes it, without keys it d
     }
     const resp = await post(base, body)
     assertEquals(resp.status, 201)
-    const meta: BoardMeta = await resp.json()
+    const { meta }: Answer = await resp.json()
     const stored = await (await fetch(`${base}/store/10x10/${meta.id}.board.json`)).json()
     assert(!('junk' in stored), 'the junk key reached the file')
     assertEquals(stored, emptyFile(10, 10))
@@ -303,7 +320,7 @@ Deno.test('DELETE /api/boards/<size>/<id> removes the layout; a missing one give
       command: 'x',
       source: 'lab',
     }
-    const meta: BoardMeta = await (await post(base, body)).json()
+    const { meta }: Answer = await (await post(base, body)).json()
     const del = await fetch(`${base}/api/boards/10x10/${meta.id}`, { method: 'DELETE' })
     assertEquals(del.status, 200)
     assertEquals(await del.json(), { deleted: true })

@@ -14,6 +14,7 @@ import { FileColumn } from './FileColumn'
 import { loadIntoLab } from './loadIntoLab'
 import { raiseNotice } from './notices'
 import { OpenFileButton } from './OpenFileButton'
+import { RecipeList } from './RecipeList'
 import { SavedExports } from './SavedExports'
 import { refreshLibrary } from './useLibraryList'
 import { useOpenPreview } from './useOpenPreview'
@@ -21,7 +22,8 @@ import { cancelPendingSave } from './useViewSave'
 
 /**
  * The stage's right column on the saved boards, in the run column's track: the
- * open board's command, Load into lab, Delete, two exports, and its facts. With
+ * open board's command, Load into lab, Delete, two exports, its facts, and
+ * its recipes. With
  * no board open it says how to open one instead of offering an empty command.
  *
  * `Workspace` keys it by the open board: an armed Delete, a Copied label and a
@@ -122,7 +124,11 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
       <LibraryLine line={library} />
       <div className="fw-alt">
         <button type="button" className={armed ? 'danger armed' : 'danger'} onClick={remove}>
-          {armed ? dict.t('confirmDelete') : dict.t('deleteBoard')}
+          {!armed
+            ? dict.t('deleteBoard')
+            : meta.sources.length >= 2
+              ? dict.t('confirmDeleteRecipes', meta.sources.length)
+              : dict.t('confirmDelete')}
         </button>
       </div>
       <SavedExports
@@ -139,6 +145,7 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
           </div>
         ))}
       </dl>
+      <RecipeList meta={meta} control={control} />
     </section>
   )
 }

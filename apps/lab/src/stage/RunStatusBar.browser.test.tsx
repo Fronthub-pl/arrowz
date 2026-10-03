@@ -306,6 +306,62 @@ describe('RunStatusBar', () => {
     // `/Press Generate/` fails on the quotation marks.
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('pressGenerate'))
   })
+
+  // The three answers a save can give; the two for a known layout differ in
+  // whether this run's knobs were a recipe the layout already had.
+  it.each([
+    [false, false, 'saved'],
+    [true, false, 'savedKnownLayout'],
+    [true, true, 'savedKnownRecipe'],
+  ] as const)(
+    'after a save with layoutExisted %s and recipeExisted %s the line ends in %s',
+    async (layoutExisted, recipeExisted, key) => {
+      const state = useStore.getState()
+      state.run.started(state.params.values)
+      state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+      state.result.stored(CLOSED.board, { ok: true, meta: storedFixture(1).meta, layoutExisted, recipeExisted })
+      const screen = await mountBar()
+      await expect.element(screen.getByRole('status')).toMatchTextContent(`${EN.t('closed')} — ${EN.t(key)}`)
+    },
+  )
+
+  it.each([
+    [false, false, 'saved'],
+    [true, false, 'savedKnownLayout'],
+    [true, true, 'savedKnownRecipe'],
+  ] as const)(
+    'in Polish, after a save with layoutExisted %s and recipeExisted %s the line ends in %s',
+    async (layoutExisted, recipeExisted, key) => {
+      const PL = dictionary('pl')
+      useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } }))
+      const state = useStore.getState()
+      state.run.started(state.params.values)
+      state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+      state.result.stored(CLOSED.board, { ok: true, meta: storedFixture(1).meta, layoutExisted, recipeExisted })
+      const screen = await mountBar()
+      await expect.element(screen.getByRole('status')).toMatchTextContent(`${PL.t('closed')} — ${PL.t(key)}`)
+    },
+  )
+
+  it('tells an older store server from a missing one, in English', async () => {
+    const state = useStore.getState()
+    state.run.started(state.params.values)
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    state.result.stored(CLOSED.board, { ok: false, error: 'x', stale: true })
+    const screen = await mountBar()
+    await expect.element(screen.getByRole('status')).toMatchTextContent(`${EN.t('closed')} — ${EN.t('savedOldStore')}`)
+  })
+
+  it('tells an older store server from a missing one, in Polish', async () => {
+    const PL = dictionary('pl')
+    useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } }))
+    const state = useStore.getState()
+    state.run.started(state.params.values)
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    state.result.stored(CLOSED.board, { ok: false, error: 'x', stale: true })
+    const screen = await mountBar()
+    await expect.element(screen.getByRole('status')).toMatchTextContent(`${PL.t('closed')} — ${PL.t('savedOldStore')}`)
+  })
 })
 
 // 1 − 734/1250 is 41.28%, which every surface prints as 41.3.

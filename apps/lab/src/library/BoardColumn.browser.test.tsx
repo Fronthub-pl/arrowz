@@ -1,5 +1,6 @@
 import { THEMES } from '@arrowz/board-element'
-import { decodeBoard } from '@arrowz/engine'
+import { type BoardMeta, decodeBoard } from '@arrowz/engine'
+import { dictionary } from '@arrowz/engine/i18n'
 import { genSeconds } from '@arrowz/engine/report'
 import { act, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
@@ -9,7 +10,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { App } from '../App'
 import { resetApp } from '../harness/mountApp'
 import { renderAt } from '../harness/renderAt'
-import { storedFixture } from '../state/library.fixtures'
+import { storedFixture, twoRecipesFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import { BoardColumn } from './BoardColumn'
 import { BoardPreview } from './BoardPreview'
@@ -85,6 +86,15 @@ async function show() {
     useStore
       .getState()
       .result.showPreview({ origin: 'store', board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+  )
+}
+
+const two = twoRecipesFixture(1)
+
+/** Puts the two-recipe board on the stage; its id is `stored`'s, so `mountDetail`'s address names it. */
+async function showTwo(meta = two.meta) {
+  await act(async () =>
+    useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(two.file), file: two.file, meta }),
   )
 }
 
@@ -443,11 +453,11 @@ function generatedText(): string {
 }
 
 /** The store's list and file endpoints for the one fixture board, so `useStoredBoard` finds it the way a person's click would. */
-function stubStore() {
+function stubStore(meta: BoardMeta = stored.meta) {
   vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
     const url = String(input)
     if (url.includes('/api/boards'))
-      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }]))
+      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [meta] }]))
     if (url.includes('/store/')) return Promise.resolve(Response.json(stored.file))
     return Promise.resolve(new Response('{}', { status: 404 }))
   })
@@ -460,11 +470,11 @@ function stubStore() {
  * track width. `sheet` opens the phone's Board sheet, the only way its facts
  * reach the screen under 768px.
  */
-async function openLibraryDetail(w: number, h: number, sheet = false) {
+async function openLibraryDetail(w: number, h: number, sheet = false, meta: BoardMeta = stored.meta) {
   await page.viewport(w, h)
   resetApp('advanced')
-  stubStore()
-  window.history.pushState({}, '', `/boards/8x8/${stored.meta.id}`)
+  stubStore(meta)
+  window.history.pushState({}, '', `/boards/8x8/${meta.id}`)
   const screen = await render(<App />)
   await expect.poll(() => screen.container.querySelector('#board-column .fw-cmdfig')).not.toBeNull()
   if (sheet) await act(async () => useStore.getState().ui.setSheet('cli'))
@@ -650,3 +660,139 @@ test.each(['en', 'pl'] as const)('in %s every fact’s term ends before its valu
     expect(dd.getBoundingClientRect().left).toBeGreaterThanOrEqual(dt.getBoundingClientRect().right)
   }
 })
+
+// One recipe, not `stored`'s empty `sources`: a list drawn from one recipe up would pass on an empty one.
+test('a board with one recipe lists none: the column’s command is that recipe', async () => {
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: two.meta.sources.slice(1) })
+  await expect.element(screen.getByRole('button', { name: /^load into lab$/i })).toBeVisible()
+  expect(screen.container.querySelector('.fw-recipes')).toBeNull()
+})
+
+test('a board with two recipes lists both, numbered, the latest marked', async () => {
+  const screen = await mountDetail()
+  await showTwo()
+  await expect.element(screen.getByText('Recipes (2)')).toBeVisible()
+  const heads = [...screen.container.querySelectorAll('.fw-recipe .fw-rhead')].map((p) => p.textContent)
+  expect(heads).toEqual(['Recipe 1', 'Recipe 2 · latest'])
+  await expect.element(screen.getByRole('figure', { name: 'Command of recipe 1' })).toMatchTextContent(/--restarts=5/)
+  await expect.element(screen.getByRole('figure', { name: 'Command of recipe 2' })).toMatchTextContent(/--restarts=1/)
+})
+
+// Both recipes share the seed, so only the number tells their buttons apart.
+test('Load into lab on the older recipe sets that recipe’s knobs and goes to the lab', async () => {
+  const screen = await mountDetail()
+  await showTwo()
+  await userEvent.click(screen.getByRole('button', { name: 'Load into lab: recipe 1' }))
+  expect(useStore.getState().params.values.restarts).toBe(5)
+  expect(run.seeds).toEqual([two.meta.seed])
+  await expect.element(screen.getByTestId('address')).toHaveTextContent('/')
+})
+
+test('a recipe with no timing and no date says so without a stray separator', async () => {
+  const [older, latest] = two.meta.sources
+  if (older === undefined || latest === undefined) throw new Error('the fixture has two recipes')
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: [{ ...older, genMs: null, updatedAt: '' }, latest] })
+  const facts = screen.container.querySelector('.fw-recipe .fw-rfacts')?.textContent
+  expect(facts).toBe('seed 1 · lab · — s')
+})
+
+test('a stopped recipe says so in its head', async () => {
+  const [older, latest] = two.meta.sources
+  if (older === undefined || latest === undefined) throw new Error('the fixture has two recipes')
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: [{ ...older, aborted: true }, latest] })
+  const heads = [...screen.container.querySelectorAll('.fw-recipe .fw-rhead')].map((p) => p.textContent)
+  expect(heads).toEqual(['Recipe 1 · stopped', 'Recipe 2 · latest'])
+})
+
+// The board's view has pad 4; the recipe's 7 shows the recipe's view was applied, not the board's.
+test('Load into lab on a recipe brings that recipe’s look', async () => {
+  const [older, latest] = two.meta.sources
+  if (older === undefined || latest === undefined) throw new Error('the fixture has two recipes')
+  const initial = useStore.getState().view
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: [{ ...older, view: { ...older.view, pad: 7 } }, latest] })
+  try {
+    await userEvent.click(screen.getByRole('button', { name: 'Load into lab: recipe 1' }))
+    expect(useStore.getState().view.pad).toBe(7)
+  } finally {
+    useStore.setState({ view: initial })
+  }
+})
+
+// The fixture puts the latest last; a re-saved recipe is replaced in place, so in a stored board it can be first.
+test('the latest mark follows the meta’s params, not the recipe’s place in the list', async () => {
+  const [older, latest] = two.meta.sources
+  if (older === undefined || latest === undefined) throw new Error('the fixture has two recipes')
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: [latest, older] })
+  await expect.element(screen.getByText('Recipes (2)')).toBeVisible()
+  const heads = [...screen.container.querySelectorAll('.fw-recipe .fw-rhead')].map((p) => p.textContent)
+  expect(heads).toEqual(['Recipe 1 · latest', 'Recipe 2'])
+})
+
+// Distinct createdAt and updatedAt: the date shown is the last save, not the first.
+test('a recipe’s facts carry its updated date, not its created one', async () => {
+  const [older, latest] = two.meta.sources
+  if (older === undefined || latest === undefined) throw new Error('the fixture has two recipes')
+  const locale = dictionary('en').locale
+  const createdAt = '2026-01-02T03:04:05.000Z'
+  const updatedAt = '2026-08-09T10:11:12.000Z'
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: [{ ...older, createdAt, updatedAt }, latest] })
+  await expect.element(screen.getByText('Recipes (2)')).toBeVisible()
+  const facts = screen.container.querySelector('.fw-recipe .fw-rfacts')?.textContent ?? ''
+  expect(facts).toContain(new Date(updatedAt).toLocaleString(locale))
+  expect(facts).not.toContain(new Date(createdAt).toLocaleString(locale))
+})
+
+test('armed, Delete names how many recipes go with a board that has two', async () => {
+  const screen = await mountDetail()
+  await showTwo()
+  await userEvent.click(screen.getByRole('button', { name: 'Delete from disk' }))
+  await expect.element(screen.getByRole('button', { name: 'Really delete? Its 2 recipes go too.' })).toBeVisible()
+})
+
+// One recipe, not `stored`'s empty `sources`: a count drawn from one recipe up would pass on an empty one.
+test('armed, Delete of a one-recipe board asks as before', async () => {
+  const screen = await mountDetail()
+  await showTwo({ ...two.meta, sources: two.meta.sources.slice(1) })
+  await userEvent.click(screen.getByRole('button', { name: 'Delete from disk' }))
+  await expect.element(screen.getByRole('button', { name: 'Really delete?' })).toBeVisible()
+})
+
+// 1400 is the L band and 375 the phone's Board sheet: the two places the list is on screen.
+test.each([
+  [1400, 900, false],
+  [375, 812, true],
+] as const)(
+  'at %dx%d the recipe list fits the column',
+  async (w, h, sheet) => {
+    try {
+      const screen = await openLibraryDetail(w, h, sheet, two.meta)
+      const column = screen.container.querySelector<HTMLElement>('#board-column')
+      const list = screen.container.querySelector<HTMLElement>('#board-column .fw-recipes')
+      if (column === null || list === null) throw new Error('no recipe list in the column')
+      expect(getComputedStyle(list).display).not.toBe('none')
+      expect(column.scrollWidth).toBeLessThanOrEqual(column.clientWidth)
+      for (const item of list.querySelectorAll<HTMLElement>('.fw-recipe'))
+        expect(item.scrollWidth).toBeLessThanOrEqual(item.clientWidth)
+    } finally {
+      await page.viewport(414, 896)
+    }
+  },
+  40_000,
+)
+
+test('at 860x900 the recipe list stays off the bar, with the facts', async () => {
+  try {
+    const screen = await openLibraryDetail(860, 900, false, two.meta)
+    const list = screen.container.querySelector<HTMLElement>('#board-column .fw-recipes')
+    if (list === null) throw new Error('the list is not rendered')
+    expect(getComputedStyle(list).display).toBe('none')
+  } finally {
+    await page.viewport(414, 896)
+  }
+}, 40_000)

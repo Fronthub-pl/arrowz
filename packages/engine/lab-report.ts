@@ -9,7 +9,7 @@ import type { BoardMeta, CarverStats, GenerateResult, Metrics, Params, SeedOutco
  * it was saved before the timing existed. Two decimals under ten seconds, one
  * above: on a fast board the second decimal is the difference between runs.
  */
-export function genSeconds(meta: BoardMeta, dash: string): string {
+export function genSeconds(meta: Pick<BoardMeta, 'genMs'>, dash: string): string {
   return meta.genMs === null ? dash : (meta.genMs / 1000).toFixed(meta.genMs < 10000 ? 2 : 1)
 }
 

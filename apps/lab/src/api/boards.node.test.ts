@@ -94,8 +94,9 @@ test('a POST through the proxy is accepted, Origin and all', async () => {
   })
 
   expect(r.status).toBe(201)
-  const meta = (await r.json()) as { id: string }
-  expect(meta.id).toMatch(/^sha256-[0-9a-f]{64}$/)
+  const answer = (await r.json()) as { meta: { id: string }; layoutExisted: boolean; recipeExisted: boolean }
+  expect(answer.meta.id).toMatch(/^sha256-[0-9a-f]{64}$/)
+  expect([answer.layoutExisted, answer.recipeExisted]).toEqual([false, false])
 })
 
 test('the saved board comes back in the listing', async () => {
@@ -193,6 +194,56 @@ test('deleteBoard removes a board, and a second delete says it was not there', a
 
     const list = await listBoards()
     expect(list.ok && list.sizes.some((entry) => entry.size === '16x16')).toBe(false)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('saveBoard says when the store already had the layout and the recipe', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = (...args: Parameters<typeof fetch>) => original(new URL(String(args[0]), VITE_ORIGIN), args[1])
+  try {
+    const params = { ...defaultParams(), W: 14, H: 14, seed: 6 }
+    const request = storeRequest(encodeBoard(generate(params).board), params, DEFAULT_VIEW, 'lab')
+    const first = await saveBoard(request)
+    const again = await saveBoard(request)
+    if (!first.ok || !again.ok) throw new Error('the store refused the board this case needs')
+    expect([first.layoutExisted, first.recipeExisted]).toEqual([false, false])
+    expect([again.layoutExisted, again.recipeExisted]).toEqual([true, true])
+    // Same board file, another knob: the server hashes the file, so this is the same layout.
+    const other = await saveBoard({ ...request, params: { ...request.params, restarts: 1 } })
+    if (!other.ok) throw new Error('the store refused the second recipe')
+    expect([other.layoutExisted, other.recipeExisted]).toEqual([true, false])
+    await deleteBoard('14x14', first.meta.id)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+// A store server from an older checkout answers with the meta alone.
+test('saveBoard refuses a 201 without the meta and the two flags', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = () => Promise.resolve(new Response(JSON.stringify({ id: 'sha256-00' }), { status: 201 }))
+  try {
+    const params = { ...defaultParams(), W: 8, H: 8, seed: 1 }
+    const outcome = await saveBoard(storeRequest(encodeBoard(generate(params).board), params, DEFAULT_VIEW, 'lab'))
+    expect(outcome).toEqual({
+      ok: false,
+      error: 'the store answered with a meta alone: an older store server',
+      stale: true,
+    })
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('saveBoard keeps an unreadable 201 a plain failure, not an older server', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = () => Promise.resolve(new Response(JSON.stringify({ meta: null }), { status: 201 }))
+  try {
+    const params = { ...defaultParams(), W: 8, H: 8, seed: 1 }
+    const outcome = await saveBoard(storeRequest(encodeBoard(generate(params).board), params, DEFAULT_VIEW, 'lab'))
+    expect(outcome).toEqual({ ok: false, error: 'the store answered 201 without the meta and the two save flags' })
   } finally {
     globalThis.fetch = original
   }

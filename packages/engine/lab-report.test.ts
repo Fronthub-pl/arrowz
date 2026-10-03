@@ -360,9 +360,9 @@ Deno.test('every comparable row carries the number the delta column subtracts', 
 })
 
 Deno.test('genSeconds shows two decimals under ten seconds and one above, and a dash for no timing', () => {
-  assertEquals(genSeconds({ genMs: 4800 } as never, '—'), '4.80')
-  assertEquals(genSeconds({ genMs: 16000 } as never, '—'), '16.0')
-  assertEquals(genSeconds({ genMs: null } as never, '—'), '—')
+  assertEquals(genSeconds({ genMs: 4800 }, '—'), '4.80')
+  assertEquals(genSeconds({ genMs: 16000 }, '—'), '16.0')
+  assertEquals(genSeconds({ genMs: null }, '—'), '—')
 })
 
 // The delta column's arithmetic. The numbers are chosen to be exact in binary,

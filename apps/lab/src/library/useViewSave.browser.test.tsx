@@ -111,7 +111,9 @@ test('a save that lands after the board changed still reports itself', async () 
 
   // The stage moves on, as choosing another board does, with the answer in flight.
   await act(async () => useStore.getState().result.clearPreview())
-  await act(async () => release(new Response(JSON.stringify(saved), { status: 201 })))
+  await act(async () =>
+    release(new Response(JSON.stringify({ meta: saved, layoutExisted: true, recipeExisted: true }), { status: 201 })),
+  )
 
   await expect.poll(() => useStore.getState().library.notice?.kind).toBe('viewSaved')
   expect(refreshed).toBe(1)
@@ -137,7 +139,9 @@ test('an edit finished by clicking another board is written to the board that wa
   vi.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => {
     if (init?.method !== 'POST') return new Promise(() => {})
     posts.push(JSON.parse(String(init.body)) as { board: unknown; view: View })
-    return Promise.resolve(new Response(JSON.stringify(stored.meta), { status: 201 }))
+    return Promise.resolve(
+      new Response(JSON.stringify({ meta: stored.meta, layoutExisted: true, recipeExisted: true }), { status: 201 }),
+    )
   })
   const { result } = await renderHook(() => useViewSave(() => {}), { wrapper: at })
 
@@ -211,7 +215,9 @@ test('a failed save keeps the picture and says so', async () => {
 
 test('a save that lands takes the store’s meta and refreshes the list', async () => {
   const saved = { ...stored.meta, view: { ...stored.meta.view, stroke: 0.8 }, command: 'deno task carve --stroke=0.8' }
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(saved), { status: 201 }))
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    new Response(JSON.stringify({ meta: saved, layoutExisted: true, recipeExisted: true }), { status: 201 }),
+  )
   let refreshed = 0
   const { result } = await renderHook(() => useViewSave(() => (refreshed += 1)), { wrapper: at })
 
