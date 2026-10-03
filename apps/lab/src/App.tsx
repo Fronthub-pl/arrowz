@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { BrowserRouter, useLocation } from 'react-router'
+import { BrowserRouter, useLocation, useNavigate } from 'react-router'
 import { AppRoutes } from './AppRoutes'
 import { BoardFileInput } from './library/BoardFileInput'
 import { useStoreSave } from './library/useStoreSave'
@@ -57,7 +57,8 @@ function Shell() {
   useStoreSave()
   useShownHash()
   useRememberBoards()
-  useWorkspaceKeys(onWorkspace, control)
+  const navigate = useNavigate()
+  useWorkspaceKeys(onWorkspace, control, tabIndex === 0 ? null : () => void navigate('/'))
   usePaletteKey()
   useDocumentLang()
   useBandReset()

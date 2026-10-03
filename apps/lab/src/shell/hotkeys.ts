@@ -48,6 +48,8 @@ function closeOneLayer(): void {
 
 export interface HotkeyRow {
   keys: readonly string[]
+  /** Pressed on the saved boards, the key brings the lab first: it runs or seeds the lab board, which is not shown there. */
+  lab?: true
   run(control: RunControl): void
 }
 
@@ -57,7 +59,7 @@ export interface HotkeyRow {
  * `g`, `[` and `]` are the palette footer's, silent while it is open (its
  * search box is an `<input>`); a refused run says nothing here, `RunStatusBar`
  * is the one voice for a broken rule. ⌘G (and Ctrl+G) is not in the table: it
- * is bound beside it in `useWorkspaceKeys`.
+ * is bound beside it in `useWorkspaceKeys`, and brings the lab as `lab` rows do.
  */
 export const WORKSPACE_KEYS: readonly HotkeyRow[] = [
   // Shift is not a modifier here, so `F` too; also with the focus on a button such as Generate.
@@ -79,13 +81,16 @@ export const WORKSPACE_KEYS: readonly HotkeyRow[] = [
       else ui.toggleSettings()
     },
   },
-  { keys: ['g', 'G'], run: (control) => generate(control) },
-  { keys: [']'], run: (control) => stepSeed(control, 1) },
-  { keys: ['['], run: (control) => stepSeed(control, -1) },
+  { keys: ['g', 'G'], lab: true, run: (control) => generate(control) },
+  { keys: [']'], lab: true, run: (control) => stepSeed(control, 1) },
+  { keys: ['['], lab: true, run: (control) => stepSeed(control, -1) },
 ]
 
-/** One bubble-phase listener for `WORKSPACE_KEYS`, while a workspace tab is shown. */
-export function useWorkspaceKeys(onWorkspace: boolean, control: RunControl): void {
+/**
+ * One bubble-phase listener for `WORKSPACE_KEYS`, while a workspace tab is
+ * shown. `toLab` is null on the lab itself, where a `lab` row has nowhere to go.
+ */
+export function useWorkspaceKeys(onWorkspace: boolean, control: RunControl, toLab: (() => void) | null): void {
   useEffect(() => {
     if (!onWorkspace) return
     const onKey = (event: KeyboardEvent) => {
@@ -93,15 +98,19 @@ export function useWorkspaceKeys(onWorkspace: boolean, control: RunControl): voi
         if (isOffLimits(event)) return
         // The browser's ⌘G is "find next".
         event.preventDefault()
+        toLab?.()
         generateAndSave(control)
         return
       }
       if (isHotkeyRefused(event)) return
-      WORKSPACE_KEYS.find((row) => row.keys.includes(event.key))?.run(control)
+      const row = WORKSPACE_KEYS.find((candidate) => candidate.keys.includes(event.key))
+      if (row === undefined) return
+      if (row.lab === true) toLab?.()
+      row.run(control)
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onWorkspace, control])
+  }, [onWorkspace, control, toLab])
 }
 
 /**

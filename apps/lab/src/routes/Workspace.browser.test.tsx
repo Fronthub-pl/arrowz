@@ -6,6 +6,7 @@ import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
 import { loadRunDone, mountApp, resetApp } from '../harness/mountApp'
+import { settleTransitions } from '../harness/settle'
 import { cancelPendingSave } from '../library/useViewSave'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
@@ -278,6 +279,56 @@ test('Save board saves the board on screen and ⌘G a new one, with the switch o
     expect(event.defaultPrevented).toBe(true)
     await expect.poll(() => savedAfter(loaded), { timeout: 30_000 }).toBe(true)
     expect(posts()).toHaveLength(2)
+  } finally {
+    fetchSpy.mockRestore()
+  }
+}, 60_000)
+
+/** The saved boards tab, the lab's board carved and out of sight behind it. */
+async function onSavedBoards() {
+  const screen = await mountApp()
+  await loadRunDone()
+  await screen.getByRole('tab', { name: 'Saved boards', exact: true }).click()
+  await expect.poll(() => screen.container.querySelector('.fw-lab.library')).not.toBeNull()
+  // The key listener takes the new tab's `toLab` in an effect after the commit, a frame later.
+  await settleTransitions()
+  return screen
+}
+
+test('Save board chosen in ⌘K on the saved boards brings the lab, then posts its board', async () => {
+  await clearOfTheDrawer()
+  const fetchSpy = vi.spyOn(window, 'fetch')
+  const posts = () =>
+    fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards' && call[1]?.method === 'POST')
+  try {
+    const screen = await onSavedBoards()
+    useStore.getState().ui.openPalette()
+    await expect.element(screen.getByRole('combobox', { name: 'Commands' }), { timeout: 5_000 }).toHaveFocus()
+    await userEvent.keyboard('Save board{Enter}')
+    await expect
+      .element(screen.getByRole('tab', { name: 'Lab', exact: true }), { timeout: 5_000 })
+      .toHaveAttribute('aria-selected', 'true')
+    expect(posts()).toHaveLength(1)
+    const sent = JSON.parse(String(posts()[0]?.[1]?.body)) as StoreRequest
+    expect(sent.params.seed).toBe(useStore.getState().result.shown?.params.seed)
+  } finally {
+    fetchSpy.mockRestore()
+  }
+}, 60_000)
+
+test('⌘G on the saved boards brings the lab, then makes and saves a board there', async () => {
+  await clearOfTheDrawer()
+  const fetchSpy = vi.spyOn(window, 'fetch')
+  try {
+    const screen = await onSavedBoards()
+    const loaded = useStore.getState().result.shown?.file
+    document.body.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'g', metaKey: true, bubbles: true, cancelable: true }),
+    )
+    await expect
+      .element(screen.getByRole('tab', { name: 'Lab', exact: true }), { timeout: 5_000 })
+      .toHaveAttribute('aria-selected', 'true')
+    await expect.poll(() => savedAfter(loaded), { timeout: 30_000 }).toBe(true)
   } finally {
     fetchSpy.mockRestore()
   }

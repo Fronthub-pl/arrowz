@@ -225,6 +225,64 @@ describe('the catalogue', () => {
     expect(handed.went).toEqual(['/boards/8x8/sha256-0101'])
   })
 
+  describe('a row that acts on the lab board', () => {
+    // One log for the navigation and the action, so a row that acts first fails.
+    function logged(): { log: string[]; handed: CommandDeps } {
+      const log: string[] = []
+      const ctl: RunControl = {
+        start: () => void log.push('start'),
+        abort: () => void log.push('abort'),
+        hold: () => {},
+        checkSeeds: () => void log.push('checkSeeds'),
+      }
+      return { log, handed: { control: ctl, navigate: (path) => void log.push(`go ${path}`), dict: dictionary('en') } }
+    }
+
+    it.each([
+      ['run-generate', 'start'],
+      ['run-generate-save', 'start'],
+      ['run-reseed', 'start'],
+      ['run-defaults', 'start'],
+      ['run-check-seeds', 'checkSeeds'],
+    ])('%s brings the lab before it runs', (id, action) => {
+      const { log, handed } = logged()
+      buildCommands(handed, useStore.getState())
+        .find((row) => row.id === id)
+        ?.run()
+      expect(log).toEqual(['go /', action])
+    })
+
+    it('Save board brings the lab before it posts', () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+      try {
+        finish(finishedRun(1))
+        const savedAtNavigation: unknown[] = []
+        const { handed } = logged()
+        buildCommands(
+          { ...handed, navigate: () => void savedAtNavigation.push(useStore.getState().result.saved) },
+          useStore.getState(),
+        )
+          .find((row) => row.id === 'run-save')
+          ?.run()
+        expect(savedAtNavigation).toEqual([null])
+        expect(useStore.getState().result.saved).toBe('pending')
+      } finally {
+        fetchSpy.mockRestore()
+      }
+    })
+
+    it.each([
+      ['run-abort', ['abort']],
+      ['run-solo', []],
+    ])('%s stays on the tab it was chosen on', (id, actions) => {
+      const { log, handed } = logged()
+      buildCommands(handed, useStore.getState())
+        .find((row) => row.id === id)
+        ?.run()
+      expect(log).toEqual(actions)
+    })
+  })
+
   it('lists Open file… under go, never disabled', () => {
     const row = buildCommands(deps(), useStore.getState()).find((r) => r.id === 'go-open-file')
     expect(row?.name).toBe('Open file…')
