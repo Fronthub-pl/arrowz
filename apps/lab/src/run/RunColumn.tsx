@@ -78,6 +78,20 @@ export function RunColumn({
     wasRunning.current = running
   }, [running, goRef, abortRef])
 
+  // As the effect above does for Generate and Abort: Save turns itself off.
+  const saveRef = useRef<HTMLButtonElement>(null)
+  const wasOpen = useRef(false)
+  useLayoutEffect(() => {
+    const off = refusal !== null
+    if (off && wasOpen.current && document.activeElement === saveRef.current) {
+      const go = goRef?.current ?? null
+      const abort = abortRef?.current ?? null
+      if (go !== null && !go.disabled) go.focus()
+      else if (abort !== null && !abort.disabled) abort.focus()
+    }
+    wasOpen.current = !off
+  }, [refusal, goRef, abortRef])
+
   // Shared with the command palette, so the column and the palette cannot drift.
   const onGenerate = () => generate(control)
   const onReseed = () => reseed(control)
@@ -134,6 +148,7 @@ export function RunColumn({
             (128 px against 104). The name keeps both words and contains the text. */}
         <button
           type="button"
+          ref={saveRef}
           onClick={saveShown}
           disabled={refusal !== null}
           aria-label={dict.t('saveBoard')}

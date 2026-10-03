@@ -66,6 +66,7 @@ beforeEach(() => {
   state.ui.setAuto(false)
   state.ui.setSaveEvery(false)
   state.ui.setMode('advanced')
+  useStore.setState((s) => ({ lang: { ...s.lang, lang: 'en' } }))
 })
 
 afterEach(() => vi.restoreAllMocks())
@@ -170,6 +171,20 @@ describe('RunColumn', () => {
     expect(useStore.getState().run.phase).toBe('running')
     await twoFrames()
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Abort' }).element())
+  })
+
+  // The save turns its own button off (pending, then saved): the focus must not fall on <body>.
+  it('keeps the focus on a control when Save board is pressed from the keyboard', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+    finish(finishedRun(1))
+    const screen = await render(<Host control={stub().control} />)
+    const save = buttonOf(screen.getByRole('button', { name: 'Save board' }).element())
+    save.focus()
+    expect(document.activeElement).toBe(save)
+
+    await userEvent.keyboard('{Enter}')
+    await twoFrames()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element())
   })
 
   // A fix that read `running` instead of its transition would pull the focus
@@ -330,7 +345,6 @@ describe('Save board', () => {
     await act(async () => useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } })))
     const pl = buttonOf(screen.getByRole('button', { name: 'Zapisz planszę' }).element())
     expect(pl.textContent).toBe('Zapisz')
-    await act(async () => useStore.setState((s) => ({ lang: { ...s.lang, lang: 'en' } })))
   })
 
   // Read once after the click: a poll would wait out the pending state (the fetch never answers).
