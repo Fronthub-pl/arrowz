@@ -18,6 +18,12 @@ export function generate(control: RunControl): void {
   control.start()
 }
 
+/** ⌘G: Generate, and save the board it makes whatever the switch says. */
+export function generateAndSave(control: RunControl): void {
+  drawIfRandom()
+  control.start({ save: true })
+}
+
 /** A seed the machine drew, over the knob's whole 32-bit range, then a run. */
 export function reseed(control: RunControl): void {
   // `?? 0` is unreachable; `noUncheckedIndexedAccess` types the index as `number | undefined`.

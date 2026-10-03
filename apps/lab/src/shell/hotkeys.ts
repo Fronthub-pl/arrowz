@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { generate, stepSeed } from '../run/actions'
+import { generate, generateAndSave, stepSeed } from '../run/actions'
 import type { RunControl } from '../run/useRun'
 import { readBand } from '../state/band'
 import { useStore } from '../state/store'
@@ -15,18 +15,25 @@ import { useStore } from '../state/store'
  */
 
 /**
- * Nothing with Ctrl, ⌘ or Alt (the platform's), no key repeat, nothing typed
- * into a field or an editable region; a composing IME key is text too. A
- * cancelled event was consumed closer to the target. `usePaletteKey` does not
- * use this guard.
+ * Refused whatever the modifiers: a key repeat, a composing IME key, an event
+ * consumed closer to the target, a key typed into a field or an editable region.
  */
-function isHotkeyRefused(event: KeyboardEvent): boolean {
-  if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return true
-  if (event.isComposing || event.defaultPrevented) return true
+function isOffLimits(event: KeyboardEvent): boolean {
+  if (event.repeat || event.isComposing || event.defaultPrevented) return true
   const target = event.target
   return (
     target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select') !== null)
   )
+}
+
+/** Nothing with Ctrl, ⌘ or Alt (the platform's), and nothing off limits. `usePaletteKey` does not use this guard. */
+function isHotkeyRefused(event: KeyboardEvent): boolean {
+  return event.ctrlKey || event.metaKey || event.altKey || isOffLimits(event)
+}
+
+/** ⌘G or Ctrl+G, without Alt: Generate and save. */
+function isSaveKey(event: KeyboardEvent): boolean {
+  return (event.key === 'g' || event.key === 'G') && (event.metaKey || event.ctrlKey) && !event.altKey
 }
 
 /** Escape closes one layer: an open sheet, then the report (it lies over the board), then the settings. */
@@ -49,7 +56,8 @@ export interface HotkeyRow {
  * drawer's state. `r` and `s` open the sheets at XS, the drawers above it.
  * `g`, `[` and `]` are the palette footer's, silent while it is open (its
  * search box is an `<input>`); a refused run says nothing here, `RunStatusBar`
- * is the one voice for a broken rule.
+ * is the one voice for a broken rule. ⌘G (and Ctrl+G) is not in the table: it
+ * is bound beside it in `useWorkspaceKeys`.
  */
 export const WORKSPACE_KEYS: readonly HotkeyRow[] = [
   // Shift is not a modifier here, so `F` too; also with the focus on a button such as Generate.
@@ -81,6 +89,13 @@ export function useWorkspaceKeys(onWorkspace: boolean, control: RunControl): voi
   useEffect(() => {
     if (!onWorkspace) return
     const onKey = (event: KeyboardEvent) => {
+      if (isSaveKey(event)) {
+        if (isOffLimits(event)) return
+        // The browser's ⌘G is "find next".
+        event.preventDefault()
+        generateAndSave(control)
+        return
+      }
       if (isHotkeyRefused(event)) return
       WORKSPACE_KEYS.find((row) => row.keys.includes(event.key))?.run(control)
     }

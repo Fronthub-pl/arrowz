@@ -257,6 +257,32 @@ test('a run is saved only when asked, once per run, and the outcome is appended'
   }
 }, 60_000)
 
+// With the switch off: Save board takes the load run's board without a run,
+// and ⌘G makes a board and saves it. Spied, not stubbed: the POSTs fail for real.
+test('Save board saves the board on screen and ⌘G a new one, with the switch off', async () => {
+  await clearOfTheDrawer()
+  const fetchSpy = vi.spyOn(window, 'fetch')
+  const posts = () =>
+    fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards' && call[1]?.method === 'POST')
+  try {
+    const screen = await mountApp()
+    await loadRunDone()
+    expect(useStore.getState().ui.saveEvery).toBe(false)
+    const loaded = useStore.getState().result.shown?.file
+    await screen.getByRole('button', { name: 'Save board', exact: true }).click()
+    await expect.poll(() => posts().length, { timeout: 10_000 }).toBe(1)
+    expect(useStore.getState().result.shown?.file).toBe(loaded)
+
+    const event = new KeyboardEvent('keydown', { key: 'g', metaKey: true, bubbles: true, cancelable: true })
+    document.body.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    await expect.poll(() => savedAfter(loaded), { timeout: 30_000 }).toBe(true)
+    expect(posts()).toHaveLength(2)
+  } finally {
+    fetchSpy.mockRestore()
+  }
+}, 60_000)
+
 // The switch reaches three places no component test can see together: the
 // document's own `lang` (what a screen reader pronounces with), the board
 // element's `lang` (its control bar has its own dictionary), and a label far

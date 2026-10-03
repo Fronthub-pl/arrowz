@@ -5,7 +5,8 @@ import { PRESETS } from '@arrowz/engine/presets'
 import type { PlainUiKey } from '../console/viewFields'
 import { VIEW_FLAGS, VIEW_NUMBERS, VIEW_ROWS } from '../console/viewFields'
 import { openFilePicker } from '../library/BoardFileInput'
-import { applyPreset, defaults, generate, reseed } from '../run/actions'
+import { saveRefusal, saveShown } from '../library/saveShown'
+import { applyPreset, defaults, generate, generateAndSave, reseed } from '../run/actions'
 import { inFlight, type RunControl } from '../run/useRun'
 import { readBand } from '../state/band'
 import { type Store, useStore } from '../state/store'
@@ -193,6 +194,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
   const { dict } = deps
   const running = inFlight(state)
   const broken = state.params.violations.length > 0
+  const refusal = saveRefusal(state)
   const run: Command[] = [
     {
       id: 'run-generate',
@@ -206,6 +208,33 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       disabled: running || broken,
       run: () => {
         generate(deps.control)
+        state.ui.closePalette()
+      },
+    },
+    {
+      id: 'run-generate-save',
+      section: 'run',
+      name: dict.t('generateAndSave'),
+      note: dict.t('cmdSecRun'),
+      value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : '⌘G',
+      hay: 'generate save store keep',
+      disabled: running || broken,
+      run: () => {
+        generateAndSave(deps.control)
+        state.ui.closePalette()
+      },
+    },
+    {
+      id: 'run-save',
+      section: 'run',
+      name: dict.t('saveBoard'),
+      note: dict.t('cmdSecRun'),
+      // The board on screen, so a carve in flight does not stop it.
+      value: refusal === null ? '' : dict.t(refusal),
+      hay: 'save store keep',
+      disabled: refusal !== null,
+      run: () => {
+        saveShown()
         state.ui.closePalette()
       },
     },

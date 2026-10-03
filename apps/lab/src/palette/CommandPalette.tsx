@@ -1,6 +1,7 @@
 import { type KeyboardEvent, type ReactElement, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
+import { saveRefusal } from '../library/saveShown'
 import { inFlight, type RunControl } from '../run/useRun'
 import { nextIndex } from '../shell/roving'
 import { selectedIndex } from '../shell/TabRow'
@@ -49,6 +50,7 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
   const mode = useStore((state) => state.ui.mode)
   const lang = useStore((state) => state.lang.lang)
   const view = useStore((state) => state.view)
+  const refusal = useStore(saveRefusal)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -72,7 +74,7 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
     // Read through `getState()`, so `exhaustive-deps` calls these slices
     // unnecessary and cannot check the list: it is every slice a row shows or
     // is disabled by, kept by hand. A new field on a row must add its slice.
-    [deps, values, violations, running, seriesStopping, runStopping, mode, lang, view],
+    [deps, values, violations, running, seriesStopping, runStopping, mode, lang, view, refusal],
   )
   const pasted = useMemo(() => (isCommandQuery(query) ? pastedRow(deps, query) : null), [deps, query])
   const hits = useMemo(

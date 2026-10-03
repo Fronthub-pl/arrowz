@@ -1,6 +1,7 @@
 import { PARAM_SPEC } from '@arrowz/engine'
 import { dictionary } from '@arrowz/engine/i18n'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { PALETTE_CAP } from '../state/view.slice'
 import type { RunControl } from '../run/useRun'
@@ -127,12 +128,56 @@ describe('the catalogue', () => {
     expect(go?.value).toBe('invalid settings')
   })
 
+  it('offers Generate and save beside Generate, with its key, through the control', () => {
+    const asked: unknown[] = []
+    const control: RunControl = {
+      start: (opts) => void asked.push(opts),
+      abort: () => {},
+      hold: () => {},
+      checkSeeds: () => {},
+    }
+    useStore.getState().ui.openPalette()
+    const row = buildCommands({ ...deps(), control }, useStore.getState()).find((r) => r.id === 'run-generate-save')
+    expect(row?.name).toBe('Generate and save')
+    expect(row?.value).toBe('⌘G')
+    row?.run()
+    expect(asked).toEqual([{ save: true }])
+    expect(useStore.getState().ui.palette).toBe(false)
+  })
+
+  it('offers Save board for the board on screen, and gives the reason when it cannot', () => {
+    const row = () => buildCommands(deps(), useStore.getState()).find((r) => r.id === 'run-save')
+    expect(row()?.disabled).toBe(true)
+    expect(row()?.value).toBe('No board to save yet')
+    finish(finishedRun(1))
+    expect(row()?.disabled).toBe(false)
+    expect(row()?.value).toBe('')
+    const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+    try {
+      useStore.getState().ui.openPalette()
+      row()?.run()
+      expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
+      expect(row()?.value).toBe('Saving…')
+      expect(useStore.getState().ui.palette).toBe(false)
+    } finally {
+      fetch.mockRestore()
+    }
+  })
+
   // Over the whole catalogue, so a row added later cannot be disabled in
   // silence; against the dictionary's reasons, not "not empty", because a
   // hotkey such as `[ ]` is not a reason.
   it('never disables a row without giving one of D7’s reasons', () => {
     const dict = dictionary('en')
-    const reasons = [dict.t('cmdNoRun'), dict.t('cmdRunning'), dict.t('cmdBroken')]
+    const reasons = [
+      dict.t('cmdNoRun'),
+      dict.t('cmdRunning'),
+      dict.t('cmdBroken'),
+      dict.t('saveNoBoard'),
+      dict.t('saveStopped'),
+      dict.t('savePending'),
+      dict.t('saveDone'),
+    ]
     const broken = () => useStore.getState().params.setMany({ wShort: 0.9, wMid: 0.9 })
     const running = () => useStore.getState().run.started(useStore.getState().params.values)
     const states: [string, () => void][] = [
@@ -317,14 +362,16 @@ describe('the matcher', () => {
     expect(matches[0]).toBe('view-top')
   })
 
-  // 'run' matches the six run rows' note, and `knob-giantStep`'s and
-  // `knob-giantJitter`'s label; no name starts with it, so all eight share one rank.
+  // 'run' matches the ten run rows' note, and `knob-giantStep`'s and
+  // `knob-giantJitter`'s label; no name starts with it, so all ten share one rank.
   it('keeps the catalogue order among rows that tie in rank', () => {
     const rows = buildCommands(deps(), useStore.getState())
     const catalogueOrder = rows.map((row) => row.id)
     const matches = matchCommands(rows, 'run').map((row) => row.id)
     expect(matches).toEqual([
       'run-generate',
+      'run-generate-save',
+      'run-save',
       'run-reseed',
       'run-defaults',
       'run-abort',

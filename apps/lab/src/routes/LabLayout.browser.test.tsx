@@ -414,19 +414,21 @@ test('a focus inside what solo hides moves to the toggle', async () => {
 
 // The same guard set as `f`, and each refusal is followed by the very same
 // event without the thing refused, so a listener ignoring synthetic events
-// could not pass.
-test('g generates, and refuses a modifier, a repeat, a cancelled event and a field', async () => {
+// could not pass. ⌘G and Ctrl+G are the next case's.
+test('g generates a dry run, and refuses Alt, a repeat, a cancelled event and a field', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
   await loadRunDone()
   const seedBefore = useStore.getState().params.values.seed
 
-  for (const refused of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { repeat: true }]) {
+  for (const refused of [{ altKey: true }, { repeat: true }]) {
     press(document.body, { key: 'g', ...refused })
   }
   expect(useStore.getState().run.phase).toBe('done')
 
   press(document.body, { key: 'g' })
+  // `start` writes `run.started` synchronously, so the run's intent is readable at once.
+  expect(useStore.getState().run.save).toBe(false)
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   expect(useStore.getState().params.values.seed).toBe(seedBefore)
 
@@ -436,6 +438,48 @@ test('g generates, and refuses a modifier, a repeat, a cancelled event and a fie
   const runs = useStore.getState().run.phase
   await userEvent.keyboard('g')
   expect(useStore.getState().run.phase).toBe(runs)
+}, 60_000)
+
+// Phases are recorded, not read after the fact: an 8×8-sized carve can start
+// and finish between two reads. `cancelable` lets the case see the browser's
+// own ⌘G ("find next") prevented.
+test('⌘G and Ctrl+G generate and save, and refuse Alt, a repeat and a field', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  const phases: string[] = []
+  const unsubscribe = useStore.subscribe((state) => void phases.push(state.run.phase))
+  try {
+    for (const refused of [{ altKey: true }, { repeat: true }, { isComposing: true }]) {
+      press(document.body, { key: 'g', metaKey: true, ...refused })
+    }
+    // Consumed closer to the target, as `f`'s case does it.
+    const cancel = (event: KeyboardEvent) => event.preventDefault()
+    document.addEventListener('keydown', cancel, { capture: true })
+    try {
+      press(document.body, { key: 'g', metaKey: true, cancelable: true })
+    } finally {
+      document.removeEventListener('keydown', cancel, { capture: true })
+    }
+    expect(phases).not.toContain('running')
+
+    for (const modifier of [{ metaKey: true }, { ctrlKey: true }]) {
+      const event = new KeyboardEvent('keydown', { key: 'g', bubbles: true, cancelable: true, ...modifier })
+      document.body.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(true)
+      expect(useStore.getState().run.save).toBe(true)
+      await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+    }
+
+    // In a knob's own entry ⌘G is not the lab's.
+    await screen.getByRole('tab', { name: 'board', exact: true }).click()
+    await screen.getByRole('button', { name: /^seed:/ }).click()
+    phases.length = 0
+    press(document.activeElement ?? document.body, { key: 'g', metaKey: true })
+    expect(phases).not.toContain('running')
+  } finally {
+    unsubscribe()
+  }
 }, 60_000)
 
 test('] and [ step the seed by one and carve it', async () => {
