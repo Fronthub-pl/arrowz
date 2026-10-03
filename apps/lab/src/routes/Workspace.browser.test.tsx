@@ -1,4 +1,4 @@
-import type { StoreRequest } from '@arrowz/engine'
+import { decodeBoard, layoutHash, type StoreRequest } from '@arrowz/engine'
 import { exportCell } from '@arrowz/engine/simple'
 import { act, StrictMode } from 'react'
 import { expect, test, vi } from 'vitest'
@@ -739,7 +739,10 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
   // Its own viewport, because the one before it outlives its case: at 414×896
   // Playwright refuses row clicks as intercepted by `<arrowz-board>`.
   await page.viewport(1400, 900)
-  const { meta, file } = storedFixture(1)
+  const fixture = storedFixture(1)
+  const { file } = fixture
+  // Named by its real layout hash, as the store names it: Load into lab compares the re-carve with it.
+  const meta = { ...fixture.meta, id: await layoutHash(decodeBoard(file)) }
   const sizes = [{ size: '8x8', W: 8, H: 8, cells: 64, boards: [meta] }]
   vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
     const url = String(input)
@@ -786,6 +789,10 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     await expect.poll(() => useStore.getState().result.shown, { timeout: 20_000 }).not.toBe(labBoard)
     const loaded = useStore.getState().result.shown
     expect(loaded?.params.seed).toBe(meta.params.seed)
+    // The re-carve is a dry run of a layout the store has, and the line says so.
+    await expect
+      .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
+      .toMatchTextContent(/ — layout already stored \(⌘G or Save board saves this recipe\)$/)
   } finally {
     // The stroke edit above leaves a 350ms module-scope save timer running, and
     // its `.then` calls `refresh()` after the case is gone.
