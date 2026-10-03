@@ -41,7 +41,7 @@ export function finishedRun(seed: number, W = 8, H = 8): FinishedFixture {
 /** Starts the run and finishes it, as `useGenerator` does for a real worker. */
 export function finish(run: FinishedFixture, save = false): void {
   const state = useStore.getState()
-  state.run.started(run.params, save)
+  state.run.started(run.params, { save })
   state.completeRun(run)
 }
 

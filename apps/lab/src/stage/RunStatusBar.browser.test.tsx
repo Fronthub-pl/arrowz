@@ -197,7 +197,7 @@ describe('RunStatusBar', () => {
     await expect.element(screen.getByRole('status')).toMatchTextContent(`${EN.t('closed')} — ${EN.t('notSaved')}`)
     const next = { ...CLOSED, board: { ...CLOSED.board } }
     await act(async () => {
-      useStore.getState().run.started(useStore.getState().params.values, true)
+      useStore.getState().run.started(useStore.getState().params.values, { save: true })
       useStore.getState().completeRun({ board: RESULT.board, file: next.board, report: next })
     })
     await expect
@@ -232,7 +232,7 @@ describe('RunStatusBar', () => {
   // the line must not say "not saved" for that frame.
   it('says saving for a run that asked, before and while its save is pending', async () => {
     const state = useStore.getState()
-    state.run.started(state.params.values, true)
+    state.run.started(state.params.values, { save: true })
     state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
     const screen = await mountBar()
     const text = () => screen.getByRole('status').element().textContent

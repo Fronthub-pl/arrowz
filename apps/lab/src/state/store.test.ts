@@ -54,7 +54,7 @@ test('a run that was never started cannot be completed', () => {
 
 // The switch can move during a long carve; the run keeps what was decided at its start.
 test('the result carries the intent to save that its run started with', () => {
-  useStore.getState().run.started(ONE.params, true)
+  useStore.getState().run.started(ONE.params, { save: true })
   useStore.getState().ui.setSaveEvery(false)
   useStore.getState().completeRun(ONE)
   expect(useStore.getState().result.shown?.save).toBe(true)
@@ -64,4 +64,14 @@ test('the result carries the intent to save that its run started with', () => {
   useStore.getState().completeRun(ONE)
   expect(useStore.getState().result.shown?.save).toBe(false)
   useStore.getState().ui.setSaveEvery(false)
+})
+
+// Only Load into lab names the stored layout a run comes from; every other run has none.
+test('the result carries the stored layout its run was loaded from, and only that run', () => {
+  useStore.getState().run.started(ONE.params, { storedId: 'sha256-one' })
+  useStore.getState().completeRun(ONE)
+  expect(useStore.getState().result.shown?.storedId).toBe('sha256-one')
+  useStore.getState().run.started(ONE.params)
+  useStore.getState().completeRun(ONE)
+  expect(useStore.getState().result.shown?.storedId).toBeNull()
 })

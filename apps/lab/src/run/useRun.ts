@@ -8,8 +8,9 @@ export interface RunControl {
   /**
    * Starts a run from the knobs as they stand. Refuses while a rule is broken or a series runs.
    * The board is saved when `save` asks or the switch (`ui.saveEvery`) is on, decided now.
+   * `storedId` names the stored layout the knobs were loaded from (Load into lab).
    */
-  start(opts?: { save?: boolean }): void
+  start(opts?: { save?: boolean; storedId?: string }): void
   /** Asks a run in flight to stop and keep its board; a second call discards it. Does nothing with no run. */
   abort(): void
   /** Registers the cancel of a debounce that has not fired. `useAutoRun` calls it. */
@@ -35,7 +36,7 @@ export function useRun(generator: GeneratorHandle, series: SeriesHandle): RunCon
   const cancel = useRef<(() => void) | null>(null)
 
   const start = useCallback(
-    (opts?: { save?: boolean }) => {
+    (opts?: { save?: boolean; storedId?: string }) => {
       // Before the refusal, not after: a refused trigger must still clear the
       // timer, or the debounce fires into the same refusal a moment later.
       cancel.current?.()
@@ -43,7 +44,10 @@ export function useRun(generator: GeneratorHandle, series: SeriesHandle): RunCon
       // Silent here: `RunStatusBar` speaks the refusal and `Violations` states
       // the rule, so a log here would be a second voice. A series keeps the cores.
       if (state.params.violations.length > 0 || state.series.phase === 'running') return
-      generator.start(state.params.values, opts?.save === true || state.ui.saveEvery)
+      generator.start(state.params.values, {
+        save: opts?.save === true || state.ui.saveEvery,
+        storedId: opts?.storedId ?? null,
+      })
     },
     [generator],
   )

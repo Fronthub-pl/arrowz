@@ -16,6 +16,8 @@ export interface ShownResult {
   readonly params: Params
   /** Its run was asked to save it: the switch, ⌘G. Save board saves a board without it. */
   readonly save: boolean
+  /** The stored layout its run re-carved (Load into lab), or null. */
+  readonly storedId: string | null
 }
 
 /** What the delta column compares with: the last shown result that had metrics, without its board. */
@@ -127,6 +129,7 @@ export function showResult(state: ResultState, next: ShownResult): ResultState {
       report: reportInputOf(next.report),
       params: next.params,
       save: next.save,
+      storedId: next.storedId,
     },
     baseline:
       before !== null && before.report.metrics !== null && !before.report.aborted
