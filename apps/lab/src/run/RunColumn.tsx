@@ -1,5 +1,6 @@
 import { type CSSProperties, type RefObject, useLayoutEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
+import { saveRefusal, saveShown } from '../library/saveShown'
 import { SeriesRow } from '../series/SeriesRow'
 import { oneDecimal, useRunLine } from '../stage/useRunState'
 import { useStore } from '../state/store'
@@ -50,6 +51,9 @@ export function RunColumn({
   const blocked = useStore((state) => state.params.violations.length > 0)
   const auto = useStore((state) => state.ui.auto)
   const setAuto = useStore((state) => state.ui.setAuto)
+  const saveEvery = useStore((state) => state.ui.saveEvery)
+  const setSaveEvery = useStore((state) => state.ui.setSaveEvery)
+  const refusal = useStore(saveRefusal)
   const simple = useStore((state) => state.ui.mode === 'simple')
   // The label, the fill and the progressbar's value say the same number (`Meter`).
   const { run: line, meter } = useRunLine()
@@ -125,6 +129,18 @@ export function RunColumn({
         <button type="button" ref={abortRef} onClick={control.abort} disabled={!running}>
           {stopping ? dict.t('abortDiscard') : dict.t('abort')}
         </button>
+        {/* The board on screen, not a new run: shared with the palette's row. */}
+        {/* Short text: in Polish the full name wraps the M/S bar to a third row
+            (128 px against 104). The name keeps both words and contains the text. */}
+        <button
+          type="button"
+          onClick={saveShown}
+          disabled={refusal !== null}
+          aria-label={dict.t('saveBoard')}
+          title={refusal === null ? undefined : dict.t(refusal)}
+        >
+          {dict.t('saveShort')}
+        </button>
       </div>
       <MoreMenu>
         {/* Checking many seeds keeps the run bar's own cap (`bar-row`): mounted
@@ -137,6 +153,10 @@ export function RunColumn({
             <OptionSwitch id="opt-auto" label={dict.t('autoRun')} on={auto} onChange={setAuto} />
           </div>
         )}
+        {/* In both views: saving is not a knob. */}
+        <div className="fw-ghost">
+          <OptionSwitch id="opt-save" label={dict.t('saveEvery')} on={saveEvery} onChange={setSaveEvery} />
+        </div>
         {/* In both views: the exports belong to the board, not to the knobs. */}
         <ExportButtons />
       </MoreMenu>
