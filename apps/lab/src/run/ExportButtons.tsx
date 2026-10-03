@@ -1,19 +1,10 @@
-import type { BoardFile } from '@arrowz/engine'
-import { layoutHash } from '@arrowz/engine'
 import { svgOptions } from '@arrowz/engine/command'
-import { type ReactElement, useEffect, useState } from 'react'
+import type { ReactElement } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
 import { downloadBlob } from './download'
 import { useSvgDrawing } from './useSvgDrawing'
-
-/** The layout hash of one board file, or why it could not be worked out. */
-interface Named {
-  readonly file: BoardFile
-  readonly hash: string | null
-  readonly error: string | null
-}
 
 /**
  * The mock's two ghost buttons: the board on screen as an SVG and as its board
@@ -21,8 +12,8 @@ interface Named {
  * it, not the one being carved.
  *
  * The SVG is drawn by `useSvgDrawing`, one at a time. The board file is the file itself, named by its
- * layout hash like the store names it. The hash is asynchronous and a download
- * has to start in its click, so it is worked out when the board arrives.
+ * layout hash like the store names it. A download has to start in its click,
+ * so the hash is the result slice's (`useShownHash`), ready before the click.
  *
  * An export error belongs to the board it failed to export, so it is the result
  * slice's: the next SVG export clears it, another board clears it, and a
@@ -34,33 +25,9 @@ export function ExportButtons(): ReactElement {
   const result = useStore((state) => state.result.shown)
   const error = useStore((state) => state.result.exportError)
   const { busy, draw } = useSvgDrawing()
-  const [named, setNamed] = useState<Named | null>(null)
-
-  // One hash per shown board. The cleanup drops an answer for a board that is
-  // no longer shown — and the first of StrictMode's two mount runs. Dropping it
-  // is what keeps a slow hash from landing on top of a newer one.
-  useEffect(() => {
-    if (result === null) return
-    let ignore = false
-    const { file, board } = result
-    layoutHash(board).then(
-      (hash) => {
-        if (!ignore) setNamed({ file, hash, error: null })
-      },
-      (reason: unknown) => {
-        if (!ignore) setNamed({ file, hash: null, error: reason instanceof Error ? reason.message : String(reason) })
-      },
-    )
-    return () => {
-      ignore = true
-    }
-  }, [result])
-  // `named` keeps the last board's hash until the new one arrives. The file
-  // comparison covers the early window (the old name offered for the new
-  // board); the effect's `ignore` covers the late one (an old hash landing
-  // after the new one would overwrite `named` and leave the button dead).
-  const current = result !== null && named !== null && named.file === result.file ? named : null
-  const hash = current?.hash ?? null
+  // `useShownHash` works it out when the board arrives, and only for the board on screen.
+  const current = useStore((state) => state.result.hash)
+  const hash = current?.value ?? null
 
   const exportSvg = () => {
     if (result === null || busy) return

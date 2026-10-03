@@ -208,3 +208,20 @@ test('saving marks the shown board pending, and is dropped for a board no longer
   finish(TWO)
   expect(result().saved).toBeNull()
 })
+
+// One hash per shown board, kept beside it: what the board file is named by
+// and what a dry run of a stored board is compared with.
+test('the hash belongs to the shown board: a copy or a replaced board does not take it', () => {
+  finish(ONE)
+  expect(result().hash).toBeNull()
+  result().hashed({ ...ONE.file }, 'sha256-copy', null)
+  expect(result().hash).toBeNull()
+  result().hashed(ONE.file, 'sha256-one', null)
+  expect(result().hash).toEqual({ file: ONE.file, value: 'sha256-one', error: null })
+  finish(TWO)
+  expect(result().hash).toBeNull()
+  result().hashed(ONE.file, 'sha256-late', null)
+  expect(result().hash).toBeNull()
+  result().hashed(TWO.file, null, 'no secure context')
+  expect(result().hash).toEqual({ file: TWO.file, value: null, error: 'no secure context' })
+})

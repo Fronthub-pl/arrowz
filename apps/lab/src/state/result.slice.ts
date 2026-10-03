@@ -49,6 +49,13 @@ export interface OpenedFile {
 
 export type Preview = StoredBoard | OpenedFile
 
+/** The layout hash of one board file, or why it could not be worked out. */
+export interface ShownHash {
+  readonly file: BoardFile
+  readonly value: string | null
+  readonly error: string | null
+}
+
 export interface ResultState {
   shown: ShownResult | null
   baseline: Baseline | null
@@ -56,6 +63,8 @@ export interface ResultState {
   saved: SaveOutcome | 'pending' | null
   /** Why the last SVG export of `shown.file` failed, and of no other file. */
   exportError: string | null
+  /** The layout hash of `shown.file` once `useShownHash` has it, and of no other file. */
+  hash: ShownHash | null
   /** The board the library shows, beside the run's own and never instead of it. */
   preview: Preview | null
   stored(file: BoardFile, outcome: SaveOutcome): void
@@ -63,6 +72,8 @@ export interface ResultState {
   saving(file: BoardFile): void
   /** An SVG export of `file` failed with `error`, or is starting again and clears it with null. */
   exported(file: BoardFile, error: string | null): void
+  /** `file`'s layout hash, or why it failed; a no-op for a file no longer shown, as `stored` is. */
+  hashed(file: BoardFile, value: string | null, error: string | null): void
   /** The library draws a stored board or an opened file. The run's result is untouched. */
   showPreview(next: Preview): void
   /** Leaving the library, or a board that could not be read. */
@@ -123,6 +134,7 @@ export function showResult(state: ResultState, next: ShownResult): ResultState {
         : state.baseline,
     saved: null,
     exportError: null,
+    hash: null,
   }
 }
 
@@ -132,6 +144,7 @@ export function createResultSlice(set: SliceSet<'result', ResultState>): ResultS
     baseline: null,
     saved: null,
     exportError: null,
+    hash: null,
     preview: null,
     // Returning the state unchanged is zustand's no-op: `setState` skips an
     // update whose result is the state object itself.
@@ -143,6 +156,10 @@ export function createResultSlice(set: SliceSet<'result', ResultState>): ResultS
       ),
     exported: (file, exportError) =>
       set((state) => (state.result.shown?.file === file ? { result: { ...state.result, exportError } } : state)),
+    hashed: (file, value, error) =>
+      set((state) =>
+        state.result.shown?.file === file ? { result: { ...state.result, hash: { file, value, error } } } : state,
+      ),
     showPreview: (preview) => set((state) => ({ result: { ...state.result, preview } })),
     clearPreview: () =>
       set((state) => (state.result.preview === null ? state : { result: { ...state.result, preview: null } })),
@@ -154,7 +171,15 @@ export function createResultSlice(set: SliceSet<'result', ResultState>): ResultS
       }),
     reset: () =>
       set((state) => ({
-        result: { ...state.result, shown: null, preview: null, baseline: null, saved: null, exportError: null },
+        result: {
+          ...state.result,
+          shown: null,
+          preview: null,
+          baseline: null,
+          saved: null,
+          exportError: null,
+          hash: null,
+        },
       })),
   }
 }

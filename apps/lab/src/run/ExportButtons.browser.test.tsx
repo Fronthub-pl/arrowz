@@ -7,6 +7,7 @@ import { contrast, shown } from '../design/contrast'
 import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { ExportButtons } from './ExportButtons'
+import { useShownHash } from './useShownHash'
 import '../design/index.css'
 
 const ONE = finishedRun(1)
@@ -56,9 +57,16 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** The hash is worked out above the buttons, as `App` mounts it. */
+function Hashing() {
+  useShownHash()
+  return null
+}
+
 async function mountButtons() {
   return render(
     <div className="fw">
+      <Hashing />
       <div className="fw-run-col">
         <ExportButtons />
       </div>
