@@ -279,6 +279,20 @@ describe('RunStatusBar', () => {
       .toBe(`${EN.t('closed')} — ${EN.t('notSavedDryRun')}`)
   })
 
+  // Load into lab with "save every board" on: the save is the news, not the comparison.
+  it('lets a save of a stored board speak over the comparison', async () => {
+    const state = useStore.getState()
+    state.run.started(state.params.values, { save: true, storedId: 'sha256-a' })
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    state.result.hashed(CLOSED.board, 'sha256-a', null)
+    const screen = await mountBar()
+    const text = () => screen.getByRole('status').element().textContent
+    await expect.poll(text).toBe(`${EN.t('closed')} — ${EN.t('saving')}`)
+    const answer = { ok: true, meta: storedFixture(1).meta, layoutExisted: true, recipeExisted: true } as const
+    await act(async () => useStore.getState().result.stored(CLOSED.board, answer))
+    await expect.poll(text).toBe(`${EN.t('closed')} — ${EN.t('savedKnownRecipe')}`)
+  })
+
   // A plain dry run has no stored layout: its hash, which every board gets, says nothing here.
   it('compares nothing for a run that was not loaded from the store', async () => {
     const state = useStore.getState()

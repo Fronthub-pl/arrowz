@@ -140,7 +140,7 @@ test('the board file waits for the hash of the board on screen, and a replaced b
   })
   await expect.element(button).toBeEnabled()
   await button.click()
-  // The other order, which only the effect's cleanup survives: the new board's
+  // The other order, which only `result.hashed`'s file check survives: the new board's
   // hash answers first, the replaced board's after. A late hash written on top
   // would leave the button dead until the next run.
   await act(async () => finish(FOUR))
