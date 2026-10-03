@@ -792,7 +792,7 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     // The re-carve is a dry run of a layout the store has, and the line says so.
     await expect
       .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
-      .toMatchTextContent(/ — layout already stored \(⌘G or Save board saves this recipe\)$/)
+      .toMatchTextContent(/ — layout already stored \(Save board saves this recipe\)$/)
   } finally {
     // The stroke edit above leaves a 350ms module-scope save timer running, and
     // its `.then` calls `refresh()` after the case is gone.
