@@ -96,8 +96,7 @@ English is the source, Polish the translation (`packages/engine/lab-i18n.ts`).
 | Key | English |
 |---|---|
 | `saveBoard` | Save board |
-| `saveEvery` | Save every board |
-| `saveEveryHelp` | Save each finished board to the store. Off whenever the lab opens. |
+| `saveEvery` | save every board (lower case, as `autoRun`) |
 | `generateAndSave` | Generate and save |
 | `notSavedDryRun` | not saved (⌘G or Save board) |
 | `saving` | saving… |
