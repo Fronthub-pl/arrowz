@@ -69,8 +69,9 @@ running again. The status line says when a board on screen was not saved.
     not a board to keep: today's rule, unchanged);
   - a save of it is pending (a double click posts once);
   - the store already answered `ok` for it.
-  After a failed save (no store server, an old one) it is enabled again, so
-  the save can be retried. The button shows the short word ("Save" /
+  After a failed save (no store server) it is enabled again, so the save can
+  be retried. An older store server's answer (a 201 with a bare meta,
+  `stale`) is a saved board: the button stays off as for `ok`. The button shows the short word ("Save" /
   "Zapisz"); its accessible name is the full "Save board" / "Zapisz planszę",
   which contains it. Measured: the full Polish label wraps the M/S bar at
   1024×768 to a third row (controls 128 px against `bar-row`'s 104); the short
