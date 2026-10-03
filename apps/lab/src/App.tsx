@@ -8,6 +8,7 @@ import { Workspace } from './routes/Workspace'
 import { PresetStrip } from './run/PresetStrip'
 import { useAutoRun } from './run/useAutoRun'
 import { useRun } from './run/useRun'
+import { useShownHash } from './run/useShownHash'
 import { useSeries } from './series/useSeries'
 import { usePaletteKey, useWorkspaceKeys } from './shell/hotkeys'
 import { useRememberBoards } from './shell/lastBoards'
@@ -54,6 +55,7 @@ function Shell() {
   const advanced = useStore((state) => state.ui.mode === 'advanced')
   const presetsInTop = low && advanced && tabIndex === 0
   useStoreSave()
+  useShownHash()
   useRememberBoards()
   useWorkspaceKeys(onWorkspace, control)
   usePaletteKey()

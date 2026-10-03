@@ -9,15 +9,17 @@ import { useRun } from './useRun'
 function stub() {
   const calls = { start: 0, abort: 0 }
   const saves: boolean[] = []
+  const storedIds: (string | null)[] = []
   const generator: GeneratorHandle = {
-    start: (_params, save) => {
+    start: (_params, intent) => {
       calls.start++
-      saves.push(save)
+      saves.push(intent.save)
+      storedIds.push(intent.storedId)
     },
     abort: () => void calls.abort++,
   }
   const series: SeriesHandle = { start: vi.fn(), abort: vi.fn() }
-  return { generator, series, saves, started: () => calls.start, aborted: () => calls.abort }
+  return { generator, series, saves, storedIds, started: () => calls.start, aborted: () => calls.abort }
 }
 
 beforeEach(() => {
@@ -134,5 +136,15 @@ describe('the intent to save', () => {
     result.current.start()
     result.current.start({ save: false })
     expect(g.saves).toEqual([true, true])
+  })
+
+  // Load into lab names the stored layout; the run carries it without saving.
+  it('hands the worker the stored layout a start names, and none otherwise', async () => {
+    const g = stub()
+    const { result } = await renderHook(() => useRun(g.generator, g.series))
+    result.current.start({ storedId: 'sha256-x' })
+    result.current.start()
+    expect(g.storedIds).toEqual(['sha256-x', null])
+    expect(g.saves).toEqual([false, false])
   })
 })

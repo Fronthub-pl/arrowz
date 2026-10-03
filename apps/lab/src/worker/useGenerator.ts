@@ -1,11 +1,12 @@
 import { decodeBoard } from '@arrowz/engine'
 import type { BoardData, Params, WorkerIn, WorkerOut } from '@arrowz/engine'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
+import type { RunIntent } from '../state/run.slice'
 import { useStore } from '../state/store'
 
 /** Not `Generator`, which would shadow the standard library's `Generator<T>`. */
 export interface GeneratorHandle {
-  start(params: Params, save: boolean): void
+  start(params: Params, intent: RunIntent): void
   abort(): void
 }
 
@@ -85,9 +86,9 @@ export function useGenerator(): GeneratorHandle {
 
   return useMemo<GeneratorHandle>(
     () => ({
-      start(params, save) {
+      start(params, intent) {
         if (busy.current) kill()
-        actions().started(params, save)
+        actions().started(params, intent)
         busy.current = true
         // A fresh flag per run: a flag raised for the old run must not stop the new one.
         stop.current = crossOriginIsolated ? new Int32Array(new SharedArrayBuffer(4)) : null

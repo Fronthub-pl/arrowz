@@ -17,10 +17,15 @@ function assertNever(value: never): never {
   throw new Error(`unreachable notice kind: ${JSON.stringify(value)}`)
 }
 
-/** The store's part of the run's line: a dry run, a save on its way, or the answer. */
-function saveText(dict: Dict, saved: SaveOutcome | 'pending' | null, asked: boolean): string {
+/**
+ * The store's part of the run's line: a dry run, a save on its way, or the
+ * answer. `known` compares a dry run of a stored board with the stored layout:
+ * null until its hash is known, and for every run not loaded from the store.
+ */
+function saveText(dict: Dict, saved: SaveOutcome | 'pending' | null, asked: boolean, known: boolean | null): string {
   // `asked` with no answer is the frame before `useStoreSave`'s effect posts.
   if (saved === 'pending' || (saved === null && asked)) return dict.t('saving')
+  if (saved === null && known !== null) return dict.t(known ? 'knownLayoutDryRun' : 'layoutDiffersDryRun')
   if (saved === null) return dict.t('notSavedDryRun')
   if (!saved.ok) return dict.t(saved.stale === true ? 'savedOldStore' : 'notSaved')
   if (!saved.layoutExisted) return dict.t('saved')
@@ -154,6 +159,9 @@ export function useRunLine(): Omit<RunState, 'library'> {
   const shownParams = useStore((state) => state.result.shown?.params ?? null)
   const saved = useStore((state) => state.result.saved)
   const asked = useStore((state) => state.result.shown?.save ?? false)
+  const storedId = useStore((state) => state.result.shown?.storedId ?? null)
+  const hash = useStore((state) => state.result.hash?.value ?? null)
+  const known = storedId === null || hash === null ? null : hash === storedId
   const blocked = useStore((state) => state.params.violations.length > 0)
   const seriesPhase = useStore((state) => state.series.phase)
   const seriesDone = useStore((state) => state.series.runs.length)
@@ -263,7 +271,7 @@ export function useRunLine(): Omit<RunState, 'library'> {
   // The store's answer is appended, never substituted: a missing store must not
   // overwrite what the run reported. Only the branches that report a board this
   // run produced set `reportsRun`; a stopped board has nothing to say, it cannot be saved.
-  const answer = !reportsRun || report === null || report.aborted ? '' : ` — ${saveText(dict, saved, asked)}`
+  const answer = !reportsRun || report === null || report.aborted ? '' : ` — ${saveText(dict, saved, asked, known)}`
   const runLive = `${text}${answer}`
 
   return { live: runLive, run: { text: rest ?? runLive, bad }, meter }

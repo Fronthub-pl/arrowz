@@ -197,7 +197,7 @@ describe('RunStatusBar', () => {
     await expect.element(screen.getByRole('status')).toMatchTextContent(`${EN.t('closed')} — ${EN.t('notSaved')}`)
     const next = { ...CLOSED, board: { ...CLOSED.board } }
     await act(async () => {
-      useStore.getState().run.started(useStore.getState().params.values, true)
+      useStore.getState().run.started(useStore.getState().params.values, { save: true })
       useStore.getState().completeRun({ board: RESULT.board, file: next.board, report: next })
     })
     await expect
@@ -232,7 +232,7 @@ describe('RunStatusBar', () => {
   // the line must not say "not saved" for that frame.
   it('says saving for a run that asked, before and while its save is pending', async () => {
     const state = useStore.getState()
-    state.run.started(state.params.values, true)
+    state.run.started(state.params.values, { save: true })
     state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
     const screen = await mountBar()
     const text = () => screen.getByRole('status').element().textContent
@@ -245,6 +245,64 @@ describe('RunStatusBar', () => {
     finish(stoppedRun(1))
     const screen = await mountBar()
     await expect.poll(() => screen.getByRole('status').element().textContent).toBe(EN.t('stopped'))
+  })
+
+  // Load into lab re-carves a stored recipe as a dry run. Its layout hash is
+  // compared with the stored one; until the hash is known, or if it cannot be
+  // worked out, the line says what any dry run says.
+  it.each([
+    ['en', 'sha256-a', 'knownLayoutDryRun'],
+    ['en', 'sha256-b', 'layoutDiffersDryRun'],
+    ['pl', 'sha256-a', 'knownLayoutDryRun'],
+    ['pl', 'sha256-b', 'layoutDiffersDryRun'],
+  ] as const)('a dry run of a stored board, in %s, hashed %s, ends in %s', async (lang, hash, key) => {
+    const dict = dictionary(lang)
+    useStore.setState((s) => ({ lang: { ...s.lang, lang } }))
+    const state = useStore.getState()
+    state.run.started(state.params.values, { storedId: 'sha256-a' })
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    const screen = await mountBar()
+    const text = () => screen.getByRole('status').element().textContent
+    await expect.poll(text).toBe(`${dict.t('closed')} — ${dict.t('notSavedDryRun')}`)
+    await act(async () => useStore.getState().result.hashed(CLOSED.board, hash, null))
+    await expect.poll(text).toBe(`${dict.t('closed')} — ${dict.t(key)}`)
+  })
+
+  it('says only "not saved" for a stored board whose hash could not be worked out', async () => {
+    const state = useStore.getState()
+    state.run.started(state.params.values, { storedId: 'sha256-a' })
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    state.result.hashed(CLOSED.board, null, 'no secure context')
+    const screen = await mountBar()
+    await expect
+      .poll(() => screen.getByRole('status').element().textContent)
+      .toBe(`${EN.t('closed')} — ${EN.t('notSavedDryRun')}`)
+  })
+
+  // Load into lab with "save every board" on: the save is the news, not the comparison.
+  it('lets a save of a stored board speak over the comparison', async () => {
+    const state = useStore.getState()
+    state.run.started(state.params.values, { save: true, storedId: 'sha256-a' })
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    state.result.hashed(CLOSED.board, 'sha256-a', null)
+    const screen = await mountBar()
+    const text = () => screen.getByRole('status').element().textContent
+    await expect.poll(text).toBe(`${EN.t('closed')} — ${EN.t('saving')}`)
+    const answer = { ok: true, meta: storedFixture(1).meta, layoutExisted: true, recipeExisted: true } as const
+    await act(async () => useStore.getState().result.stored(CLOSED.board, answer))
+    await expect.poll(text).toBe(`${EN.t('closed')} — ${EN.t('savedKnownRecipe')}`)
+  })
+
+  // A plain dry run has no stored layout: its hash, which every board gets, says nothing here.
+  it('compares nothing for a run that was not loaded from the store', async () => {
+    const state = useStore.getState()
+    state.run.started(state.params.values)
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    state.result.hashed(CLOSED.board, 'sha256-a', null)
+    const screen = await mountBar()
+    await expect
+      .poll(() => screen.getByRole('status').element().textContent)
+      .toBe(`${EN.t('closed')} — ${EN.t('notSavedDryRun')}`)
   })
 
   // The line speaks for the board the library has on screen, and the store's

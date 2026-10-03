@@ -52,7 +52,7 @@ export function RecipeList({ meta, control }: { meta: BoardMeta; control: RunCon
                 <button
                   type="button"
                   aria-label={dict.t('recipeLoad', n)}
-                  onClick={() => loadIntoLab(recipe, control, (path) => void navigate(path))}
+                  onClick={() => loadIntoLab(recipe, control, (path) => void navigate(path), meta.id)}
                 >
                   {dict.t('loadIntoLab')}
                 </button>

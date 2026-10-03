@@ -7,6 +7,7 @@ import { contrast, shown } from '../design/contrast'
 import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { ExportButtons } from './ExportButtons'
+import { useShownHash } from './useShownHash'
 import '../design/index.css'
 
 const ONE = finishedRun(1)
@@ -56,9 +57,16 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** The hash is worked out above the buttons, as `App` mounts it. */
+function Hashing() {
+  useShownHash()
+  return null
+}
+
 async function mountButtons() {
   return render(
     <div className="fw">
+      <Hashing />
       <div className="fw-run-col">
         <ExportButtons />
       </div>
@@ -132,7 +140,7 @@ test('the board file waits for the hash of the board on screen, and a replaced b
   })
   await expect.element(button).toBeEnabled()
   await button.click()
-  // The other order, which only the effect's cleanup survives: the new board's
+  // The other order, which only `result.hashed`'s file check survives: the new board's
   // hash answers first, the replaced board's after. A late hash written on top
   // would leave the button dead until the next run.
   await act(async () => finish(FOUR))

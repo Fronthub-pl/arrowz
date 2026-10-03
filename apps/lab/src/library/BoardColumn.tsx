@@ -118,7 +118,11 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
   return (
     <section id={BOARD_COLUMN_ID} className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
       <CommandFigure label={dict.t('boardCommand')} caption={dict.t('cliThisBoard')} command={meta.command} />
-      <button type="button" className="fw-go" onClick={() => loadIntoLab(meta, control, (path) => void navigate(path))}>
+      <button
+        type="button"
+        className="fw-go"
+        onClick={() => loadIntoLab(meta, control, (path) => void navigate(path), meta.id)}
+      >
         {dict.t('loadIntoLab')}
       </button>
       <LibraryLine line={library} />
