@@ -5,8 +5,11 @@ import type { SeriesHandle } from '../series/useSeries'
 import type { GeneratorHandle } from '../worker/useGenerator'
 
 export interface RunControl {
-  /** Starts a run from the knobs as they stand. Refuses while a rule is broken or a series runs. */
-  start(): void
+  /**
+   * Starts a run from the knobs as they stand. Refuses while a rule is broken or a series runs.
+   * The board is saved when `save` asks or the switch (`ui.saveEvery`) is on, decided now.
+   */
+  start(opts?: { save?: boolean }): void
   /** Asks a run in flight to stop and keep its board; a second call discards it. Does nothing with no run. */
   abort(): void
   /** Registers the cancel of a debounce that has not fired. `useAutoRun` calls it. */
@@ -31,16 +34,19 @@ export const inFlight = (state: Store): boolean => state.run.phase === 'running'
 export function useRun(generator: GeneratorHandle, series: SeriesHandle): RunControl {
   const cancel = useRef<(() => void) | null>(null)
 
-  const start = useCallback(() => {
-    // Before the refusal, not after: a refused trigger must still clear the
-    // timer, or the debounce fires into the same refusal a moment later.
-    cancel.current?.()
-    const state = useStore.getState()
-    // Silent here: `RunStatusBar` speaks the refusal and `Violations` states
-    // the rule, so a log here would be a second voice. A series keeps the cores.
-    if (state.params.violations.length > 0 || state.series.phase === 'running') return
-    generator.start(state.params.values)
-  }, [generator])
+  const start = useCallback(
+    (opts?: { save?: boolean }) => {
+      // Before the refusal, not after: a refused trigger must still clear the
+      // timer, or the debounce fires into the same refusal a moment later.
+      cancel.current?.()
+      const state = useStore.getState()
+      // Silent here: `RunStatusBar` speaks the refusal and `Violations` states
+      // the rule, so a log here would be a second voice. A series keeps the cores.
+      if (state.params.violations.length > 0 || state.series.phase === 'running') return
+      generator.start(state.params.values, opts?.save === true || state.ui.saveEvery)
+    },
+    [generator],
+  )
 
   const checkSeeds = useCallback(() => {
     cancel.current?.()

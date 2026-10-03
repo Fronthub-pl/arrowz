@@ -8,12 +8,16 @@ import { useRun } from './useRun'
 
 function stub() {
   const calls = { start: 0, abort: 0 }
+  const saves: boolean[] = []
   const generator: GeneratorHandle = {
-    start: () => void calls.start++,
+    start: (_params, save) => {
+      calls.start++
+      saves.push(save)
+    },
     abort: () => void calls.abort++,
   }
   const series: SeriesHandle = { start: vi.fn(), abort: vi.fn() }
-  return { generator, series, started: () => calls.start, aborted: () => calls.abort }
+  return { generator, series, saves, started: () => calls.start, aborted: () => calls.abort }
 }
 
 beforeEach(() => {
@@ -22,6 +26,7 @@ beforeEach(() => {
   state.run.reset()
   state.result.reset()
   state.series.reset()
+  state.ui.setSaveEvery(false)
 })
 
 describe('useRun', () => {
@@ -104,5 +109,30 @@ describe('useRun', () => {
     result.current.abort()
     expect(g.series.abort).toHaveBeenCalled()
     expect(g.aborted()).toBe(0)
+  })
+})
+
+describe('the intent to save', () => {
+  it('is off for a plain start with the switch off', async () => {
+    const g = stub()
+    const { result } = await renderHook(() => useRun(g.generator, g.series))
+    result.current.start()
+    expect(g.saves).toEqual([false])
+  })
+
+  it('is on when the start asks for it, whatever the switch says', async () => {
+    const g = stub()
+    const { result } = await renderHook(() => useRun(g.generator, g.series))
+    result.current.start({ save: true })
+    expect(g.saves).toEqual([true])
+  })
+
+  it('is on for every start while the switch is on', async () => {
+    const g = stub()
+    const { result } = await renderHook(() => useRun(g.generator, g.series))
+    useStore.getState().ui.setSaveEvery(true)
+    result.current.start()
+    result.current.start({ save: false })
+    expect(g.saves).toEqual([true, true])
   })
 })

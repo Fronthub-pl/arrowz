@@ -55,6 +55,8 @@ export interface UiState {
   entry: RailEntry
   /** Generate 350 ms after a knob is edited. Off at first. */
   auto: boolean
+  /** Save every finished board. Off at every load and never remembered: a forgotten switch must not save. */
+  saveEvery: boolean
   /** A preset or a link moved a value into range and has not been dismissed. */
   clamped: boolean
   /** Which console is on screen. Remembered, never in the hash. */
@@ -92,6 +94,7 @@ export interface UiState {
   boardMode: BoardMode
   select(entry: RailEntry): void
   setAuto(on: boolean): void
+  setSaveEvery(on: boolean): void
   raiseClamped(on: boolean): void
   setMode(mode: ViewMode): void
   setSolo(on: boolean): void
@@ -126,6 +129,7 @@ export function createUiSlice(set: SliceSet<'ui', UiState>): UiState {
     // The rail opens on the board group, one group at a time.
     entry: 'board',
     auto: false,
+    saveEvery: false,
     clamped: false,
     mode: modeOf(readStored(MODE_KEY)),
     solo: false,
@@ -142,6 +146,7 @@ export function createUiSlice(set: SliceSet<'ui', UiState>): UiState {
     boardMode: 'view',
     select: (entry) => patch({ entry }),
     setAuto: (auto) => patch({ auto }),
+    setSaveEvery: (saveEvery) => patch({ saveEvery }),
     raiseClamped: (clamped) => patch({ clamped }),
     setMode: (mode) => {
       writeStored(MODE_KEY, mode)

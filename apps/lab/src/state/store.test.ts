@@ -51,3 +51,17 @@ test('a run that was never started cannot be completed', () => {
   expect(() => useStore.getState().completeRun(ONE)).toThrow(/never started/)
   expect(useStore.getState().result.shown).toBeNull()
 })
+
+// The switch can move during a long carve; the run keeps what was decided at its start.
+test('the result carries the intent to save that its run started with', () => {
+  useStore.getState().run.started(ONE.params, true)
+  useStore.getState().ui.setSaveEvery(false)
+  useStore.getState().completeRun(ONE)
+  expect(useStore.getState().result.shown?.save).toBe(true)
+
+  useStore.getState().run.started(ONE.params)
+  useStore.getState().ui.setSaveEvery(true)
+  useStore.getState().completeRun(ONE)
+  expect(useStore.getState().result.shown?.save).toBe(false)
+  useStore.getState().ui.setSaveEvery(false)
+})

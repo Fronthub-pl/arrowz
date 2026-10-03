@@ -55,6 +55,6 @@ export const useStore = create<Store>()((set) => ({
       const params = state.run.params
       // Without the run's own parameters there is nothing true to show it under.
       if (params === null) throw new Error('a run finished that was never started')
-      return { run: runDone(state.run), result: showResult(state.result, { ...done, params }) }
+      return { run: runDone(state.run), result: showResult(state.result, { ...done, params, save: state.run.save }) }
     }),
 }))

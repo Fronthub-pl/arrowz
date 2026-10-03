@@ -30,6 +30,7 @@ describe('the switches the run column owns', () => {
   it('starts with auto off, and has no descriptions switch', () => {
     const store = slice()
     expect(store.ui.auto).toBe(false)
+    expect(store.ui.saveEvery).toBe(false)
     expect(store.ui.clamped).toBe(false)
     expect(store.ui).not.toHaveProperty('help')
     expect(store.ui).not.toHaveProperty('setHelp')
@@ -42,6 +43,15 @@ describe('the switches the run column owns', () => {
     expect(store.ui.auto).toBe(true)
     store.ui.setAuto(false)
     expect(store.ui.auto).toBe(false)
+  })
+
+  it('sets the save-every switch to what it is given', () => {
+    const store = slice()
+    store.ui.setSaveEvery(true)
+    store.ui.setSaveEvery(true)
+    expect(store.ui.saveEvery).toBe(true)
+    store.ui.setSaveEvery(false)
+    expect(store.ui.saveEvery).toBe(false)
   })
 
   it('raises and lowers the clamp notice', () => {

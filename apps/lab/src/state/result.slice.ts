@@ -14,6 +14,8 @@ export interface ShownResult {
   readonly report: ReportInput
   /** What this board was made from — not the knobs on screen, and not a run in flight. */
   readonly params: Params
+  /** Its run was asked to save it: the switch, ⌘G. Save board saves a board without it. */
+  readonly save: boolean
 }
 
 /** What the delta column compares with: the last shown result that had metrics, without its board. */
@@ -106,7 +108,13 @@ export function showResult(state: ResultState, next: ShownResult): ResultState {
   const before = state.shown
   return {
     ...state,
-    shown: { board: next.board, file: next.file, report: reportInputOf(next.report), params: next.params },
+    shown: {
+      board: next.board,
+      file: next.file,
+      report: reportInputOf(next.report),
+      params: next.params,
+      save: next.save,
+    },
     baseline:
       before !== null && before.report.metrics !== null && !before.report.aborted
         ? { report: before.report, params: before.params }
