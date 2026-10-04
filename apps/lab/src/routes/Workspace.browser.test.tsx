@@ -236,7 +236,7 @@ test('a run is saved only when asked, once per run, and the outcome is appended'
       .toBe(true)
     await expect
       .element(status, { timeout: 5_000 })
-      .toMatchTextContent(/^Board complete: every cell filled\. — not saved \(⌘G or Save board\)$/)
+      .toMatchTextContent(/^Board complete: every cell filled\. — not saved \(⌘S or Save board\)$/)
 
     // The switch on. The guard keys on the file object's identity, not its
     // value: the second press carves an equal board, which must post again.
@@ -329,6 +329,70 @@ test('⌘G on the saved boards brings the lab, then makes and saves a board ther
       .element(screen.getByRole('tab', { name: 'Lab', exact: true }), { timeout: 5_000 })
       .toHaveAttribute('aria-selected', 'true')
     await expect.poll(() => savedAfter(loaded), { timeout: 30_000 }).toBe(true)
+  } finally {
+    fetchSpy.mockRestore()
+  }
+}, 60_000)
+
+/** A ⌘S keydown at `target`, returned so a case can read `defaultPrevented`. */
+function pressSave(target: EventTarget = document.body): KeyboardEvent {
+  const event = new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true, cancelable: true })
+  target.dispatchEvent(event)
+  return event
+}
+
+test('⌘S saves the board on screen, with no new run', async () => {
+  await clearOfTheDrawer()
+  const fetchSpy = vi.spyOn(window, 'fetch')
+  const posts = () =>
+    fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards' && call[1]?.method === 'POST')
+  try {
+    await mountApp()
+    await loadRunDone()
+    const loaded = useStore.getState().result.shown?.file
+    expect(pressSave().defaultPrevented).toBe(true)
+    await expect.poll(() => posts().length, { timeout: 10_000 }).toBe(1)
+    expect(useStore.getState().result.shown?.file).toBe(loaded)
+    expect(useStore.getState().run.phase).toBe('done')
+  } finally {
+    fetchSpy.mockRestore()
+  }
+}, 60_000)
+
+test('⌘S on the saved boards brings the lab, then posts its board', async () => {
+  await clearOfTheDrawer()
+  const fetchSpy = vi.spyOn(window, 'fetch')
+  const posts = () =>
+    fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards' && call[1]?.method === 'POST')
+  try {
+    const screen = await onSavedBoards()
+    expect(pressSave().defaultPrevented).toBe(true)
+    await expect
+      .element(screen.getByRole('tab', { name: 'Lab', exact: true }), { timeout: 5_000 })
+      .toHaveAttribute('aria-selected', 'true')
+    await expect.poll(() => posts().length, { timeout: 10_000 }).toBe(1)
+  } finally {
+    fetchSpy.mockRestore()
+  }
+}, 60_000)
+
+// The browser's "Save page" is never what ⌘S means in the lab, even in a field;
+// saving from a field is not either: its value is not committed yet.
+test('⌘S in a field keeps the browser from saving the page and saves nothing', async () => {
+  await clearOfTheDrawer()
+  const fetchSpy = vi.spyOn(window, 'fetch')
+  const posts = () =>
+    fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards' && call[1]?.method === 'POST')
+  try {
+    const screen = await mountApp()
+    await loadRunDone()
+    const field = document.createElement('input')
+    screen.container.append(field)
+    field.focus()
+    expect(pressSave(field).defaultPrevented).toBe(true)
+    await new Promise((done) => setTimeout(done, 100))
+    expect(posts()).toHaveLength(0)
+    field.remove()
   } finally {
     fetchSpy.mockRestore()
   }

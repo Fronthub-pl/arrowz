@@ -4,19 +4,21 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { App } from '../App'
 import { resetApp } from '../harness/mountApp'
 import { storedFixture } from '../state/library.fixtures'
+import { cancelNoticeFade } from '../library/notices'
 import { useStore } from '../state/store'
 import '../design/index.css'
 
 const stored = storedFixture(1)
 const boardPath = `/boards/8x8/${stored.meta.id}`
 
-/** The store's list, file and delete endpoints for the one fixture board. */
-function stubStore() {
+/** The store's list, file and delete endpoints, listing `boards` (the one fixture board by default). */
+function stubStore(boards = [stored.meta]) {
+  vi.restoreAllMocks()
   vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
     const url = String(input)
     if (init?.method === 'DELETE') return Promise.resolve(Response.json({ deleted: true }))
     if (url.includes('/api/boards'))
-      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }]))
+      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards }]))
     if (url.includes('/store/')) return Promise.resolve(Response.json(stored.file))
     return Promise.resolve(new Response('{}', { status: 404 }))
   })
@@ -36,6 +38,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  cancelNoticeFade()
   vi.restoreAllMocks()
   await page.viewport(414, 896)
 })
@@ -71,4 +74,17 @@ test('after a delete the saved boards tab brings back the list, not the deleted 
   await expect.poll(() => location.pathname).toBe('/')
   await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
   await expect.poll(() => location.pathname).toBe('/boards')
+}, 40_000)
+
+// The neighbour's read must not talk over the delete: "Deleted …" is the only
+// word that the click did anything, and it is still up once the neighbour is drawn.
+test('a delete opens the neighbouring board and still says what it deleted', async () => {
+  const other = storedFixture(2)
+  stubStore([other.meta, stored.meta])
+  const screen = await openBoard()
+  await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
+  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+  await expect.poll(onStage).toBe(other.meta.id)
+  expect(location.pathname).toBe(`/boards/8x8/${other.meta.id}`)
+  expect(useStore.getState().library.notice?.kind).toBe('deleted')
 }, 40_000)

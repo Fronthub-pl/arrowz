@@ -80,14 +80,14 @@ describe('RunColumn', () => {
   it('starts a run from the primary action', async () => {
     const g = stub()
     const screen = await render(<RunColumn control={g.control} />)
-    await screen.getByRole('button', { name: 'Generate' }).click()
+    await screen.getByRole('button', { name: 'Generate', exact: true }).click()
     expect(g.started()).toBe(1)
   })
 
   it('refuses the primary action while a rule is broken, and says why', async () => {
     useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
     const screen = await render(<RunColumn control={stub().control} />)
-    const go = screen.getByRole('button', { name: 'Generate' })
+    const go = screen.getByRole('button', { name: 'Generate', exact: true })
     await expect.element(go).toBeDisabled()
     await expect.element(go).toHaveAttribute('title')
   })
@@ -135,14 +135,14 @@ describe('RunColumn', () => {
     await act(async () => useStore.getState().completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
     await twoFrames()
     expect(document.activeElement).not.toBe(document.body)
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element())
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate', exact: true }).element())
   })
 
   // The mirror: starting a run is what disables Generate.
   it('carries the focus off Generate when starting a run is what disables it', async () => {
     const g = stub()
     const screen = await render(<Host control={g.control} />)
-    const go = buttonOf(screen.getByRole('button', { name: 'Generate' }).element())
+    const go = buttonOf(screen.getByRole('button', { name: 'Generate', exact: true }).element())
     go.focus()
     // The precondition, so the case cannot pass with the focus on Abort all along.
     expect(document.activeElement).toBe(go)
@@ -163,7 +163,7 @@ describe('RunColumn', () => {
       checkSeeds: () => {},
     }
     const screen = await render(<Host control={live} />)
-    const go = buttonOf(screen.getByRole('button', { name: 'Generate' }).element())
+    const go = buttonOf(screen.getByRole('button', { name: 'Generate', exact: true }).element())
     go.focus()
     expect(document.activeElement).toBe(go)
 
@@ -184,7 +184,7 @@ describe('RunColumn', () => {
 
     await userEvent.keyboard('{Enter}')
     await twoFrames()
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element())
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate', exact: true }).element())
   })
 
   // A fix that read `running` instead of its transition would pull the focus
@@ -298,7 +298,7 @@ describe('the alternative actions', () => {
         <RunColumn control={stub().control} />
       </div>,
     )
-    const go = () => screen.getByRole('button', { name: 'Generate' }).element().getBoundingClientRect()
+    const go = () => screen.getByRole('button', { name: 'Generate', exact: true }).element().getBoundingClientRect()
     const before = go().top
     await act(async () =>
       useStore.getState().params.setMany({
@@ -328,6 +328,83 @@ describe('the alternative actions', () => {
   })
 })
 
+describe('Generate and save', () => {
+  /** A control that records the options each start was given. */
+  function recording() {
+    const starts: Parameters<RunControl['start']>[0][] = []
+    const control: RunControl = {
+      start: (options) => void starts.push(options),
+      abort: () => {},
+      hold: () => {},
+      checkSeeds: () => {},
+    }
+    return { control, starts }
+  }
+  const both = (screen: Awaited<ReturnType<typeof render>>) =>
+    screen.container.querySelectorAll<HTMLButtonElement>('.fw-gorow > button')
+
+  it('Generate wears the G key in both languages', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    const go = buttonOf(screen.getByRole('button', { name: 'Generate', exact: true }).element())
+    expect(go.querySelector('kbd')?.textContent).toBe('G')
+    expect(go.getAttribute('aria-keyshortcuts')).toBe('g')
+    await act(async () => useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } })))
+    expect(buttonOf(screen.getByRole('button', { name: 'Generuj', exact: true }).element()).textContent).toBe(
+      'GenerujG',
+    )
+  })
+
+  it('with the save switch off, sits beside Generate and starts a run that saves', async () => {
+    const r = recording()
+    const screen = await render(<RunColumn control={r.control} />)
+    expect(both(screen)).toHaveLength(2)
+    const button = buttonOf(screen.getByRole('button', { name: 'Generate and save', exact: true }).element())
+    expect(button.querySelector('kbd')?.textContent).toBe('⌘G')
+    expect(button.getAttribute('aria-keyshortcuts')).toBe('Meta+G')
+    await screen.getByRole('button', { name: 'Generate and save', exact: true }).click()
+    expect(r.starts).toEqual([{ save: true }])
+    await act(async () => useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } })))
+    await expect.element(screen.getByRole('button', { name: 'Generuj i zapisz', exact: true })).toBeInTheDocument()
+  })
+
+  // With the switch on, Generate itself saves: a second button would say the same thing twice.
+  it('is not there while every board is saved', async () => {
+    useStore.getState().ui.setSaveEvery(true)
+    const screen = await render(<RunColumn control={stub().control} />)
+    expect(screen.container.querySelector('.fw-gorow')).not.toBeNull()
+    expect(both(screen)).toHaveLength(1)
+    expect(screen.container.textContent).not.toContain('Generate and save')
+  })
+
+  it('is off while a run is in flight and while a rule is broken, as Generate is', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    const button = () => buttonOf(screen.getByRole('button', { name: 'Generate and save', exact: true }).element())
+    expect(button().disabled).toBe(false)
+    await act(async () => useStore.getState().run.started(useStore.getState().params.values))
+    expect(button().disabled).toBe(true)
+    await act(async () => useStore.getState().run.aborted())
+    await act(async () => useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 }))
+    expect(button().disabled).toBe(true)
+  })
+
+  // The keys are words a sighted person reads; the names stay what they were.
+  it('keeps the key caps out of the accessible names', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    for (const kbd of screen.container.querySelectorAll('.fw-run-col kbd'))
+      expect(kbd.getAttribute('aria-hidden')).toBe('true')
+  })
+
+  it('carries the focus off itself when the run it started disables it', async () => {
+    const screen = await render(<Host control={stub().control} />)
+    const button = buttonOf(screen.getByRole('button', { name: 'Generate and save', exact: true }).element())
+    button.focus()
+    expect(document.activeElement).toBe(button)
+    await act(async () => useStore.getState().run.started(useStore.getState().params.values))
+    await twoFrames()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Abort' }).element())
+  })
+})
+
 describe('Save board', () => {
   const save = (screen: Awaited<ReturnType<typeof render>>) =>
     buttonOf(screen.getByRole('button', { name: 'Save board' }).element())
@@ -341,10 +418,18 @@ describe('Save board', () => {
   // The bar shows the short word; the accessible name is the full one and contains it.
   it('shows a short label and keeps the full name, in both languages', async () => {
     const screen = await render(<RunColumn control={stub().control} />)
-    expect(save(screen).textContent).toBe('Save')
+    expect(save(screen).textContent).toBe('Save⌘S')
     await act(async () => useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } })))
     const pl = buttonOf(screen.getByRole('button', { name: 'Zapisz planszę' }).element())
-    expect(pl.textContent).toBe('Zapisz')
+    expect(pl.textContent).toBe('Zapisz⌘S')
+  })
+
+  it('wears its own key, ⌘S, and has no title while it can save', async () => {
+    finish(finishedRun(1))
+    const screen = await render(<RunColumn control={stub().control} />)
+    expect(save(screen).querySelector('kbd')?.textContent).toBe('⌘S')
+    expect(save(screen).getAttribute('aria-keyshortcuts')).toBe('Meta+S')
+    expect(save(screen).title).toBe('')
   })
 
   // Read once after the click: a poll would wait out the pending state (the fetch never answers).
@@ -512,7 +597,9 @@ describe('the state line under Generate', () => {
     useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
     const screen = await render(<RunColumn control={stub().control} />)
     const line = stateLine(screen.container)
-    expect(line.textContent).toBe(screen.getByRole('button', { name: 'Generate' }).element().getAttribute('title'))
+    expect(line.textContent).toBe(
+      screen.getByRole('button', { name: 'Generate', exact: true }).element().getAttribute('title'),
+    )
     expect(line.classList.contains('bad')).toBe(true)
     const probe = document.createElement('span')
     probe.style.color = 'var(--error)'

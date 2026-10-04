@@ -887,9 +887,10 @@ test.each([
   40_000,
 )
 
-// At 1440×900 in Polish: Generate is the meter, 260px wide, the stage says it
-// is busy, and the line under Generate is the rest of the progress, two lines
-// tall with its 6 + 8px padding.
+// At 1440×900 in Polish: Generate is the meter, sharing its 260px row with
+// Generate and save and keeping the larger part, the stage says it is busy,
+// and the line under Generate is the rest of the progress, two lines tall with
+// its 6 + 8px padding.
 test('at 1440×900 in Polish Generate is the meter and the line under it wraps in two', async () => {
   await page.viewport(1440, 900)
   const screen = await mountApp('advanced')
@@ -898,7 +899,14 @@ test('at 1440×900 in Polish Generate is the meter and the line under it wraps i
   await carving()
   const go = screen.getByRole('button', { name: 'Generuję 41,3%' })
   await expect.element(go).toBeDisabled()
-  expect(go.element().getBoundingClientRect().width).toBeCloseTo(260, 0)
+  const row = one(screen.container, '.fw-gorow').getBoundingClientRect()
+  const goBox = go.element().getBoundingClientRect()
+  const saveBox = one(screen.container, '.fw-gosave').getBoundingClientRect()
+  expect(row.width).toBeCloseTo(260, 0)
+  expect(goBox.width + 2 + saveBox.width).toBeCloseTo(row.width, 0)
+  expect(goBox.width).toBeGreaterThan(saveBox.width)
+  // The meter's label is whole in its share of the row.
+  expect(go.element().scrollWidth).toBeLessThanOrEqual(go.element().clientWidth)
   await expect
     .element(screen.getByRole('progressbar', { name: 'Postęp generowania' }))
     .toHaveAttribute('aria-valuenow', '41.3')
@@ -912,6 +920,17 @@ test('at 1440×900 in Polish Generate is the meter and the line under it wraps i
   await act(async () => useStore.getState().run.aborted())
   expect(one(screen.container, '.fw-stage').hasAttribute('aria-busy')).toBe(false)
   useStore.getState().lang.setLang('en')
+}, 40_000)
+
+// The bar holds Generate and save as its key alone: the label wraps it to a third row.
+test('at 1024×768 Generate and save shows only its key, and keeps its name', async () => {
+  await page.viewport(1024, 768)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  const button = screen.getByRole('button', { name: 'Generate and save', exact: true })
+  await expect.element(button).toBeVisible()
+  expect(one(screen.container, '.fw-gosave-label').getClientRects()).toHaveLength(0)
+  expect(one(screen.container, '.fw-gosave .fw-key').getClientRects().length).toBeGreaterThan(0)
 }, 40_000)
 
 // At 1024 the run column is the bar under the board: Generate is 149px and the

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { saveShown } from '../library/saveShown'
 import { generate, generateAndSave, stepSeed } from '../run/actions'
 import type { RunControl } from '../run/useRun'
 import { readBand } from '../state/band'
@@ -31,9 +32,9 @@ function isHotkeyRefused(event: KeyboardEvent): boolean {
   return event.ctrlKey || event.metaKey || event.altKey || isOffLimits(event)
 }
 
-/** ⌘G or Ctrl+G, without Alt: Generate and save. */
-function isSaveKey(event: KeyboardEvent): boolean {
-  return (event.key === 'g' || event.key === 'G') && (event.metaKey || event.ctrlKey) && !event.altKey
+/** ⌘ or Ctrl with `letter`, without Alt: ⌘G is Generate and save, ⌘S Save board. */
+function isCommandKey(event: KeyboardEvent, letter: string): boolean {
+  return event.key.toLowerCase() === letter && (event.metaKey || event.ctrlKey) && !event.altKey
 }
 
 /** Escape closes one layer: an open sheet, then the report (it lies over the board), then the settings. */
@@ -58,8 +59,9 @@ export interface HotkeyRow {
  * drawer's state. `r` and `s` open the sheets at XS, the drawers above it.
  * `g`, `[` and `]` are the palette footer's, silent while it is open (its
  * search box is an `<input>`); a refused run says nothing here, `RunStatusBar`
- * is the one voice for a broken rule. ⌘G (and Ctrl+G) is not in the table: it
- * is bound beside it in `useWorkspaceKeys`, and brings the lab as `lab` rows do.
+ * is the one voice for a broken rule. ⌘G and ⌘S (and Ctrl) are not in the
+ * table: they are bound beside it in `useWorkspaceKeys`, and bring the lab as
+ * `lab` rows do.
  */
 export const WORKSPACE_KEYS: readonly HotkeyRow[] = [
   // Shift is not a modifier here, so `F` too; also with the focus on a button such as Generate.
@@ -94,12 +96,23 @@ export function useWorkspaceKeys(onWorkspace: boolean, control: RunControl, toLa
   useEffect(() => {
     if (!onWorkspace) return
     const onKey = (event: KeyboardEvent) => {
-      if (isSaveKey(event)) {
+      if (isCommandKey(event, 'g')) {
         if (isOffLimits(event)) return
         // The browser's ⌘G is "find next".
         event.preventDefault()
         toLab?.()
         generateAndSave(control)
+        return
+      }
+      if (isCommandKey(event, 's')) {
+        // The browser's "Save page" is never meant here, not even in a field,
+        // whose value is not committed yet, so a field saves nothing. Read
+        // before `preventDefault`, which `isOffLimits` would take for a consumed key.
+        const offLimits = isOffLimits(event)
+        event.preventDefault()
+        if (offLimits) return
+        toLab?.()
+        saveShown()
         return
       }
       if (isHotkeyRefused(event)) return

@@ -216,7 +216,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       note: dict.t('cmdSecRun'),
       // The broken rule first: it is the state a person has to do something
       // about, and it is still true while a carve is going.
-      value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : 'g',
+      value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : 'G',
       hay: 'generate',
       disabled: running || broken,
       run: onLab(deps, state, () => generate(deps.control)),
@@ -237,7 +237,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       name: dict.t('saveBoard'),
       note: dict.t('cmdSecRun'),
       // The board on screen, so a carve in flight does not stop it.
-      value: refusal === null ? '' : dict.t(refusal),
+      value: refusal === null ? '⌘S' : dict.t(refusal),
       hay: 'save store keep',
       disabled: refusal !== null,
       run: onLab(deps, state, () => saveShown()),
@@ -298,7 +298,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       section: 'run',
       name: dict.t('fullView'),
       note: dict.t('cmdSecRun'),
-      value: 'f',
+      value: 'F',
       hay: 'solo full',
       disabled: false,
       run: () => {

@@ -182,6 +182,13 @@ describe('the palette dialog', () => {
     expect(screen.container.querySelectorAll('.fw-pal .foot span')).toHaveLength(7)
   })
 
+  // Written as the run column and the rows write ⌘G: a letter in capitals, a named key as Esc.
+  it('writes every key in the footer in capitals', async () => {
+    const screen = await mount()
+    const keys = [...screen.container.querySelectorAll('.fw-pal .foot b')].map((b) => b.textContent)
+    expect(keys).toEqual(['↑↓', '↵', 'Esc', 'G', '[ ]', 'R', 'S'])
+  })
+
   it('names all seven hotkeys on the saved boards too, where the drawers are', async () => {
     const screen = await mount('/boards')
     expect(footer(screen)).toContain('report')

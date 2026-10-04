@@ -145,17 +145,23 @@ describe('the catalogue', () => {
     expect(useStore.getState().ui.palette).toBe(false)
   })
 
+  it('shows each row’s key in capitals', () => {
+    const rows = buildCommands(deps(), useStore.getState())
+    const value = (id: string) => rows.find((row) => row.id === id)?.value
+    expect([value('run-generate'), value('run-generate-save'), value('run-solo')]).toEqual(['G', '⌘G', 'F'])
+  })
+
   it('offers Save board for the board on screen, and gives the reason when it cannot', () => {
     const row = () => buildCommands(deps(), useStore.getState()).find((r) => r.id === 'run-save')
     expect(row()?.disabled).toBe(true)
     expect(row()?.value).toBe('No board to save yet')
     finish(finishedRun(1))
     expect(row()?.disabled).toBe(false)
-    expect(row()?.value).toBe('')
+    expect(row()?.value).toBe('⌘S')
     // It saves the board on screen, so a carve going does not turn it off.
     useStore.getState().run.started(useStore.getState().params.values)
     expect(row()?.disabled).toBe(false)
-    expect(row()?.value).toBe('')
+    expect(row()?.value).toBe('⌘S')
     useStore.getState().run.reset()
     const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
     try {

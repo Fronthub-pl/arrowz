@@ -224,7 +224,7 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
             <b>↵</b> {dict.t('cmdHintChoose')}
           </span>
           <span>
-            <b>esc</b> {dict.t('cmdHintClose')}
+            <b>Esc</b> {dict.t('cmdHintClose')}
           </span>
           {/* ⌘K opens the palette on every route, but `useWorkspaceKeys` is
               bound on the workspace only, so under `/docs/*` these hints
@@ -232,16 +232,16 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
           {onWorkspace ? (
             <>
               <span>
-                <b>g</b> {dict.t('cmdHintGenerate')}
+                <b>G</b> {dict.t('cmdHintGenerate')}
               </span>
               <span>
                 <b>[ ]</b> {dict.t('cmdHintSeed')}
               </span>
               <span>
-                <b>r</b> {dict.t('cmdHintReport')}
+                <b>R</b> {dict.t('cmdHintReport')}
               </span>
               <span>
-                <b>s</b> {dict.t('cmdHintSettings')}
+                <b>S</b> {dict.t('cmdHintSettings')}
               </span>
             </>
           ) : null}

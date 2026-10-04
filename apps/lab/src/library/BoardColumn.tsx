@@ -9,6 +9,7 @@ import type { RunControl } from '../run/useRun'
 import { type StateLine, useRunState } from '../stage/useRunState'
 import { useStore } from '../state/store'
 import { lookOf } from '../state/view.slice'
+import { addressAfterDelete } from './afterDelete'
 import { BOARD_COLUMN_ID } from './boardColumnId'
 import { FileColumn } from './FileColumn'
 import { loadIntoLab } from './loadIntoLab'
@@ -79,6 +80,8 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
     // `08x08` holds boards whose `W` is 8, and a DELETE to a missing directory
     // answers 404, which reads as "deleted" while the board stays on disk.
     const name = `${size}/${meta.id}`
+    // Read now: a refresh landing before the answer would no longer hold the deleted row.
+    const next = addressAfterDelete(useStore.getState().library.sizes, size, meta.id)
     void deleteBoard(size, meta.id).then((outcome) => {
       if (!outcome.ok) {
         raiseNotice({ kind: 'deleteFailed' })
@@ -87,7 +90,7 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
       // Gone either way. Replaced, not pushed: Back must not offer a board
       // that is off the disk.
       raiseNotice({ kind: 'deleted', name })
-      void navigate('/boards', { replace: true })
+      void navigate(next, { replace: true })
       refreshLibrary()
     })
   }
