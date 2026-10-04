@@ -216,7 +216,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       note: dict.t('cmdSecRun'),
       // The broken rule first: it is the state a person has to do something
       // about, and it is still true while a carve is going.
-      value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : 'g',
+      value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : 'G',
       hay: 'generate',
       disabled: running || broken,
       run: onLab(deps, state, () => generate(deps.control)),
@@ -298,7 +298,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       section: 'run',
       name: dict.t('fullView'),
       note: dict.t('cmdSecRun'),
-      value: 'f',
+      value: 'F',
       hay: 'solo full',
       disabled: false,
       run: () => {

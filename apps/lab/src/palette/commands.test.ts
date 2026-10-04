@@ -145,6 +145,12 @@ describe('the catalogue', () => {
     expect(useStore.getState().ui.palette).toBe(false)
   })
 
+  it('shows each row’s key in capitals', () => {
+    const rows = buildCommands(deps(), useStore.getState())
+    const value = (id: string) => rows.find((row) => row.id === id)?.value
+    expect([value('run-generate'), value('run-generate-save'), value('run-solo')]).toEqual(['G', '⌘G', 'F'])
+  })
+
   it('offers Save board for the board on screen, and gives the reason when it cannot', () => {
     const row = () => buildCommands(deps(), useStore.getState()).find((r) => r.id === 'run-save')
     expect(row()?.disabled).toBe(true)

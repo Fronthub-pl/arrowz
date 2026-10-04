@@ -343,14 +343,14 @@ describe('Generate and save', () => {
   const both = (screen: Awaited<ReturnType<typeof render>>) =>
     screen.container.querySelectorAll<HTMLButtonElement>('.fw-gorow > button')
 
-  it('Generate wears the g key in both languages', async () => {
+  it('Generate wears the G key in both languages', async () => {
     const screen = await render(<RunColumn control={stub().control} />)
     const go = buttonOf(screen.getByRole('button', { name: 'Generate', exact: true }).element())
-    expect(go.querySelector('kbd')?.textContent).toBe('g')
+    expect(go.querySelector('kbd')?.textContent).toBe('G')
     expect(go.getAttribute('aria-keyshortcuts')).toBe('g')
     await act(async () => useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } })))
     expect(buttonOf(screen.getByRole('button', { name: 'Generuj', exact: true }).element()).textContent).toBe(
-      'Generujg',
+      'GenerujG',
     )
   })
 

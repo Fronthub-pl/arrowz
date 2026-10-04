@@ -123,7 +123,7 @@ export function RunColumn({
           {carving && meter !== null ? meter.label : dict.t('generate')}
           {carving ? null : (
             <kbd className="fw-key" aria-hidden="true">
-              g
+              G
             </kbd>
           )}
         </button>
