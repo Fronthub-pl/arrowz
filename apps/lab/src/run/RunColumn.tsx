@@ -4,7 +4,7 @@ import { saveRefusal, saveShown } from '../library/saveShown'
 import { SeriesRow } from '../series/SeriesRow'
 import { oneDecimal, useRunLine } from '../stage/useRunState'
 import { useStore } from '../state/store'
-import { defaults, generate, reseed } from './actions'
+import { defaults, generate, generateAndSave, reseed } from './actions'
 import { ExportButtons } from './ExportButtons'
 import { LiveCommand } from './LiveCommand'
 import { MoreMenu } from './MoreMenu'
@@ -59,17 +59,19 @@ export function RunColumn({
   const { run: line, meter } = useRunLine()
   const share = carving ? (meter?.percent ?? null) : null
 
-  // Starting a run disables Generate and ending one disables Abort; HTML's focus
+  // Starting a run disables Generate (and Generate and save) and ending one disables Abort; HTML's focus
   // fixup (two frames later, see `twoFrames`) would drop the focus
   // on <body>, so a layout effect hands it to the partner button first. Act on
   // the transition of `running`, not its value (`wasRunning` keeps that if the
   // deps grow), and only when the focus is on the button being disabled. Known
   // gap: a rule broken during the run leaves Generate disabled and focus lost.
   const wasRunning = useRef(false)
+  const goSaveRef = useRef<HTMLButtonElement>(null)
   useLayoutEffect(() => {
     const abort = abortRef?.current ?? null
     const go = goRef?.current ?? null
-    if (running && !wasRunning.current && go !== null && document.activeElement === go) {
+    const starter = document.activeElement === go || document.activeElement === goSaveRef.current
+    if (running && !wasRunning.current && starter) {
       if (abort !== null && !abort.disabled) abort.focus()
     }
     if (!running && wasRunning.current && abort !== null && document.activeElement === abort) {
@@ -94,6 +96,7 @@ export function RunColumn({
 
   // Shared with the command palette, so the column and the palette cannot drift.
   const onGenerate = () => generate(control)
+  const onGenerateAndSave = () => generateAndSave(control)
   const onReseed = () => reseed(control)
   const onDefaults = () => defaults(control)
 
@@ -104,18 +107,45 @@ export function RunColumn({
           (`--p`), the percent in its label. Before the first report the
           progressbar has no value, which is how ARIA spells "indeterminate".
           The progressbar is for assistive technology only (`fw-vh`). */}
-      <button
-        type="button"
-        className={carving ? 'fw-go busy' : 'fw-go'}
-        ref={goRef}
-        onClick={onGenerate}
-        disabled={running || blocked}
-        title={blocked ? dict.t('generateBlocked') : undefined}
-        style={carving ? ({ '--p': `${share ?? 0}%` } as CSSProperties) : undefined}
-        aria-describedby={carving ? PROGRESS_ID : undefined}
-      >
-        {carving && meter !== null ? meter.label : dict.t('generate')}
-      </button>
+      {/* Generate and save only while the switch is off: with it on, Generate saves. */}
+      <div className="fw-gorow">
+        <button
+          type="button"
+          className={carving ? 'fw-go busy' : 'fw-go'}
+          ref={goRef}
+          onClick={onGenerate}
+          disabled={running || blocked}
+          title={blocked ? dict.t('generateBlocked') : undefined}
+          style={carving ? ({ '--p': `${share ?? 0}%` } as CSSProperties) : undefined}
+          aria-describedby={carving ? PROGRESS_ID : undefined}
+          aria-keyshortcuts="g"
+        >
+          {carving && meter !== null ? meter.label : dict.t('generate')}
+          {carving ? null : (
+            <kbd className="fw-key" aria-hidden="true">
+              g
+            </kbd>
+          )}
+        </button>
+        {saveEvery ? null : (
+          <button
+            type="button"
+            className="fw-gosave"
+            ref={goSaveRef}
+            onClick={onGenerateAndSave}
+            disabled={running || blocked}
+            // Named and titled outright: the bar under the board shows the key alone.
+            aria-label={dict.t('generateAndSave')}
+            title={blocked ? dict.t('generateBlocked') : dict.t('generateAndSave')}
+            aria-keyshortcuts="Meta+G"
+          >
+            <span className="fw-gosave-label">{dict.t('generateAndSave')}</span>
+            <kbd className="fw-key" aria-hidden="true">
+              ⌘G
+            </kbd>
+          </button>
+        )}
+      </div>
       {carving ? (
         <div
           id={PROGRESS_ID}
@@ -152,11 +182,12 @@ export function RunColumn({
           onClick={saveShown}
           disabled={refusal !== null}
           aria-label={dict.t('saveBoard')}
-          title={refusal === null ? dict.t('saveKeyHint') : dict.t(refusal)}
+          aria-keyshortcuts="Meta+S"
+          title={refusal === null ? undefined : dict.t(refusal)}
         >
           {dict.t('saveShort')}
           <kbd className="fw-key" aria-hidden="true">
-            ⌘G
+            ⌘S
           </kbd>
         </button>
       </div>

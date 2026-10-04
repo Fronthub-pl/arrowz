@@ -36,8 +36,40 @@
   opacity: 0.5;
   cursor: default;
 }
+/* Generate, and beside it Generate and save while the save switch is off. The
+   row takes Generate's own top margin. */
+.fw-gorow {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  margin-top: 12px;
+}
+.fw-gorow > .fw-go {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 0;
+}
+/* Two lines in the column, as Generate keeps the larger share. */
+.fw-gosave {
+  flex: 0 0 38%;
+  height: var(--touch);
+  min-height: var(--touch);
+  padding: 0 8px;
+  line-height: 1.2;
+  border: var(--rule);
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+.fw-gosave:hover:not(:disabled) {
+  background: var(--surface);
+}
+.fw-gosave:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 /* A key cap inside a button, coloured as the palette's footer keys. */
-.fw-alt .fw-key {
+.fw-run-col .fw-key {
   margin-left: 8px;
   font: inherit;
   color: var(--mist);
@@ -413,6 +445,23 @@
     margin: 0;
     padding: 0 18px;
   }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-gorow {
+    margin: 0;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-gosave {
+    flex: none;
+    height: 32px;
+    min-height: 32px;
+    padding: 0 10px;
+    white-space: nowrap;
+  }
+  /* The key alone: the full label wraps the bar to a third row at 1024 (128px against 104). */
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-gosave-label {
+    display: none;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-gosave .fw-key {
+    margin-left: 0;
+  }
   .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-alt {
     flex-direction: row;
   }
@@ -457,7 +506,7 @@
 }
 /* The bar under a finger: 44px controls, not 32. */
 @media (min-width: 768px) and (max-width: 1279px) and (pointer: coarse) {
-  .fw-lab:not(.solo) .fw-stage > .fw-run-col :is(.fw-go, .fw-alt > button, .fw-more, .fw-cmdhd, .fw-cmd) {
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col :is(.fw-go, .fw-gosave, .fw-alt > button, .fw-more, .fw-cmdhd, .fw-cmd) {
     height: var(--touch);
     min-height: var(--touch);
   }

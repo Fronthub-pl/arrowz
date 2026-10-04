@@ -237,7 +237,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       name: dict.t('saveBoard'),
       note: dict.t('cmdSecRun'),
       // The board on screen, so a carve in flight does not stop it.
-      value: refusal === null ? '' : dict.t(refusal),
+      value: refusal === null ? '⌘S' : dict.t(refusal),
       hay: 'save store keep',
       disabled: refusal !== null,
       run: onLab(deps, state, () => saveShown()),
