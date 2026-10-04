@@ -10,7 +10,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { App } from '../App'
 import { resetApp } from '../harness/mountApp'
 import { renderAt } from '../harness/renderAt'
-import { storedFixture, twoRecipesFixture } from '../state/library.fixtures'
+import { sizesFixture, storedFixture, twoRecipesFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import { BoardColumn } from './BoardColumn'
 import { BoardPreview } from './BoardPreview'
@@ -283,6 +283,17 @@ test('the first click arms delete, and the second removes the board', async () =
   // Replaced, not pushed: Back must not walk into a board no longer on disk.
   await expect.element(screen.getByTestId('address')).toHaveTextContent('/boards')
   expect(useStore.getState().library.notice?.kind).toBe('deleted')
+})
+
+// `stored` is the last 8x8 row, so its neighbour is the row above it.
+test('a delete opens the neighbouring board, not an empty column', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"deleted":true}', { status: 200 }))
+  useStore.getState().library.listed(sizesFixture())
+  const screen = await mountDetail()
+  await show()
+  await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
+  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+  await expect.element(screen.getByTestId('address')).toHaveTextContent(`/boards/8x8/${other.meta.id}`)
 })
 
 // Pins the request itself: a size rebuilt from `W`/`H` would DELETE

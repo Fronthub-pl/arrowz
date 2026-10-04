@@ -75,7 +75,9 @@ export function openStoredBoard(
   // stage does not flash empty between two rows; every outcome below
   // replaces or clears it (`useOpenPreview` guards against that window).
   useStore.getState().library.boardFailed(null)
-  useStore.getState().library.notify({ kind: 'loading', name: `${size}/${id}` })
+  // A delete opens its neighbour: "Deleted …" is the event, and fades on its own.
+  if (useStore.getState().library.notice?.kind !== 'deleted')
+    useStore.getState().library.notify({ kind: 'loading', name: `${size}/${id}` })
   void (async () => {
     const outcome = await read(size, id)
     if (cancelled) return
@@ -90,7 +92,7 @@ export function openStoredBoard(
     try {
       const { board, file } = decodeBoardFile(outcome.file)
       if (cancelled) return
-      state.library.clearNotice()
+      if (state.library.notice?.kind === 'loading') state.library.clearNotice()
       state.result.showPreview({ origin: 'store', board, file, meta })
     } catch (err) {
       if (cancelled) return
