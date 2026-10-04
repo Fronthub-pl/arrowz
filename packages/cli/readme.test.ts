@@ -1,10 +1,8 @@
-// The README tables are a copy of the knob table `--help=knobs` prints, and a copy drifts.
+// The CLI README's tables are a copy of the knob table `--help=knobs` prints, and a copy drifts.
 // `envelope.test.ts` tests the ranges; this compares the documentation with them.
 //
-// Both languages carry the same tables. The prose is translated; the machine
-// columns — flag, range, step, default — are not, and this test is what says
-// so. The tables are found by the HTML anchors above them, so neither the
-// heading nor the column names need to be in English.
+// The tables are found by the HTML anchors above them, so neither the heading
+// nor the column names are part of what is checked.
 import { assert, assertEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { formatViolation, generate, layoutHash, PARAM_SPEC, validateParams } from '@arrowz/engine'
@@ -12,7 +10,7 @@ import { COMMAND_PREFIX, flagViolation, KNOB_ROWS, parseArgs, RULE_ROWS } from '
 import { BUNDLES, defaultChoice, simpleParams } from '@arrowz/engine/simple'
 
 const root = join(dirname(fromFileUrl(import.meta.url)), '..', '..')
-const READMES = ['README.md', 'README.pl.md'] as const
+const READMES = ['packages/cli/README.md'] as const
 
 /**
  * The boards whose stored file names both READMEs print: `deno task carve

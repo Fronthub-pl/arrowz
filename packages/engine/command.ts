@@ -493,7 +493,7 @@ function rangeText(key: ParamKey): string {
 /**
  * One row of the knob table: the flag, the values it takes, the step between
  * them, the default spelled the way the flag spells it, and the help line.
- * `--help=knobs` prints it and README.md tabulates it, so the two cannot say
+ * `--help=knobs` prints it and packages/cli/README.md tabulates it, so the two cannot say
  * different things (readme.test.ts holds them together).
  */
 export interface KnobRow {
