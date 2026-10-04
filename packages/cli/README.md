@@ -13,6 +13,7 @@ and what the puzzle is, is in the [main README](../../README.md).
 3. [The everyday settings](#the-everyday-settings)
 4. [The full set of settings](#the-full-set-of-settings)
 5. [Where boards are saved](#where-boards-are-saved)
+6. [Environment variables](#environment-variables)
 
 ---
 
@@ -56,7 +57,7 @@ no switch that changes what a flag means.
 It prints its own instructions:
 
 ```sh
-deno task carve --help          # the short form: everyday flags, output, picture
+deno task carve --help          # the short form: everyday flags, output, picture (-h too)
 deno task carve --help=knobs    # the full table: every knob, its range and default
 ```
 
@@ -173,8 +174,18 @@ The two lines worth knowing: `coverage 100.00%` means no cell was left
 uncovered, and `solvable: YES` means the puzzle can be finished.
 
 With no `--only` it walks through every difficulty level in turn, up to
-1000×1000, which takes a long time. `--bench=N` measures speed instead, N runs
-per level.
+1000×1000, which takes a long time. It takes the knobs `carve` takes, and these
+flags of its own:
+
+| Flag | What it does |
+|---|---|
+| `--only=NAME` | one level only, by its name as the report prints it (`easy·sq`, `hard·pt`, …) |
+| `--square` | square boards only; `easy` then names the square one |
+| `--portrait` | portrait boards (twice as tall as wide) only |
+| `--mid=N` | adds an N×N level between the fixed ones, for finding where boards stop closing |
+| `--runs=N` | boards per level, 3 by default |
+| `--show` | prints, as text, the first board of each level at most 40 cells wide |
+| `--bench=N` | measures speed instead: N runs per level, with timing statistics |
 
 ### Asking for something impossible
 
@@ -335,7 +346,7 @@ knob and leaves the rest still being drawn — see
 
 ### How the picture is drawn
 
-These fourteen change nothing about the puzzle — only how it looks on screen.
+These sixteen change nothing about the puzzle — only how it looks on screen.
 
 **`--colored`** gives every arrow its own colour. Useless for playing,
 excellent for understanding. Every comparison picture on this page uses it.
@@ -380,6 +391,11 @@ gives the arrow colours for `--colored`, up to eight, comma-separated.
 the lab draws it). **`--points`** puts a dot in the centre of every cell, the
 lab's dot grid; **`--point-color`** and **`--point-radius`** (in cells, up to
 0.5) change the dot.
+
+**`--cell`** is the size of one cell in the picture, in pixels, 1 to 200; left
+out, it is worked out so that the longer side comes to about 1600 px.
+**`--top`** highlights the N longest arrows (up to 1000) in the
+`--highlight-color` and prints their measurements under the summary.
 
 The lab's live command carries all of these, so copying it reproduces the
 picture the lab exports.
@@ -647,3 +663,17 @@ a board, keep that line.
 > Boards are not part of the repository. `packages/cli/boards/` is deliberately
 > left out of it: a 1000×1000 board file is about a megabyte, and its picture
 > tens of megabytes.
+
+---
+
+## Environment variables
+
+`carve` and `report` read four variables, and nothing else from the
+environment:
+
+| Variable | What it does |
+|---|---|
+| `ARROWZ_BOARDS_DIR` | where boards are saved instead of `packages/cli/boards/` (see [Where boards are saved](#where-boards-are-saved)) |
+| `CARVE_TIMEOUT_S` | gives up a board after that many seconds; `carve` stores the part built so far as incomplete |
+| `CARVE_TRACE` | set to `1`, prints the generator's progress on stderr as it works |
+| `GIANT_DEBUG` | set to `1`, prints how each very long arrow (a giant) was grown, on stderr |

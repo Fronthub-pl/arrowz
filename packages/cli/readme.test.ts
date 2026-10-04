@@ -6,14 +6,23 @@
 import { assert, assertEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { formatViolation, generate, layoutHash, PARAM_SPEC, validateParams } from '@arrowz/engine'
-import { COMMAND_PREFIX, flagViolation, KNOB_ROWS, parseArgs, RULE_ROWS } from '@arrowz/engine/command'
+import {
+  CARVE_FLAGS,
+  COMMAND_PREFIX,
+  flagViolation,
+  KNOB_ROWS,
+  parseArgs,
+  RETIRED_FLAGS,
+  RULE_ROWS,
+} from '@arrowz/engine/command'
+import { REPORT_FLAGS } from './report-flags.ts'
 import { BUNDLES, defaultChoice, simpleParams } from '@arrowz/engine/simple'
 
 const root = join(dirname(fromFileUrl(import.meta.url)), '..', '..')
 const READMES = ['packages/cli/README.md'] as const
 
 /**
- * The boards whose stored file names both READMEs print: `deno task carve
+ * The boards whose stored file names the CLI README prints: `deno task carve
  * --width=40 --height=40 --seed=7` (and its `--svg` twin), and the 25×25 of the
  * store tree, `deno task carve --width=25 --height=25` at the default seed 7.
  * The names embed the settings hash, so they are checked rather than copied.
@@ -188,7 +197,7 @@ for (const file of READMES) {
   })
 }
 
-// Every picture in both READMEs is rebuilt by `deno task docs` from the record of how it was made, and
+// Every picture in the READMEs is rebuilt by `deno task docs` from the record of how it was made, and
 // that task is in no verification gate. Parsing the recorded commands is enough to catch a stale one and
 // costs nothing; carving thirty boards would not fit in a test run.
 Deno.test('every documented picture is still a command the CLI accepts', () => {
@@ -200,4 +209,64 @@ Deno.test('every documented picture is still a command the CLI accepts', () => {
     assertEquals(errors, [], `${entry.out}: ${entry.flags.join(' ')}`)
     assertEquals(validateParams(params).map(formatViolation), [], entry.out)
   }
+})
+
+// The CLI README against the CLI itself, both ways: every flag `carve` and
+// `report` take, every variable the tasks may read and every task is named,
+// and nothing the README names is missing from the code. The flag list is the
+// parser's own table (CARVE_FLAGS), and the variables are the tasks'
+// `--allow-env` grants: what the runtime would let the CLI read at all.
+const cliReadme = Deno.readTextFileSync(join(root, 'packages', 'cli', 'README.md'))
+const cliTasks = (JSON.parse(Deno.readTextFileSync(join(root, 'packages', 'cli', 'deno.json'))) as {
+  tasks: Record<string, string>
+}).tasks
+const rootTasks = (JSON.parse(Deno.readTextFileSync(join(root, 'deno.json'))) as { tasks: Record<string, string> })
+  .tasks
+const reportFlags = [...REPORT_FLAGS].map((name) => `--${name}`)
+const envGranted = new Set(
+  Object.values(cliTasks).flatMap((task) =>
+    [...task.matchAll(/--allow-env=([\w,]+)/g)].flatMap((m) => (m[1] ?? '').split(','))
+  ),
+)
+
+/** Whether the README writes `flag` as a token of its own, not inside a longer flag. */
+const names = (flag: string): boolean => new RegExp(`(?<![\\w-])${flag}(?![\\w-])`).test(cliReadme)
+
+const missing = (flags: readonly string[]): string[] => flags.filter((flag) => !names(flag))
+
+Deno.test('the CLI README names every flag carve takes', () => {
+  assertEquals(missing(CARVE_FLAGS), [])
+})
+
+Deno.test('the CLI README names every flag report takes', () => {
+  assertEquals(missing(reportFlags), [])
+})
+
+Deno.test('the CLI README names every variable the tasks may read', () => {
+  assert(envGranted.size > 0, 'no --allow-env grant was found in packages/cli/deno.json')
+  assertEquals([...envGranted].filter((name) => !cliReadme.includes(name)), [])
+})
+
+Deno.test('the CLI README runs every task of the CLI', () => {
+  assertEquals(Object.keys(cliTasks).filter((task) => !cliReadme.includes(`deno task ${task}`)), [])
+})
+
+// A retired spelling is part of what the CLI does: it refuses it by name and
+// says what replaced it, so the README may mention one.
+Deno.test('every flag the CLI README names is one the CLI takes or refuses by name', () => {
+  const known = new Set([...CARVE_FLAGS, ...RETIRED_FLAGS, ...reportFlags])
+  const written = new Set(
+    [...cliReadme.matchAll(/(?<![\w-])--([a-zA-Z][\w-]*)/g)].map((m) => `--${(m[1] ?? '').toLowerCase()}`),
+  )
+  assertEquals([...written].filter((flag) => !known.has(flag)), [])
+})
+
+Deno.test('every variable the CLI README names is one a task may read', () => {
+  const written = new Set([...cliReadme.matchAll(/\b(?:ARROWZ|CARVE|GIANT)_[A-Z_]+\b/g)].map((m) => m[0]))
+  assertEquals([...written].filter((name) => !envGranted.has(name)), [])
+})
+
+Deno.test('every task the CLI README runs exists', () => {
+  const written = new Set([...cliReadme.matchAll(/deno task ([\w:-]+)/g)].map((m) => m[1] ?? ''))
+  assertEquals([...written].filter((task) => !(task in rootTasks)), [])
 })
