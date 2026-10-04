@@ -341,10 +341,21 @@ describe('Save board', () => {
   // The bar shows the short word; the accessible name is the full one and contains it.
   it('shows a short label and keeps the full name, in both languages', async () => {
     const screen = await render(<RunColumn control={stub().control} />)
-    expect(save(screen).textContent).toBe('Save')
+    expect(save(screen).textContent).toBe('Save⌘G')
     await act(async () => useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } })))
     const pl = buttonOf(screen.getByRole('button', { name: 'Zapisz planszę' }).element())
-    expect(pl.textContent).toBe('Zapisz')
+    expect(pl.textContent).toBe('Zapisz⌘G')
+  })
+
+  // ⌘G is not this button's key: it makes a new board and saves it, so the title says so.
+  it('shows the ⌘G key, and its title says what the key does', async () => {
+    finish(finishedRun(1))
+    const screen = await render(<RunColumn control={stub().control} />)
+    expect(save(screen).querySelector('kbd')?.textContent).toBe('⌘G')
+    expect(save(screen).title).toBe('⌘G generates a new board and saves it')
+    await act(async () => useStore.setState((s) => ({ lang: { ...s.lang, lang: 'pl' } })))
+    const pl = buttonOf(screen.getByRole('button', { name: 'Zapisz planszę' }).element())
+    expect(pl.title).toBe('⌘G generuje nową planszę i ją zapisuje')
   })
 
   // Read once after the click: a poll would wait out the pending state (the fetch never answers).

@@ -98,12 +98,15 @@ test('postShown posts the board it is handed', async () => {
 
 /** A store whose POST answers `save` and whose listing is `sizesFixture`; GETs are counted. */
 function storeAnswering(save: () => Response): MockInstance<typeof globalThis.fetch> {
-  return vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) =>
-    init?.method === 'POST' ? save() : new Response(JSON.stringify(sizesFixture()), { status: 200 }),
-  )
+  return vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(async (_url, init) =>
+      init?.method === 'POST' ? save() : new Response(JSON.stringify(sizesFixture()), { status: 200 }),
+    )
 }
 
-const lists = (fetch: MockInstance<typeof globalThis.fetch>) => fetch.mock.calls.filter(([, init]) => init?.method !== 'POST')
+const lists = (fetch: MockInstance<typeof globalThis.fetch>) =>
+  fetch.mock.calls.filter(([, init]) => init?.method !== 'POST')
 
 // The listing the saved boards tab cached before the save: it must not outlive a board the store took.
 test('a save the store took lists the saved boards again', async () => {

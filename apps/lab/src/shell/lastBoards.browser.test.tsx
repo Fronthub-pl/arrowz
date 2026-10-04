@@ -17,7 +17,8 @@ function stubStore(boards = [stored.meta]) {
   vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
     const url = String(input)
     if (init?.method === 'DELETE') return Promise.resolve(Response.json({ deleted: true }))
-    if (url.includes('/api/boards')) return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards }]))
+    if (url.includes('/api/boards'))
+      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards }]))
     if (url.includes('/store/')) return Promise.resolve(Response.json(stored.file))
     return Promise.resolve(new Response('{}', { status: 404 }))
   })

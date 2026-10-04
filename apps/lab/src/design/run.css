@@ -36,6 +36,12 @@
   opacity: 0.5;
   cursor: default;
 }
+/* A key cap inside a button, coloured as the palette's footer keys. */
+.fw-alt .fw-key {
+  margin-left: 8px;
+  font: inherit;
+  color: var(--mist);
+}
 /* The Check seeds row sits beside its count field, not stacked like the rest of `.fw-alt`. */
 .fw-series {
   flex-direction: row;

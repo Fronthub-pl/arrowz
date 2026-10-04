@@ -152,9 +152,12 @@ export function RunColumn({
           onClick={saveShown}
           disabled={refusal !== null}
           aria-label={dict.t('saveBoard')}
-          title={refusal === null ? undefined : dict.t(refusal)}
+          title={refusal === null ? dict.t('saveKeyHint') : dict.t(refusal)}
         >
           {dict.t('saveShort')}
+          <kbd className="fw-key" aria-hidden="true">
+            ⌘G
+          </kbd>
         </button>
       </div>
       <MoreMenu>

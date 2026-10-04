@@ -9,7 +9,10 @@ import type { BoardSize } from '@arrowz/engine'
 export function addressAfterDelete(sizes: BoardSize[] | null, size: string, id: string): string {
   const entry = sizes?.find((listed) => listed.size === size)
   if (entry !== undefined) {
-    const at = Math.max(0, entry.boards.findIndex((meta) => meta.id === id))
+    const at = Math.max(
+      0,
+      entry.boards.findIndex((meta) => meta.id === id),
+    )
     const rest = entry.boards.filter((meta) => meta.id !== id)
     const next = rest[at] ?? rest[at - 1]
     if (next !== undefined) return `/boards/${entry.size}/${next.id}`
