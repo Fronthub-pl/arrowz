@@ -7,6 +7,7 @@ import {
   type ArgProblem,
   boardId,
   buildCommand,
+  CARVE_FLAGS,
   COMMAND_PREFIX,
   DEFAULT_VIEW,
   drawnViolations,
@@ -17,6 +18,7 @@ import {
   MIX_START,
   parseArgs,
   problemText,
+  RETIRED_FLAGS,
   splitCommand,
   START,
   START_CHOICES,
@@ -1030,5 +1032,23 @@ Deno.test('helpText lists the look flags', () => {
     ]
   ) {
     assertStringIncludes(text, flag)
+  }
+})
+
+// The flag list is the parser's own table, so these two say only that the
+// export reaches it: a name it lists is never "unknown", a retired one is
+// refused as retired, and the two lists never share a name.
+Deno.test('every flag CARVE_FLAGS lists is one parseArgs knows', () => {
+  for (const flag of CARVE_FLAGS) {
+    const { problems } = parseArgs(['--width=10', '--height=10', flag])
+    assertEquals(problems.filter((p) => p.kind === 'unknownFlag'), [], flag)
+  }
+})
+
+Deno.test('every retired spelling is refused as retired, and none is a flag', () => {
+  for (const flag of RETIRED_FLAGS) {
+    const { problems } = parseArgs(['--width=10', '--height=10', flag])
+    assertEquals(problems.map((p) => p.kind), ['retired'], flag)
+    assertEquals(CARVE_FLAGS.includes(flag), false, flag)
   }
 })
