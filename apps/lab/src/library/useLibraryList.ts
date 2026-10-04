@@ -25,7 +25,7 @@ async function fetchList(force: boolean, dropped?: () => boolean): Promise<void>
 }
 
 /**
- * A new listing, whatever the cache holds: Refresh, and after a delete or a
+ * A new listing, whatever the cache holds: Refresh, and after a save, a delete or a
  * view save. A module function, so the drawer's list and the right column can
  * both ask without mounting the fetch-on-mount a second time.
  */

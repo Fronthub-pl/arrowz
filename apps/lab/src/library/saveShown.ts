@@ -4,6 +4,7 @@ import { saveBoard } from '../api/boards'
 import type { ShownResult } from '../state/result.slice'
 import { type Store, useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
+import { refreshLibrary } from './useLibraryList'
 
 /** Why Save board is off, as a dictionary key; each is also the button's title. */
 export type SaveRefusal = 'saveNoBoard' | 'saveStopped' | 'savePending' | 'saveDone'
@@ -45,7 +46,11 @@ export function postShown(shown: ShownResult): void {
     aborted: false,
   })
   useStore.getState().result.saving(file)
-  void saveBoard(request).then((outcome) => useStore.getState().result.stored(file, outcome))
+  void saveBoard(request).then((outcome) => {
+    useStore.getState().result.stored(file, outcome)
+    // The saved boards tab caches its listing; a stale answer is a board on disk too.
+    if (outcome.ok || outcome.stale === true) refreshLibrary()
+  })
 }
 
 /** Save board and its palette row: the board on screen, unless `saveRefusal` names a reason. */
