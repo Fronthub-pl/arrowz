@@ -407,6 +407,8 @@ export interface LongestSummary {
   span: number
   density: number
   coil: number
+  /** Changes of direction along the piece. */
+  bends: number
 }
 
 /** How one seed of a series ended: `unsolvable` is a full board no order of taps empties. */

@@ -20,13 +20,13 @@
 // run after N seconds and stores what was carved.
 import type { BoardMeta, GenerateOptions, ParamKey, Params, TraceInfo, Violation } from '@arrowz/engine'
 import {
-  DIRS,
   encodeBoard,
   fingerprint,
   generate,
   GenerateAbort,
   INACTIVE_REASONS,
   layoutHash,
+  longestSummary,
   PARAM_SPEC,
   RULE_REASONS,
   toSvg,
@@ -508,48 +508,17 @@ const saved = await saveBoard({
 const meta = saved.meta
 if (svgOut && svg !== undefined) Deno.writeTextFileSync(svgOut, svg)
 if (view.top > 0) {
-  // Longest-piece stats: the span (how many columns and rows it crosses)
-  // tells whether a piece crosses the board or coils in one region.
-  const longest = [...c.pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, view.top)
+  // The span (how many columns and rows a piece crosses) tells whether it
+  // crosses the board or coils in one region. A piece is a path of adjacent
+  // cells, so it crosses every column and row of its box.
   console.log(`  ${view.top} longest pieces:`)
-  for (const pc of longest) {
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-    const cols = new Set<number>(), rows = new Set<number>()
-    for (const q of pc.cells) {
-      if (q.x < minX) minX = q.x
-      if (q.x > maxX) maxX = q.x
-      if (q.y < minY) minY = q.y
-      if (q.y > maxY) maxY = q.y
-      cols.add(q.x)
-      rows.add(q.y)
-    }
-    const spanX = maxX - minX + 1, spanY = maxY - minY + 1
-    const own = new Set(pc.cells.map((q) => q.y * W + q.x))
-    let coiled = 0, bends = 0, prev: { dx: number; dy: number } | null = null
-    for (const [i, q] of pc.cells.entries()) {
-      let n = 0
-      for (const { dx, dy } of DIRS) {
-        const ax = q.x + dx, ay = q.y + dy
-        if (ax >= 0 && ay >= 0 && ax < W && ay < H && own.has(ay * W + ax)) n++
-      }
-      if (n >= 3) coiled++
-      const before = pc.cells[i - 1]
-      if (before) {
-        const dx = q.x - before.x, dy = q.y - before.y
-        if (prev && (dx !== prev.dx || dy !== prev.dy)) bends++
-        prev = { dx, dy }
-      }
-    }
-    // Stretch: what fraction of its bounding rectangle the piece fills.
-    const fill = pc.cells.length / (spanX * spanY)
+  for (const pc of longestSummary(c, view.top)) {
     console.log(
-      `    len ${String(pc.cells.length).padStart(4)}  bbox ${String(spanX).padStart(3)}x${
-        String(spanY).padStart(3)
-      } (${(100 * spanX / W).toFixed(0)}% x ${(100 * spanY / H).toFixed(0)}% of board)  cols ${
-        String(cols.size).padStart(3)
-      }  rows ${String(rows.size).padStart(3)}  bbox density ${(100 * fill).toFixed(0)}%  bends ${bends}  coiling ${
-        (100 * coiled / pc.cells.length).toFixed(0)
-      }%`,
+      `    len ${String(pc.len).padStart(4)}  bbox ${String(pc.sx).padStart(3)}x${String(pc.sy).padStart(3)} (${
+        (100 * pc.sx / W).toFixed(0)
+      }% x ${(100 * pc.sy / H).toFixed(0)}% of board)  cols ${String(pc.sx).padStart(3)}  rows ${
+        String(pc.sy).padStart(3)
+      }  bbox density ${(100 * pc.density).toFixed(0)}%  bends ${pc.bends}  coiling ${(100 * pc.coil).toFixed(0)}%`,
     )
   }
 }
