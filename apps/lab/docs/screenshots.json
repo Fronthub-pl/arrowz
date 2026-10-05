@@ -172,8 +172,8 @@
     },
     {
       "out": "docs",
-      "caption": "The board element's documentation",
-      "path": "/docs/element",
+      "caption": "The documentation: the puzzle and its rule",
+      "path": "/docs/arrowz",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -181,7 +181,8 @@
       "scale": 1,
       "storage": {
         "labLang": "en"
-      }
+      },
+      "steps": [{ "click": ".fw-docs-toc >> text=\"The one rule\"" }]
     },
     {
       "out": "phone-lab",

@@ -228,7 +228,7 @@ records how each was taken, and `pnpm nx run lab:screenshots` takes them again.
 
 ![Saved boards](docs/screenshots/boards.png)
 
-![The board element's documentation](docs/screenshots/docs.png)
+![The documentation: the puzzle and its rule](docs/screenshots/docs.png)
 
 <p>
   <img src="docs/screenshots/phone-lab.png" alt="On a phone" width="300">
