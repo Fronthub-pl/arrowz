@@ -13,7 +13,7 @@ curl -fsSL https://deno.land/install.sh | sh     # macOS and Linux
 irm https://deno.land/install.ps1 | iex          # Windows (PowerShell)
 ```
 
-Get the code and make a first board, from inside the `arrowz` folder:
+Get the code, step into the `arrowz` folder and make a first board:
 
 ```sh
 git clone https://github.com/Fronthub-pl/arrowz.git
@@ -52,7 +52,7 @@ deno task carve --width=40 --height=40 --svg
 deno task carve --width=40 --height=40 --svg=my-board.svg
 ```
 
-`--svg` adds a picture, `….svg`, next to the board file. `--svg=my-board.svg` does the same and also drops a copy at `my-board.svg`.
+`--svg` adds a picture, `….svg`, next to the board file. `--svg=my-board.svg` does the same and also drops a copy at `my-board.svg`. The task runs inside `packages/cli/`, so a relative path starts there: this copy lands at `packages/cli/my-board.svg`.
 
 ### Five things to try
 
@@ -81,7 +81,7 @@ deno task carve --width=40 --height=80
 deno task carve --width=100 --height=200 --seed=1 --count=50
 ```
 
-This makes 50 different boards, on the seeds 1, 2, 3 and so on. A seed whose board is not complete is skipped and not saved, and so is a seed that lays a board already in the store — its command is added to that board's file instead — and the next seed is tried, until there are 50. After twice as many seeds as boards it gives up; `--max-seeds=200` moves that limit. The last line says how many boards were written, which seeds were skipped, and why. The same command always makes the same boards.
+This makes 50 different boards, on the seeds 1, 2, 3 and so on. A seed whose board is not complete is skipped, and nothing of it is saved. A seed that lays a board already in the store is skipped too, but its command is added to that board's `.json` file instead. Either way the next seed is tried, until there are 50. After twice as many seeds as boards it gives up; `--max-seeds=200` moves that limit. The last line says how many boards were written, which seeds were skipped, and why. Without `--randomized`, each seed always lays the same board, so the same command run on an empty store makes the same boards.
 
 ### Describing a board without saving it
 
@@ -129,7 +129,7 @@ That stops after a minute and saves whatever was laid by then, marked `"aborted"
 deno task report --only=easy --square --runs=1
 ```
 
-`deno task report` builds boards at chosen sizes and prints a page of measurements about them. It is a tool for tuning the generator; you do not need it to make boards. For each level it prints a block like this:
+`deno task report` builds boards at its fixed difficulty levels, from 25×25 to 1000×1000, and prints a page of measurements about them. It is a tool for tuning the generator; you do not need it to make boards. For each level it prints a block like this:
 
 ```text
 --- Easy 25x25 (1 runs) ---
@@ -144,15 +144,15 @@ The two lines worth knowing: `coverage 100.00%` means no cell was left uncovered
 
 With no `--only` it walks through every difficulty level in turn, up to 1000×1000, which takes a long time. It takes the knobs `carve` takes, and these flags of its own:
 
-| Flag          | What it does                                                                           |
-| ------------- | -------------------------------------------------------------------------------------- |
-| `--only=NAME` | one level only, by its name as the report prints it (`easy·sq`, `hard·pt`, …)          |
-| `--square`    | square boards only; `easy` then names the square one                                   |
-| `--portrait`  | portrait boards, twice as tall as wide, only                                           |
-| `--mid=N`     | adds an N×N level between the fixed ones, for finding where boards stop being complete |
-| `--runs=N`    | boards per level, 3 by default                                                         |
-| `--show`      | prints, as text, the first board of each level at most 40 cells wide                   |
-| `--bench=N`   | measures speed instead: N runs per level, with timing statistics                       |
+| Flag          | What it does                                                                                                                                                     |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--only=NAME` | one level only, by its name as the report prints it (`easy·sq`, `hard·pt`, …)                                                                                    |
+| `--square`    | square boards only; `easy` then names the square one                                                                                                             |
+| `--portrait`  | portrait boards, twice as tall as wide, only                                                                                                                     |
+| `--mid=N`     | adds a level of side N after the fixed ones, as N×N and N×2N, or in the one shape `--square` or `--portrait` picks; for finding where boards stop being complete |
+| `--runs=N`    | boards per level, 3 by default                                                                                                                                   |
+| `--show`      | prints, as text, the first board of each level at most 40 cells wide                                                                                             |
+| `--bench=N`   | measures speed instead: N runs per level, with timing statistics                                                                                                 |
 
 ### Asking for something impossible
 
@@ -168,7 +168,7 @@ invalid arguments:
 see --help
 ```
 
-The command ends with status code 2. A status code is the number a program leaves behind when it finishes, and scripts read it to learn how things went: 0 means everything went fine, 1 that the generator gave up, and 2 that you asked for something out of range.
+The command ends with status code 2. A status code is the number a program leaves behind when it finishes, and scripts read it to learn how things went: 0 means everything went fine, 1 that the generator gave up, and 2 that the command refused what you asked for.
 
 ## Everyday settings {#everyday}
 
@@ -176,7 +176,7 @@ The everyday flags are the ones you reach for first: the size, the seed, and fou
 
 ### Size — `--width` and `--height`
 
-How many cells across and down. Both are required, each anything from 4 to 1000. A 400×400 board is ready in under two seconds; 1000×1000 takes about ten. A tall board is harder to play than a square one with the same number of cells, because arrows have further to travel.
+How many cells across and down. Both are required, each anything from 4 to 1000. A 400×400 board is ready in under two seconds; 1000×1000 takes about ten. A tall board is harder to play than a square one with the same number of cells: fewer of its arrows are free at once.
 
 :::compare
 ::board[`--width=20 --height=40`]{cmd="--width=20 --height=40 --seed=7"}
@@ -239,7 +239,7 @@ An on/off switch, off by default. Switched on, the generator first lays a handfu
 
 ### Fresh luck every time — `--randomized`
 
-Normally a value of `--length` or `--winding` means one exact set of knobs. With `--randomized` each value stands for a range, and the generator draws a fresh set from inside it on every run, so the same seed gives a different board every time: the extra roll of the dice is not decided by the seed. Nothing is lost. The settings actually drawn are written into the board's file as a full command, so any board you like can be made again exactly.
+Normally a value of `--length` or `--winding` means one exact set of knobs. With `--randomized` each value stands for a range, and the generator draws a fresh set from inside it on every run, so the same seed gives a different board every time: the extra roll of the dice is not decided by the seed. Nothing is lost. The settings actually drawn are written into the board's `.json` file as a full command, so any board you like can be made again exactly.
 
 ```sh
 deno task carve --width=40 --height=40 --randomized
@@ -251,7 +251,7 @@ Naming a knob beside `--randomized` pins that one knob and leaves the rest still
 
 These flags change nothing about the puzzle, only how it looks. The boards on this page draw them as the command line does, apart from `--cell`: a board here fits its frame and zooms.
 
-**`--colored`** gives every arrow its own colour: no help for playing, a great help for understanding. The comparisons on this page use it.
+**`--colored`** gives every arrow its own colour: no help for playing, a great help for understanding. Most comparisons on this page use it.
 
 :::compare
 ::board[normal]{cmd="--width=20 --height=20 --seed=7"}
@@ -280,13 +280,13 @@ Look at the arrowheads. On a thin line the arrowhead is a proper triangle, wider
 
 **`--pad`** is the margin around the board, in cells, from 0 to 16 (default 4, as the lab draws it). **`--points`** puts a dot in the middle of every cell, the lab's dot grid; **`--point-color`** and **`--point-radius`** (in cells, up to 0.5) change the dot.
 
-**`--cell`** is the size of one cell in the picture, in pixels, from 1 to 200; left out, it is 1600 divided by the longer side, but never more than 18. **`--top`** marks the N longest arrows (up to 1000) in the highlight colour and prints their measurements under the summary.
+**`--cell`** is the size of one cell in the picture, in pixels, from 1 to 200; left out, it is 1600 divided by the longer side, but never more than 18. **`--top`** marks the N longest arrows (up to 1000) in the highlight colour and, when the board is saved, prints their measurements above the summary line.
 
 The lab's live command carries all of these, so copying it makes the picture the lab exports.
 
 ## Every knob {#knobs}
 
-The everyday flags are shortcuts. Behind each of them sit several knobs, and you can set any knob directly, on the same command line as the everyday flags. Turning `--length` down, for instance, really means "raise the share of short arrows and lower the share of medium ones": two knobs at once.
+The everyday flags are shortcuts. Behind each of them sit several knobs, and you can set any knob directly, on the same command line as the everyday flags. Turning `--length` down from its default, for instance, really means "raise the share of short arrows, and the share of medium ones with it": two knobs at once.
 
 You do not need this section to use the command line. It is here because "what does this knob actually do?" deserves an answer.
 
@@ -307,7 +307,7 @@ An everyday flag does not set one knob; it sets a whole bundle of them:
 | `--skeleton`                        | `giants`, `giantspan`, `giantstep`, `giantjitter`, `wgiant` |
 | _(always: the difficulty baseline)_ | half of `--start`, `probe`, `probelen`                      |
 
-`--start` is a small case of the same rule: it sets the baseline half above, plus the mix of layers and tunnels that nothing else sets. Ten knobs belong to no bundle, so naming one of them was never ambiguous: `lmax`, `backbite`, `trapbias`, `giantstraight`, `giantanticoil`, `giantspacing`, `headtries`, `absorblimit`, `maxback`, `restarts`.
+`--start` is a small case of the same rule: one half of it belongs to the baseline above, and the other half sets the mix of layers and tunnels, which nothing else sets. Ten knobs belong to no bundle, so naming one of them is never ambiguous: `lmax`, `backbite`, `trapbias`, `giantstraight`, `giantanticoil`, `giantspacing`, `headtries`, `absorblimit`, `maxback`, `restarts`.
 
 **A knob written on the command line wins, and pins only itself.** Without `--randomized`, an everyday flag picks one value for each knob in its bundle; a knob you name replaces that one value and leaves the rest of the bundle as the everyday flag set it. With `--randomized`, the everyday flags draw their bundles from the measured safe ranges on every run; a knob you name is pinned instead of drawn, and the rest of its bundle keeps being drawn around it, seed after seed.
 
@@ -465,7 +465,7 @@ Without that, saving fails with an error about a directory it cannot create. Des
 
 **`unknown flag …`** — the command does not know that flag at all. Check the spelling against `--help` or `--help=knobs`.
 
-**`--straight is gone: use --winding=R …`** (or `--advanced`, `--board`, `--w`/`--h`, `--colorized`, `--lineweight`, `--headwidth`/`--arrowwidth`, `--headheight`/`--arrowheight`, `--lateral`, `--absorb`, `--headbias`, `--mix`) — an old spelling. The message names the flag that replaced it; use that instead.
+**`--straight is gone: use --winding=R …`** (or `--advanced`, `--board`, `--w`/`--h`, `--colorized`, `--stroke`/`--lineweight`, `--headwidth`/`--arrowwidth`, `--headheight`/`--arrowheight`, `--lateral`, `--absorb`, `--giantspacepen`, `--headbias`, `--mix`) — an old spelling. The message says what to write instead, or that the flag can simply be dropped.
 
 **`invalid arguments: --pstraight=0.2 is outside 0.6..1`** — a value is out of range, between two of a knob's steps, or breaks a rule. Every line starts with the flag to change, and a broken rule names every flag it is about. Nothing was generated and nothing was written.
 

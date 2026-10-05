@@ -4,7 +4,7 @@ Arrowz to łamigłówka. Dostajesz prostokąt wypełniony strzałkami i usuwasz 
 
 ::board[Plansza 40 na 40]{cmd="--width=40 --height=40 --seed=7"}
 
-> Arrowz jest w wersji alfa: generator plansz jest gotowy, a sama gra — życia i wynik — jest zaprojektowana, ale jeszcze nie zbudowana. Małe plansze na tej stronie już grają według jej reguły.
+> Arrowz jest w wersji alfa: generator plansz jest gotowy, a sama gra — życia i wynik — jest zaprojektowana, ale jeszcze nie zbudowana. Trzy plansze w sekcji „Jedna reguła” już grają według niej.
 
 ## Łamigłówka {#puzzle}
 

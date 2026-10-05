@@ -73,7 +73,7 @@ test('in Polish the page and its boards speak Polish', async () => {
 
 test('playing one board leaves the others as they were', async () => {
   const screen = await mount()
-  const boards = [...screen.container.querySelectorAll<ArrowzBoard>('figure arrowz-board')]
+  const boards = [...screen.container.querySelectorAll<ArrowzBoard>('figure.fw-docs-play arrowz-board')]
   const first = boards[0]
   if (first === undefined) throw new Error('no board')
   // The board mounts asynchronously; wait until it has drawn before playing it.
@@ -83,6 +83,6 @@ test('playing one board leaves the others as they were', async () => {
       new CustomEvent('piece-removed', { detail: { pieceId: 0, left: 1 }, bubbles: true, composed: true }),
     )
   })
-  const lines = [...screen.container.querySelectorAll('figure [role="status"]')].map((s) => s.textContent)
+  const lines = [...screen.container.querySelectorAll('figure.fw-docs-play [role="status"]')].map((s) => s.textContent)
   expect(lines).toEqual(['It left: its path to the edge was clear.', 'Try any arrow.', 'Try any arrow.'])
 })

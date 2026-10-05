@@ -13,7 +13,7 @@ curl -fsSL https://deno.land/install.sh | sh     # macOS i Linux
 irm https://deno.land/install.ps1 | iex          # Windows (PowerShell)
 ```
 
-Pobierz kod i zrób pierwszą planszę, z wnętrza katalogu `arrowz`:
+Pobierz kod, wejdź do katalogu `arrowz` i zrób pierwszą planszę:
 
 ```sh
 git clone https://github.com/Fronthub-pl/arrowz.git
@@ -25,7 +25,7 @@ Plansza trafia do `packages/cli/boards/25x25/`: plik planszy, który czyta gra (
 
 ## Robienie plansz {#making}
 
-Wszystko idzie przez zadanie `carve`. Flagi na co dzień i pokrętła stoją obok siebie w jednym poleceniu, a żadna flaga nie zmienia znaczenia innej. Polecenie wypisuje własną instrukcję. Obie jej postacie są na końcu tej strony, w sekcji [Co wypisuje `--help`](docs:cli#help).
+Wszystko robi zadanie `carve`. Flagi na co dzień i pokrętła podajesz razem, w jednym poleceniu, a żadna flaga nie zmienia znaczenia innej. Polecenie wypisuje własną instrukcję. Obie jej postaci są na końcu tej strony, w sekcji [Co wypisuje `--help`](docs:cli#help).
 
 ```sh
 deno task carve --help          # krótka postać: flagi na co dzień, wyjście, obrazek (także -h)
@@ -38,7 +38,7 @@ deno task carve --help=knobs    # pełna tabela: każde pokrętło, jego zakres 
 deno task carve --width=40 --height=40 --seed=7
 ```
 
-To zapisuje dwa pliki w `packages/cli/boards/40x40/`. Oba nazywają się `sha256-…`, od strzałek na planszy:
+Polecenie zapisuje dwa pliki w `packages/cli/boards/40x40/`. Nazwy obu, `sha256-…`, pochodzą od strzałek na planszy:
 
 - `….board.json` — plansza: każda strzałka, komórka po komórce, ciasno spakowana. Ten plik wczytuje gra.
 - `….json` — mały plik tekstowy z zapisem, jak plansza powstała.
@@ -52,7 +52,7 @@ deno task carve --width=40 --height=40 --svg
 deno task carve --width=40 --height=40 --svg=my-board.svg
 ```
 
-`--svg` dokłada obrazek, `….svg`, obok pliku planszy. `--svg=my-board.svg` robi to samo i dodatkowo kładzie kopię w `my-board.svg`.
+`--svg` dokłada obrazek, `….svg`, obok pliku planszy. `--svg=my-board.svg` robi to samo i dodatkowo kładzie kopię w `my-board.svg`. Zadanie działa w katalogu `packages/cli/`, więc względna ścieżka zaczyna się tam: ta kopia trafia do `packages/cli/my-board.svg`.
 
 ### Pięć rzeczy do wypróbowania
 
@@ -81,7 +81,7 @@ deno task carve --width=40 --height=80
 deno task carve --width=100 --height=200 --seed=1 --count=50
 ```
 
-To robi 50 różnych plansz, na ziarnach 1, 2, 3 i tak dalej. Ziarno, którego plansza nie jest pełna, jest pomijane i nie trafia na dysk. Tak samo ziarno, które układa planszę już obecną w magazynie: jego polecenie zostaje wtedy dopisane do pliku tamtej planszy. Wtedy próbowane jest następne ziarno, aż będzie 50 plansz. Po dwa razy większej liczbie ziaren niż plansz polecenie się poddaje, a `--max-seeds=200` przesuwa tę granicę. Ostatni wiersz mówi, ile plansz zapisano, które ziarna pominięto i dlaczego. To samo polecenie zawsze robi te same plansze.
+To robi 50 różnych plansz, na ziarnach 1, 2, 3 i tak dalej. Ziarno, którego plansza nie jest pełna, jest pomijane i nic z niego nie trafia na dysk. Ziarno, które układa planszę już obecną w magazynie, też jest pomijane, ale jego polecenie zostaje dopisane do pliku `.json` tamtej planszy. W obu przypadkach polecenie bierze następne ziarno, aż zbierze 50 plansz. Gdy wypróbuje dwa razy więcej ziaren, niż ma zrobić plansz, poddaje się, a `--max-seeds=200` przesuwa tę granicę. Ostatni wiersz mówi, ile plansz zapisano, które ziarna pominięto i dlaczego. Bez `--randomized` każde ziarno zawsze układa tę samą planszę, więc to samo polecenie uruchomione na pustym magazynie robi te same plansze.
 
 ### Opis planszy bez zapisywania
 
@@ -89,7 +89,7 @@ To robi 50 różnych plansz, na ziarnach 1, 2, 3 i tak dalej. Ziarno, którego p
 deno task carve --width=30 --height=30 --seed=7 --dry-run
 ```
 
-To buduje planszę, niczego nie zapisuje i wypisuje jeden wiersz z jej opisem, w formacie dla programów, nie dla ludzi. Przycięty do ciekawych części:
+To buduje planszę, niczego nie zapisuje i wypisuje jeden wiersz z jej opisem, w formacie dla programów, nie dla ludzi. Oto on, skrócony do najciekawszych pól:
 
 ```json
 {
@@ -115,7 +115,7 @@ To najszybszy sposób, żeby wypróbować ustawienie: widzisz, ile strzałek dos
 
 ### Plansza, która nie jest pełna
 
-Rzadko, przy dużych rozmiarach, generator poddaje się, zanim zajmie każdą komórkę. Plansza i tak zostaje zapisana, opis mówi `"ok": false`, a polecenie kończy się kodem wyjścia 1, żeby skrypt to zauważył. Dodaj `--svg`, a obrazek pokaże niezajęte komórki zabarwione na różowo. Zbyt długie generowanie można przerwać:
+Rzadko, przy dużych rozmiarach, generator poddaje się, zanim wypełni wszystkie komórki. Plansza i tak zostaje zapisana, opis mówi `"ok": false`, a polecenie kończy się kodem wyjścia 1, żeby skrypt to zauważył. Dodaj `--svg`, a obrazek pokaże puste komórki zabarwione na różowo. Zbyt długie generowanie można przerwać:
 
 ```sh
 CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
@@ -129,7 +129,7 @@ To zatrzymuje generator po minucie i zapisuje to, co zdążył ułożyć, z ozna
 deno task report --only=easy --square --runs=1
 ```
 
-`deno task report` buduje plansze w wybranych rozmiarach i wypisuje o nich stronę pomiarów. To narzędzie do strojenia generatora. Do robienia plansz nie jest potrzebne. Dla każdego poziomu wypisuje taki blok:
+`deno task report` buduje plansze na swoich stałych poziomach trudności, od 25×25 do 1000×1000, i wypisuje o nich stronę pomiarów. To narzędzie do strojenia generatora. Do robienia plansz nie jest potrzebne. Dla każdego poziomu wypisuje taki blok:
 
 ```text
 --- Easy 25x25 (1 runs) ---
@@ -144,15 +144,15 @@ Warto znać dwa wiersze: `coverage 100.00%` znaczy, że żadna komórka nie zost
 
 Bez `--only` raport przechodzi po kolei przez każdy poziom trudności, aż do 1000×1000, co trwa długo. Przyjmuje te same pokrętła co `carve` i te własne flagi:
 
-| Flaga         | Co robi                                                                                         |
-| ------------- | ----------------------------------------------------------------------------------------------- |
-| `--only=NAME` | tylko jeden poziom, po nazwie, jaką wypisuje raport (`easy·sq`, `hard·pt`, …)                   |
-| `--square`    | tylko plansze kwadratowe; `easy` oznacza wtedy kwadratową                                       |
-| `--portrait`  | tylko plansze pionowe, dwa razy wyższe niż szersze                                              |
-| `--mid=N`     | dodaje poziom N×N między stałymi, żeby znaleźć, od jakiego rozmiaru plansze przestają być pełne |
-| `--runs=N`    | ile plansz na poziom, domyślnie 3                                                               |
-| `--show`      | wypisuje jako tekst pierwszą planszę każdego poziomu o szerokości najwyżej 40 komórek           |
-| `--bench=N`   | zamiast tego mierzy szybkość: N przebiegów na poziom, ze statystyką czasów                      |
+| Flaga         | Co robi                                                                                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--only=NAME` | tylko jeden poziom, po nazwie, jaką wypisuje raport (`easy·sq`, `hard·pt`, …)                                                                                                        |
+| `--square`    | tylko plansze kwadratowe; `easy` oznacza wtedy kwadratową                                                                                                                            |
+| `--portrait`  | tylko plansze pionowe, o wysokości dwa razy większej niż szerokość                                                                                                                   |
+| `--mid=N`     | dodaje poziom o boku N po stałych, jako N×N i N×2N albo w jednym kształcie wybranym przez `--square` lub `--portrait`; żeby znaleźć, od jakiego rozmiaru plansze przestają być pełne |
+| `--runs=N`    | ile plansz na poziom, domyślnie 3                                                                                                                                                    |
+| `--show`      | wypisuje jako tekst pierwszą planszę każdego poziomu o szerokości najwyżej 40 komórek                                                                                                |
+| `--bench=N`   | zamiast tego mierzy szybkość: N przebiegów na poziom, ze statystyką czasów                                                                                                           |
 
 ### Prośba o coś niemożliwego
 
@@ -168,7 +168,7 @@ invalid arguments:
 see --help
 ```
 
-Polecenie kończy się kodem wyjścia 2. Kod wyjścia to liczba, którą program zostawia po zakończeniu. Skrypty czytają ją, żeby wiedzieć, jak poszło: 0 znaczy, że wszystko się udało, 1, że generator się poddał, a 2, że poproszono o coś spoza zakresu.
+Polecenie kończy się kodem wyjścia 2. Kod wyjścia to liczba, którą program zostawia po zakończeniu. Skrypty czytają ją, żeby wiedzieć, jak poszło: 0 znaczy, że wszystko się udało, 1, że generator się poddał, a 2, że polecenie odrzuciło to, o co poproszono.
 
 ## Ustawienia na co dzień {#everyday}
 
@@ -176,7 +176,7 @@ Flagi na co dzień to te, po które sięgasz najpierw: rozmiar, ziarno i cztery,
 
 ### Rozmiar — `--width` i `--height`
 
-Ile komórek wszerz i w dół. Obie flagi są wymagane, każda od 4 do 1000. Plansza 400×400 jest gotowa w niecałe dwie sekundy, a 1000×1000 w około dziesięć. Wysoka plansza jest trudniejsza w grze niż kwadratowa o tej samej liczbie komórek, bo strzałki mają dalej do przejechania.
+Ile komórek w poziomie i w pionie. Obie flagi są wymagane, każda od 4 do 1000. Plansza 400×400 jest gotowa w niecałe dwie sekundy, a 1000×1000 w około dziesięć. Wysoka plansza jest trudniejsza w grze niż kwadratowa o tej samej liczbie komórek: mniej jej strzałek jest naraz wolnych.
 
 :::compare
 ::board[`--width=20 --height=40`]{cmd="--width=20 --height=40 --seed=7"}
@@ -185,7 +185,7 @@ Ile komórek wszerz i w dół. Obie flagi są wymagane, każda od 4 do 1000. Pla
 
 ### Jak duża może być plansza
 
-Górna granica to 1000×1000, milion komórek. Powyżej mniej więcej dwustu komórek na bok strzałek nie widać już w tej skali pojedynczo, a plansza zamienia się w tkaninę. Powiększ ją — ⌘ albo Ctrl z kółkiem, albo przyciskami w jej rogu — a łamigłówka jest taka sama jak na małej planszy. Plansza z milionem komórek powstaje przez około dziesięć sekund, więc czeka na swój przycisk.
+Górna granica to 1000×1000, milion komórek. Powyżej mniej więcej dwustu komórek na bok strzałek nie widać już w tej skali pojedynczo, a plansza zamienia się w tkaninę. Powiększ ją — kółkiem z wciśniętym ⌘ albo Ctrl, albo przyciskami w jej rogu — a łamigłówka jest taka sama jak na małej planszy. Plansza z milionem komórek powstaje przez około dziesięć sekund, więc czeka na swój przycisk.
 
 :::compare{stats="pieces avgLen longest time"}
 ::board[200×200]{cmd="--width=200 --height=200 --seed=7"}
@@ -230,28 +230,28 @@ Oba końce skali dają _mniej_ strzałek niż środek. Proste strzałki biegną 
 
 ### Szkielet — `--skeleton`
 
-Przełącznik, domyślnie wyłączony. Gdy jest włączony, generator najpierw układa kilka bardzo długich strzałek, szkielet, które wiją się tam i z powrotem przez całą planszę. Potem wypełnia kanały między nimi zwykłymi strzałkami. To jedyny sposób na naprawdę długie strzałki: zostawiony sam sobie, generator rzadko robi strzałkę, która przechodzi przez całą planszę.
+Przełącznik, domyślnie wyłączony. Gdy jest włączony, generator najpierw układa szkielet: kilka bardzo długich strzałek, które wiją się tam i z powrotem przez całą planszę. Potem wypełnia kanały między nimi zwykłymi strzałkami. To jedyny sposób na naprawdę długie strzałki: zostawiony sam sobie, generator rzadko robi strzałkę, która przechodzi przez całą planszę.
 
 :::compare{stats="pieces longest"}
 ::board[bez szkieletu]{cmd="--width=60 --height=60 --seed=7 --colored"}
 ::board[`--skeleton`]{cmd="--width=60 --height=60 --seed=7 --skeleton --colored"}
 :::
 
-### Za każdym razem inne szczęście — `--randomized`
+### Za każdym razem nowe losowanie — `--randomized`
 
-Zwykle wartość `--length` albo `--winding` oznacza jeden dokładny zestaw pokręteł. Z `--randomized` każda wartość oznacza zakres, a generator przy każdym uruchomieniu losuje z niego nowy zestaw. Dlatego to samo ziarno daje za każdym razem inną planszę: o tym dodatkowym rzucie kością ziarno nie decyduje. Nic nie ginie. Wylosowane ustawienia trafiają do pliku planszy jako pełne polecenie, więc każdą planszę, która Ci się spodoba, da się zrobić jeszcze raz, dokładnie taką samą.
+Zwykle wartość `--length` albo `--winding` oznacza jeden dokładny zestaw pokręteł. Z `--randomized` każda wartość oznacza zakres, a generator przy każdym uruchomieniu losuje z niego nowy zestaw. Dlatego to samo ziarno daje za każdym razem inną planszę: o tym dodatkowym rzucie kością ziarno nie decyduje. Nic nie ginie. Wylosowane ustawienia trafiają do pliku `.json` planszy jako pełne polecenie, więc każdą planszę, która Ci się spodoba, da się zrobić jeszcze raz, dokładnie taką samą.
 
 ```sh
 deno task carve --width=40 --height=40 --randomized
 ```
 
-Pokrętło podane obok `--randomized` przypina tylko to jedno pokrętło, a reszta dalej jest losowana; zobacz [Wszystkie pokrętła](docs:cli#knobs).
+Podanie pokrętła obok `--randomized` przypina tylko to jedno pokrętło, a reszta dalej jest losowana; zobacz [Wszystkie pokrętła](docs:cli#knobs).
 
 ### Jak rysowany jest obrazek
 
 Te flagi niczego w łamigłówce nie zmieniają, tylko jej wygląd. Plansze na tej stronie rysują je tak jak wiersz poleceń, z wyjątkiem `--cell`: plansza tutaj mieści się w swojej ramce i daje się powiększać.
 
-**`--colored`** daje każdej strzałce własny kolor. W grze to nie pomaga, ale bardzo pomaga ją zrozumieć. Porównania na tej stronie go używają.
+**`--colored`** daje każdej strzałce własny kolor. W grze to nie pomaga, ale bardzo pomaga zrozumieć planszę. Większość porównań na tej stronie go używa.
 
 :::compare
 ::board[zwykła]{cmd="--width=20 --height=20 --seed=7"}
@@ -276,17 +276,17 @@ Spójrz na groty. Na cienkiej linii grot jest porządnym trójkątem, szerszym o
 
 **`--sharp`** zdejmuje zaokrąglenia: linia skręca pod kątem zamiast łukiem, a jej tępy koniec jest kwadratowy zamiast zaokrąglonego.
 
-**`--theme`** maluje planszę jednym z dwunastu motywów kolorów laboratorium (`--theme=gruvbox-dark`, `--theme=catppuccin-latte`, …). Nieznana nazwa jest odrzucana razem z listą motywów. **`--paper`**, **`--ink`** i **`--highlight-color`** ustawiają po jednym kolorze jako `#rrggbb`: tło, strzałki i strzałki zaznaczone przez `--top`. Wygrywają z kolorami motywu. **`--palette`** podaje kolory strzałek dla `--colored`, najwyżej osiem, rozdzielone przecinkami.
+**`--theme`** maluje planszę jednym z dwunastu motywów kolorów laboratorium (`--theme=gruvbox-dark`, `--theme=catppuccin-latte`, …). Nieznana nazwa jest odrzucana razem z listą motywów. **`--paper`**, **`--ink`** i **`--highlight-color`** ustawiają po jednym kolorze jako `#rrggbb`: tło, strzałki i strzałki zaznaczone przez `--top`. Mają pierwszeństwo przed kolorami motywu. **`--palette`** podaje kolory strzałek dla `--colored`, najwyżej osiem, rozdzielone przecinkami.
 
 **`--pad`** to margines wokół planszy, w komórkach, od 0 do 16 (domyślnie 4, tak jak rysuje go laboratorium). **`--points`** stawia kropkę na środku każdej komórki, jak siatka kropek w laboratorium. **`--point-color`** i **`--point-radius`** (w komórkach, najwyżej 0,5) zmieniają kropkę.
 
-**`--cell`** to rozmiar jednej komórki na obrazku, w pikselach, od 1 do 200. Pominięty wynosi 1600 podzielone przez dłuższy bok, ale nigdy więcej niż 18. **`--top`** zaznacza N najdłuższych strzałek (najwyżej 1000) kolorem wyróżnienia i wypisuje ich pomiary pod podsumowaniem.
+**`--cell`** to rozmiar jednej komórki na obrazku, w pikselach, od 1 do 200. Pominięty wynosi 1600 podzielone przez dłuższy bok, ale nigdy więcej niż 18. **`--top`** zaznacza N najdłuższych strzałek (najwyżej 1000) kolorem wyróżnienia, a przy zapisie planszy wypisuje ich pomiary nad wierszem podsumowania.
 
 Bieżące polecenie laboratorium niesie wszystkie te flagi, więc skopiowane robi ten sam obrazek, który eksportuje laboratorium.
 
 ## Wszystkie pokrętła {#knobs}
 
-Flagi na co dzień to skróty. Za każdą z nich stoi kilka pokręteł, a każde pokrętło możesz ustawić wprost, w tym samym poleceniu co flagi na co dzień. Na przykład zmniejszenie `--length` naprawdę znaczy „zwiększ udział krótkich strzałek i zmniejsz udział średnich”: dwa pokrętła naraz.
+Flagi na co dzień to skróty. Za każdą z nich stoi kilka pokręteł, a każde pokrętło możesz ustawić wprost, w tym samym poleceniu co flagi na co dzień. Na przykład zmniejszenie `--length` od wartości domyślnej naprawdę znaczy „zwiększ udział krótkich strzałek, a razem z nim udział średnich”: dwa pokrętła naraz.
 
 Ta sekcja nie jest potrzebna, żeby używać wiersza poleceń. Jest tu, bo pytanie „co właściwie robi to pokrętło?” zasługuje na odpowiedź.
 
@@ -294,7 +294,7 @@ Ta sekcja nie jest potrzebna, żeby używać wiersza poleceń. Jest tu, bo pytan
 deno task carve --width=40 --height=40 --seed=7 --pstraight=0.95 --svg
 ```
 
-Podaj pokrętło, a przejmie je od tej flagi na co dzień, która inaczej by je ustawiła.
+Pokrętło podane wprost ma pierwszeństwo przed flagą na co dzień, która inaczej by je ustawiła.
 
 ### Gdy pokrętło spotyka flagę na co dzień
 
@@ -307,7 +307,7 @@ Flaga na co dzień nie ustawia jednego pokrętła, tylko cały ich zestaw:
 | `--skeleton`                | `giants`, `giantspan`, `giantstep`, `giantjitter`, `wgiant` |
 | _(zawsze: bazowa trudność)_ | połowę `--start`, `probe`, `probelen`                       |
 
-`--start` to mały przypadek tej samej reguły: ustawia połowę bazowej trudności z tabeli wyżej, a do tego mieszankę warstw i tuneli, której nie ustawia nic innego. Dziesięć pokręteł nie należy do żadnego zestawu, więc podanie któregoś z nich nigdy nie było niejednoznaczne: `lmax`, `backbite`, `trapbias`, `giantstraight`, `giantanticoil`, `giantspacing`, `headtries`, `absorblimit`, `maxback`, `restarts`.
+`--start` to mały przypadek tej samej reguły: jedna jego połowa należy do bazowej trudności z tabeli wyżej, a druga ustawia mieszankę warstw i tuneli, której nie ustawia nic innego. Dziesięć pokręteł nie należy do żadnego zestawu, więc podanie któregoś z nich nigdy nie jest niejednoznaczne: `lmax`, `backbite`, `trapbias`, `giantstraight`, `giantanticoil`, `giantspacing`, `headtries`, `absorblimit`, `maxback`, `restarts`.
 
 **Pokrętło zapisane w poleceniu wygrywa i przypina tylko siebie.** Bez `--randomized` flaga na co dzień wybiera jedną wartość dla każdego pokrętła ze swojego zestawu. Podane pokrętło zastępuje tę jedną wartość, a resztę zestawu zostawia tak, jak ustawiła ją flaga. Z `--randomized` flagi na co dzień przy każdym uruchomieniu losują swoje zestawy ze zmierzonych bezpiecznych zakresów. Podane pokrętło jest wtedy przypięte, a nie losowane, a reszta jego zestawu dalej jest losowana wokół niego, ziarno po ziarnie.
 
@@ -325,7 +325,7 @@ note: --pstraight=0.9 is pinned; --winding still sets wLateral, anticoil, warns
 { "...": "...", "pinned": ["pStraight"], "...": "..." }
 ```
 
-Przypiąć można też pokrętło, które przy reszcie ustawień niczego nie zmienia: pokrętło szkieletu bez szkieletu albo zadaną długość, gdy ile zadanych wynosi 0. Laboratorium przyciemnia taki wiersz. Wiersz poleceń mówi to w osobnym wierszu, tym samym zdaniem, po angielsku:
+Przypiąć można też pokrętło, które przy reszcie ustawień niczego nie zmienia: pokrętło szkieletu bez szkieletu albo zadaną długość, gdy „ile zadanych” wynosi 0. Laboratorium przyciemnia takie pokrętło. Wiersz poleceń wypisuje to w osobnej linijce, z tym samym powodem, tylko po angielsku:
 
 ```sh
 deno task carve --width=30 --height=30 --probelen=30 --dry-run
@@ -397,7 +397,7 @@ Niektórych reguł nie da się zapisać jako zakresu od jednej wartości do drug
 
 ::table{of="rules"}
 
-Złam regułę, ustaw pokrętło poza zakresem albo między dwoma jego krokami, a generator odmówi, zanim cokolwiek ułoży. Powie, która wartość była zła, i zakończy się kodem wyjścia 2. Nigdy po cichu nie wciąga liczby w zakres: `--maxback=75` jest odrzucane, a nie przesuwane do 50 albo 100. Wartość, do której nie dojdzie żaden suwak ani żadne wypisane polecenie, nie pozwoliłaby zrobić tej planszy jeszcze raz.
+Złam regułę, ustaw pokrętło poza zakresem albo między dwoma jego krokami, a generator odmówi, zanim cokolwiek ułoży. Powie, która wartość była zła, i zakończy się kodem wyjścia 2. Nigdy nie poprawia liczby po cichu: `--maxback=75` jest odrzucane, a nie przesuwane do 50 albo 100. Wartość, do której nie dojdzie żaden suwak ani żadne wypisane polecenie, nie pozwoliłaby zrobić tej planszy jeszcze raz.
 
 Flagi na co dzień nie mogą złamać tych reguł. Każda wartość każdej flagi na co dzień, przy każdym rozmiarze planszy, daje poprawne połączenie, o ile pokrętła z jej zestawu zostawisz tej fladze. Ile kosztuje przypięcie jednego z nich, jest opisane wyżej.
 
@@ -436,7 +436,7 @@ Plik `.json` obok każdej planszy trzyma każde użyte ustawienie, czas powstani
 
 ## Samodzielny program {#standalone}
 
-Jeśli wolisz jeden plik, który uruchamiasz bez wołania za każdym razem Deno:
+Jeśli wolisz jeden plik, który uruchamiasz bez każdorazowego wywoływania Deno:
 
 ```sh
 deno task compile
@@ -461,19 +461,19 @@ Bez tego zapis kończy się błędem o katalogu, którego nie da się utworzyć.
 
 **`deno task` mówi, że nie może znaleźć `deno.json`** — jesteś poza katalogiem projektu. Przejdź (`cd`) do katalogu `arrowz` i spróbuj jeszcze raz.
 
-**`Requires env access`** — to `deno run packages/cli/carve.ts` uruchomione bezpośrednio. Deno nie pozwala programowi czytać Twoich plików ani ustawień, dopóki ktoś mu na to nie pozwoli. Użyj zadania `carve`, które daje dokładnie to, czego potrzeba.
+**`Requires env access`** — uruchomiono `deno run packages/cli/carve.ts` bezpośrednio. Deno nie pozwala programowi czytać Twoich plików ani ustawień bez wyraźnej zgody. Użyj zadania `carve`, które daje dokładnie to, czego potrzeba.
 
 **`unknown flag …`** — polecenie w ogóle nie zna tej flagi. Sprawdź pisownię w `--help` albo `--help=knobs`.
 
-**`--straight is gone: use --winding=R …`** (albo `--advanced`, `--board`, `--w`/`--h`, `--colorized`, `--lineweight`, `--headwidth`/`--arrowwidth`, `--headheight`/`--arrowheight`, `--lateral`, `--absorb`, `--headbias`, `--mix`) — stara pisownia. Komunikat podaje flagę, która ją zastąpiła. Użyj jej.
+**`--straight is gone: use --winding=R …`** (albo `--advanced`, `--board`, `--w`/`--h`, `--colorized`, `--stroke`/`--lineweight`, `--headwidth`/`--arrowwidth`, `--headheight`/`--arrowheight`, `--lateral`, `--absorb`, `--giantspacepen`, `--headbias`, `--mix`) — stara pisownia. Komunikat mówi, co wpisać zamiast niej, albo że flagę można po prostu pominąć.
 
 **`invalid arguments: --pstraight=0.2 is outside 0.6..1`** — wartość jest poza zakresem, między dwoma krokami pokrętła albo łamie regułę. Każdy wiersz zaczyna się od flagi do zmiany, a złamana reguła wymienia każdą flagę, której dotyczy. Nic nie zostało wygenerowane ani zapisane.
 
-**`failed to close board …`** — generator próbował, cofał strzałki, zaczynał od nowa i mimo to nie wypełnił planszy. Prawie zawsze winne jest pokrętło ustawione daleko od wartości domyślnej. [Tabela pokręteł](docs:cli#knobs) mówi, co robi każde z nich. Przesuń je z powrotem w stronę wartości domyślnej albo spróbuj innego ziarna. Plansza i tak jest w `packages/cli/boards/`. Dodaj `--svg`, a obrazek pokaże niezajęte komórki zabarwione na różowo, więc zobaczysz, gdzie generator utknął.
+**`failed to close board …`** — generator próbował, cofał strzałki, zaczynał od nowa i mimo to nie wypełnił planszy. Prawie zawsze winne jest pokrętło ustawione daleko od wartości domyślnej. [Tabela pokręteł](docs:cli#knobs) mówi, co robi każde z nich. Przesuń je z powrotem w stronę wartości domyślnej albo spróbuj innego ziarna. Plansza i tak jest w `packages/cli/boards/`. Dodaj `--svg`, a obrazek pokaże puste komórki zabarwione na różowo, więc zobaczysz, gdzie generator utknął.
 
 **`failed to close board …: covered, but the rays make a cycle`** — każda komórka jest zajęta, a mimo to żadna strzałka nigdy nie odjedzie: dwie strzałki wskazują na siebie nawzajem albo robi to dłuższy pierścień strzałek. To błąd generatora, a nie skutek wybranych ustawień. Żadne polecenie go nie wywoła, bo generator daje każdej strzałce drogę do krawędzi, zanim cokolwiek na niej stanie. Jeśli kiedyś zobaczysz ten wiersz, plansza i tak jest zapisana w `packages/cli/boards/`. Zachowaj ją i zgłoś, bo to plansza, która nie powinna istnieć.
 
-**Jedna plansza trwa w nieskończoność** — ustaw `CARVE_TIMEOUT_S` na liczbę sekund, a generator zatrzyma się po tym czasie i zapisze to, co zdążył ułożyć:
+**Jedna plansza generuje się w nieskończoność** — ustaw `CARVE_TIMEOUT_S` na liczbę sekund, a generator zatrzyma się po tym czasie i zapisze to, co zdążył ułożyć:
 
 ```sh
 CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
@@ -505,7 +505,7 @@ Słowa samej łamigłówki — strzałka, grot, droga do krawędzi, wolna, ziarn
 
 ## Co wypisuje `--help` {#help}
 
-Pomoc samego polecenia, w obu postaciach, wypisana przez tę samą funkcję, którą woła terminal, więc obie nie mogą się rozjechać. Zostaje po angielsku, tak jak wypisuje ją terminal.
+Pomoc samego polecenia, w obu postaciach, wypisana przez tę samą funkcję, którą woła terminal, więc strona i terminal nie mogą się rozjechać. Zostaje po angielsku, tak jak wypisuje ją terminal.
 
 ### `--help`
 

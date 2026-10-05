@@ -4,7 +4,7 @@ Arrowz is a puzzle. You get a rectangle packed with arrows, and you clear it one
 
 ::board[A 40 by 40 board]{cmd="--width=40 --height=40 --seed=7"}
 
-> Arrowz is in alpha: the board generator is done, and the game itself — lives and a score — is designed but not built yet. The small boards on this page already play by its rule.
+> Arrowz is in alpha: the board generator is done, and the game itself — lives and a score — is designed but not built yet. The three boards under “The one rule” already play by it.
 
 ## The puzzle {#puzzle}
 
