@@ -12,6 +12,7 @@ import { NONE } from './codeTokens'
 import { ExportTable } from './ExportTable'
 import { isExportOf } from './exportTables'
 import { InlineMarkdown } from './Inline'
+import { ThemeTable } from './ThemeTable'
 import { Mono } from './TokenSpans'
 import { useDocs } from './useDocs'
 
@@ -41,6 +42,7 @@ export function DocsTable({ of, labelledBy }: { of: string; labelledBy?: string 
   const docs = useDocs()
   const dict = useDictionary()
   if (isExportOf(of)) return <ExportTable of={of} labelledBy={labelledBy} />
+  if (of === 'themes') return <ThemeTable labelledBy={labelledBy} />
   if (of === 'element-props')
     return (
       <table className="fw-docs-table" aria-labelledby={labelledBy}>
