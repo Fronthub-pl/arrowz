@@ -416,12 +416,13 @@ test('the deleted notice fades even though the column that raised it is gone', a
   expect(useStore.getState().library.notice).toBeNull()
 })
 
-test('the column lists the board’s layout in full, seed, source and generation', async () => {
+test('the column lists the board’s layout in full, fingerprint, seed, source and generation', async () => {
   const screen = await mountDetail()
   await show()
   const facts = screen.getByRole('definition').elements()
   expect(facts.map((dd) => dd.textContent)).toEqual([
     `8x8/${stored.meta.id}`,
+    stored.file.fingerprint,
     String(stored.meta.seed),
     stored.meta.source,
     expect.stringMatching(/ s · /),
@@ -507,7 +508,7 @@ test.each([
     try {
       const screen = await openLibraryDetail(w, h, sheet)
       const facts = screen.container.querySelectorAll('#board-column .fw-bmeta dd')
-      const [layout, seed, , generated] = facts
+      const [layout, , seed, , generated] = facts
       if (layout === undefined || seed === undefined || generated === undefined) throw new Error('missing fact rows')
       expect(layout.textContent).toBe(`8x8/${stored.meta.id}`)
       expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth)
@@ -662,7 +663,7 @@ test.each(['en', 'pl'] as const)('in %s every fact’s term ends before its valu
   const screen = await mountDetail()
   await show()
   const rows = [...screen.container.querySelectorAll('.fw-bmeta > div')]
-  expect(rows).toHaveLength(4)
+  expect(rows).toHaveLength(5)
   for (const row of rows) {
     const dt = row.querySelector('dt')
     const dd = row.querySelector('dd')

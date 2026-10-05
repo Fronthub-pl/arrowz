@@ -110,6 +110,7 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
   // `21:50:45` itself would be as unreadable as cutting it.
   const facts: [string, string, ('hash' | 'text')?][] = [
     [dict.t('factLayout'), `${size}/${meta.id}`, 'hash'],
+    [dict.t('factFingerprint'), stored.file.fingerprint],
     [dict.t('factSeed'), String(meta.seed)],
     [dict.t('factSource'), meta.source],
     [

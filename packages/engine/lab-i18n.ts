@@ -529,6 +529,10 @@ export const EN = {
     openFile: 'Open file…',
     boardFacts: 'About this board',
     factLayout: 'layout',
+    factFingerprint: 'fingerprint',
+    fingerprintName: 'the fingerprint',
+    fingerprintHelp:
+      'The fingerprint the CLI prints for the same command in a dry run. Equal fingerprints mean the lab made exactly the board the CLI makes: arrow by arrow, in the same order. The same arrows laid in another order get another fingerprint; the layout row names the arrows alone.',
     factSeed: 'seed',
     factSource: 'source',
     factGenerated: 'generated',
@@ -1359,6 +1363,10 @@ export const PL: Translation = {
     openFile: 'Otwórz plik…',
     boardFacts: 'O tej planszy',
     factLayout: 'układ',
+    factFingerprint: 'odcisk',
+    fingerprintName: 'odcisk',
+    fingerprintHelp:
+      'Odcisk, który CLI drukuje dla tej samej komendy w przebiegu próbnym. Równe odciski znaczą, że lab ułożył dokładnie tę planszę co CLI: strzałka po strzałce, w tej samej kolejności. Te same strzałki ułożone w innej kolejności mają inny odcisk; same strzałki nazywa wiersz „układ”.',
     factSeed: 'ziarno',
     factSource: 'źródło',
     factGenerated: 'wygenerowano',

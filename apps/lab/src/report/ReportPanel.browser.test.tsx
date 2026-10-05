@@ -1,7 +1,7 @@
 import { act } from 'react'
 import { beforeEach, expect, test } from 'vitest'
 import { contrast, shown } from '../design/contrast'
-import { decodeBoard } from '@arrowz/engine'
+import { decodeBoard, fingerprint } from '@arrowz/engine'
 import { renderAt } from '../harness/renderAt'
 import { storedFixture } from '../state/library.fixtures'
 import { finish, finishedRun, stoppedRun } from '../state/result.fixtures'
@@ -280,6 +280,30 @@ test("the longest arrows' explanation is closed until its ? opens it", async () 
   await act(async () => button.click())
   expect(help?.classList.contains('fw-vh')).toBe(false)
   expect(help?.textContent).toMatch(/^Reach = /)
+})
+
+// `--dry-run` prints `fingerprint(board)` of the board it carves; the lab shows the file header's copy of it.
+test('the run lists its fingerprint, the one a CLI dry run prints, and explains it behind a ?', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const facts = screen.container.querySelector('dl.fw-bmeta[aria-label="About this board"]')
+  expect(facts?.querySelector('dt')?.textContent).toMatch(/^fingerprint/)
+  expect(facts?.querySelector('dd')?.textContent).toBe(fingerprint(ONE.board))
+  expect(ONE.file.fingerprint).toBe(fingerprint(ONE.board))
+  const button = screen.getByRole('button', { name: 'About the fingerprint' })
+  const help = document.getElementById('fingerprint-help')
+  expect(help?.classList.contains('fw-vh')).toBe(true)
+  await button.click()
+  expect(help?.classList.contains('fw-vh')).toBe(false)
+  expect(help?.textContent).toMatch(/dry run/)
+})
+
+test('a new run lists its own fingerprint', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  await act(async () => finish(TWO))
+  expect(screen.container.querySelector('dl.fw-bmeta dd')?.textContent).toBe(fingerprint(TWO.board))
+  expect(fingerprint(TWO.board)).not.toBe(fingerprint(ONE.board))
 })
 
 const TOKEN = { up: '--ok', down: '--error' } as const

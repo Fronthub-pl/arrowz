@@ -42,6 +42,16 @@ test('the layout hash is visible with no meta opened', async () => {
   await expect.element(page.getByText(metaJson.id)).toBeVisible()
 })
 
+test('the fingerprint in the file’s header is listed beside its layout', async () => {
+  const { board } = await fileFixture(1)
+  await mountFile([board])
+  const text = await board.text()
+  const header: { fingerprint: string } = JSON.parse(text)
+  const terms = [...document.querySelectorAll('#board-column .fw-bmeta dt')].map((dt) => dt.textContent)
+  expect(terms).toEqual(['file', 'layout', 'fingerprint'])
+  await expect.element(page.getByText(header.fingerprint, { exact: true })).toBeVisible()
+})
+
 test('with its meta, Load into lab sets the knobs and starts one run', async () => {
   const { board, meta } = await fileFixture(3)
   await mountFile([board, meta])
