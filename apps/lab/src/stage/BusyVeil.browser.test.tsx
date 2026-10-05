@@ -90,7 +90,8 @@ test('the saved boards tab shows no veil while the lab carves', async () => {
   await loadRunDone()
   await carving()
   await screen.getByRole('tab', { name: EN.t('tabLibrary') }).click()
-  await expect.poll(() => location.pathname).toBe('/boards')
+  // The address changes before the route commits (a transition), so wait for the committed library face.
+  await expect.poll(() => screen.container.querySelector('.fw-lab.library')).not.toBeNull()
   expect(veil(screen.container)).toBeNull()
 }, 40_000)
 
