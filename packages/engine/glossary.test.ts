@@ -5,6 +5,7 @@
 import { assert } from '@std/assert'
 import { helpText } from './command.ts'
 import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS } from './engine.ts'
+import { docsFor } from './lab-docs.ts'
 import { EN, EN_CHOICES, PL } from './lab-i18n.ts'
 
 const EN_RETIRED = [
@@ -34,8 +35,11 @@ const LAB_ONLY_KNOB = /\bknobs?\b/i
 // A `--flag` is the CLI's own spelling; the lab's own strings, in either
 // language, never quote one.
 const LAB_ONLY_FLAG = /(?:^|\s)--[a-z]/
+// Named, so a docs page can lift the one that is the right word there (`plFor`).
+const PL_ELEMENT = /\belement(?:y|u|ów|em|ami|ach|ie|owi)?\b/i
+const PL_KNOB = /pokrętł/i
 const PL_RETIRED = [
-  /\belement(?:y|u|ów|em|ami|ach|ie|owi)?\b/i,
+  PL_ELEMENT,
   /domkn/i,
   /zaklin/i,
   /zacina/i,
@@ -55,7 +59,7 @@ const PL_RETIRED = [
   /koszyk/i,
   /\bfragment/i,
   /generacj/i,
-  /pokrętł/i,
+  PL_KNOB,
   /siatk\S* punktów/i,
 ]
 
@@ -67,6 +71,33 @@ const ALLOWED: Record<string, string> = {
   'PL.ui.docsElement': '"Element planszy", the web component',
   'EN.ui.storeEmpty': 'the command deno task carve',
   'PL.ui.storeEmpty': 'the command deno task carve',
+}
+
+/** The arrows' old Polish name, in the plural forms the component's name never takes. */
+const PL_ELEMENTS = /\belement(?:y|ów|om|ami|ach)\b/i
+
+/**
+ * The Polish list for one docs page. On the CLI page "pokrętło" is the CLI's
+ * own word, as in `ui.cmdPlaceholder`; on the element page the singular
+ * "element" names the component, as `ui.docsElement` does.
+ */
+function plFor(page: string): RegExp[] {
+  const lifted = page === 'cli' ? PL_KNOB : page === 'element' ? PL_ELEMENT : null
+  return [...PL_RETIRED.filter((re) => re !== lifted), ...(page === 'element' ? [PL_ELEMENTS] : [])]
+}
+
+/** Code spans blanked: a key or a flag in backticks is code, not a word. */
+const withoutCode = (text: string): string => text.replace(/`[^`]*`/g, ' ')
+
+/** The element's reference descriptions, the rows of the Docs tab's tables. */
+function docsRows(lang: 'en' | 'pl'): [string, string][] {
+  const docs = docsFor(lang)
+  return [
+    ...leaves(docs.props, `${lang}.props`, []),
+    ...leaves(docs.members, `${lang}.members`, []),
+    ...leaves(docs.events, `${lang}.events`, []),
+    ...leaves(docs.slots, `${lang}.slots`, []),
+  ].map(([path, text]): [string, string] => [path, withoutCode(text)])
 }
 
 /** Every string a dictionary can produce, keyed by its path; a function is called with 2 for each parameter. */
@@ -117,4 +148,9 @@ Deno.test('the CLI help uses no retired word outside flag, variable and group na
     .replace(/\[[a-z]+\]/g, ' ')
     .replace(/deno task carve/g, ' ')
   refuse(text.split('\n').map((line, i): [string, string] => [`helpText line ${i + 1}`, line]), EN_RETIRED)
+})
+
+Deno.test('the element reference descriptions use no retired word', () => {
+  refuse(docsRows('en'), [...EN_RETIRED, LAB_ONLY_KNOB, LAB_ONLY_FLAG])
+  refuse(docsRows('pl'), [...plFor('element'), LAB_ONLY_FLAG])
 })
