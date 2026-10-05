@@ -168,7 +168,7 @@ const DOCS_CONTENT = join(dirname(fromFileUrl(import.meta.url)), '..', '..', 'ap
  */
 function proseOf(markdown: string): string {
   return withoutCode(markdown.replace(/^```[\s\S]*?^```/gm, (block) => block.replace(/[^\n]/g, '')))
-    .replace(/\{#[a-z0-9-]+\}\s*$/gm, ' ')
+    .replace(/\{#[a-z0-9-]+\}[ \t]*$/gm, ' ')
     .replace(/^::.*$/gm, '')
     .replace(/\]\([^)\n]*\)/g, ']')
     // The CLI's own name, as the helpText case above strips it: the CLI page's title.
@@ -192,7 +192,10 @@ Deno.test('proseOf keeps braces in prose', () => {
 })
 
 Deno.test('proseOf blanks a heading id', () => {
-  assert(!proseOf('## Slots {#slots}').includes('{#slots}'))
+  const lines = proseOf('## A {#a}\n\nText').split('\n')
+  assert(!lines.join('\n').includes('{#a}'))
+  assert(lines.length === 3, `${lines.length} lines`)
+  assert(lines[2] === 'Text', `line 3 is "${lines[2]}"`)
 })
 
 Deno.test('proseOf blanks a directive line whole', () => {
