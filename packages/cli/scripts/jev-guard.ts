@@ -374,7 +374,7 @@ export function i18nReport(flags: Flag[]): string | null {
 
 export type Deps = { judge: Judge; root: string; read: (path: string) => string | null; shipped?: Shipped }
 
-function inScope(rel: string): boolean {
+export function inScope(rel: string): boolean {
   if (rel.startsWith('..') || isAbsolute(rel)) return false
   if (/(^|\/)(node_modules|dist)\//.test(rel)) return false
   return /\.(ts|tsx|css)$/.test(rel) && /(^|\/)(apps|packages)\//.test(rel)

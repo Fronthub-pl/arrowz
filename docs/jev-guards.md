@@ -33,6 +33,30 @@ deno task jev message [--pr] <file>
 deno task jev i18n
 ```
 
+## In CI
+
+`.github/workflows/jev.yml` runs `packages/cli/scripts/jev-ci.ts` on every
+pull request (opened, pushed to, reopened, or its text edited). It asks the
+same questions at the same thresholds as the hooks about:
+
+- the comments the PR adds: any comment block one of whose lines is added in
+  `git diff base...head`, in the files the hook covers, at most 400 per run;
+- every commit message in `base..head`, merges left out;
+- the PR title and body. An `edited` event asks only about these.
+
+Each finding is a `::warning` (on its line, for a comment) and a row in the
+job summary. The job never fails a PR: the script always exits 0 and the job
+is `continue-on-error`. Without the key it prints one notice and checks
+nothing — always the case for a PR from a fork, which GitHub gives no secrets.
+
+The key is the repository secret `TYPESAFE_API_KEY`. Set or rotate it from the
+1Password file without printing it:
+
+```bash
+sed -n 's/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}TYPESAFE_API_KEY[[:space:]]*=[[:space:]]*//p' \
+  ~/.config/arrowz/typesafe.env | tr -d "\"'" | gh secret set TYPESAFE_API_KEY
+```
+
 ## Measured on jev-1.13.0, 2026-09-29
 
 The comment and dictionary figures are in-sample (their thresholds were chosen
