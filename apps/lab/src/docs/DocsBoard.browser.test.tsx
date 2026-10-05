@@ -5,6 +5,8 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { answeringWorkers, doneMessage, fakeWorkers } from '../harness/docsWorkers'
 import { twoFrames } from '../harness/frames'
+import { RunControlContext } from '../run/RunControlContext'
+import type { RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
 import { readBoardCmd } from './boards'
 import { DocsBoardsProvider } from './DocsBoards'
@@ -187,4 +189,30 @@ test('the frame has the board’s proportions before the board exists', async ()
   // The default margin is four cells on every side: 28 by 48.
   expect(r.width / r.height).toBeCloseTo(28 / 48, 2)
   expect(element(screen.container)).toBeNull()
+})
+
+test('Open in lab loads the command into the lab through the run control', async () => {
+  const start = vi.fn()
+  const control: RunControl = { start, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
+  const screen = await render(
+    <MemoryRouter initialEntries={['/docs/cli']}>
+      <RunControlContext value={control}>
+        <div className="fw-docs-body" style={{ width: '720px' }}>
+          <DocsBoardsProvider root={null} queue={createDocsQueue(answeringWorkers().make, new Map())}>
+            <DocsMarkdown root={parseDocs(BOARD)} />
+          </DocsBoardsProvider>
+        </div>
+      </RunControlContext>
+    </MemoryRouter>,
+  )
+  await screen.getByRole('button', { name: 'Open in lab: A small board' }).click()
+  expect(start).toHaveBeenCalledTimes(1)
+  const { values } = useStore.getState().params
+  expect([values.W, values.H, values.seed]).toEqual([12, 12, 7])
+})
+
+test('without a run control there is no Open in lab', async () => {
+  const screen = await show(BOARD, createDocsQueue(answeringWorkers().make, new Map()))
+  await expect.element(screen.getByRole('figure', { name: 'A small board' })).toBeVisible()
+  expect(screen.container.querySelector('.fw-docs-boardacts button:nth-child(2)')).toBeNull()
 })

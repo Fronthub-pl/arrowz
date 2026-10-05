@@ -8,15 +8,19 @@
  * The board looks as its command says (`View` from the flags), not as the lab
  * is set; it pans and zooms and does not play. Under it: the label, the
  * report rows the directive names, and the command with Copy.
+ * Open in lab is what pasting the command into ⌘K does (`loadCommand`).
  */
 import { boardViewOf } from '@arrowz/board-element'
 import { COMMAND_PREFIX } from '@arrowz/engine/command'
 import { reportRows, type StatKey } from '@arrowz/engine/report'
 import type { PhrasingContent } from 'mdast'
 import type { ContainerDirective } from 'mdast-util-directive'
-import { type CSSProperties, type ReactElement, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type ReactElement, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
+import { loadCommand } from '../palette/pastedCommand'
 import { CommandText } from '../run/CommandText'
+import { RunControlContext } from '../run/RunControlContext'
 import { useCopy } from '../run/useCopy'
 import { BoardCanvas } from '../stage/BoardCanvas'
 import { useStore } from '../state/store'
@@ -195,6 +199,9 @@ function Stats({ keys, run }: { keys: readonly StatKey[]; run: DocsRun | null })
 function BoardCommand({ spec, name }: { spec: DocsBoardSpec; name: string }): ReactElement {
   const dict = useDictionary()
   const { copied, copy } = useCopy()
+  const control = useContext(RunControlContext)
+  const navigate = useNavigate()
+  const seriesRunning = useStore((state) => state.series.phase === 'running')
   const command = `${COMMAND_PREFIX} ${spec.cmd}`
   return (
     <div className="fw-docs-boardcmd">
@@ -210,6 +217,17 @@ function BoardCommand({ spec, name }: { spec: DocsBoardSpec; name: string }): Re
         >
           {copied ? dict.t('copied') : dict.t('copy')}
         </button>
+        {control === null ? null : (
+          <button
+            type="button"
+            className="fw-btn"
+            aria-label={dict.t('docsOpenInLabFor', name)}
+            disabled={seriesRunning}
+            onClick={() => loadCommand({ control, navigate: (path) => void navigate(path), dict }, spec.parsed)}
+          >
+            {dict.t('docsOpenInLab')}
+          </button>
+        )}
       </div>
     </div>
   )
