@@ -92,7 +92,7 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
-/* A theme's colours: background, arrows, highlight, then the palette. The ring keeps a light background visible on the light page. */
+/* A theme's colours: background, arrows, highlight, then the palette. The ring keeps a dark background visible on the dark page. */
 .fw-docs-swatches {
   display: inline-flex;
   gap: 2px;

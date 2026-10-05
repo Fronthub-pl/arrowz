@@ -19,6 +19,7 @@ const show = () =>
   )
 
 const table = (container: HTMLElement) => container.querySelector('table[aria-labelledby="docs-themes"]')
+const rgb = (hex: string) => `rgb(${[1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)).join(', ')})`
 const rows = (container: HTMLElement) => [...(table(container)?.querySelectorAll('tbody tr') ?? [])]
 
 test('a row per built-in theme, under four headers', async () => {
@@ -42,10 +43,11 @@ test('the swatches are the theme’s colours, in order, named for a screen reade
   expect(group?.getAttribute('aria-label')).toBe(colours.join(', '))
   const swatches = [...(group?.querySelectorAll('.fw-docs-swatch') ?? [])]
   expect(swatches).toHaveLength(colours.length)
+  expect(swatches.map((s) => getComputedStyle(s).backgroundColor)).toEqual(colours.map(rgb))
   // #1e1e2e: the background, first.
+  expect(colours[0]).toBe('#1e1e2e')
   const first = swatches[0]
   if (first === undefined) throw new Error('no swatch')
-  expect(getComputedStyle(first).backgroundColor).toBe('rgb(30, 30, 46)')
   expect(first.getBoundingClientRect().width).toBeGreaterThan(0)
 })
 

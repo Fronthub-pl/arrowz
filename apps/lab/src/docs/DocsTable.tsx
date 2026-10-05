@@ -33,9 +33,9 @@ export function knobHelp(dict: Dict, row: KnobRow): string {
 
 /**
  * One reference table, as `::table{of=…}` names it: the element's, from the
- * shared rows, the CLI's, from the command line's own tables, or the lab's,
- * from the lab's own code. The machine columns are
- * not translated; the last column is, and is inline Markdown. A name
+ * shared rows, the CLI's, from the command line's own tables, the lab's,
+ * from the lab's own code, or the engine's `THEMES`. The machine columns are
+ * not translated; where a table has a description column it is, and is inline Markdown. A name
  * `shape.ts` does not list renders nothing, and the content guard fails first.
  */
 export function DocsTable({ of, labelledBy }: { of: string; labelledBy?: string | undefined }): ReactElement | null {
