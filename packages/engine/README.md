@@ -14,6 +14,7 @@ measurements behind the numbers are in [HISTORY.md](HISTORY.md).
 ## Contents
 
 - [Usage](#usage)
+- [What the generator promises](#what-the-generator-promises)
 - [Entry points](#entry-points)
 - [API](#api)
 - [Development](#development)
@@ -47,6 +48,26 @@ if (first !== undefined) {
 parameters leave the safe envelope; `validateParams` says the same thing
 without throwing. A run that does not close still returns its board, with
 `ok: false` and the leftover in `stuck`.
+
+## What the generator promises
+
+Every board `generate` hands back with `ok: true` has been checked:
+
+| Promise | What it means |
+|---|---|
+| **Nothing is left over** | Every cell belongs to exactly one arrow. No gaps, no overlaps. |
+| **No arrow is a single cell** | The shortest arrow is two cells, because a single cell would have no direction to point in. |
+| **The board can always be cleared** | Before handing the board over, the generator works out who blocks whom and proves the puzzle has a solution. |
+| **It knows at least one solution** | The order in which the generator built the arrows is itself a winning order. |
+| **You cannot play yourself into a corner** | Any sequence of legal moves eventually empties the board. |
+| **The same request gives the same board** | The same parameters and the same seed give the identical board, down to the last cell; `fingerprint` is that guarantee in one string. |
+
+What it does **not** promise is that every request succeeds. On hard settings
+the generator can paint itself into a corner while building. It then takes
+some arrows back and tries again; if that still fails, it starts over from a
+derived seed, up to `restarts` times. If every attempt fails, the result says
+so (`ok: false`, with the leftover in `stuck`) instead of passing a broken
+board off as a good one.
 
 ## Entry points
 

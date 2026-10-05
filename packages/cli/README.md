@@ -14,6 +14,8 @@ and what the puzzle is, is in the [main README](../../README.md).
 4. [The full set of settings](#the-full-set-of-settings)
 5. [Where boards are saved](#where-boards-are-saved)
 6. [Environment variables](#environment-variables)
+7. [When something goes wrong](#when-something-goes-wrong)
+8. [Words](#words)
 
 ---
 
@@ -87,6 +89,30 @@ deno task carve --width=40 --height=40 --svg=my-board.svg
 
 `--svg` adds `sha256-e5f707067ec077e5558a8e91473371bf725b8e94467c61b4ce1436086eb2cdb4.svg` next to the board. `--svg=my-board.svg` does
 the same and also drops a copy at `my-board.svg`.
+
+### Five things to try
+
+Copy any of these. Each one writes a board into `packages/cli/boards/`; add
+`--svg` to get a picture of it as well, or `--dry-run` to see the numbers
+without writing a file. Every flag used here is explained in
+[The everyday settings](#the-everyday-settings).
+
+```sh
+# small enough to follow every arrow by eye
+deno task carve --width=12 --height=12 --colored
+
+# a dense field of tiny arrows
+deno task carve --width=40 --height=40 --length=0 --colored
+
+# a few long snakes instead
+deno task carve --width=40 --height=40 --length=1 --winding=0 --colored
+
+# a skeleton of very long arrows crossing the whole board
+deno task carve --width=80 --height=80 --skeleton --colored
+
+# a tall board, which is harder to play than a square one
+deno task carve --width=40 --height=80
+```
 
 ### Making many boards at once
 
@@ -677,3 +703,85 @@ environment:
 | `CARVE_TIMEOUT_S` | gives up a board after that many seconds; `carve` stores the part built so far as incomplete |
 | `CARVE_TRACE` | set to `1`, prints the generator's progress on stderr as it works |
 | `GIANT_DEBUG` | set to `1`, prints how each very long arrow (a giant) was grown, on stderr |
+
+---
+
+## When something goes wrong
+
+**`deno task` says it could not find `deno.json`** — you are outside the project
+folder.
+`cd` into the `arrowz` folder and try again.
+
+**`Requires env access`** — you ran `deno run packages/cli/carve.ts` directly.
+Deno refuses to let a program touch your files or settings unless told to. Use
+the `carve` task, which grants exactly what is needed.
+
+**`unknown flag …`** — the CLI does not recognise that flag at all. Check the
+spelling against `--help` or `--help=knobs`.
+
+**`--straight is gone: use --winding=R …`** (or `--advanced`, `--board`,
+`--w`/`--h`, `--colorized`, `--lineweight`, `--headwidth`/`--arrowwidth`,
+`--headheight`/`--arrowheight`, `--lateral`, `--absorb`, `--headbias`,
+`--mix`) — an old spelling from before this tool had one mode. The message
+names its replacement; use that instead.
+
+**`invalid arguments: --pstraight=0.2 is outside 0.6..1`** — a value is out of
+range, between two of a knob's settings, or breaks one of the rules. Every line
+starts with the flag to change, whether the parser caught it or the safe
+envelope did, and a broken rule names every flag it is about. Nothing was
+generated and nothing was written.
+
+**`failed to close board …`** — the generator tried, backed up, restarted, and
+still could not fill the board. Almost always a knob marked **Careful:** in
+[the knobs](#the-knobs). Move it back towards its default, or try another seed.
+The board is in `packages/cli/boards/` all the same; add `--svg` and the
+picture shows the uncovered cells tinted pink, so you can see where it got
+stuck.
+
+**`failed to close board …: covered, but the rays make a cycle`** — every cell
+is filled, and still no tap is ever legal: two arrows point at each other, or a
+longer ring of them do. This is a bug in the generator, not a setting you chose
+— nothing you can type produces it, because the generator gives each arrow its
+path to the edge before anything stands in it. If you ever see the line, the
+board is still written to `packages/cli/boards/`; please keep it and report it,
+because it is the board that should not exist.
+
+**One board takes forever** — set `CARVE_TIMEOUT_S` to a number of seconds and
+the generator stops there, saving whatever it had drawn:
+
+```sh
+CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
+```
+
+**The report takes forever** — `deno task report` with nothing else walks
+every difficulty level up to 1000×1000, three times each. Add `--only=easy
+--square --runs=1`. Note that `--only=easy` on its own matches nothing: it
+needs `--square` or `--portrait` alongside it.
+
+**Wondering what it is doing** — set `CARVE_TRACE=1` and it reports progress as
+it goes:
+
+```sh
+CARVE_TRACE=1 deno task carve --width=200 --height=200
+```
+
+```
+    [trace] pieces 7000, remaining 2516, backtracks 0, 252 ms
+```
+
+---
+
+## Words
+
+The words of the puzzle itself (arrow, arrowhead, path to edge, free, seed) are
+in the [main README](../../README.md#words). These belong to the generator:
+
+| Word | What it means |
+|---|---|
+| **skeleton** | A few very long arrows laid first, snaking across the whole board. The code calls them *giants*. |
+| **layers / tunnels** | Two ways of deciding where the next arrow starts. Layers peel the board from the outside and make it easy; tunnels dig inward and make it hard. |
+| **stuck** | The generator has painted itself into a corner while building, so no legal arrow can be added. It takes some arrows back, or starts over. |
+| **complete** | A board where every cell is covered by an arrow. A board that is not complete is still saved, marked `"ok": false`. |
+| **trap** | An arrow blocked by exactly one other, so it looks free when it is not. `--trapbias` asks for more or fewer of them. |
+| **target length** | The length some arrows are drawn around instead of the usual short, medium and long mix. The code calls it the *probe*. |
+| **safe range** | The measured limits of each setting. Outside them, boards stop working; the tool refuses rather than let you find out the slow way. |

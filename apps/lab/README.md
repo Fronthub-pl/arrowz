@@ -48,6 +48,11 @@ sides have to be told the new number — the store takes it after the command
 notices the continuous target is already running and waits on it, while Vite
 moves the second lab to the next free port (8780).
 
+The lab is served, not opened: a blank page means `pnpm nx serve lab` is not
+running. A lab served some other way (a static host, say) still runs without
+the store; if the saved boards are empty or a save is refused, the store is
+missing — start `deno task store` beside it.
+
 ## The screens
 
 Three tabs: **Lab**, **Saved boards** and **Docs**. Every screen has an address,
