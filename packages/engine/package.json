@@ -11,7 +11,8 @@
     "./presets": { "types": "./dist/lab-presets.d.ts", "default": "./dist/lab-presets.js" },
     "./i18n": { "types": "./dist/lab-i18n.d.ts", "default": "./dist/lab-i18n.js" },
     "./report": { "types": "./dist/lab-report.d.ts", "default": "./dist/lab-report.js" },
-    "./docs": { "types": "./dist/lab-docs.d.ts", "default": "./dist/lab-docs.js" }
+    "./docs": { "types": "./dist/lab-docs.d.ts", "default": "./dist/lab-docs.js" },
+    "./comment-lines": { "types": "./dist/comment-lines.d.ts", "default": "./dist/comment-lines.js" }
   },
   "files": ["dist"],
   "scripts": {
