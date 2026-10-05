@@ -4,6 +4,7 @@ import { render } from 'vitest-browser-react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
+import { VIEW_DEFAULTS } from '../state/viewSchema'
 import { LiveCommand } from './LiveCommand'
 
 function commandNow() {
@@ -27,6 +28,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.useRealTimers()
   useStore.getState().view.setPad(DEFAULT_PAD)
+  useStore.getState().view.apply(VIEW_DEFAULTS)
   for (const cleanup of cleanupListeners) cleanup()
   cleanupListeners = []
 })
@@ -61,6 +63,22 @@ describe('LiveCommand', () => {
     useStore.getState().view.setNumber('stroke', '0.4')
     await expect.element(screen.getByRole('figure')).toMatchTextContent(/--line=0\.4/)
     expect(screen.container.querySelector('.fw-cmd')?.textContent).toBe(commandNow())
+  })
+
+  // Unquoted, `#` starts a comment in sh and a glob in zsh with extended_glob.
+  it('shows and copies a colour quoted, as a shell needs it', async () => {
+    const write = vi.fn(() => Promise.resolve())
+    vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({ writeText: write } as unknown as Clipboard)
+    useStore.getState().view.setInk('#abcdef')
+    useStore.getState().view.setPalette(['#aa0000', '#00aa00'])
+    const screen = await render(<LiveCommand />)
+    await expect.element(screen.getByRole('figure')).toMatchTextContent(/--ink='#abcdef'/)
+    const values = [...screen.container.querySelectorAll('.fw-cmd b')].map((b) => b.textContent)
+    expect(values).toContain("'#abcdef'")
+    expect(values).toContain("'#aa0000,#00aa00'")
+    await screen.getByRole('button', { name: 'Copy' }).click()
+    expect(write).toHaveBeenCalledWith(commandNow())
+    expect(commandNow()).toContain("--palette='#aa0000,#00aa00'")
   })
 
   it('copies the whole command, prefix included', async () => {

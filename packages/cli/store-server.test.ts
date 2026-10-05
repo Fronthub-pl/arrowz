@@ -1,6 +1,6 @@
 import { assert, assertEquals, assertMatch } from '@std/assert'
 import { dirname } from '@std/path'
-import { defaultParams, encodeBoard } from '@arrowz/engine'
+import { defaultParams, encodeBoard, THEMES } from '@arrowz/engine'
 import { COMMAND_PREFIX, DEFAULT_VIEW } from '@arrowz/engine/command'
 import { API_CSP, createStoreServer, MAX_BODY, STORE_CSP } from './store-server.ts'
 import { saveBoard } from './store.ts'
@@ -105,8 +105,13 @@ Deno.test('POST refuses fields the store would write or the page would show unch
       [{ ...b, view: { ...b.view, cell: 12.5 } }, 'view.cell must be a whole number in 1..200'],
       [{ ...b, view: { ...b.view, headHeight: 5 } }, 'view.headHeight must be a number in 0..1.2'],
       [{ ...b, view: { ...b.view, colored: 'yes' } }, 'view.colored'],
-      [{ ...b, view: { ...b.view, theme: 'nope' } }, 'view.theme'],
+      [
+        { ...b, view: { ...b.view, theme: 'nope' } },
+        `view.theme must be empty or one of: ${Object.keys(THEMES).join(', ')}`,
+      ],
       [{ ...b, view: { ...b.view, palette: ['red'] } }, 'view.palette'],
+      [{ ...b, view: { ...b.view, palette: [12] } }, 'view.palette'],
+      [{ ...b, view: { ...b.view, palette: null } }, 'view.palette'],
       [{ ...b, view: { ...b.view, palette: Array(9).fill('#aa0000') } }, 'view.palette'],
       [{ ...b, view: { ...b.view, ink: 'red' } }, 'view.ink'],
       [{ ...b, view: { ...b.view, pointColor: '' } }, 'view.pointColor'],
@@ -152,14 +157,18 @@ Deno.test('POST answers with the meta and whether the layout and the recipe were
 Deno.test('a posted look is stored lower-case, and a view without one takes the default look', () =>
   withServer(async (base) => {
     const b = validBody()
-    const withLook = { ...b, view: { ...b.view, ink: '#ABCDEF', theme: 'gruvbox-dark', pad: 7, showPoints: true } }
+    const eight = ['#AA0000', '#BB0000', '#CC0000', '#DD0000', '#EE0000', '#FF0000', '#00AA00', '#00BB00']
+    const look = { paper: '#FAFAFA', ink: '#ABCDEF', highlight: '#E8467C', pointColor: '#C9C9D6', palette: eight }
+    const withLook = { ...b, view: { ...b.view, ...look, theme: 'gruvbox-dark', pad: 7, showPoints: true } }
     const first = await post(base, withLook)
     assertEquals(first.status, 201)
     const { meta: looked }: Answer = await first.json()
+    const v = looked.view
     assertEquals(
-      [looked.view.ink, looked.view.theme, looked.view.pad, looked.view.showPoints],
-      ['#abcdef', 'gruvbox-dark', 7, true],
+      [v.paper, v.ink, v.highlight, v.pointColor, v.palette],
+      ['#fafafa', '#abcdef', '#e8467c', '#c9c9d6', eight.map((c) => c.toLowerCase())],
     )
+    assertEquals([v.theme, v.pad, v.showPoints], ['gruvbox-dark', 7, true])
     const bare = { ...b, board: emptyFile(12, 12), params: { ...b.params, W: 12, H: 12 } }
     const second = await post(base, bare)
     assertEquals(second.status, 201)

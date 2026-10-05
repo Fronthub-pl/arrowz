@@ -19,6 +19,7 @@ import {
   PARAM_SPEC,
   POINT_RADIUS_RANGE,
   themeOf,
+  THEMES,
   validateParams,
 } from '@arrowz/engine'
 import type { Params, View, ViewNumber } from '@arrowz/engine'
@@ -117,7 +118,7 @@ const VIEW_NUMBERS = Object.keys(VIEW_RANGE) as ViewNumber[]
 function checkLook(v: Record<string, unknown>, view: View): string | null {
   if (v.theme !== undefined) {
     if (typeof v.theme !== 'string' || (v.theme !== '' && themeOf(v.theme) === null)) {
-      return 'view.theme must be a built-in theme or empty'
+      return `view.theme must be empty or one of: ${Object.keys(THEMES).join(', ')}`
     }
     view.theme = v.theme
   }
