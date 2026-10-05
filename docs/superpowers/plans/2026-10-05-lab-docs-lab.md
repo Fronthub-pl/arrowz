@@ -64,7 +64,7 @@
 ### Task 1: The lab tables' descriptions in the engine
 
 **Files:**
-- Modify: `packages/engine/lab-docs.ts`
+- Modify: `packages/engine/lab-docs.ts`, `packages/engine/README.md` (its export tables are guarded by `packages/engine/readme.test.ts`)
 - Test: `packages/engine/lab-docs.test.ts`, `packages/engine/glossary.test.ts`, `apps/lab/src/docs/content.test.ts`
 
 **Interfaces:**
@@ -315,15 +315,25 @@ and after `colSlot: 'Nazwa slotu',`:
 
 The `go-lang` descriptions differ on purpose: the English table shows the row "Switch to Polish", the Polish one "Przełącz na angielski" (Task 2 builds both in the page's language).
 
-- [ ] **Step 4: Run it to see it pass**
+- [ ] **Step 4: The engine README lists the new exports**
+
+`packages/engine/readme.test.ts` compares every export of `@arrowz/engine/docs` and its shape with the README, so in `packages/engine/README.md`, section "### `@arrowz/engine/docs`":
+- the `docsFor` row's Behaviour becomes `The Docs tab's descriptions and column names in one language: the board element's tables and the lab's.`;
+- in the `Docs` row's Shape, insert `readonly keys: Record<LabKey, string>; readonly palette: Record<PaletteId, string>; readonly linkFields: Record<LinkField, string>; ` after `readonly slots: Record<SlotKey, string>; `, and `readonly colKey: string; readonly colCommand: string; readonly colSection: string; readonly colField: string; ` after `readonly colSlot: string; `;
+- add three rows to the Type table, in its alphabetical order (`LabKey` and `LinkField` after `EventRow`, `PaletteId` after `MemberRow`), each Shape the union exactly as in `lab-docs.ts`, on one line, with every `|` escaped as `\|` inside the cell:
+  - `LabKey` — shape `'G' \| '[' \| ']' \| 'R' \| 'S' \| 'F' \| 'Esc' \| '⌘G' \| '⌘S' \| '⌘K'`, meaning `A key of the lab's key table, as the lab shows it.`
+  - `LinkField` — all nineteen names, none elided, meaning `A field of the lab's link.`
+  - `PaletteId` — all sixteen ids, none elided, meaning `A run or go-to row of the lab's command palette, by its id.`
+
+- [ ] **Step 5: Run it to see it pass**
 
 ```bash
-cd packages/engine && deno test -A lab-docs.test.ts && deno task check
+cd packages/engine && deno test -A lab-docs.test.ts readme.test.ts && deno task check
 ```
 
 Expected: PASS.
 
-- [ ] **Step 5: The glossary reads the new descriptions too**
+- [ ] **Step 6: The glossary reads the new descriptions too**
 
 In `packages/engine/glossary.test.ts`, replace the body of `docsRows` with:
 
@@ -334,7 +344,7 @@ In `packages/engine/glossary.test.ts`, replace the body of `docsRows` with:
     .map(([path, text]): [string, string] => [path, withoutCode(text)])
 ```
 
-and change its JSDoc to `/** The descriptions of the Docs tab's tables, the element's and the lab's. */`.
+and change its JSDoc to `/** The descriptions of the Docs tab's tables, the element's and the lab's. */`. Rename the test `'the element reference descriptions use no retired word'` to `'the Docs tables' descriptions use no retired word'`.
 
 Run, then mutate: put the word `knobs` into `EN.palette['run-defaults']`, run again, undo by hand.
 
@@ -344,7 +354,7 @@ cd packages/engine && deno test -A glossary.test.ts neutral.test.ts
 
 Expected: PASS before the mutation; with it, FAIL `en.palette.run-defaults uses a retired word (/\bknobs?\b/i)`; PASS after undoing it.
 
-- [ ] **Step 6: The lab's description guard reads them too**
+- [ ] **Step 7: The lab's description guard reads them too**
 
 In `apps/lab/src/docs/content.test.ts`, in the test `'every %s description is plain inline Markdown'`, replace the `texts` line and the floor with:
 
@@ -362,12 +372,12 @@ cd apps/lab && pnpm exec vitest run --project node src/docs/content.test.ts
 
 Expected: PASS (`<arrowz-board>` is inside a code span, so it is not raw HTML).
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 cd packages/engine && deno task lint && deno fmt lab-docs.ts lab-docs.test.ts glossary.test.ts
 cd ../../apps/lab && pnpm exec prettier --write src/docs/content.test.ts && pnpm run check && pnpm run lint
-cd ../.. && git add packages/engine/lab-docs.ts packages/engine/lab-docs.test.ts packages/engine/glossary.test.ts apps/lab/src/docs/content.test.ts
+cd ../.. && git add packages/engine/lab-docs.ts packages/engine/README.md packages/engine/lab-docs.test.ts packages/engine/glossary.test.ts apps/lab/src/docs/content.test.ts
 git commit -m "engine: the lab's keys, palette rows and link fields have descriptions in both languages"
 ```
 
@@ -376,13 +386,13 @@ git commit -m "engine: the lab's keys, palette rows and link fields have descrip
 ### Task 2: The rows from the lab's code
 
 **Files:**
-- Modify: `apps/lab/src/shell/hotkeys.ts`, `apps/lab/src/palette/commands.ts`, `apps/lab/src/readme.test.ts`
+- Modify: `apps/lab/src/shell/hotkeys.ts`, `apps/lab/src/palette/commands.ts`, `apps/lab/src/state/url.ts`, `apps/lab/src/readme.test.ts`
 - Create: `apps/lab/src/docs/tables.test.ts`
 - Test: `apps/lab/src/shell/hotkeys.test.ts`, `apps/lab/src/palette/commands.test.ts`
 
 **Interfaces:**
 - Consumes: `docsFor` (Task 1), `buildCommands`, `WORKSPACE_KEYS`, `COMMAND_KEYS`, `VIEW_KEYS`.
-- Produces: `export function keyLabel(key: string): string` and `export function shownKeys(): string[]` in `shell/hotkeys.ts`; `export function docsPaletteRows(dict: Dict, state: Store): Command[]` in `palette/commands.ts`.
+- Produces: `export function keyLabel(key: string): string` and `export function shownKeys(): string[]` in `shell/hotkeys.ts`; `export function docsPaletteRows(dict: Dict, state: Store): Command[]` in `palette/commands.ts`; `export const LINK_FIELDS: readonly string[]` in `state/url.ts`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -437,6 +447,7 @@ import { expect, test } from 'vitest'
 import { docsPaletteRows } from '../palette/commands'
 import { shownKeys } from '../shell/hotkeys'
 import { useStore } from '../state/store'
+import { LINK_FIELDS } from '../state/url'
 import { VIEW_KEYS } from '../state/viewSchema'
 
 const sorted = (values: Iterable<string>) => [...values].sort()
@@ -452,7 +463,9 @@ test('the palette descriptions are the run and go-to rows', () => {
 })
 
 test('the link field descriptions are the fields a link carries', () => {
-  expect(sorted(Object.keys(docs.linkFields))).toEqual(sorted([...VIEW_KEYS, 'lang']))
+  expect(sorted(Object.keys(docs.linkFields))).toEqual(sorted(LINK_FIELDS))
+  // The list itself: the preview's fields, then the language a link may name.
+  expect(LINK_FIELDS).toEqual([...VIEW_KEYS, 'lang'])
 })
 ```
 
@@ -462,7 +475,7 @@ test('the link field descriptions are the fields a link carries', () => {
 cd apps/lab && pnpm exec vitest run --project node src/shell/hotkeys.test.ts src/palette/commands.test.ts src/docs/tables.test.ts
 ```
 
-Expected: FAIL — `shownKeys` and `docsPaletteRows` are not exported.
+Expected: FAIL — `TypeError: shownKeys is not a function` and `docsPaletteRows is not a function` (Vitest does not type-check).
 
 - [ ] **Step 3: `keyLabel` and `shownKeys`, keys in reading order**
 
@@ -517,6 +530,17 @@ export function shownKeys(): string[] {
 }
 ```
 
+- [ ] **Step 3b: `LINK_FIELDS`**
+
+In `apps/lab/src/state/url.ts`, after `HashView`, add:
+
+```ts
+/** Every field a link's `__view` is read for: the view's own, then the page's language. */
+export const LINK_FIELDS: readonly string[] = [...VIEW_KEYS, 'lang']
+```
+
+and import `VIEW_KEYS` beside `pickView, readView` from `./viewSchema`.
+
 - [ ] **Step 4: `docsPaletteRows`**
 
 In `apps/lab/src/palette/commands.ts`, after `buildCommands`, add:
@@ -555,8 +579,18 @@ test('the key table is WORKSPACE_KEYS and COMMAND_KEYS, both ways', () => {
 })
 ```
 
-change the import `import { COMMAND_KEYS, WORKSPACE_KEYS } from './shell/hotkeys'` to `import { shownKeys } from './shell/hotkeys'`, and in the file's header comment replace `the keys of WORKSPACE_KEYS and
-// COMMAND_KEYS` with `the keys the lab binds (shownKeys)`.
+change the import `import { COMMAND_KEYS, WORKSPACE_KEYS } from './shell/hotkeys'` to `import { shownKeys } from './shell/hotkeys'`, and replace the first six lines of the file's header comment with (Prettier does not reflow comments):
+
+```ts
+// README.md describes the lab as the code defines it, and the code is the
+// source of truth: the routes of AppRoutes, the keys the lab binds
+// (shownKeys), the palette's run and go-to commands, the fields a link
+// carries (LINK_FIELDS), the two ports, the Nx targets, and the screenshots
+// of docs/screenshots.json. Each comparison runs both ways, so a row for
+// something removed fails as surely as a missing row.
+```
+
+Replace the link-table test's `sorted([...VIEW_KEYS, 'lang'])` with `sorted(LINK_FIELDS)`, import `LINK_FIELDS` from `./state/url`, and drop the `VIEW_KEYS` import.
 
 - [ ] **Step 6: Run them to see them pass**
 
@@ -578,9 +612,9 @@ Commit first (Step 8), then one at a time, undoing each by hand:
 - [ ] **Step 8: Commit**
 
 ```bash
-cd apps/lab && pnpm exec prettier --write src/shell/hotkeys.ts src/shell/hotkeys.test.ts src/palette/commands.ts src/palette/commands.test.ts src/docs/tables.test.ts src/readme.test.ts
+cd apps/lab && pnpm exec prettier --write src/state/url.ts src/shell/hotkeys.ts src/shell/hotkeys.test.ts src/palette/commands.ts src/palette/commands.test.ts src/docs/tables.test.ts src/readme.test.ts
 pnpm run check && pnpm run lint
-cd ../.. && git add apps/lab/src/shell/hotkeys.ts apps/lab/src/shell/hotkeys.test.ts apps/lab/src/palette/commands.ts apps/lab/src/palette/commands.test.ts apps/lab/src/docs/tables.test.ts apps/lab/src/readme.test.ts
+cd ../.. && git add apps/lab/src/state/url.ts apps/lab/src/shell/hotkeys.ts apps/lab/src/shell/hotkeys.test.ts apps/lab/src/palette/commands.ts apps/lab/src/palette/commands.test.ts apps/lab/src/docs/tables.test.ts apps/lab/src/readme.test.ts
 git commit -m "lab: the keys as shown and the palette rows as the docs list them come from one place each"
 ```
 
@@ -608,7 +642,7 @@ import { shownKeys } from '../shell/hotkeys'
 import { VIEW_KEYS } from '../state/viewSchema'
 ```
 
-(`act` may already be imported; keep one import.) After the test `'::table draws the reference table its section names'`, add:
+(`act` is not imported there yet; `useStore` already is.) After the test `'::table draws the reference table its section names'`, add:
 
 ```tsx
 const cells = (table: Element | null) =>
@@ -697,7 +731,7 @@ import { useDictionary } from '../i18n'
 import { docsPaletteRows } from '../palette/commands'
 import { shownKeys } from '../shell/hotkeys'
 import { useStore } from '../state/store'
-import { VIEW_KEYS } from '../state/viewSchema'
+import { LINK_FIELDS } from '../state/url'
 ```
 
 After the `Mono` component, add:
@@ -708,8 +742,6 @@ function described(rows: Readonly<Record<string, string>>, key: string): string 
   return Object.hasOwn(rows, key) ? (rows[key] ?? '') : ''
 }
 
-/** The fields a link carries: the preview's under `__view`, then the page's language. */
-const LINK_FIELDS: readonly string[] = [...VIEW_KEYS, 'lang']
 ```
 
 Change the header comment of `DocsTable` to:
@@ -935,6 +967,10 @@ and in the first test of that file add after the Arrowz line:
   await expect.element(screen.getByRole('link', { name: 'Lab', exact: true })).toHaveAttribute('href', '/docs/lab')
 ```
 
+Two more cases count the column's pages:
+- `apps/lab/src/routes/DocsLayout.browser.test.tsx`, `at 375×812 (…) the column stands over the page`: `expect(shown).toHaveLength(3 + 5)` becomes `toHaveLength(4 + 5)`.
+- `apps/lab/src/routes/DocsNav.browser.test.tsx`, `a section link keeps the fragment the address carries`: the selector `nav > ul > li:nth-child(2) > ul a` (the CLI page's first section) becomes `nav > ul > li:nth-child(3) > ul a`, since Lab is now second.
+
 In `apps/lab/src/palette/commands.test.ts`, in `'keeps the catalogue order between the rows that all get promoted'`, replace the five `expect` lines with:
 
 ```ts
@@ -977,7 +1013,7 @@ export const DOCS_PAGE_NAMES = {
 
 `packages/engine/lab-i18n.ts`: after `docsArrowz: 'Arrowz',` in `EN.ui` add `docsLab: 'Lab',`; after `docsArrowz: 'Arrowz',` in `PL.ui` add `docsLab: 'Laboratorium',`.
 
-`packages/engine/lab-docs.ts`: in `PaletteId` add `| 'go-docs-lab'` after `'go-docs-arrowz'`; in `EN.palette` after `'go-docs-arrowz'` add
+`packages/engine/lab-docs.ts`: in `PaletteId` add `| 'go-docs-lab'` after `'go-docs-arrowz'` (and in the `PaletteId` row of `packages/engine/README.md`, `\| 'go-docs-lab'` at the same place); in `EN.palette` after `'go-docs-arrowz'` add
 `'go-docs-lab': 'How the lab works: its views, keys, palette and links.',`
 and in `PL.palette`
 `'go-docs-lab': 'Jak działa laboratorium: widoki, klawisze, paleta i linki.',`.
@@ -1152,6 +1188,7 @@ Pominięte pole przyjmuje wartość domyślną, a wartość, której laboratoriu
 In `apps/lab/README.md`:
 - Screens table, row `/docs/:what`: `The documentation: \`arrowz\` for the puzzle and its rule, \`lab\` for the lab itself, \`cli\` for the command line, \`element\` for the board element.`
 - Palette table: after the `Docs — Arrowz` row add `| \`Docs — Lab\` | go to | How the lab works: its views, keys, palette and links. |`
+- Palette table, row `New seed`: its Does cell `Steps the seed.` becomes `Draws a random seed and generates.`
 - "Generating and saving": replace `**New seed**
 (\`[\` and \`]\`) steps the seed;` with `**New seed** draws a random seed and generates, while \`[\` and \`]\` step the seed back or forward by one;`.
 
@@ -1174,13 +1211,13 @@ Expected: PASS. If the glossary flags a word, rewrite the sentence (the substrin
 ```bash
 cd apps/lab && pnpm exec prettier --write docs-content/en/lab.md docs-content/pl/lab.md README.md src/docs/pages.ts src/docs/content.ts src/docs/LabPage.browser.test.tsx src/routes/DocsNav.browser.test.tsx src/routes/DocsLayout.browser.test.tsx src/palette/commands.test.ts
 pnpm run check && pnpm run lint
-cd ../../packages/engine && deno fmt lab-i18n.ts lab-docs.ts lab-docs.test.ts && deno task check && deno task lint
+cd ../../packages/engine && deno fmt lab-i18n.ts lab-docs.ts lab-docs.test.ts && deno test -A readme.test.ts && deno task check && deno task lint
 cd ../cli && deno fmt scripts/jev-docs.ts && deno task check
 cd ../.. && git add apps/lab/docs-content/en/lab.md apps/lab/docs-content/pl/lab.md apps/lab/README.md \
   apps/lab/src/docs/pages.ts apps/lab/src/docs/content.ts apps/lab/src/docs/LabPage.browser.test.tsx \
   apps/lab/src/routes/DocsNav.browser.test.tsx apps/lab/src/routes/DocsLayout.browser.test.tsx \
   apps/lab/src/palette/commands.test.ts packages/engine/lab-i18n.ts packages/engine/lab-docs.ts \
-  packages/engine/lab-docs.test.ts packages/cli/scripts/jev-docs.ts
+  packages/engine/lab-docs.test.ts packages/engine/README.md packages/cli/scripts/jev-docs.ts
 git commit -m "lab: the Docs tab has a Lab page, its keys, palette and link tables built from the lab's code"
 ```
 
@@ -1259,13 +1296,13 @@ Expected: PASS.
 
 - [ ] **Step 3: The Jev page**
 
-In `docs/jev-guards.md`, section "Docs pages", replace `and, for the element page, the property, member, event and slot descriptions in
-\`packages/engine/lab-docs.ts\`` with `and the descriptions in \`packages/engine/lab-docs.ts\` its tables show: the property,
-member, event and slot descriptions with the element page, the key, palette and link-field descriptions with the lab page`. The file says the same thing in two more places; change both:
-- In the CI list near the top, `\`packages/engine/lab-docs.ts\` for the element page` becomes `\`packages/engine/lab-docs.ts\` for the element and lab pages`.
-- In "Docs pages", `(pages: \`arrowz\`, \`element\`, \`cli\`;` becomes `(pages: \`arrowz\`, \`lab\`, \`cli\`, \`element\`;`, and `or \`lab-docs.ts\` for the element page.` becomes `or \`lab-docs.ts\` for the element and lab pages.`
+`docs/jev-guards.md` ties `lab-docs.ts` to the element page in four places; edit by meaning, the file's own line wrapping differs from the quotes below:
+- the CI list near the top: "`packages/engine/lab-docs.ts` for the element page" → "`packages/engine/lab-docs.ts` for the element and lab pages";
+- "Docs pages", first paragraph: "and, for the element page, the property, member, event and slot descriptions in `packages/engine/lab-docs.ts`" → "and the descriptions in `packages/engine/lab-docs.ts` its tables show: the property, member, event and slot descriptions with the element page, the key, palette and link-field descriptions with the lab page";
+- the `contradicts` row of the questions table: "every element description" → "every description the page's tables show";
+- "(pages: `arrowz`, `element`, `cli`;" → "(pages: `arrowz`, `lab`, `cli`, `element`;", and "or `lab-docs.ts` for the element page." → "or `lab-docs.ts` for the element and lab pages."
 
-Then `grep -n "element page" docs/jev-guards.md` must show no sentence that still ties `lab-docs.ts` to the element page alone, and `deno fmt docs/jev-guards.md`.
+Leave the "Measured on jev-1.13.0" paragraph as it is: it says what was measured then. Markdown is outside `deno fmt` (the root `deno.json` excludes `**/*.md`), so there is nothing to format.
 
 - [ ] **Step 4: Commit**
 
