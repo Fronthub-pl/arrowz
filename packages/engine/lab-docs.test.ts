@@ -5,7 +5,19 @@
 // re-checks the compiler is a test that cannot fail.
 import { assert, assertEquals, assertNotEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
-import { type Docs, docsFor, ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS, ELEMENT_SLOTS } from './lab-docs.ts'
+import {
+  type Docs,
+  docsFor,
+  ELEMENT_CLASSES,
+  ELEMENT_CONSTANTS,
+  ELEMENT_EVENTS,
+  ELEMENT_FUNCTIONS,
+  ELEMENT_MEMBERS,
+  ELEMENT_PROPS,
+  ELEMENT_SLOTS,
+  ELEMENT_TYPES,
+  spellValue,
+} from './lab-docs.ts'
 
 Deno.test('every row has a description in both languages, and none is empty', () => {
   const en = docsFor('en')
@@ -57,10 +69,47 @@ Deno.test('every lab table description is in both languages, and translated', ()
   assertEquals(seen, 10 + 17 + 19 + 4)
 })
 
+// The export tables' rows are held to the element's `mod.ts` by its README guard
+// (`readme-api.test.ts`); here only that each description is text, translated.
+Deno.test('every export description is in both languages, and translated', () => {
+  const en = docsFor('en')
+  const pl = docsFor('pl')
+  const groups = [
+    ['types', ELEMENT_TYPES],
+    ['functions', ELEMENT_FUNCTIONS],
+    ['constants', ELEMENT_CONSTANTS],
+    ['classes', ELEMENT_CLASSES],
+  ] as const
+  let seen = 0
+  for (const [group, rows] of groups) {
+    const enRows: Readonly<Record<string, string>> = en[group]
+    const plRows: Readonly<Record<string, string>> = pl[group]
+    for (const row of rows) {
+      seen++
+      assert((enRows[row.key] ?? '').trim().length > 0, `EN ${group}.${row.key}`)
+      assert((plRows[row.key] ?? '').trim().length > 0, `PL ${group}.${row.key}`)
+      assertNotEquals(plRows[row.key], enRows[row.key], `${group}.${row.key} is still English in the Polish docs`)
+    }
+  }
+  assertEquals(seen, 21 + 8 + 20 + 2)
+})
+
+Deno.test('spellValue writes a constant as the tables do', () => {
+  assertEquals(spellValue(4), '4')
+  assertEquals(spellValue(false), 'false')
+  assertEquals(spellValue('#c9c9d6'), "'#c9c9d6'")
+  assertEquals(spellValue([]), '[]')
+  assertEquals(spellValue(['#fff', 2]), "['#fff', 2]")
+  assertEquals(spellValue({ min: 0, max: 16 }), '{ min: 0, max: 16 }')
+  assertEquals(spellValue({ stroke: 0.5, palette: [] }), '{ stroke: 0.5, palette: [] }')
+  // An object of objects is too long to spell: its keys stand for it.
+  assertEquals(spellValue({ en: { a: 'x' }, pl: { a: 'y' } }), '{ en, pl }')
+})
+
 // The frame around the tables — the column names and the note's name — is text
 // too, and the tests above walk only rows. The key list is derived from the
-// object, so a field added to `Docs` later is covered too. Twenty-one strings exist
-// today (twenty `col*` and `infoLabel`); the floor catches a filter that finds none.
+// object, so a field added to `Docs` later is covered too. Thirty-three strings exist
+// today (thirty-two `col*` and `infoLabel`); the floor catches a filter that finds none.
 Deno.test('the frame around the tables is translated too', () => {
   const en = docsFor('en')
   const pl = docsFor('pl')
