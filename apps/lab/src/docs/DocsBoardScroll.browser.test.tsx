@@ -1,7 +1,7 @@
 import type { ArrowzBoard } from '@arrowz/board-element'
 import { useRef } from 'react'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, expect, test } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { twoFrames } from '../harness/frames'
@@ -127,4 +127,39 @@ test('a still board takes no pointer and draws no controls', async () => {
   const board = screen.container.querySelector<ArrowzBoard>('arrowz-board')
   expect(board?.querySelector('[slot="controls"]')).not.toBeNull()
   expect(board === null ? '' : getComputedStyle(board).pointerEvents).toBe('none')
+})
+
+/** A list that answers one query as a phone would; the rest go to the real window. */
+function coarseList(query: string): MediaQueryList {
+  return {
+    matches: true,
+    media: query,
+    onchange: null,
+    addListener() {},
+    removeListener() {},
+    addEventListener() {},
+    removeEventListener() {},
+    dispatchEvent: () => false,
+  }
+}
+
+test('under a coarse pointer a docs board is still', async () => {
+  const real = window.matchMedia.bind(window)
+  const stub = vi
+    .spyOn(window, 'matchMedia')
+    .mockImplementation((query) => (query === '(pointer: coarse)' ? coarseList(query) : real(query)))
+  try {
+    const screen = await mount(
+      '# T\n\n::board[s]{cmd="--width=12 --height=12 --seed=7"}',
+      createDocsQueue(answeringWorkers().make, new Map()),
+    )
+    await expect.poll(() => screen.container.querySelector<ArrowzBoard>('arrowz-board')?.board?.W).toBe(12)
+    const board = screen.container.querySelector<ArrowzBoard>('arrowz-board')
+    if (board === null) throw new Error('no board')
+    expect(board.classList.contains('still')).toBe(true)
+    expect(getComputedStyle(board).pointerEvents).toBe('none')
+    expect(board.querySelector('[slot="controls"]')).not.toBeNull()
+  } finally {
+    stub.mockRestore()
+  }
 })
