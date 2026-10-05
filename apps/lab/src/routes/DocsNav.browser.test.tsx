@@ -16,8 +16,9 @@ const at = (path: string, section?: string) =>
 // Real anchors are the whole reason this is a nav and not a radio group: an
 // address worth copying, opening in a new tab and middle-clicking. A control
 // that merely looks like a link would pass every other assertion here.
-test('both pages are real links with addresses', async () => {
+test('every page is a real link with an address', async () => {
   const screen = await at('/docs/element')
+  await expect.element(screen.getByRole('link', { name: 'Arrowz' })).toHaveAttribute('href', '/docs/arrowz')
   await expect.element(screen.getByRole('link', { name: 'Board element' })).toHaveAttribute('href', '/docs/element')
   await expect.element(screen.getByRole('link', { name: 'Command line' })).toHaveAttribute('href', '/docs/cli')
 })
@@ -42,21 +43,27 @@ test('the navigation carries its own name, beside the tab strip', async () => {
 test('each page lists its sections, as links to that page', async () => {
   const screen = await at('/docs/element')
   const pages = [...screen.container.querySelectorAll('nav > ul > li')]
-  expect(pages).toHaveLength(2)
+  expect(pages).toHaveLength(3)
   const sections = pages.map((li) =>
     [...li.querySelectorAll(':scope > ul a')].map((a) => [a.textContent, a.getAttribute('href')]),
   )
   expect(sections).toEqual([
+    [
+      ['The puzzle', '/docs/arrowz'],
+      ['The one rule', '/docs/arrowz'],
+      ['What the generator promises', '/docs/arrowz'],
+      ['Words', '/docs/arrowz'],
+    ],
+    [
+      ['Everyday help', '/docs/cli'],
+      ['Every knob', '/docs/cli'],
+    ],
     [
       ['Using it', '/docs/element'],
       ['Properties', '/docs/element'],
       ['Methods and getters', '/docs/element'],
       ['Events', '/docs/element'],
       ['Slots', '/docs/element'],
-    ],
-    [
-      ['Everyday help', '/docs/cli'],
-      ['Every knob', '/docs/cli'],
     ],
   ])
 })
@@ -91,7 +98,7 @@ test('the sections are named in Polish too', async () => {
 // click on a section of the page on screen must not drop it from the bar.
 test('a section link keeps the fragment the address carries', async () => {
   const screen = await at('/docs/element#{"W":25}')
-  expect(screen.container.querySelector('nav > ul > li:last-child > ul a')?.getAttribute('href')).toBe(
+  expect(screen.container.querySelector('nav > ul > li:nth-child(2) > ul a')?.getAttribute('href')).toBe(
     '/docs/cli#{"W":25}',
   )
 })

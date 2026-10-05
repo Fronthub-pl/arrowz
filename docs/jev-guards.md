@@ -180,8 +180,8 @@ the property, member, event and slot descriptions in
 | `history` (the text tells the project's past) | every English prose block | `> 0.85` |
 | `plain` (no unexplained internal term) | every English prose block | `< 0.3` |
 
-By hand: `deno task jev:docs [page…]` (pages: `element`, `cli`; all by
-default). In CI, `jev-ci.ts` runs the same checks on the pages a PR changes:
+By hand: `deno task jev:docs [page…]` (pages: `arrowz`, `element`, `cli`;
+all by default). In CI, `jev-ci.ts` runs the same checks on the pages a PR changes:
 either language of a page, or `lab-docs.ts` for the element page. Like every
 guard it only advises.
 

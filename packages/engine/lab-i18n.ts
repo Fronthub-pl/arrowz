@@ -336,6 +336,7 @@ export const EN = {
     argUnclosedQuote: (arg: string) => `a quote has no end: ${arg}`,
     /** The accessible name of the documentation's own two-page navigation. */
     docsNavLabel: 'Documentation pages',
+    docsArrowz: 'Arrowz',
     docsElement: 'Board element',
     docsCli: 'Command line',
     /** The rule boards of the Arrowz page: each board's name, the line under it, its button. */
@@ -1179,6 +1180,7 @@ export const PL: Translation = {
     argMissing: (flag) => `w komendzie brakuje ${flag}`,
     argUnclosedQuote: (arg) => `niezamknięty cudzysłów: ${arg}`,
     docsNavLabel: 'Strony dokumentacji',
+    docsArrowz: 'Arrowz',
     docsElement: 'Element planszy',
     docsCli: 'Wiersz poleceń',
     docsRuleFree: 'Strzałka z wolną drogą do krawędzi przed grotem',

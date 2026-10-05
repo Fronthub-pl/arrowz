@@ -25,10 +25,12 @@ function linksOf(node: Nodes, out: string[] = []): string[] {
 }
 
 test.each(LANGS)('every docs: link in %s names a section that exists', (lang) => {
+  let checked = 0
   for (const page of DOCS_PAGES) {
     for (const url of linksOf(docsPage(lang, page).root)) {
       const m = DOCS_LINK.exec(url)
       if (m === null) continue
+      checked++
       const target = DOCS_PAGES.find((name) => name === m[1])
       expect(target, url).toBeDefined()
       if (target === undefined) continue
@@ -38,6 +40,7 @@ test.each(LANGS)('every docs: link in %s names a section that exists', (lang) =>
       ).toContain(SECTION_PREFIX + (m[2] ?? ''))
     }
   }
+  expect(checked).toBeGreaterThan(0)
 })
 
 // Descriptions are drawn through the parser: one that parses into anything but
