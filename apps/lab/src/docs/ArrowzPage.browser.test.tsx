@@ -73,9 +73,5 @@ test('playing one board leaves the others as they were', async () => {
     )
   })
   const lines = [...screen.container.querySelectorAll('figure [role="status"]')].map((s) => s.textContent)
-  expect(lines).toEqual([
-    'It left: its path to the edge was clear.',
-    'Play any arrow and see what happens.',
-    'Play any arrow and see what happens.',
-  ])
+  expect(lines).toEqual(['It left: its path to the edge was clear.', 'Try any arrow.', 'Try any arrow.'])
 })

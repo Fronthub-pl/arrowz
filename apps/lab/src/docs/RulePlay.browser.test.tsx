@@ -47,7 +47,7 @@ const removed = (element: ArrowzBoard) => element.saveState()?.removed
 
 test('the blocked arrow bounces, the arrow in its way leaves, and then the first leaves too', async () => {
   const { screen, element } = await mount('rule-blocked')
-  expect(line(screen.container)).toBe('Play any arrow and see what happens.')
+  expect(line(screen.container)).toBe('Try any arrow.')
   clickPiece(element, 0)
   await expect.poll(() => line(screen.container)).toBe('It bounced off another arrow.')
   expect(removed(element)).toEqual([])
@@ -75,7 +75,7 @@ test('Start over puts every arrow back and the line with them', async () => {
   await expect.poll(() => removed(element)).toEqual([0])
   await restart.click()
   expect(removed(element)).toEqual([])
-  expect(line(screen.container)).toBe('Play any arrow and see what happens.')
+  expect(line(screen.container)).toBe('Try any arrow.')
   await expect.element(restart).toBeDisabled()
 })
 

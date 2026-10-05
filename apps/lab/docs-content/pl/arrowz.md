@@ -20,7 +20,7 @@ Stukasz w strzałkę, a ona próbuje wyjechać prosto z planszy w stronę, w kt�
 
 ::play{board="rule-free"}
 
-Jeśli coś stoi na drodze, strzałka w to uderza, cofa się, a Ty tracisz życie. Tu w poprzek drogi stoi druga strzałka. Usuń ją najpierw, a strzałka za nią też odjedzie.
+Jeśli coś stoi na drodze, strzałka w to uderza, cofa się, a Ty tracisz życie. Tu w poprzek drogi stoi inna strzałka. Usuń ją najpierw, a strzałka za nią też odjedzie.
 
 ::play{board="rule-blocked"}
 

@@ -20,7 +20,7 @@ You tap an arrow, and it tries to drive straight off the board in the direction 
 
 ::play{board="rule-free"}
 
-If anything stands in the path, the arrow bumps into it, slides back, and you lose a life. Here a second arrow is parked across the path. Clear it first, and the arrow behind it can leave too.
+If anything stands in the path, the arrow bumps into it, slides back, and you lose a life. Here another arrow is parked across the path. Clear it first, and the arrow behind it can leave too.
 
 ::play{board="rule-blocked"}
 

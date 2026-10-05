@@ -1,4 +1,5 @@
 import { helpText } from '@arrowz/engine/command'
+import type { ArrowzBoard } from '@arrowz/board-element'
 import { ELEMENT_SLOTS } from '@arrowz/engine/docs'
 import { MemoryRouter, useLocation } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'
@@ -121,9 +122,10 @@ test('::play draws the rule board it names, coloured and playable', async () => 
   const screen = await show('# T\n\n::play{board="rule-blocked"}')
   const figure = screen.getByRole('figure', { name: 'An arrow with another arrow standing in its path to the edge' })
   await expect.element(figure).toBeVisible()
-  const element = figure.element().querySelector('arrowz-board')
+  const element = figure.element().querySelector<ArrowzBoard>('arrowz-board')
   expect(element?.hasAttribute('play')).toBe(true)
   expect(element?.board?.pieces).toHaveLength(3)
+  await expect.poll(() => element?.colored).toBe(true)
 })
 
 test('::help draws the terminal text, plain', async () => {

@@ -296,10 +296,10 @@
   font-style: italic;
 }
 
-/* A rule board (`::play`) at the README picture's width: 8×6 cells and a
-   cell of margin all round make it 10:8. The line and Start over sit under it. */
+/* Wide enough for the line and Start over on one row in either language;
+   8×6 cells and a cell of margin all round make the board 10:8. */
 .fw-docs-play {
-  max-width: 360px;
+  max-width: 480px;
   margin: 12px 0 16px;
 }
 .fw-docs-play arrowz-board {
