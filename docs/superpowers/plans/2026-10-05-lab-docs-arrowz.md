@@ -600,7 +600,7 @@ deno test --allow-read --allow-write --allow-env --allow-run --allow-net package
 pnpm nx build engine
 ```
 
-Expected: PASS. If a `jev-guard` test that anchors on `PL.ui` string positions fails, re-anchor its indices as `docs/jev-guards.md` ("Limits") says, without changing what it asserts.
+Expected: PASS. (The glossary guard reads the Markdown pages, which arrive in Task 4; here it checks the new dictionary strings only.) If a `jev-guard` test that anchors on `PL.ui` string positions fails, re-anchor its indices as `docs/jev-guards.md` ("Limits") says, without changing what it asserts.
 
 - [ ] **Step 3: The failing browser test**
 
@@ -673,7 +673,7 @@ test.each([
   const { screen, element } = await mount(name)
   clickPiece(element, id)
   await expect.poll(() => removed(element)).toEqual([id])
-  expect(line(screen.container)).toBe('It left: its path to the edge was clear.')
+  await expect.poll(() => line(screen.container)).toBe('It left: its path to the edge was clear.')
 })
 
 test('Start over puts every arrow back and the line with them', async () => {
@@ -886,11 +886,11 @@ Commit first (Step 8), then one at a time, undoing each by hand:
 | Mutation | Expected red |
 |---|---|
 | in `RulePlay`, delete `onLifeLost={() => setSaid('bounced')}` | `the blocked arrow bounces…` |
-| in `RulePlay`, replace `board={RULE_BOARDS[name]}` with `board={{ ...RULE_BOARDS[name] }}` | `a language switch keeps the game…` |
+| in `RulePlay`, replace `board={RULE_BOARDS[name]}` with `board={{ ...RULE_BOARDS[name], lang }}` (a fresh object per language: the React Compiler memoizes a plain `{ ...RULE_BOARDS[name] }` on `name`, so that one stays green) | `a language switch keeps the game…` |
 | in `RulePlay`, delete `enableColors` | `a rule board is named, coloured and playable` |
 | in `ruleBoards.ts`, change `ACROSS`'s first cell to `[6, 2]` (and its others to column 6) | `ruleBoards.test.ts` blocked-board case (`distance: 3`) |
 
-Record the four outcomes in the commit message body of Step 8's follow-up, or in the task report if all behave as listed.
+Record the four outcomes in the task report.
 
 - [ ] **Step 8: Commit**
 
@@ -1023,7 +1023,7 @@ Każda plansza, którą oddaje generator, została sprawdzona:
 - **Nic nie zostaje.** Każda komórka należy do dokładnie jednej strzałki: bez dziur i bez nakładania się.
 - **Żadna strzałka nie ma jednej komórki.** Najkrótsza strzałka ma dwie komórki, bo pojedyncza komórka nie miałaby kierunku.
 - **Planszę zawsze da się wyczyścić.** Zanim odda planszę, generator ustala, która strzałka blokuje którą, i dowodzi, że łamigłówka ma rozwiązanie.
-- **Zna co najmniej jedno rozwiązanie.** Kolejność, w jakiej generator układał strzałki, sama jest zwycięską kolejnością.
+- **Zna co najmniej jedno rozwiązanie.** Kolejność, w jakiej generator układał strzałki, sama jest wygrywającą kolejnością.
 - **Nie zapędzisz się w kozi róg.** Każdy ciąg dozwolonych ruchów w końcu opróżnia planszę.
 - **To samo żądanie daje tę samą planszę.** Te same ustawienia z tym samym ziarnem dają identyczną planszę, co do komórki.
 
@@ -1136,7 +1136,7 @@ pnpm exec vitest run --project chromium src/docs/ArrowzPage.browser.test.tsx
 pnpm exec vitest run --project node src/docs/content.test.ts
 ```
 
-Expected: FAIL — `arrowz` is not a `DocsPage` (type error at runtime: `docsPage('en', 'arrowz')` is undefined), and no page has a `docs:` link yet.
+Expected: FAIL — `arrowz` is not a page yet (`TypeError: Cannot read properties of undefined (reading 'root')`), and the link case fails with `expected 0 to be greater than 0`.
 
 - [ ] **Step 4: Wire the page in**
 
@@ -1158,21 +1158,27 @@ export const DOCS_PAGE_NAMES = {
 
 `apps/lab/src/docs/content.ts`: import `arrowzEn` from `'../../docs-content/en/arrowz.md?raw'` and `arrowzPl` from `'../../docs-content/pl/arrowz.md?raw'`; add `arrowz: arrowzEn` / `arrowz: arrowzPl` to `SOURCES`, and `arrowz: parsed(SOURCES.en.arrowz)` / `arrowz: parsed(SOURCES.pl.arrowz)` to `PAGES`.
 
-`packages/cli/scripts/jev-docs.ts`: add `arrowz: 'README.md',` as the first entry of `DOCS_SOURCES`. In `docs/jev-guards.md` ("Docs pages"), change "(pages: `element`, `cli`; all by default)" to "(pages: `arrowz`, `element`, `cli`; all by default)".
+`packages/cli/scripts/jev-docs.ts`: add `arrowz: 'README.md',` as the first entry of `DOCS_SOURCES`. In `docs/jev-guards.md` ("Docs pages"), the sentence is wrapped: replace "(pages: `element`, `cli`; all by⏎default)" with "(pages: `arrowz`, `element`, `cli`;⏎all by default)" (⏎ is the line break).
 
 - [ ] **Step 5: Update the tests that name the pages**
 
 Each change below follows from the new first page or the new order; nothing else in these files changes.
 
-- `routes/DocsNav.browser.test.tsx`: `'both pages are real links with addresses'` becomes `'every page is a real link with an address'` and also expects `getByRole('link', { name: 'Arrowz' })` with `href` `/docs/arrowz`; in `'each page lists its sections, as links to that page'`, `toHaveLength(3)` and the expected array gains, first, `[['The puzzle', '/docs/arrowz'], ['The one rule', '/docs/arrowz'], ['What the generator promises', '/docs/arrowz'], ['Words', '/docs/arrowz']]`, then the CLI list, then the element list (the column's new order).
+- `routes/DocsNav.browser.test.tsx`: in `'a section link keeps the fragment the address carries'`, the selector `nav > ul > li:last-child > ul a` becomes `nav > ul > li:nth-child(2) > ul a` (the CLI page is second now, the element page last); `'both pages are real links with addresses'` becomes `'every page is a real link with an address'` and also expects `getByRole('link', { name: 'Arrowz' })` with `href` `/docs/arrowz`; in `'each page lists its sections, as links to that page'`, `toHaveLength(3)` and the expected array gains, first, `[['The puzzle', '/docs/arrowz'], ['The one rule', '/docs/arrowz'], ['What the generator promises', '/docs/arrowz'], ['Words', '/docs/arrowz']]`, then the CLI list, then the element list (the column's new order).
 - `AppRoutes.browser.test.tsx`: the three redirect cases (`'%s lands on the element page'`, `'after the upper-case redirect…'`, `'clicking the Docs tab from the CLI page returns to…'`) expect `/docs/arrowz`; rename `'%s lands on the element page'` to `'%s lands on the first page'` and its comment's "lands on the element's page" to "lands on the first page"; rename the last case `'clicking the Docs tab from the CLI page returns to the first page'`.
 - `routes/KeepHashNavigate.browser.test.tsx`: `CASES` `to: '/docs/arrowz'` for `/docs` and `/docs/no-such-page`.
 - `palette/commands.test.ts`: `'keeps the catalogue order between two rows that both get promoted'` — the comment says "The docs rows' names all start with 'docs'"; `matches` equals `['go-docs-arrowz', 'go-docs-cli', 'go-docs-element']`; the two `indexOf` comparisons become `go-docs-arrowz` before `go-docs-cli`, and `go-docs-cli` before `go-docs-element`, in `matches` and in `catalogueOrder`.
 - `routes/DocsLayout.browser.test.tsx`:
-  - `openDocs(which: 'arrowz' | 'element' | 'cli')`: after the Docs tab click (which now lands on Arrowz), click `'Board element'` for `element` and `'Command line'` for `cli`; the marker and count become `{ arrowz: ['.fw-docs-body arrowz-board', 3], cli: ['pre.fw-docs-term', 2], element: ['pre.fw-docs-code', 1] }[which]`, with the comment saying the Arrowz page's marker is its three rule boards (the hidden workspace has a board of its own, hence the `.fw-docs-body` scope);
+  - `openDocs(which: 'arrowz' | 'element' | 'cli')`: after the Docs tab click (which now lands on Arrowz), click the page's link in the column — not anywhere on the screen, because the Arrowz page links to "Command line" too and a strict locator would match both:
+    ```tsx
+    const column = screen.getByRole('navigation', { name: 'Documentation pages' })
+    if (which === 'element') await column.getByRole('link', { name: 'Board element' }).click()
+    if (which === 'cli') await column.getByRole('link', { name: 'Command line' }).click()
+    ```
+    The marker and count become `const [marker, count] = ({ arrowz: ['.fw-docs-body arrowz-board', 3], cli: ['pre.fw-docs-term', 2], element: ['pre.fw-docs-code', 1] } as const)[which]` (`as const`, or the pair infers as `(string | number)[]`), with the comment saying the Arrowz page's marker is its three rule boards (the hidden workspace has a board of its own, hence the `.fw-docs-body` scope);
   - the first `test.each(['element', 'cli'] as const)` becomes `test.each(['arrowz', 'element', 'cli'] as const)`;
   - in the eight-width loop, the `for` list gains `['arrowz', 'a[href="/docs/arrowz"]']` first and the marker line becomes the same three-way lookup as `openDocs` (`.fw-docs-body arrowz-board` for `arrowz`);
-  - both XS cases `expect(shown).toHaveLength(2 + 5)` become `3 + 5` (three pages, the element page's five sections).
+  - the XS case (`test.each(['en', 'pl'])`) `expect(shown).toHaveLength(2 + 5)` becomes `3 + 5` (three pages, the element page's five sections).
 
 - [ ] **Step 6: The lab README**
 
@@ -1210,9 +1216,9 @@ Commit first (Step 9), then one at a time, undoing each by hand:
 | Mutation | Expected red |
 |---|---|
 | in `pl/arrowz.md`, delete the `::play{board="rule-shape"}` line | `content.test.ts` shape case for `arrowz` |
-| in `en/arrowz.md`, change `docs:cli#knobs` to `docs:cli#knob` | `content.test.ts` link case (both checks: `problemsOf` passes, the section does not exist) |
+| in `en/arrowz.md`, change `docs:cli#knobs` to `docs:cli#knob` | `content.test.ts` link case (`problemsOf` accepts the scheme and page; the section does not exist), and the shape case, since a link target is part of the shape |
 | in `en/arrowz.md`, write `pieces` in place of `arrows` in the first sentence | `glossary.test.ts` "the docs pages use no retired word" |
-| in `pages.ts`, move `'arrowz'` to the end of `DOCS_PAGES` | `markdown.test.ts` home case stays green (it reads `DOCS_PAGES[0]`) but `AppRoutes`, `KeepHashNavigate`, `DocsNav` cases go red |
+| in `pages.ts`, move `'arrowz'` to the end of `DOCS_PAGES` | `markdown.test.ts` home case stays green (it reads `DOCS_PAGES[0]`) but `AppRoutes` (5), `KeepHashNavigate` (2), `DocsNav` (2) and `commands.test.ts`'s catalogue-order case go red |
 
 - [ ] **Step 9: Commit**
 
@@ -1231,7 +1237,7 @@ git add apps/lab/docs-content/en/arrowz.md apps/lab/docs-content/pl/arrowz.md ap
 git commit -m "lab: the Docs tab opens on the Arrowz page, the puzzle and its rule played on three boards"
 ```
 
-If Prettier rewrites the Markdown (it may re-wrap nothing, since lines are unwrapped, but it can change `_seeing_` emphasis markers), rerun the content and glossary tests before committing.
+Prettier leaves the two Markdown pages as written (measured); it reformats the test files and realigns the README tables.
 
 ---
 
@@ -1242,15 +1248,15 @@ If Prettier rewrites the Markdown (it may re-wrap nothing, since lines are unwra
 
 - [ ] **Step 1: The docs screenshot**
 
-In `apps/lab/docs/screenshots.json`, the shot `"out": "docs"`: `"path": "/docs/arrowz"`, `"caption": "The documentation: the puzzle and its rule"`. In `apps/lab/README.md` ("Screenshots"), the line becomes `![The documentation: the puzzle and its rule](docs/screenshots/docs.png)`. Then:
+In `apps/lab/docs/screenshots.json`, the shot `"out": "docs"`: `"path": "/docs/arrowz"`, `"caption": "The documentation: the puzzle and its rule"`, and `"steps": [{ "click": ".fw-docs-toc >> text=\"The one rule\"" }]` — at 1440×900 the page opens with the rule boards below the fold, so the shot follows the column's link to them. In `apps/lab/README.md` ("Screenshots"), the line becomes `![The documentation: the puzzle and its rule](docs/screenshots/docs.png)`. Then:
 
 ```bash
-pnpm exec playwright install chromium   # once, from apps/lab, if missing
+(cd apps/lab && pnpm exec playwright install chromium)   # once, if missing
 pnpm nx run lab:screenshots docs
 cd apps/lab && pnpm exec vitest run --project node src/readme.test.ts
 ```
 
-Expected: `docs.png` is rewritten (look at it: the column, the page title, the first rule board drawn); `readme.test.ts` PASSES.
+Expected: `docs.png` is rewritten (look at it: the column with "The one rule" marked, the first rule boards drawn with their arrows); `readme.test.ts` PASSES.
 
 - [ ] **Step 2: The element is defined once**
 
@@ -1325,3 +1331,4 @@ Then: `bd update arrowz-kkey.2 --external-ref gh-<N> --add-label pr --set-metada
 3. **Type consistency:** `RuleBoardName` is the one name type for `RULE_BOARDS`, `RulePlay`'s prop, `NAMES` and `DIRECTIVES.play.board`; `isRuleBoard` takes `unknown` because directive attributes are `string | null | undefined`. `DOCS_PAGE_NAMES` is `as const satisfies Record<DocsPage, UiKey>`, so `dict.t(DOCS_PAGE_NAMES[page])` resolves to string-valued keys with no arguments. `pageOf` moves from `DocsNav.tsx` to `pages.ts`; Task 2 Step 3 points its importers there.
 4. **Checked against the files, 2026-10-05:** `BoardCanvas`'s events (`onPieceRemoved`, `onLifeLost`) and its use with `ref`, `play`, `enableColors`, `showPoints`, `pad`, `lang` (`BoardFrame.tsx`); `restart()`, `saveState().removed`, `gestureMode`, `colored`, `GESTURE_STORAGE_KEY` (`arrowz-board.ts`, `mod.ts`, `game.ts`); `cells[0]` is the head and an uncarved `-1` cell never blocks (`game.ts`, `scan`); the README pictures' coordinates (`docs/images/rule-*.svg`); the ⌘/Ctrl-click helper (`BoardMode.browser.test.tsx`); `localStorage.clear()` per file only (`vitest.setup.ts`), hence the `afterEach` in `RulePlay.browser.test.tsx`; `.fw-btn`'s touch height (`shell.css`); `goRow(deps, id, name, path)` (`commands.ts`); the tests that name `/docs/element` as the home (`AppRoutes`, `KeepHashNavigate`, `DocsLayout`, `DocsNav`, `commands.test.ts`); `DOCS_SOURCES` and its test file (`jev-docs.ts`, `jev-docs.test.ts`); `pnpm nx run lab:screenshots <shot>` (`apps/lab/README.md`, "Development"). Not yet measured, left to the dry run: `play()`'s bounce `distance` for the blocked board (2 by the reading of `scan`), mdast's `list.spread` on `- a\n\n- b`, and whether the screenshot script settles on a page of WebGL boards.
 5. **Jev review of this plan (2026-10-05, jev-1.13.0, citation-check pattern):** 37 claims about the code, each judged against a ±25-line span the script read from disk (not quoted by the plan): none contradicted. The six below 0.8 `supports` were read by hand and hold — C11 `localStorage.clear()` runs once per file in `vitest.setup.ts` (0.46), C13 `pageOf` knows only `cli` and `element` (0.59), C14 the two hand-written go-to rows (0.63), C24 "knob" refused on every page but `cli` (0.55), C27 the palette table compared both ways (0.65), C34 the upright arrow at x=240 in `rule-blocked.svg` (0.75). 22 requirements judged against the whole plan: covered 0.57–0.97; the weakest, R10 (the glossary reads the new page, 0.57) and R14 (no history in the prose, 0.65), are carried by Task 4 Step 8's mutation and Task 5 Step 4's `jev:docs`.
+6. **Dry run (2026-10-05, a Sonnet subagent executing Tasks 1–5 in a detached worktree from `1224d26`):** every gate passed in the end (`deno task verify` 670; `pnpm nx run-many -t verify`; lab 1664 tests in 133 files). Measured: the bounce is `{ kind: 'bounce', pieceId: 0, distance: 2, blockerId: 2 }`; mdast gives `list.spread` true for `- a\n\n- b` but false with items `[true, false]` for `- one\n\n  two\n- three`, so `ListView` needs both; the build defines the element only in the entry chunk and `fw-docs-play` lives only in `DocsBody-*.js`; lint is clean apart from the existing `CommandPalette.tsx` warning; Prettier leaves the pages alone. Fixed in this revision: "zwycięską" holds the retired `wycię` (PL glossary); the line after a removal is polled, not read at once; `openDocs` clicks inside the column (the page's own "Command line" link made the locator ambiguous) and its marker lookup is `as const`; `DocsNav`'s fragment test selected the CLI page as `li:last-child`; the wrapped sentence in `jev-guards.md`; the board-spread mutation the React Compiler memoized away; the docs screenshot, whose rule boards fell below the fold.
