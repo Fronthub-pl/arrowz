@@ -39,12 +39,13 @@ const SHOWN = new Set([
 ])
 
 function directiveProblems(node: LeafDirective, at: string): string[] {
-  const allowed = DIRECTIVES[node.name]
+  // hasOwn first: `::toString` or `constructor="x"` would read Object.prototype.
+  const allowed = Object.hasOwn(DIRECTIVES, node.name) ? DIRECTIVES[node.name] : undefined
   if (allowed === undefined) return [`${at}: ::${node.name} is not a docs directive`]
   const out: string[] = []
   const attributes = node.attributes ?? {}
   for (const [key, value] of Object.entries(attributes)) {
-    const values = allowed[key]
+    const values = Object.hasOwn(allowed, key) ? allowed[key] : undefined
     if (values === undefined) out.push(`${at}: ::${node.name} takes no ${key}`)
     else if (!values.includes(value ?? ''))
       out.push(`${at}: ${key}="${value ?? ''}" is not one of ${values.join(', ')}`)

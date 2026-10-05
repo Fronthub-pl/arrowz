@@ -40,6 +40,12 @@ describe('problemsOf', () => {
     ['a missing attribute', '# T\n\n::help', '::help needs form'],
     ['a label', '# T\n\n::help[Help]{form="short"}', '::help takes no label'],
     ['a block in a note', '# T\n\n> - a list', 'a note holds paragraphs only'],
+    ['a directive named after an Object method', '# T\n\n::toString', '::toString is not a docs directive'],
+    [
+      'an attribute named after an Object method',
+      '# T\n\n::table{of="element-props" constructor="x"}',
+      '::table takes no constructor',
+    ],
   ])('refuses %s', (_, markdown, message) => {
     expect(problems(markdown).join('\n')).toContain(message)
   })
