@@ -97,6 +97,14 @@ export function commitsOf(log: string): Array<{ sha: string; message: string }> 
 const escapeData = (s: string) => s.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A')
 const escapeProperty = (s: string) => escapeData(s).replaceAll(':', '%3A').replaceAll(',', '%2C')
 
+/** A docs flag's `where` as a file and a line: `path:line`, `path #section` or `path key`. */
+export function docsFinding(flag: Flag): Finding {
+  const line = /^(\S+):(\d+)$/.exec(flag.where)
+  if (line?.[1] !== undefined && line[2] !== undefined) return { flag, file: line[1], line: Number(line[2]) }
+  const file = /^(\S+\.(?:md|ts))\s/.exec(flag.where)?.[1]
+  return file === undefined ? { flag } : { flag, file }
+}
+
 /** One finding as a `::warning` workflow command, on its line when it has one. */
 export function annotation(f: Finding): string {
   const props = [
@@ -178,7 +186,7 @@ export async function runCi(deps: CiDeps): Promise<{ findings: Finding[]; checke
     const pages = docsPagesOf(await deps.git(['diff', '--name-only', range]))
     for (const page of pages) {
       const input = readDocs(page, deps.read)
-      if (input !== null) { for (const flag of await checkDocs(judge, input)) findings.push({ flag }) }
+      if (input !== null) { for (const flag of await checkDocs(judge, input)) findings.push(docsFinding(flag)) }
     }
     checked.docs = pages.length
   }

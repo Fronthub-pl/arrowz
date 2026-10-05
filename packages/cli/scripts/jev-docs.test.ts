@@ -42,18 +42,20 @@ const PAGE = [
   'After the table.',
 ].join('\n')
 
-Deno.test('proseBlocks keeps prose only, joined, with the line it starts on', () => {
+Deno.test('proseBlocks keeps prose and headings, joined, with the line it starts on', () => {
   assertEquals(proseBlocks(PAGE), [
+    { line: 1, text: '\\<arrowz-board>' },
     { line: 3, text: 'The lead, on two lines.' },
     { line: 6, text: 'A note.' },
+    { line: 8, text: 'Using it' },
     { line: 16, text: 'After the table.' },
   ])
 })
 
 Deno.test('sectionProse groups the prose under each {#id}, the lead first', () => {
   assertEquals([...sectionProse(PAGE)], [
-    ['lead', 'The lead,\non two lines.\nA note.\n'],
-    ['example', 'After the table.\n'],
+    ['lead', '\\<arrowz-board>\nThe lead,\non two lines.\nA note.\n'],
+    ['example', 'Using it\nAfter the table.\n'],
   ])
 })
 
@@ -71,22 +73,30 @@ Deno.test('checkDocs asks each prose block with the README and the renames, and 
   const { judge, calls } = stubJudge((s) =>
     s.text === 'After the table.'
       ? { ...quiet, contradicts: 0.9 }
-      : s.key === 'docs-content/pl/cli.md #example'
+      : s.key === 'apps/lab/docs-content/pl/cli.md #example'
       ? { same_meaning: 0.2 }
       : quiet
   )
   const pl = PAGE.replace('After the table.', 'Po tabeli.').replace('The lead,\non two lines.', 'Wstęp.')
   const flags = await checkDocs(judge, { page: 'cli', en: PAGE, pl, source: 'README' })
-  const asked = calls.filter((c) => 'text' in c)
-  assertEquals(asked.map((c) => c.text), ['The lead, on two lines.', 'A note.', 'After the table.'])
+  // The CLI page also brings the env descriptions, which have their own test.
+  const fromLabDocs = (c: Record<string, unknown>) => String(c.key ?? '').startsWith('packages/engine/lab-docs.ts')
+  const asked = calls.filter((c) => 'text' in c && !/^[A-Z_]+: /.test(String(c.text)))
+  assertEquals(asked.map((c) => c.text), [
+    '\\<arrowz-board>',
+    'The lead, on two lines.',
+    'A note.',
+    'Using it',
+    'After the table.',
+  ])
   for (const c of asked) {
     assertEquals(c.source, 'README')
     assertEquals(c.glossary, DOCS_GLOSSARY)
   }
-  assertEquals(calls.filter((c) => 'en' in c).length, 2)
+  assertEquals(calls.filter((c) => 'en' in c && !fromLabDocs(c)).length, 2)
   assertEquals(flags.map((f) => [f.where, f.question]), [
-    ['docs-content/en/cli.md:16', 'contradicts_readme'],
-    ['docs-content/pl/cli.md #example', 'differs'],
+    ['apps/lab/docs-content/en/cli.md:16', 'contradicts_readme'],
+    ['apps/lab/docs-content/pl/cli.md #example', 'differs'],
   ])
 })
 
@@ -94,15 +104,15 @@ Deno.test('checkDocs reads the element descriptions too, in both languages', asy
   const { judge, calls } = stubJudge(() => quiet)
   await checkDocs(judge, { page: 'element', en: PAGE, pl: PAGE, source: 'README' })
   assert(calls.some((c) => typeof c.text === 'string' && c.text.startsWith('pad: ')))
-  assert(calls.some((c) => c.key === 'lab-docs.ts props.pad'))
+  assert(calls.some((c) => c.key === 'packages/engine/lab-docs.ts props.pad'))
 })
 
 Deno.test('checkDocs reads the lab descriptions with the lab page, and not the element ones', async () => {
   const { judge, calls } = stubJudge(() => quiet)
   await checkDocs(judge, { page: 'lab', en: PAGE, pl: PAGE, source: 'README' })
-  assert(calls.some((c) => c.key === 'lab-docs.ts keys.G'))
-  assert(calls.some((c) => c.key === 'lab-docs.ts linkFields.lang'))
-  assert(!calls.some((c) => typeof c.key === 'string' && c.key.startsWith('lab-docs.ts props.')))
+  assert(calls.some((c) => c.key === 'packages/engine/lab-docs.ts keys.G'))
+  assert(calls.some((c) => c.key === 'packages/engine/lab-docs.ts linkFields.lang'))
+  assert(!calls.some((c) => typeof c.key === 'string' && c.key.startsWith('packages/engine/lab-docs.ts props.')))
 })
 
 Deno.test('readDocs reads both languages and the source README, and refuses an unknown page', () => {
@@ -133,4 +143,42 @@ Deno.test('DOCS_SOURCES names exactly the docs pages on disk', () => {
     .filter((entry) => entry.name.endsWith('.md'))
     .map((entry) => entry.name.slice(0, -3))
   assertEquals(Object.keys(DOCS_SOURCES).sort(), pages.sort())
+})
+
+Deno.test('proseBlocks reads a table row as prose and skips its separator', () => {
+  const md = '# T\n\n| Flag | Does |\n|---|---|\n| `--only` | one level only |\n'
+  assertEquals(proseBlocks(md).map((b) => b.text), ['T', 'Flag · Does', '`--only` · one level only'])
+})
+
+Deno.test('proseBlocks splits a note at its blank > line', () => {
+  const md = '> First paragraph.\n>\n> Second paragraph.\n'
+  assertEquals(proseBlocks(md).map((b) => b.text), ['First paragraph.', 'Second paragraph.'])
+})
+
+Deno.test('proseBlocks knows ~~~ fences', () => {
+  const md = 'Before.\n\n~~~text\nnot prose\n~~~\n\nAfter.\n'
+  assertEquals(proseBlocks(md).map((b) => b.text), ['Before.', 'After.'])
+})
+
+Deno.test('a fence closes only on its own marker', () => {
+  const md = '~~~text\n```\nstill code\n~~~\n\nAfter.\n'
+  assertEquals(proseBlocks(md).map((b) => b.text), ['After.'])
+})
+
+Deno.test('sectionProse counts the heading as prose of its section', () => {
+  const sections = sectionProse('# Title\n\n## Part {#part}\n\nText.\n')
+  assertEquals(sections.get('lead'), 'Title\n')
+  assertEquals(sections.get('part'), 'Part\nText.\n')
+})
+
+Deno.test('a section only one language has is compared with nothing', async () => {
+  const { judge, calls } = stubJudge(() => quiet)
+  await checkDocs(judge, { page: 'cli', en: '# T\n', pl: '# T\n\n## Tylko {#only}\n\nTekst.\n', source: 'README' })
+  assert(calls.some((c) => c.key === 'apps/lab/docs-content/pl/cli.md #only' && c.en === ''))
+})
+
+Deno.test('checkDocs reads the env descriptions with the CLI page, and says where from the repository root', async () => {
+  const { judge, calls } = stubJudge(() => quiet)
+  await checkDocs(judge, { page: 'cli', en: PAGE, pl: PAGE, source: 'README' })
+  assert(calls.some((c) => c.key === 'packages/engine/lab-docs.ts env.CARVE_TRACE'))
 })
