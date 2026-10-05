@@ -110,7 +110,7 @@ The report drawer on the right (`R`) lists the run's measurements — arrows,
 lengths, how hard the board plays, how far arrows reach, their shape — each with
 a `?` that explains it, and colours each change against the previous board.
 The settings drawer on the left opens and closes with `S`; `F` hides both and
-gives the board the whole window.
+gives the board the whole lab panel.
 
 ### Saved boards and files
 

@@ -36,7 +36,7 @@ W widoku zaawansowanym _generuj od razu po zmianie_ uruchamia generowanie przy k
 
 Szuflada raportu po prawej (`R`) wypisuje pomiary: strzałki i ich długości, jak trudno gra się na planszy, jak daleko sięgają strzałki i jaki mają kształt. Przy każdym jest `?`, który go objaśnia, a każda zmiana ma kolor względem poprzedniej planszy.
 
-Szuflada ustawień po lewej pojawia się i znika pod `S`. `F` chowa obie i oddaje planszy całe okno.
+Szuflada ustawień po lewej pojawia się i znika pod `S`. `F` chowa obie i oddaje planszy cały panel laboratorium.
 
 ## Zapisane plansze i pliki {#saved}
 
