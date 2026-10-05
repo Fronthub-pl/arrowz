@@ -70,8 +70,10 @@ Rewritten, not pasted:
 
 ### 1.4 What goes away
 
-- The note "the long explanations live in the package README" (`readmePointer`,
-  `infoLabel` in `lab-docs.ts`): they now live here.
+- The note "the long explanations live in the package README"
+  (`readmePointer` in `lab-docs.ts`): they now live here. It goes with PR 5,
+  the one that brings those explanations; until then PR 1 carries it as a
+  blockquote (§3.1).
 - `DOCS_SECTIONS` in `DocsNav.tsx`: the column is derived from the pages.
 
 The raw help stays, as the CLI page's last section, "What `--help` prints":
@@ -98,6 +100,13 @@ These are new dependencies of `apps/lab`; none is in the lockfile today.
 
 The Docs route is loaded with `React.lazy`, so the parser, the content and the
 renderer are a chunk of their own and the lab's first load does not grow.
+
+Headings map one level down, because the shell owns `h1`: `#` is the page's
+title (`h2`), `##` a section (`h3`), `###` a subsection (`h4`). Deeper is an
+error. A literal `<` in prose is written `\<` (an unescaped tag parses as raw
+HTML, which the renderer refuses), and a colon followed by a letter or digit
+is written `\:` (`10:30` parses as a text directive named `30`; measured with
+`micromark-extension-directive` 4.0.0).
 
 ### 2.2 Section ids
 
@@ -164,9 +173,13 @@ name. The Markdown is in `apps/lab` and is not under that rule.
 
 Our own, from mdast to React elements: no `innerHTML`, no rehype. It accepts a
 fixed set of nodes — heading, paragraph, text, emphasis, strong, inlineCode,
-code, list, listItem, table (with row and cell), link, break, and the
-directives of §2.3 — and anything else is an error the content guard reports
-(§5.1), not a silent gap.
+code, list, listItem, table (with row and cell), link, break, blockquote, and
+the leaf and container directives of §2.3 — and anything else (raw HTML, a
+text directive, an image, a thematic break) is an error the content guard
+reports (§5.1), not a silent gap.
+
+A blockquote is a note: the `aside` named "Note" / "Uwaga" with the info glyph
+that the element page shows today (`fw-docs-info`).
 
 Links:
 
@@ -300,8 +313,11 @@ A new `apps/lab/src/docs/content.test.ts` (Vitest, `node` project), per page:
 `glossary.test.ts` gains two sources it does not read today:
 
 - the prose of the Markdown, code spans and code blocks removed, against the
-  retired words of its language; "knob" is allowed on the CLI page only, as it
-  is in the CLI itself;
+  retired words of its language. Two exceptions, each the same as one the
+  guard already lists: "knob" / "pokrętło" on the CLI page only, the CLI's own
+  word (as `ui.cmdPlaceholder`); and on the element page in Polish the
+  singular "element", the component's name (as `ui.docsElement`) — the plural
+  stays refused, because arrows were the "elementy";
 - the descriptions in `lab-docs.ts`, which today say "pieces" and "elementy"
   without anything noticing.
 
