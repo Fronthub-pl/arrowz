@@ -1,6 +1,7 @@
 import { type RefObject, useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router'
-import { DOCS_SECTIONS, type DocsPage, sectionOf } from './DocsNav'
+import type { DocsSection } from '../docs/markdown'
+import { sectionOf } from './DocsNav'
 
 /** How far down the panel a heading must come before its section is the one in view. */
 const LINE = 0.2
@@ -28,9 +29,8 @@ const GAP = 8
  * named: otherwise jumping to the last section of a page too short to bring
  * its heading up to the line would light the section above it.
  */
-export function useSectionInView(panel: RefObject<HTMLElement | null>, page: DocsPage): string {
+export function useSectionInView(panel: RefObject<HTMLElement | null>, sections: readonly DocsSection[]): string {
   const location = useLocation()
-  const sections: readonly { readonly id: string }[] = DOCS_SECTIONS[page]
   const first = sections[0]?.id ?? ''
   const asked = sectionOf(location.state)
   const named = sections.some(({ id }) => id === asked) ? asked : null

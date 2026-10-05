@@ -1,12 +1,12 @@
-import { docsFor, ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS, ELEMENT_SLOTS } from '@arrowz/engine/docs'
+import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS, ELEMENT_SLOTS } from '@arrowz/engine/docs'
 import { act } from 'react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { contrast, parse } from '../design/contrast'
-import { ELEMENT_EXAMPLE } from '../docs/elementExample'
 import { useStore } from '../state/store'
-import { DOCS_SECTIONS } from './DocsNav'
-import { ElementDocs } from './ElementDocs'
+import { docsPage } from './content'
+import { DocsPageView } from './DocsPageView'
 // The colour cases below read computed style, which a component test only has
 // with the sheets imported.
 import '../design/index.css'
@@ -14,49 +14,47 @@ import '../design/index.css'
 beforeEach(() => useStore.getState().lang.setLang('en'))
 afterEach(() => vi.restoreAllMocks())
 
-// `querySelectorAll` hands back `Element`, which has no `cells` — the lab's
-// `check` gate catches that (TS2339) while vitest does not, so the generic
-// argument is not decoration. Same trap as `querySelector` and `.style`.
+// No wrapper element: the MemoryRouter renders none, so the page's blocks are
+// the container's children, as they are the body's in the panel.
+const mount = () =>
+  render(
+    <MemoryRouter initialEntries={['/docs/element']}>
+      <DocsPageView page="element" />
+    </MemoryRouter>,
+  )
+
+const firstCode = docsPage('en', 'element').root.children.find((node) => node.type === 'code')
+const EXAMPLE = firstCode?.type === 'code' ? firstCode.value : ''
+
+// `querySelectorAll` hands back `Element`, which has no `cells`: the generic is not decoration.
 const rowFor = (container: HTMLElement, key: string) =>
   [...container.querySelectorAll<HTMLTableRowElement>('tbody tr')].find((tr) => tr.cells[0]?.textContent === key)
 
 test('every documented row reaches the page', async () => {
-  const screen = await render(<ElementDocs />)
+  const screen = await mount()
   const rows = screen.container.querySelectorAll('tbody tr')
   expect(rows).toHaveLength(
     ELEMENT_PROPS.length + ELEMENT_MEMBERS.length + ELEMENT_EVENTS.length + ELEMENT_SLOTS.length,
   )
-  // One row spelled out, so the table is not merely the right length: the
-  // machine columns are the point of the page.
   const pad = rowFor(screen.container, 'pad')
   expect(pad?.cells[1]?.textContent).toBe('number')
   expect(pad?.cells[2]?.textContent).toBe('pad')
   expect(pad?.cells[3]?.textContent).toBe('4')
 })
 
-// A property with no attribute must say so rather than leave a blank the reader
-// has to interpret.
 test('a property with no attribute says it has none', async () => {
-  const screen = await render(<ElementDocs />)
+  const screen = await mount()
   expect(rowFor(screen.container, 'board')?.cells[2]?.textContent).toBe('—')
 })
 
-// `mono` is the class the machine columns wear and the description column does
-// not, so these two read every machine cell and every description of all four
-// tables without naming a column index.
 const machine = (container: HTMLElement) => [...container.querySelectorAll('tbody td.mono')].map((c) => c.textContent)
 const described = (container: HTMLElement) =>
   [...container.querySelectorAll('tbody td:not(.mono)')].map((c) => c.textContent)
 
-// The only assertion that the page is wired to the dictionary at all: the
-// machine columns stay put, the descriptions change, across every row.
 test('a language switch changes every description and leaves every machine cell', async () => {
-  const screen = await render(<ElementDocs />)
+  const screen = await mount()
   const before = machine(screen.container)
   const helpBefore = described(screen.container)
-  // The count is stated so an empty selector cannot satisfy the comparison
-  // below: four machine columns for a property, two for a member or an event,
-  // one for a slot.
   expect(before).toHaveLength(
     ELEMENT_PROPS.length * 4 + ELEMENT_MEMBERS.length * 2 + ELEMENT_EVENTS.length * 2 + ELEMENT_SLOTS.length,
   )
@@ -69,37 +67,38 @@ test('a language switch changes every description and leaves every machine cell'
   for (const [i, text] of helpAfter.entries()) expect(text, `description ${i}`).not.toBe(helpBefore[i])
 })
 
-// The example is a block with a Copy button of its own. The block shows
-// coloured spans; the clipboard must get the code as written, which a Copy
-// that read the DOM's markup would get wrong.
+// What the Markdown changed: a code span in a description is code, not two backticks.
+test('a description shows its code spans as code', async () => {
+  const screen = await mount()
+  const cell = rowFor(screen.container, 'lang')?.cells[4]
+  expect(cell?.querySelector('code')?.textContent).toBe('pl')
+  expect(cell?.textContent).not.toContain('`')
+})
+
 test('Copy on the example writes the code, not its colouring', async () => {
   const write = vi.fn(() => Promise.resolve())
   vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({ writeText: write } as unknown as Clipboard)
-  const screen = await render(<ElementDocs />)
+  const screen = await mount()
   const code = screen.container.querySelector('div.fw-docs-block > pre.fw-docs-code > code')
-  expect(code?.textContent).toBe(ELEMENT_EXAMPLE)
-  // Coloured at all: a block of plain text would pass the line above.
+  expect(EXAMPLE).toContain('<arrowz-board')
+  expect(code?.textContent).toBe(EXAMPLE)
   expect(code?.querySelectorAll('span[class^="tk-"]').length).toBeGreaterThan(20)
   await screen.getByRole('button', { name: 'Copy: Using it' }).click()
-  expect(write).toHaveBeenCalledWith(ELEMENT_EXAMPLE)
+  expect(write).toHaveBeenCalledWith(EXAMPLE)
   await expect.element(screen.getByRole('button', { name: 'Copied: Using it' })).toBeInTheDocument()
 })
 
-// The name says what is copied, in the page's language, and starts with the
-// label the button shows.
 test('Copy names its section in Polish too', async () => {
   useStore.getState().lang.setLang('pl')
-  const screen = await render(<ElementDocs />)
+  const screen = await mount()
   const button = screen.getByRole('button', { name: 'Kopiuj: Jak użyć' })
   await expect.element(button).toHaveTextContent('Kopiuj')
 })
 
-// The README pointer is a named note under the lead: before the first section,
-// after the lead paragraph, its glyph hidden from assistive technology.
 test('the README note stands under the lead, named, before the first section', async () => {
-  const screen = await render(<ElementDocs />)
+  const screen = await mount()
   const note = screen.getByRole('complementary', { name: 'Note' })
-  await expect.element(note).toHaveTextContent(docsFor('en').readmePointer)
+  await expect.element(note).toMatchTextContent(/live in the package README\.$/)
   const aside = note.element()
   expect(aside.previousElementSibling?.tagName).toBe('P')
   expect(aside.nextElementSibling?.tagName).toBe('H3')
@@ -109,24 +108,24 @@ test('the README note stands under the lead, named, before the first section', a
 })
 
 test('the slot table opens with how a host fills a slot, in both languages', async () => {
-  const screen = await render(<ElementDocs />)
+  const screen = await mount()
   const table = screen.container.querySelector('table[aria-labelledby="docs-slots"]')
-  expect(table?.previousElementSibling?.textContent).toBe(docsFor('en').slotsLead)
+  expect(table?.previousElementSibling?.textContent).toMatch(/^A child with slot set to one of these names/)
   await act(async () => useStore.getState().lang.setLang('pl'))
-  expect(table?.previousElementSibling?.textContent).toBe(docsFor('pl').slotsLead)
+  const after = screen.container.querySelector('table[aria-labelledby="docs-slots"]')
+  expect(after?.previousElementSibling?.textContent).toMatch(/^Dziecko z slot ustawionym/)
 })
 
 test('the note is named in Polish too', async () => {
   useStore.getState().lang.setLang('pl')
-  const screen = await render(<ElementDocs />)
+  const screen = await mount()
   await expect.element(screen.getByRole('complementary', { name: 'Uwaga' })).toBeVisible()
 })
 
-// The navigation column scrolls to these, in this order.
 test('every section heading carries the id the navigation names', async () => {
-  const screen = await render(<ElementDocs />)
+  const screen = await mount()
   const ids = [...screen.container.querySelectorAll('h3')].map((h) => h.id)
-  expect(ids).toEqual(DOCS_SECTIONS.element.map((section) => section.id))
+  expect(ids).toEqual(['docs-example', 'docs-props', 'docs-members', 'docs-events', 'docs-slots'])
 })
 
 /** The computed colour of the one token of `cls` in a machine cell, and its text. */
@@ -136,11 +135,8 @@ function token(row: HTMLTableRowElement | undefined, cell: number, cls: string) 
   return { text: span.textContent, color: getComputedStyle(span).color }
 }
 
-// The machine columns in the example's colours, by what each column holds: the
-// same word is a property in one column and a type in the next, so these read
-// the colour the page shows, cell by cell.
 test('the machine columns wear the colour of what they hold', async () => {
-  const screen = await render(<ElementDocs />)
+  const screen = await mount()
   const at = (key: string) => rowFor(screen.container, key)
   expect(token(at('pad'), 0, 'prop')).toEqual({ text: 'pad', color: 'rgb(121, 192, 255)' })
   expect(token(at('pad'), 1, 'type')).toEqual({ text: 'number', color: 'rgb(255, 166, 87)' })
@@ -148,22 +144,15 @@ test('the machine columns wear the colour of what they hold', async () => {
   expect(token(at('board'), 2, 'pun')).toEqual({ text: '—', color: 'rgb(139, 148, 158)' })
   expect(token(at('board'), 3, 'num')).toEqual({ text: 'null', color: 'rgb(121, 192, 255)' })
   expect(token(at('pointColor'), 3, 'str')).toEqual({ text: "'#c9c9d6'", color: 'rgb(165, 214, 255)' })
-  // A getter is a property; a method a function with parameters.
   expect(token(at('viewport'), 0, 'prop').text).toBe('viewport')
   expect(token(at('zoomBy'), 0, 'fn')).toEqual({ text: 'zoomBy', color: 'rgb(210, 168, 255)' })
   expect(token(at('zoomBy'), 1, 'param')).toEqual({ text: 'factor', color: 'rgb(255, 166, 87)' })
-  // An event name is the string `addEventListener` takes; its fields are properties.
   expect(token(at('piece-click'), 0, 'str').text).toBe('piece-click')
   expect(token(at('piece-click'), 1, 'prop').text).toBe('pieceId')
-  // A slot name is the string `slot="…"` takes.
   expect(token(at('zoom-in'), 0, 'str').text).toBe('zoom-in')
-  // The description stays prose.
   expect(at('pad')?.cells[4]?.querySelector('[class^="tk-"]')).toBeNull()
 })
 
-// Every colour of the code clears 4.5:1 on both planes it can sit on: the
-// block's and the tables' --graphite, and --void. Read through a probe the
-// browser resolves, not from the hex in the sheet.
 test('every code colour clears 4.5:1 on --graphite and --void', async () => {
   const screen = await render(<div className="fw" />)
   const probe = document.createElement('span')
@@ -177,7 +166,6 @@ test('every code colour clears 4.5:1 on --graphite and --void', async () => {
     (n) => `--code-${n}`,
   )
   for (const name of names) {
-    // An undefined property resolves to the inherited colour: say which.
     expect(getComputedStyle(document.documentElement).getPropertyValue(name), name).not.toBe('')
     for (const plane of planes) expect(contrast(resolve(name), plane), name).toBeGreaterThanOrEqual(4.5)
   }

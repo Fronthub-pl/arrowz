@@ -1,7 +1,7 @@
-// The documentation the lab's Docs tab prints: the element's API as reference
-// rows, and the frame around the CLI help. Pure text; the help itself is not
-// here, because `helpText()` in command.ts already produces it and a second
-// copy would drift.
+// The descriptions in the reference tables of the lab's Docs tab, the tables'
+// column names and the name of a page's note. The pages' prose is Markdown in
+// apps/lab/docs-content; these stay here because each is keyed by a row of
+// code, so the compiler keeps the two languages in step.
 //
 // The machine columns — key, type, attribute, default, signature — exist once
 // and are NOT translated. That is the rule readme.test.ts states for the knob
@@ -12,8 +12,7 @@
 // Prose in this file must not end a sentence with `document`, `window`,
 // `process` or `Deno`, and must never write the browser's key-value store by
 // its API name: neutral.test.ts greps this file's TEXT, not its code, so a
-// sentence about the DOM can trip a rule this module does not break. Code
-// examples live in apps/lab for the same reason.
+// sentence about the DOM can trip a rule this module does not break.
 import type { Lang } from './lab-i18n.ts'
 
 /** One row of the property table. `attribute` is null when the property has none. */
@@ -103,22 +102,12 @@ export type MemberKey = (typeof ELEMENT_MEMBERS)[number]['key']
 export type EventKey = (typeof ELEMENT_EVENTS)[number]['key']
 export type SlotKey = (typeof ELEMENT_SLOTS)[number]['key']
 
-/** Everything one language needs to render both documentation pages. */
+/** What the Docs tab's reference tables need in one language: descriptions, column names, the note's name. */
 export interface Docs {
-  readonly elementLead: string
   readonly props: Record<PropKey, string>
   readonly members: Record<MemberKey, string>
   readonly events: Record<EventKey, string>
   readonly slots: Record<SlotKey, string>
-  /** Above the slot table: how a host fills a slot and names a control's action. */
-  readonly slotsLead: string
-  readonly cliLead: string
-  /** Heading above the short usage block. */
-  readonly cliShortHead: string
-  /** Heading above the knob table block. */
-  readonly cliKnobsHead: string
-  /** One line saying the block below is the terminal's own text, in English. */
-  readonly cliEnglishNote: string
   readonly colProp: string
   readonly colType: string
   readonly colAttr: string
@@ -131,37 +120,29 @@ export interface Docs {
   readonly colDetail: string
   /** The last column of every table: the translated one. */
   readonly colDescription: string
-  readonly headProps: string
-  readonly headMembers: string
-  readonly headEvents: string
-  readonly headSlots: string
-  readonly headExample: string
-  /** Where the long explanations live, since this page is a reference. */
-  readonly readmePointer: string
-  /** The accessible name of the note bar that carries `readmePointer`. */
+  /** The accessible name of a page's note, a blockquote in its Markdown. */
   readonly infoLabel: string
 }
 
 const EN = {
-  elementLead:
-    'The board view of Arrowz as a web component. It draws a board, owns zoom and pan, animates the two effects of the game reducer, and reports clicks on pieces. Usable from plain HTML, React, Angular, Svelte or Vue.',
   props: {
     board: 'The board to draw. Assigning it always starts a fresh game and redraws in full.',
-    view: 'Drawing options merged over the CLI defaults: stroke, head size, rounding, colour, highlight and paper.',
-    interactive: 'Reports clicks on pieces without playing them.',
-    play: 'Runs the reducer: a free piece rides out, a blocked one bounces. Implies interactivity.',
+    view:
+      'Drawing options merged over the CLI defaults: stroke, arrowhead size, rounding, colour, highlight and background.',
+    interactive: 'Reports clicks on arrows without playing them.',
+    play: 'Runs the reducer: a free arrow rides out, a blocked one bounces. Implies interactivity.',
     pad: 'Margin around the board, in cells, clamped to PAD_RANGE (0 to 16). Zero draws the cells edge to edge.',
-    showPoints: 'Draws one dot per cell under the pieces, like the ruling of a notebook page.',
-    pointColor: 'Colour of the point grid dots.',
-    pointRadius: 'Radius of the point grid dots, in cells.',
+    showPoints: 'Draws one dot per cell under the arrows, like the ruling of a notebook page.',
+    pointColor: 'Colour of the dot grid.',
+    pointRadius: 'Radius of the dots in the dot grid, in cells.',
     lang: 'The standard global language attribute; `pl` selects Polish labels, anything else English.',
     enableColors: 'Permission to colour the board. Without it the element stays monochrome and shows no colour button.',
     theme:
-      'Name of a built-in theme — paper, ink, highlight and the colours of the pieces. An empty name selects none, and anything stated in `view` wins over it.',
+      'Name of a built-in theme: background, arrow colour, highlight and the multicolour palette. An empty name selects none, and anything stated in `view` wins over it.',
   },
   members: {
     viewport: 'The view on screen, or null before a board and a host size are both known.',
-    pieceCount: "How many pieces the layer is drawing; the board's own count, not the number of nodes.",
+    pieceCount: "How many arrows the layer is drawing; the board's own count, not the number of nodes.",
     gestureMode: "The rule the mouse and pen follow now: the player's choice on a playable board, panning otherwise.",
     colored:
       "Whether the board is drawn in colour now: the permission first, then the button's choice, then `view.colored`.",
@@ -171,22 +152,22 @@ const EN = {
       'What the colour button does, the cancelable `colored-change` included. Does nothing without `enableColors`.',
     toggleGestures:
       "What the gesture switch does: flips the player's choice, keeps it for the next visit and fires `gestures-change`. Does nothing on a board a click cannot reach.",
-    animateExit: 'Rides the piece off the board along a direction and removes it; resolves when the ride ends.',
-    shake: 'Nudges the piece a distance down its own track and back.',
+    animateExit: 'Rides the arrow off the board along a direction and removes it; resolves when the ride ends.',
+    shake: 'Nudges the arrow a distance down its own track and back.',
     saveState: 'The game in progress as a value the host can store, or null before a board is set.',
     loadState: 'Restores a game; throws when the snapshot does not belong to this board.',
-    restart: 'Drops the game and puts every piece back.',
+    restart: 'Drops the game and puts every arrow back.',
     emit: 'The seam the game host drives the element through; a host that only renders a board never calls it.',
   },
   events: {
-    'piece-click': 'A piece was clicked, while interactive or playing.',
+    'piece-click': 'An arrow was clicked, while interactive or playing.',
     'colored-change':
       'The colour button was clicked or `toggleColors()` was called; cancelable, and fired before the override changes. Cancelling clears the override instead, handing the colour back to `view.colored`.',
     'gestures-change':
       "The player's gesture choice changed, through the switch or `toggleGestures()`. Not fired for the choice read back on connect.",
-    'piece-removed': 'A free piece started its ride off the board.',
-    'life-lost': 'A blocked piece started its bounce against the piece that stops it.',
-    'finished': 'The last piece finished its ride.',
+    'piece-removed': 'A free arrow started its ride off the board.',
+    'life-lost': 'A blocked arrow started its bounce against the arrow that stops it.',
+    'finished': 'The last arrow finished its ride.',
     'viewport-change': 'The view changed; at most once per frame.',
   },
   slots: {
@@ -201,13 +182,6 @@ const EN = {
     gestures:
       'The ☝ switch, drawn only on an `interactive` or `play` board and not under a coarse pointer. The element keeps `aria-pressed` and `hidden` on a projected one.',
   },
-  slotsLead:
-    'A child with `slot` set to one of these names replaces that default; a slot left empty keeps it. `data-board-action` on a child — `zoom-in`, `zoom-out`, `fit`, `colors` or `gestures` — makes a click on it do what that control does.',
-  cliLead:
-    'The command line carves boards and prints them. This is the help it shows, rendered from the very function the terminal calls, so the two cannot disagree.',
-  cliShortHead: 'Everyday help',
-  cliKnobsHead: 'Every knob',
-  cliEnglishNote: "The blocks below are the terminal's own text and stay in English.",
   colProp: 'Property',
   colType: 'Type',
   colAttr: 'Attribute',
@@ -218,38 +192,29 @@ const EN = {
   colSlot: 'Slot',
   colDetail: 'Detail',
   colDescription: 'Description',
-  headProps: 'Properties',
-  headMembers: 'Methods and getters',
-  headEvents: 'Events',
-  headSlots: 'Slots',
-  headExample: 'Using it',
-  readmePointer:
-    'The long explanations — zoom and pan, the point grid, riding the track, playing the board — live in the package README.',
   infoLabel: 'Note',
 } as const satisfies Docs
 
 const PL = {
-  elementLead:
-    'Widok planszy Arrowz jako komponent webowy. Rysuje planszę, obsługuje powiększanie i przesuwanie, animuje dwa efekty reduktora gry i zgłasza kliknięcia w elementy. Działa w czystym HTML, w Reakcie, Angularze, Svelte i Vue.',
   props: {
     board: 'Plansza do narysowania. Przypisanie zawsze zaczyna nową grę i przerysowuje całość.',
     view: 'Opcje rysowania nałożone na domyślne z CLI: grubość, rozmiar grotu, zaokrąglenie, kolor, wyróżnienie i tło.',
-    interactive: 'Zgłasza kliknięcia w elementy, ale ich nie rozgrywa.',
-    play: 'Uruchamia reduktor: wolny element wyjeżdża, zablokowany odbija się. Włącza też interaktywność.',
+    interactive: 'Zgłasza kliknięcia w strzałki, ale ich nie rozgrywa.',
+    play: 'Uruchamia reduktor: wolna strzałka wyjeżdża, zablokowana się odbija. Włącza też interaktywność.',
     pad:
       'Margines wokół planszy, w komórkach, w granicach PAD_RANGE (0 do 16). Zero rysuje komórki od krawędzi do krawędzi.',
-    showPoints: 'Rysuje po kropce na komórkę pod elementami, jak linie w zeszycie.',
-    pointColor: 'Kolor kropek siatki punktów.',
-    pointRadius: 'Promień kropek siatki punktów, w komórkach.',
+    showPoints: 'Rysuje po kropce na komórkę pod strzałkami, jak linie w zeszycie.',
+    pointColor: 'Kolor siatki kropek.',
+    pointRadius: 'Promień kropek w siatce kropek, w komórkach.',
     lang: 'Standardowy atrybut języka; `pl` wybiera polskie etykiety, cokolwiek innego angielskie.',
     enableColors:
       'Zgoda na kolorowanie planszy. Bez niej element zostaje monochromatyczny i nie pokazuje przycisku koloru.',
     theme:
-      'Nazwa wbudowanego motywu — papier, tusz, wyróżnienie i kolory elementów. Pusta nazwa nie wybiera żadnego, a to, co podano w `view`, ma pierwszeństwo.',
+      'Nazwa wbudowanego motywu: tło, kolor strzałek, wyróżnienie i paleta wielobarwna. Pusta nazwa nie wybiera żadnego, a to, co podano w `view`, ma pierwszeństwo.',
   },
   members: {
     viewport: 'Widok na ekranie albo null, dopóki nie są znane i plansza, i rozmiar kontenera.',
-    pieceCount: 'Ile elementów rysuje warstwa; licznik samej planszy, nie liczba węzłów.',
+    pieceCount: 'Ile strzałek rysuje warstwa; licznik samej planszy, nie liczba węzłów.',
     gestureMode:
       'Reguła, według której działa teraz mysz i pióro: wybór gracza na grywalnej planszy, w przeciwnym razie przesuwanie.',
     colored: 'Czy plansza jest teraz rysowana w kolorze: najpierw zgoda, potem wybór przycisku, potem `view.colored`.',
@@ -259,22 +224,22 @@ const PL = {
       'To samo co przycisk koloru, łącznie z anulowalnym `colored-change`. Bez `enableColors` nic nie robi.',
     toggleGestures:
       'To samo co przełącznik gestów: odwraca wybór gracza, zapamiętuje go na następną wizytę i wysyła `gestures-change`. Na planszy, do której klik nie dociera, nic nie robi.',
-    animateExit: 'Wyprowadza element z planszy w zadanym kierunku i usuwa go; kończy się wraz z przejazdem.',
-    shake: 'Popycha element o zadany dystans po jego własnym torze i z powrotem.',
+    animateExit: 'Wyprowadza strzałkę z planszy w zadanym kierunku i usuwa ją; kończy się wraz z przejazdem.',
+    shake: 'Popycha strzałkę o zadany dystans po jej własnym torze i z powrotem.',
     saveState: 'Trwająca gra jako wartość, którą host może zapisać, albo null, zanim ustawiono planszę.',
     loadState: 'Przywraca grę; rzuca wyjątkiem, gdy zrzut nie należy do tej planszy.',
-    restart: 'Porzuca grę i przywraca wszystkie elementy na miejsca.',
+    restart: 'Porzuca grę i przywraca wszystkie strzałki na miejsca.',
     emit: 'Szew, przez który host gry steruje elementem; host, który tylko rysuje planszę, nie woła go.',
   },
   events: {
-    'piece-click': 'Kliknięto element, w trybie interaktywnym albo w grze.',
+    'piece-click': 'Kliknięto strzałkę, w trybie interaktywnym albo w grze.',
     'colored-change':
       'Kliknięto przycisk koloru albo wywołano `toggleColors()`; można je anulować, leci przed zmianą nadpisania. Anulowanie czyści nadpisanie i oddaje kolor `view.colored`.',
     'gestures-change':
       'Zmienił się wybór gestu gracza, przełącznikiem albo przez `toggleGestures()`. Nie leci przy odczycie zapamiętanego wyboru po podłączeniu.',
-    'piece-removed': 'Wolny element ruszył w drogę poza planszę.',
-    'life-lost': 'Zablokowany element odbił się od tego, który go zatrzymał.',
-    'finished': 'Ostatni element zakończył przejazd.',
+    'piece-removed': 'Wolna strzałka ruszyła w drogę poza planszę.',
+    'life-lost': 'Zablokowana strzałka odbiła się od tej, która ją zatrzymała.',
+    'finished': 'Ostatnia strzałka zakończyła przejazd.',
     'viewport-change': 'Widok się zmienił; najwyżej raz na klatkę.',
   },
   slots: {
@@ -289,13 +254,6 @@ const PL = {
     gestures:
       'Przełącznik ☝, rysowany tylko na planszy `interactive` albo `play` i nie przy grubym wskaźniku. Na podstawionym element sam ustawia `aria-pressed` i `hidden`.',
   },
-  slotsLead:
-    'Dziecko z `slot` ustawionym na jedną z tych nazw zastępuje domyślną zawartość; pusty slot ją zachowuje. `data-board-action` na dziecku — `zoom-in`, `zoom-out`, `fit`, `colors` albo `gestures` — sprawia, że kliknięcie robi to samo co ten przycisk.',
-  cliLead:
-    'Wiersz poleceń wycina plansze i je drukuje. To jest pomoc, którą wypisuje — renderowana z tej samej funkcji, którą woła terminal, więc obie nie mogą się rozjechać.',
-  cliShortHead: 'Pomoc na co dzień',
-  cliKnobsHead: 'Wszystkie pokrętła',
-  cliEnglishNote: 'Bloki poniżej to własny tekst terminala i zostają po angielsku.',
   colProp: 'Właściwość',
   colType: 'Typ',
   colAttr: 'Atrybut',
@@ -306,13 +264,6 @@ const PL = {
   colSlot: 'Nazwa slotu',
   colDetail: 'Szczegóły',
   colDescription: 'Opis',
-  headProps: 'Właściwości',
-  headMembers: 'Metody i gettery',
-  headEvents: 'Zdarzenia',
-  headSlots: 'Sloty',
-  headExample: 'Jak użyć',
-  readmePointer:
-    'Długie objaśnienia — powiększanie i przesuwanie, siatka punktów, jazda po torze, rozgrywka — są w pliku README pakietu.',
   infoLabel: 'Uwaga',
 } as const satisfies Docs
 

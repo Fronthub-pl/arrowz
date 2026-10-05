@@ -112,10 +112,13 @@ Deno.test('summaryOf says what was checked, and every flag, with table pipes esc
   const findings: Finding[] = [
     { flag: { where: 'a.ts:3', question: 'history', p: 0.95, excerpt: 'a | b' }, file: 'a.ts', line: 3 },
   ]
-  const s = summaryOf({ comments: 4, files: 2, commits: 3, pr: true, skipped: 0 }, findings)
+  const s = summaryOf({ comments: 4, files: 2, commits: 3, pr: true, skipped: 0, docs: 0 }, findings)
   assertStringIncludes(s, '4 added comments in 2 files, 3 commits, the PR title and body')
   assertStringIncludes(s, '| a.ts:3 | history | 0.95 | a \\| b |')
-  assertStringIncludes(summaryOf({ comments: 0, files: 0, commits: 0, pr: true, skipped: 0 }, []), 'Nothing flagged.')
+  assertStringIncludes(
+    summaryOf({ comments: 0, files: 0, commits: 0, pr: true, skipped: 0, docs: 0 }, []),
+    'Nothing flagged.',
+  )
 })
 
 function fakeGit(diff: string, log: string) {
@@ -149,7 +152,7 @@ Deno.test('runCi judges the added comments, every commit and the PR text', async
       undefined,
     ]],
   )
-  assertEquals(r.checked, { comments: 1, files: 1, commits: 1, pr: true, skipped: 0 })
+  assertEquals(r.checked, { comments: 1, files: 1, commits: 1, pr: true, skipped: 0, docs: 0 })
 })
 
 Deno.test('runCi on an edit of the PR text asks git nothing and judges only that text', async () => {
@@ -168,4 +171,30 @@ Deno.test('runCi flags an attribution trailer in the PR body without Jev', async
   const event = { action: 'edited', title: 'T', body: 'Text\n\nCo-Authored-By: someone', base: 'b', head: 'h' }
   const r = await runCi({ judge, event, git, read: () => null, rule: RULE })
   assertEquals(r.findings.map((f) => [f.flag.where, f.flag.question]), [['PR body', 'attribution']])
+})
+
+Deno.test('runCi asks Jev about a docs page the PR changes', async () => {
+  const calls: string[][] = []
+  const git = (args: string[]) => {
+    calls.push(args)
+    return Promise.resolve(args.includes('--name-only') ? 'apps/lab/docs-content/pl/cli.md\n' : '')
+  }
+  const files: Record<string, string> = {
+    'apps/lab/docs-content/en/cli.md': '# T\n\nWrong.\n',
+    'apps/lab/docs-content/pl/cli.md': '# T\n\nŹle.\n',
+    'packages/cli/README.md': 'README',
+  }
+  const { judge } = stubJudge((
+    s,
+  ) => (s.text === 'Wrong.'
+    ? { ...quiet, contradicts: 0.95, plain: 0.6 }
+    : { ...quiet, same_meaning: 0.9, plain: 0.6 })
+  )
+  const event = { action: 'synchronize', title: 'T', body: 'B', base: 'b', head: 'h' }
+  const r = await runCi({ judge, event, git, read: (rel) => files[rel] ?? null, rule: RULE })
+  assertEquals(r.checked.docs, 1)
+  assertEquals(r.findings.map((f) => [f.flag.where, f.flag.question]), [[
+    'docs-content/en/cli.md:3',
+    'contradicts_readme',
+  ]])
 })

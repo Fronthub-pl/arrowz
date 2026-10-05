@@ -1,7 +1,11 @@
 import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS } from '@arrowz/engine/docs'
 import { describe, expect, test } from 'vitest'
-import { cellTokens, type CodeToken, highlightHtml, type TokenClass } from './codeTokens'
-import { ELEMENT_EXAMPLE } from './elementExample'
+import { cellTokens, type CodeToken, highlightHtml, highlightJson, highlightSh, type TokenClass } from './codeTokens'
+import { docsPage } from './content'
+
+const firstCode = docsPage('en', 'element').root.children.find((node) => node.type === 'code')
+/** The element page's example, as its Markdown writes it. */
+const ELEMENT_EXAMPLE = firstCode?.type === 'code' ? firstCode.value : ''
 
 const joined = (tokens: readonly CodeToken[]) => tokens.map((t) => t.text).join('')
 /** Every token of one colour, as text: what a reader sees in that colour. */
@@ -10,6 +14,11 @@ const inColour = (tokens: readonly CodeToken[], cls: TokenClass) =>
 
 describe('the example', () => {
   const tokens = highlightHtml(ELEMENT_EXAMPLE)
+
+  // The cases below would pass on an empty string.
+  test('is the element page’s example', () => {
+    expect(ELEMENT_EXAMPLE).toContain('<arrowz-board id="board"')
+  })
 
   // The promise Copy rests on: the spans change the colour, never the text.
   test('reads back exactly as written', () => {
@@ -95,5 +104,44 @@ describe('a table cell', () => {
 
   test('a missing attribute is punctuation, not a name', () => {
     expect(cellTokens('—', 'attr')).toEqual([{ cls: 'pun', text: '—' }])
+  })
+})
+
+describe('a shell block', () => {
+  const SH =
+    'CARVE_TIMEOUT_S=60 deno task carve --width=1000 --theme=gruvbox-dark --svg   # stops after a minute\n./carve -h'
+  const tokens = highlightSh(SH)
+
+  test('reads back exactly as written', () => {
+    expect(joined(tokens)).toBe(SH)
+  })
+
+  test('colours the variable, the task, the flags, their values and the comment', () => {
+    expect(inColour(tokens, 'type')).toEqual(['CARVE_TIMEOUT_S'])
+    expect(inColour(tokens, 'fn')).toEqual(['deno task carve'])
+    expect(inColour(tokens, 'attr')).toEqual(['--width', '--theme', '--svg', '-h'])
+    expect(inColour(tokens, 'num')).toEqual(['60', '1000'])
+    expect(inColour(tokens, 'str')).toEqual(['gruvbox-dark'])
+    expect(inColour(tokens, 'com')).toEqual(['# stops after a minute'])
+  })
+
+  // A colour value starts with `#`, and it is a value, not a comment.
+  test('a # inside a value is not a comment', () => {
+    expect(inColour(highlightSh('deno task carve --paper=#f6f6fa'), 'com')).toEqual([])
+  })
+})
+
+describe('a JSON block', () => {
+  const JSON_TEXT = '{\n  "W": 30, "ok": true,\n  "pinned": [],\n  "command": "deno task carve --width=30"\n}'
+  const tokens = highlightJson(JSON_TEXT)
+
+  test('reads back exactly as written', () => {
+    expect(joined(tokens)).toBe(JSON_TEXT)
+  })
+
+  test('a key is a property, a value a string or a constant', () => {
+    expect(inColour(tokens, 'prop')).toEqual(['"W"', '"ok"', '"pinned"', '"command"'])
+    expect(inColour(tokens, 'num')).toEqual(['30', 'true'])
+    expect(inColour(tokens, 'str')).toEqual(['"deno task carve --width=30"'])
   })
 })

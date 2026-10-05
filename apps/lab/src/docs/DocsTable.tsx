@@ -1,18 +1,14 @@
 import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS, ELEMENT_SLOTS } from '@arrowz/engine/docs'
 import type { ReactElement } from 'react'
-import { TokenSpans } from '../docs/TokenSpans'
-import { type CellRole, cellTokens, highlightHtml } from '../docs/codeTokens'
-import { ELEMENT_EXAMPLE } from '../docs/elementExample'
-import { useDocs } from '../docs/useDocs'
-import { DocsBlock } from './DocsBlock'
+import { type CellRole, cellTokens } from './codeTokens'
+import { InlineMarkdown } from './Inline'
+import { TokenSpans } from './TokenSpans'
+import { useDocs } from './useDocs'
 
 /** The dash a table cell shows where a property has no attribute at all. */
 const NONE = '—'
 
-/** Scanned once: the example is fixed for the life of the page. */
-const EXAMPLE_TOKENS = highlightHtml(ELEMENT_EXAMPLE)
-
-/** A machine cell in the example's colours; the column says what its text is. */
+/** A machine cell in the code colours; the column says what its text is. */
 function Mono({ text, column }: { text: string; column: CellRole }): ReactElement {
   return (
     <td className="mono">
@@ -21,47 +17,17 @@ function Mono({ text, column }: { text: string; column: CellRole }): ReactElemen
   )
 }
 
-/** The note's mark, a drawn info glyph. Decoration only: the note is named by its `aside`. */
-function InfoIcon(): ReactElement {
-  return (
-    <svg className="i" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <circle cx="8" cy="8" r="6.25" />
-      <path d="M8 7.25v4" />
-      <circle cx="8" cy="4.9" r="0.9" fill="currentColor" stroke="none" />
-    </svg>
-  )
-}
-
 /**
- * The element's API as four reference tables. The machine columns come from
- * the shared rows and are not translated; only the last column is. The long
- * explanations stay in the package README, which the note under the lead
- * points at: this page is a reference, and a second copy of the prose would be
- * a second thing to keep true.
- *
- * Every `h3` has an id: the navigation column lists them and scrolls the panel
- * to them, and each table is named by its own.
+ * One reference table of `<arrowz-board>`, as `::table{of=…}` names it. The
+ * machine columns come from the shared rows and are not translated; the last
+ * column is, and is inline Markdown. A name `shape.ts` does not list renders
+ * nothing, and the content guard fails first.
  */
-export function ElementDocs(): ReactElement {
+export function DocsTable({ of, labelledBy }: { of: string; labelledBy?: string | undefined }): ReactElement | null {
   const docs = useDocs()
-  return (
-    <>
-      <h2>&lt;arrowz-board&gt;</h2>
-      <p>{docs.elementLead}</p>
-      <aside className="fw-docs-info" aria-label={docs.infoLabel}>
-        <InfoIcon />
-        <p>{docs.readmePointer}</p>
-      </aside>
-
-      <h3 id="docs-example">{docs.headExample}</h3>
-      <DocsBlock kind="code" section={docs.headExample} text={ELEMENT_EXAMPLE}>
-        <code>
-          <TokenSpans tokens={EXAMPLE_TOKENS} />
-        </code>
-      </DocsBlock>
-
-      <h3 id="docs-props">{docs.headProps}</h3>
-      <table className="fw-docs-table" aria-labelledby="docs-props">
+  if (of === 'element-props')
+    return (
+      <table className="fw-docs-table" aria-labelledby={labelledBy}>
         <thead>
           <tr>
             <th scope="col">{docs.colProp}</th>
@@ -78,14 +44,17 @@ export function ElementDocs(): ReactElement {
               <Mono text={row.type} column="type" />
               <Mono text={row.attribute ?? NONE} column="attr" />
               <Mono text={row.def} column="expr" />
-              <td>{docs.props[row.key]}</td>
+              <td>
+                <InlineMarkdown text={docs.props[row.key]} />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
-
-      <h3 id="docs-members">{docs.headMembers}</h3>
-      <table className="fw-docs-table" aria-labelledby="docs-members">
+    )
+  if (of === 'element-members')
+    return (
+      <table className="fw-docs-table" aria-labelledby={labelledBy}>
         <thead>
           <tr>
             <th scope="col">{docs.colMember}</th>
@@ -99,14 +68,17 @@ export function ElementDocs(): ReactElement {
               {/* A getter's signature is its type; a method's names itself. */}
               <Mono text={row.key} column={row.kind === 'getter' ? 'prop' : 'method'} />
               <Mono text={row.signature} column={row.kind === 'getter' ? 'type' : 'sig'} />
-              <td>{docs.members[row.key]}</td>
+              <td>
+                <InlineMarkdown text={docs.members[row.key]} />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
-
-      <h3 id="docs-events">{docs.headEvents}</h3>
-      <table className="fw-docs-table" aria-labelledby="docs-events">
+    )
+  if (of === 'element-events')
+    return (
+      <table className="fw-docs-table" aria-labelledby={labelledBy}>
         <thead>
           <tr>
             <th scope="col">{docs.colEvent}</th>
@@ -119,15 +91,17 @@ export function ElementDocs(): ReactElement {
             <tr key={row.key}>
               <Mono text={row.key} column="event" />
               <Mono text={row.detail} column="expr" />
-              <td>{docs.events[row.key]}</td>
+              <td>
+                <InlineMarkdown text={docs.events[row.key]} />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
-
-      <h3 id="docs-slots">{docs.headSlots}</h3>
-      <p>{docs.slotsLead}</p>
-      <table className="fw-docs-table" aria-labelledby="docs-slots">
+    )
+  if (of === 'element-slots')
+    return (
+      <table className="fw-docs-table" aria-labelledby={labelledBy}>
         <thead>
           <tr>
             <th scope="col">{docs.colSlot}</th>
@@ -138,11 +112,13 @@ export function ElementDocs(): ReactElement {
           {ELEMENT_SLOTS.map((row) => (
             <tr key={row.key}>
               <Mono text={row.key} column="slot" />
-              <td>{docs.slots[row.key]}</td>
+              <td>
+                <InlineMarkdown text={docs.slots[row.key]} />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
-    </>
-  )
+    )
+  return null
 }

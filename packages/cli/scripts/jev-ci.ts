@@ -1,6 +1,7 @@
-// The Jev guards on a pull request in CI: the comments it adds, its commits and
-// its own title and body, with the questions and thresholds the hooks use. Like
-// the hooks it only advises: warnings, a job summary, and always exit 0.
+// The Jev guards on a pull request in CI: the comments it adds, its commits and its own title and
+// body, judged with the questions and thresholds the hooks use, and the docs pages it changes,
+// judged with the questions and thresholds of `jev-docs.ts`. Like the hooks it only advises:
+// warnings, a job summary, and always exit 0.
 // The key comes from the TYPESAFE_API_KEY secret, which a fork's PR never gets,
 // so there the run says so once and checks nothing. See docs/jev-guards.md.
 import { fromFileUrl, join } from '@std/path'
@@ -19,11 +20,12 @@ import {
   ruleSection,
   SHIPPED,
 } from './jev-guard.ts'
+import { checkDocs, docsPagesOf, readDocs } from './jev-docs.ts'
 
 export type PrEvent = { action: string; title: string; body: string; base: string; head: string }
 export type Plan = { comments: boolean; commits: boolean; pr: boolean }
 export type Finding = { flag: Flag; file?: string; line?: number }
-export type Checked = { comments: number; files: number; commits: number; pr: boolean; skipped: number }
+export type Checked = { comments: number; files: number; commits: number; pr: boolean; skipped: number; docs: number }
 
 /** Bounds what one run costs; a larger PR reports the rest as not checked. */
 export const CI_MAX_COMMENTS = 400
@@ -116,6 +118,7 @@ export function summaryOf(checked: Checked, findings: Finding[]): string {
       ? [`${count(checked.comments, 'added comment', 'added comments')} in ${count(checked.files, 'file', 'files')}`]
       : []),
     ...(checked.commits > 0 ? [count(checked.commits, 'commit', 'commits')] : []),
+    ...(checked.docs > 0 ? [count(checked.docs, 'docs page', 'docs pages')] : []),
     ...(checked.pr ? ['the PR title and body'] : []),
   ]
   const lines = ['### Jev guards', '', `Checked: ${parts.length > 0 ? parts.join(', ') : 'nothing'}.`]
@@ -147,7 +150,7 @@ export async function runCi(deps: CiDeps): Promise<{ findings: Finding[]; checke
   const { judge, event } = deps
   const plan = planOf(event.action)
   const findings: Finding[] = []
-  const checked: Checked = { comments: 0, files: 0, commits: 0, pr: false, skipped: 0 }
+  const checked: Checked = { comments: 0, files: 0, commits: 0, pr: false, skipped: 0, docs: 0 }
   const range = `${event.base}...${event.head}`
 
   if (plan.comments && SHIPPED.comments && deps.rule !== null) {
@@ -169,6 +172,15 @@ export async function runCi(deps: CiDeps): Promise<{ findings: Finding[]; checke
     checked.comments = asked.length
     checked.files = new Set(asked.map((x) => x.rel)).size
     checked.skipped = items.length - asked.length
+  }
+
+  if (plan.comments) {
+    const pages = docsPagesOf(await deps.git(['diff', '--name-only', range]))
+    for (const page of pages) {
+      const input = readDocs(page, deps.read)
+      if (input !== null) { for (const flag of await checkDocs(judge, input)) findings.push({ flag }) }
+    }
+    checked.docs = pages.length
   }
 
   if (plan.commits && SHIPPED.message) {

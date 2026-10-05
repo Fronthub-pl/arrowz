@@ -29,6 +29,12 @@
   font-size: 12px;
   line-height: 1.6;
 }
+/* Inline code in prose and descriptions: the code font at the text's size, and
+   no colour — colour belongs to blocks and machine columns. */
+.fw-docs :is(p, li, td, th) code {
+  font-family: var(--mono);
+  font-size: inherit;
+}
 .fw-docs-table {
   width: 100%;
   margin-bottom: 4px;
