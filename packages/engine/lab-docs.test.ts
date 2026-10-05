@@ -39,9 +39,10 @@ Deno.test('no Polish description is a copy of its English source', () => {
   for (const row of ELEMENT_SLOTS) assert(pl.slots[row.key] !== en.slots[row.key], `slot ${row.key}`)
 })
 
-// The frame around the tables — leads, headings, column labels, the README
-// pointer — is text too, and the tests above walk only rows. The key list is
-// derived from the object, so a field added to `Docs` later is covered too.
+// The frame around the tables — the column names and the note's name — is text
+// too, and the tests above walk only rows. The key list is derived from the
+// object, so a field added to `Docs` later is covered too. Eleven strings exist
+// today (ten `col*` and `infoLabel`); the floor catches a filter that finds none.
 Deno.test('the frame around the tables is translated too', () => {
   const en = docsFor('en')
   const pl = docsFor('pl')
