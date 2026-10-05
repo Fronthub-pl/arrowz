@@ -71,6 +71,10 @@ const ALLOWED: Record<string, string> = {
   'PL.ui.docsElement': '"Element planszy", the web component',
   'EN.ui.storeEmpty': 'the command deno task carve',
   'PL.ui.storeEmpty': 'the command deno task carve',
+  'pl.props.enableColors': '"element", the web component, not an arrow',
+  'pl.members.emit': '"element", the web component, not an arrow',
+  'pl.slots.colors': '"element", the web component, not an arrow',
+  'pl.slots.gestures': '"element", the web component, not an arrow',
 }
 
 /** The arrows' old Polish name, in the plural forms the component's name never takes. */
@@ -152,5 +156,5 @@ Deno.test('the CLI help uses no retired word outside flag, variable and group na
 
 Deno.test('the element reference descriptions use no retired word', () => {
   refuse(docsRows('en'), [...EN_RETIRED, LAB_ONLY_KNOB, LAB_ONLY_FLAG])
-  refuse(docsRows('pl'), [...plFor('element'), LAB_ONLY_FLAG])
+  refuse(docsRows('pl'), [...PL_RETIRED, LAB_ONLY_FLAG])
 })
