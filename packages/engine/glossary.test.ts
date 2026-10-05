@@ -3,6 +3,7 @@
 // may not come back into the lab's dictionaries, the knob texts or the CLI's
 // help. An exception names its key and why.
 import { assert } from '@std/assert'
+import { dirname, fromFileUrl, join } from '@std/path'
 import { helpText } from './command.ts'
 import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS } from './engine.ts'
 import { docsFor } from './lab-docs.ts'
@@ -163,4 +164,32 @@ Deno.test('plFor lifts the one word each docs page owns and keeps the rest', () 
   assert(!plFor('element').includes(PL_ELEMENT) && plFor('element').includes(PL_ELEMENTS))
   assert(!plFor('cli').includes(PL_KNOB) && plFor('cli').includes(PL_ELEMENT))
   assert(plFor('other').length === PL_RETIRED.length)
+})
+
+const DOCS_CONTENT = join(dirname(fromFileUrl(import.meta.url)), '..', '..', 'apps', 'lab', 'docs-content')
+
+/** A docs page's prose, line by line: code, directive attributes and link targets blanked, lines kept. */
+function proseLines(lang: string, page: string): [string, string][] {
+  const text = withoutCode(
+    Deno.readTextFileSync(join(DOCS_CONTENT, lang, `${page}.md`)).replace(
+      /^```[\s\S]*?^```/gm,
+      (block) => block.replace(/[^\n]/g, ''),
+    ),
+  )
+    .replace(/\{[^}\n]*\}/g, ' ')
+    .replace(/\]\([^)\n]*\)/g, ']')
+    // The CLI's own name, as the helpText case above strips it: the CLI page's title.
+    .replace(/deno task carve/g, ' ')
+  return text.split('\n').map((line, i): [string, string] => [`docs-content/${lang}/${page}.md:${i + 1}`, line])
+}
+
+Deno.test('the docs pages use no retired word', () => {
+  const pages = [...Deno.readDirSync(join(DOCS_CONTENT, 'en'))]
+    .filter((entry) => entry.name.endsWith('.md'))
+    .map((entry) => entry.name.slice(0, -3))
+  assert(pages.length >= 2, `only ${pages.length} docs pages found — the path is wrong`)
+  for (const page of pages) {
+    refuse(proseLines('en', page), [...EN_RETIRED, ...(page === 'cli' ? [] : [LAB_ONLY_KNOB]), LAB_ONLY_FLAG])
+    refuse(proseLines('pl', page), [...plFor(page), LAB_ONLY_FLAG])
+  }
 })
