@@ -144,6 +144,8 @@ async function arrange(state: State) {
   }
   if (state === 'docs') window.history.pushState({}, '', '/docs/cli')
   const screen = await render(<App />)
+  // The docs body is a chunk of its own (`DocsRoute`): audit it once it is there.
+  if (state === 'docs') await expect.poll(() => screen.container.querySelector('.fw-docs-toc')).not.toBeNull()
   if (state !== 'library-empty' && state !== 'library-detail' && state !== 'library-sheet-cli' && state !== 'docs')
     await loadRunDone()
   await act(async () => {

@@ -1,33 +1,14 @@
-import type { Docs } from '@arrowz/engine/docs'
 import type { ReactElement } from 'react'
 import { Link, NavLink, useLocation } from 'react-router'
-import { useDocs } from '../docs/useDocs'
+import { docsPage } from '../docs/content'
+import type { DocsPage } from '../docs/pages'
 import { useDictionary } from '../i18n'
-
-export type DocsPage = 'element' | 'cli'
-
-/**
- * Each page's sections, in page order: the `id` of the section's `h3` and the
- * key of its heading, so the column and the page read one string.
- */
-export const DOCS_SECTIONS = {
-  element: [
-    { id: 'docs-example', head: 'headExample' },
-    { id: 'docs-props', head: 'headProps' },
-    { id: 'docs-members', head: 'headMembers' },
-    { id: 'docs-events', head: 'headEvents' },
-    { id: 'docs-slots', head: 'headSlots' },
-  ],
-  cli: [
-    { id: 'docs-short', head: 'cliShortHead' },
-    { id: 'docs-knobs', head: 'cliKnobsHead' },
-  ],
-} as const satisfies Record<DocsPage, readonly { id: string; head: keyof Docs }[]>
+import { useStore } from '../state/store'
 
 const PAGES = [
   { page: 'element', name: 'docsElement' },
   { page: 'cli', name: 'docsCli' },
-] as const
+] as const satisfies readonly { page: DocsPage; name: string }[]
 
 /**
  * The section a navigation asked for, carried in the router's state rather
@@ -46,12 +27,12 @@ export function pageOf(pathname: string): DocsPage {
 }
 
 /**
- * The documentation's navigation, one column in two levels: both pages, and
- * under each the sections of that page. Links, not a radio group or a second
- * tablist: a documentation page has an address worth copying, and only a link
- * gives one. A section's link is its page's address, keeping the lab's
- * fragment, with the section in the navigation's state (`sectionOf`);
- * `useSectionInView` scrolls the panel to it.
+ * The documentation's navigation, one column in two levels: every page, and
+ * under each the `##` sections of its Markdown in the language on screen.
+ * Links, not a radio group or a second tablist: a documentation page has an
+ * address worth copying, and only a link gives one. A section's link is its
+ * page's address, keeping the lab's fragment, with the section in the
+ * navigation's state (`sectionOf`); `useSectionInView` scrolls the panel to it.
  *
  * `NavLink` and `Link`, not a plain `<a href>`: an anchor would reload the
  * document, killing the run in flight and disposing the board's WebGL context.
@@ -65,7 +46,7 @@ export function pageOf(pathname: string): DocsPage {
  */
 export function DocsNav({ section }: { section?: string | undefined }): ReactElement {
   const dict = useDictionary()
-  const docs = useDocs()
+  const lang = useStore((state) => state.lang.lang)
   const location = useLocation()
   const current = pageOf(location.pathname)
   return (
@@ -75,14 +56,14 @@ export function DocsNav({ section }: { section?: string | undefined }): ReactEle
           <li key={page} className={page === current ? 'pg on' : 'pg'}>
             <NavLink to={`/docs/${page}`}>{dict.t(name)}</NavLink>
             <ul>
-              {DOCS_SECTIONS[page].map(({ id, head }) => (
+              {docsPage(lang, page).sections.map(({ id, title }) => (
                 <li key={id}>
                   <Link
                     to={{ pathname: `/docs/${page}`, hash: location.hash }}
                     state={{ docsSection: id }}
                     aria-current={page === current && id === section ? 'true' : undefined}
                   >
-                    {docs[head]}
+                    {title}
                   </Link>
                 </li>
               ))}

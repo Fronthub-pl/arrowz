@@ -1,7 +1,7 @@
-// The documentation the lab's Docs tab prints: the element's API as reference
-// rows, and the frame around the CLI help. Pure text; the help itself is not
-// here, because `helpText()` in command.ts already produces it and a second
-// copy would drift.
+// The descriptions in the reference tables of the lab's Docs tab, the tables'
+// column names and the name of a page's note. The pages' prose is Markdown in
+// apps/lab/docs-content; these stay here because each is keyed by a row of
+// code, so the compiler keeps the two languages in step.
 //
 // The machine columns — key, type, attribute, default, signature — exist once
 // and are NOT translated. That is the rule readme.test.ts states for the knob
@@ -12,8 +12,7 @@
 // Prose in this file must not end a sentence with `document`, `window`,
 // `process` or `Deno`, and must never write the browser's key-value store by
 // its API name: neutral.test.ts greps this file's TEXT, not its code, so a
-// sentence about the DOM can trip a rule this module does not break. Code
-// examples live in apps/lab for the same reason.
+// sentence about the DOM can trip a rule this module does not break.
 import type { Lang } from './lab-i18n.ts'
 
 /** One row of the property table. `attribute` is null when the property has none. */
@@ -103,22 +102,12 @@ export type MemberKey = (typeof ELEMENT_MEMBERS)[number]['key']
 export type EventKey = (typeof ELEMENT_EVENTS)[number]['key']
 export type SlotKey = (typeof ELEMENT_SLOTS)[number]['key']
 
-/** Everything one language needs to render both documentation pages. */
+/** What the Docs tab's reference tables need in one language: descriptions, column names, the note's name. */
 export interface Docs {
-  readonly elementLead: string
   readonly props: Record<PropKey, string>
   readonly members: Record<MemberKey, string>
   readonly events: Record<EventKey, string>
   readonly slots: Record<SlotKey, string>
-  /** Above the slot table: how a host fills a slot and names a control's action. */
-  readonly slotsLead: string
-  readonly cliLead: string
-  /** Heading above the short usage block. */
-  readonly cliShortHead: string
-  /** Heading above the knob table block. */
-  readonly cliKnobsHead: string
-  /** One line saying the block below is the terminal's own text, in English. */
-  readonly cliEnglishNote: string
   readonly colProp: string
   readonly colType: string
   readonly colAttr: string
@@ -131,20 +120,11 @@ export interface Docs {
   readonly colDetail: string
   /** The last column of every table: the translated one. */
   readonly colDescription: string
-  readonly headProps: string
-  readonly headMembers: string
-  readonly headEvents: string
-  readonly headSlots: string
-  readonly headExample: string
-  /** Where the long explanations live, since this page is a reference. */
-  readonly readmePointer: string
-  /** The accessible name of the note bar that carries `readmePointer`. */
+  /** The accessible name of a page's note, a blockquote in its Markdown. */
   readonly infoLabel: string
 }
 
 const EN = {
-  elementLead:
-    'The board view of Arrowz as a web component. It draws a board, owns zoom and pan, animates the two effects of the game reducer, and reports clicks on pieces. Usable from plain HTML, React, Angular, Svelte or Vue.',
   props: {
     board: 'The board to draw. Assigning it always starts a fresh game and redraws in full.',
     view:
@@ -202,13 +182,6 @@ const EN = {
     gestures:
       'The ☝ switch, drawn only on an `interactive` or `play` board and not under a coarse pointer. The element keeps `aria-pressed` and `hidden` on a projected one.',
   },
-  slotsLead:
-    'A child with `slot` set to one of these names replaces that default; a slot left empty keeps it. `data-board-action` on a child — `zoom-in`, `zoom-out`, `fit`, `colors` or `gestures` — makes a click on it do what that control does.',
-  cliLead:
-    'The command line carves boards and prints them. This is the help it shows, rendered from the very function the terminal calls, so the two cannot disagree.',
-  cliShortHead: 'Everyday help',
-  cliKnobsHead: 'Every knob',
-  cliEnglishNote: "The blocks below are the terminal's own text and stay in English.",
   colProp: 'Property',
   colType: 'Type',
   colAttr: 'Attribute',
@@ -219,19 +192,10 @@ const EN = {
   colSlot: 'Slot',
   colDetail: 'Detail',
   colDescription: 'Description',
-  headProps: 'Properties',
-  headMembers: 'Methods and getters',
-  headEvents: 'Events',
-  headSlots: 'Slots',
-  headExample: 'Using it',
-  readmePointer:
-    'The long explanations — zoom and pan, the point grid, riding the track, playing the board — live in the package README.',
   infoLabel: 'Note',
 } as const satisfies Docs
 
 const PL = {
-  elementLead:
-    'Widok planszy Arrowz jako komponent webowy. Rysuje planszę, obsługuje powiększanie i przesuwanie, animuje dwa efekty reduktora gry i zgłasza kliknięcia w elementy. Działa w czystym HTML, w Reakcie, Angularze, Svelte i Vue.',
   props: {
     board: 'Plansza do narysowania. Przypisanie zawsze zaczyna nową grę i przerysowuje całość.',
     view: 'Opcje rysowania nałożone na domyślne z CLI: grubość, rozmiar grotu, zaokrąglenie, kolor, wyróżnienie i tło.',
@@ -290,13 +254,6 @@ const PL = {
     gestures:
       'Przełącznik ☝, rysowany tylko na planszy `interactive` albo `play` i nie przy grubym wskaźniku. Na podstawionym element sam ustawia `aria-pressed` i `hidden`.',
   },
-  slotsLead:
-    'Dziecko z `slot` ustawionym na jedną z tych nazw zastępuje domyślną zawartość; pusty slot ją zachowuje. `data-board-action` na dziecku — `zoom-in`, `zoom-out`, `fit`, `colors` albo `gestures` — sprawia, że kliknięcie robi to samo co ten przycisk.',
-  cliLead:
-    'Wiersz poleceń wycina plansze i je drukuje. To jest pomoc, którą wypisuje — renderowana z tej samej funkcji, którą woła terminal, więc obie nie mogą się rozjechać.',
-  cliShortHead: 'Pomoc na co dzień',
-  cliKnobsHead: 'Wszystkie pokrętła',
-  cliEnglishNote: 'Bloki poniżej to własny tekst terminala i zostają po angielsku.',
   colProp: 'Właściwość',
   colType: 'Typ',
   colAttr: 'Atrybut',
@@ -307,13 +264,6 @@ const PL = {
   colSlot: 'Nazwa slotu',
   colDetail: 'Szczegóły',
   colDescription: 'Opis',
-  headProps: 'Właściwości',
-  headMembers: 'Metody i gettery',
-  headEvents: 'Zdarzenia',
-  headSlots: 'Sloty',
-  headExample: 'Jak użyć',
-  readmePointer:
-    'Długie objaśnienia — powiększanie i przesuwanie, siatka punktów, jazda po torze, rozgrywka — są w pliku README pakietu.',
   infoLabel: 'Uwaga',
 } as const satisfies Docs
 

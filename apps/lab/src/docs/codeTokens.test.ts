@@ -1,7 +1,11 @@
 import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS } from '@arrowz/engine/docs'
 import { describe, expect, test } from 'vitest'
 import { cellTokens, type CodeToken, highlightHtml, highlightJson, highlightSh, type TokenClass } from './codeTokens'
-import { ELEMENT_EXAMPLE } from './elementExample'
+import { docsPage } from './content'
+
+const firstCode = docsPage('en', 'element').root.children.find((node) => node.type === 'code')
+/** The element page's example, as its Markdown writes it. */
+const ELEMENT_EXAMPLE = firstCode?.type === 'code' ? firstCode.value : ''
 
 const joined = (tokens: readonly CodeToken[]) => tokens.map((t) => t.text).join('')
 /** Every token of one colour, as text: what a reader sees in that colour. */
@@ -10,6 +14,11 @@ const inColour = (tokens: readonly CodeToken[], cls: TokenClass) =>
 
 describe('the example', () => {
   const tokens = highlightHtml(ELEMENT_EXAMPLE)
+
+  // The cases below would pass on an empty string.
+  test('is the element page’s example', () => {
+    expect(ELEMENT_EXAMPLE).toContain('<arrowz-board id="board"')
+  })
 
   // The promise Copy rests on: the spans change the colour, never the text.
   test('reads back exactly as written', () => {
