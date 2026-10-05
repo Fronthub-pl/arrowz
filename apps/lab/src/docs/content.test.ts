@@ -49,9 +49,16 @@ test.each(LANGS)('every docs: link in %s names a section that exists', (lang) =>
 // would not catch it.
 test.each(LANGS)('every %s description is plain inline Markdown', (lang) => {
   const docs = docsFor(lang)
-  const texts = [docs.props, docs.members, docs.events, docs.slots, docs.keys, docs.palette, docs.linkFields].flatMap(
-    (rows) => Object.values(rows),
-  )
+  const texts = [
+    docs.props,
+    docs.members,
+    docs.events,
+    docs.slots,
+    docs.keys,
+    docs.palette,
+    docs.linkFields,
+    docs.env,
+  ].flatMap((rows) => Object.values(rows))
   expect(texts.length).toBeGreaterThan(75)
   for (const text of texts) {
     expect(

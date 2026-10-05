@@ -234,6 +234,7 @@ out when it fits in a line and described when it does not.
 | `CARVE_FLAGS` | 53 flags, as they are typed | Every flag the CLI takes; `-h` is the one with a single dash. |
 | `COMMAND_PREFIX` | `'deno task carve'` | How the CLI is invoked from anywhere inside the repository. |
 | `DEFAULT_VIEW` | a `View` | The view of a board nobody has styled: cell 12, line 0.5, automatic head width, rounded, no theme, margin 4. |
+| `ENV_VARS` | 4 `{ name, usage }` rows | The environment variables `carve` and `report` read, each with the words `--help` prints for it. |
 | `ENV_WORD_SOURCE` | `'[A-Z_][A-Z0-9_]*=\S*'` | The pattern of a `NAME=value` environment word, shared with the lab's command palette. |
 | `KNOB_ROWS` | 27 `KnobRow`s | The knob table `--help=knobs` prints: one row per knob, with `headBias` and `mix` merged into `--start`. |
 | `MIX_START` | `0.5` | The share mixing starts from when the stored value is not a share. |
@@ -247,6 +248,7 @@ out when it fits in a line and described when it does not.
 | Type | Shape | Meaning |
 |---|---|---|
 | `ArgProblem` | `{ kind: 'noValue'; arg: string } \| { kind: 'unexpectedArgument'; arg: string } \| { kind: 'retired'; arg: string; name: string; hint: string; use: string[]; why: RetiredWhy \| null } \| { kind: 'notStart'; arg: string; words: string[]; min: number; max: number } \| { kind: 'outside'; arg: string; min: number; max: number } \| { kind: 'notNumber'; arg: string; words: string[] } \| { kind: 'notWhole'; arg: string } \| { kind: 'notTheme'; arg: string; themes: string[] } \| { kind: 'notColour'; arg: string } \| { kind: 'notColourList'; arg: string } \| { kind: 'paletteTooLong'; arg: string; cap: number } \| { kind: 'unknownFlag'; arg: string; name: string } \| { kind: 'missing'; arg: string; name: string } \| { kind: 'unclosedQuote'; arg: string }` | A refusal the parser can report, typed so that each surface words it in its own language; `arg` is the token as written. |
+| `EnvVar` | `(typeof ENV_VARS)[number]['name']` | The name of one of them. |
 | `KnobRow` | `{ group: ParamGroup; flag: string; values: string; label: string; step: string; def: string; help: string }` | One row of the knob table, every cell spelled the way the flag spells it. |
 | `ParsedArgs` | `{ params: Params; view: View; pins: ParamKey[]; choice: SimpleChoice & { random: boolean }; rest: string[]; errors: string[]; problems: ArgProblem[] }` | What one command line asked for: the knobs (the choice with the pins over it), the view, the mode flags in `rest`, and its errors, as text and typed. |
 | `RetiredWhy` | `'oneMode' \| 'boardAlways' \| 'spacingFixed'` | Which explanation a retired flag's replacement carries, for a translation. |
@@ -322,12 +324,16 @@ out when it fits in a line and described when it does not.
 | `seedRunOf` | `(seed: number, result: GenerateResult) => SeedRun` | One seed's result as a series reports it. |
 | `summariseSeries` | `(runs: readonly SeedRun[]) => SeriesSummary` | The outcome counts of a series, and the means over its complete boards. |
 
+| Constant | Value | Meaning |
+|---|---|---|
+| `STAT_KEYS` | 32 keys, as the table lists them | Every row of the statistics table, by key, in the table's order. |
+
 | Type | Shape | Meaning |
 |---|---|---|
 | `ReportDelta` | `{ readonly text: string; readonly trend: 'up' \| 'down' }` | A delta cell: its text and which way the number moved. |
 | `ReportInput` | `{ readonly ok: boolean; readonly metrics: Metrics \| null; readonly stats: CarverStats; readonly pieces: number; readonly backtracks: number; readonly restartsUsed: number; readonly genMs: number; readonly metricsMs: number; readonly totalMs: number; readonly stuck: Stuck \| null; readonly deadlock: boolean; readonly aborted: boolean }` | The run a report describes, as the worker hands it back. |
 | `SeriesSummary` | `{ total: number; complete: number; incomplete: number; unsolvable: number; stopped: number; meanPieces: number \| null; meanMaxLen: number \| null; meanGenMs: number \| null }` | A series in numbers; the means are `null` when no board was complete. |
-| `StatKey` | `'board' \| 'pieces' \| 'avgLen' \| 'longest' \| 'lengths' \| 'f0' \| 'almost' \| 'D' \| 'corridor' \| 'span' \| 'spanTop' \| 'spanMax' \| 'outDeg' \| 'maxOut' \| 'blockDist' \| 'bends' \| 'coil' \| 'border' \| 'multi' \| 'stall' \| 'absorbed' \| 'backtracks' \| 'time' \| 'farBlock' \| 'turnsPerCell' \| 'ownSides' \| 'neighbours' \| 'rework' \| 'stuckBy' \| 'stuckLen' \| 'selfTrap' \| 'shortened'` | What a row is, in any language: a surface picks rows by it rather than by position. |
+| `StatKey` | `(typeof STAT_KEYS)[number]` | What a row is, in any language: a surface picks rows by it rather than by position. |
 | `StatRow` | `{ readonly kind: 'row' \| 'separator'; readonly key: StatKey \| null; readonly label: string; readonly value: string; readonly help: string; readonly num: number \| undefined }` | One row of the statistics table, or a separator between groups; `num` is the number compared with the previous run. |
 
 ### `@arrowz/engine/docs`
@@ -345,7 +351,7 @@ out when it fits in a line and described when it does not.
 
 | Type | Shape | Meaning |
 |---|---|---|
-| `Docs` | `{ readonly props: Record<PropKey, string>; readonly members: Record<MemberKey, string>; readonly events: Record<EventKey, string>; readonly slots: Record<SlotKey, string>; readonly keys: Record<LabKey, string>; readonly palette: Record<PaletteId, string>; readonly linkFields: Record<LinkField, string>; readonly colProp: string; readonly colType: string; readonly colAttr: string; readonly colDefault: string; readonly colMember: string; readonly colSignature: string; readonly colEvent: string; readonly colSlot: string; readonly colKey: string; readonly colCommand: string; readonly colSection: string; readonly colField: string; readonly colDetail: string; readonly colDescription: string; readonly infoLabel: string }` | What the Docs tab's reference tables need in one language: a description per row, the column names and the name of a page's note. |
+| `Docs` | `{ readonly props: Record<PropKey, string>; readonly members: Record<MemberKey, string>; readonly events: Record<EventKey, string>; readonly slots: Record<SlotKey, string>; readonly keys: Record<LabKey, string>; readonly palette: Record<PaletteId, string>; readonly linkFields: Record<LinkField, string>; readonly env: Record<EnvVar, string>; readonly colProp: string; readonly colType: string; readonly colAttr: string; readonly colDefault: string; readonly colMember: string; readonly colSignature: string; readonly colEvent: string; readonly colSlot: string; readonly colKey: string; readonly colCommand: string; readonly colSection: string; readonly colField: string; readonly colGroup: string; readonly colFlag: string; readonly colRange: string; readonly colStep: string; readonly colFlags: string; readonly colVariable: string; readonly colDetail: string; readonly colDescription: string; readonly infoLabel: string }` | What the Docs tab's reference tables need in one language: a description per row, the column names and the name of a page's note. |
 | `EventKey` | `(typeof ELEMENT_EVENTS)[number]['key']` | The name of an event row. |
 | `EventRow` | `{ readonly key: string; readonly detail: string }` | One event and the type of its detail. |
 | `LabKey` | `'G' \| '[' \| ']' \| 'R' \| 'S' \| 'F' \| 'Esc' \| '⌘G' \| '⌘S' \| '⌘K'` | A key of the lab's key table, as the lab shows it. |

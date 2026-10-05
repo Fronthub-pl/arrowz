@@ -12,6 +12,7 @@ import {
   DEFAULT_VIEW,
   drawnViolations,
   drawOf,
+  ENV_VARS,
   flagViolation,
   helpText,
   knobFlag,
@@ -1053,4 +1054,19 @@ Deno.test('every retired spelling is refused as retired, and none is a flag', ()
     assertEquals(problems.map((p) => p.kind), ['retired'], flag)
     assertEquals(CARVE_FLAGS.includes(flag), false, flag)
   }
+})
+
+// The help's last two lines, as they print today: `environment()` joins ENV_VARS
+// and wraps at the same place, so moving the list into data changes no output.
+Deno.test('the help names every environment variable, on the same two lines', () => {
+  for (const knobs of [false, true]) {
+    assertEquals(helpText({ knobs }).split('\n').slice(-2), [
+      'Environment: ARROWZ_BOARDS_DIR (board store), CARVE_TRACE=1 (progress on stderr), GIANT_DEBUG=1,',
+      'CARVE_TIMEOUT_S=N (abort after N seconds; the board built so far is stored as incomplete).',
+    ])
+  }
+  assertEquals(
+    ENV_VARS.map((v) => v.name),
+    ['ARROWZ_BOARDS_DIR', 'CARVE_TRACE', 'GIANT_DEBUG', 'CARVE_TIMEOUT_S'],
+  )
 })

@@ -14,6 +14,7 @@
 // its API name: neutral.test.ts greps this file's TEXT, not its code, so a
 // sentence about the DOM can trip a rule this module does not break.
 import type { Lang } from './lab-i18n.ts'
+import type { EnvVar } from './command.ts'
 
 /** One row of the property table. `attribute` is null when the property has none. */
 export interface PropRow {
@@ -157,6 +158,8 @@ export interface Docs {
   readonly keys: Record<LabKey, string>
   readonly palette: Record<PaletteId, string>
   readonly linkFields: Record<LinkField, string>
+  /** The environment variables of the CLI page's table, by name (`ENV_VARS`). */
+  readonly env: Record<EnvVar, string>
   readonly colProp: string
   readonly colType: string
   readonly colAttr: string
@@ -170,6 +173,14 @@ export interface Docs {
   /** The palette's section a row sits in: run or go to. */
   readonly colSection: string
   readonly colField: string
+  /** The knob table's columns; the default and the description are the shared `colDefault`, `colDescription`. */
+  readonly colGroup: string
+  readonly colFlag: string
+  readonly colRange: string
+  readonly colStep: string
+  /** The rule table's first column: the flags a rule is about. */
+  readonly colFlags: string
+  readonly colVariable: string
   /** The event's payload column. */
   readonly colDetail: string
   /** The last column of every table: the translated one. */
@@ -288,6 +299,12 @@ const EN = {
     pad: 'The margin around the board, in cells.',
     lang: "The page's language, `en` or `pl`.",
   },
+  env: {
+    ARROWZ_BOARDS_DIR: 'Where boards are saved, instead of `packages/cli/boards/`.',
+    CARVE_TRACE: "Set to `1`, prints the generator's progress on stderr while it works.",
+    GIANT_DEBUG: 'Set to `1`, prints on stderr how each arrow of the skeleton was grown.',
+    CARVE_TIMEOUT_S: 'Gives up a board after that many seconds; `carve` saves what it laid so far, marked not complete.',
+  },
   colProp: 'Property',
   colType: 'Type',
   colAttr: 'Attribute',
@@ -300,6 +317,12 @@ const EN = {
   colCommand: 'Command',
   colSection: 'Section',
   colField: 'Field',
+  colGroup: 'Group',
+  colFlag: 'Flag',
+  colRange: 'Range',
+  colStep: 'Step',
+  colFlags: 'Flags',
+  colVariable: 'Variable',
   colDetail: 'Detail',
   colDescription: 'Description',
   infoLabel: 'Note',
@@ -417,6 +440,12 @@ const PL = {
     pad: 'Margines wokół planszy, w komórkach.',
     lang: 'Język strony, `en` albo `pl`.',
   },
+  env: {
+    ARROWZ_BOARDS_DIR: 'Gdzie zapisywać plansze zamiast `packages/cli/boards/`.',
+    CARVE_TRACE: 'Ustawiona na `1` wypisuje na stderr postęp generatora w trakcie pracy.',
+    GIANT_DEBUG: 'Ustawiona na `1` wypisuje na stderr, jak rosła każda strzałka szkieletu.',
+    CARVE_TIMEOUT_S: 'Przerywa planszę po tylu sekundach; `carve` zapisuje to, co zdążył ułożyć, jako niepełną.',
+  },
   colProp: 'Właściwość',
   colType: 'Typ',
   colAttr: 'Atrybut',
@@ -429,6 +458,12 @@ const PL = {
   colCommand: 'Polecenie',
   colSection: 'Sekcja',
   colField: 'Pole',
+  colGroup: 'Grupa',
+  colFlag: 'Flaga',
+  colRange: 'Zakres',
+  colStep: 'Krok',
+  colFlags: 'Flagi',
+  colVariable: 'Zmienna',
   colDetail: 'Szczegóły',
   colDescription: 'Opis',
   infoLabel: 'Uwaga',

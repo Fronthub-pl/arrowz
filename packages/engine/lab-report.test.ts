@@ -7,6 +7,7 @@ import {
   type ReportInput,
   reportRows,
   seedRunOf,
+  STAT_KEYS,
   type StatKey,
   type StatRow,
   summariseSeries,
@@ -87,6 +88,14 @@ Deno.test('reportRows returns 32 rows and 5 separators', () => {
   const rows = reportRows(run(20, 20, 3), params, dictionary('en'))
   assertEquals(rows.filter((r) => r.kind === 'row').length, 32)
   assertEquals(rows.filter((r) => r.kind === 'separator').length, 5)
+})
+
+Deno.test('STAT_KEYS is every row reportRows returns, in its order', () => {
+  const rows = reportRows(run(20, 20, 7), { ...defaultParams(), W: 20, H: 20, seed: 7 }, dictionary('en'))
+  assertEquals(
+    rows.filter((row) => row.kind === 'row').map((row) => row.key),
+    [...STAT_KEYS],
+  )
 })
 
 // A surface picks rows by what they are (the
