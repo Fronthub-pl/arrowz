@@ -8,7 +8,7 @@ Arrowz is a puzzle. You get a rectangle packed with arrows, and you clear it one
 
 A board is a grid of cells, and every cell is covered by an arrow. An arrow is a line that walks from cell to cell — up, down, left or right, never across itself — with an arrowhead at one end that says which way it goes. Arrows run from two cells to several hundred.
 
-A real board draws every arrow in one colour, because telling the arrows apart by eye is the game. The small boards below give each arrow its own colour, so it is easy to follow.
+A real board draws every arrow in one colour, because telling the arrows apart by eye is the game. The small boards below show only the arrows that matter, each in its own colour, so it is easy to follow.
 
 You win when the board is empty, and lose when you run out of lives. You can never get stuck: while arrows remain, at least one of them is free, so the whole difficulty is in _seeing_ which.
 
@@ -16,7 +16,7 @@ You win when the board is empty, and lose when you run out of lives. You can nev
 
 You tap an arrow, and it tries to drive straight off the board in the direction its arrowhead points. Only the **path to the edge** matters: the straight strip of cells from the arrowhead to the edge of the board.
 
-**If the path is clear, the arrow leaves.** Try it on the board below. The hint on the board says how to play an arrow: a click with ⌘ held (Ctrl on Windows and Linux) or a tap, unless the board has been switched to plain clicks.
+**If the path is clear, the arrow leaves.** Try it on the board below: click an arrow with ⌘ held (Ctrl on Windows and Linux), or tap it. The ☝ button on the board switches it to plain clicks.
 
 ::play{board="rule-free"}
 
@@ -30,7 +30,7 @@ The shape of an arrow does not matter. It travels along its own body, every cell
 
 ## What the generator promises {#promises}
 
-Every board the generator hands back has been checked:
+Every complete board the generator hands back has been checked:
 
 - **Nothing is left over.** Every cell belongs to exactly one arrow: no gaps, no overlaps.
 - **No arrow is a single cell.** The shortest arrow is two cells, because a single cell would have no direction to point in.

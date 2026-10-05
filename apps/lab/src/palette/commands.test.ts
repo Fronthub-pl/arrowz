@@ -455,7 +455,7 @@ describe('the matcher', () => {
 
   // The docs rows' names start with 'docs': the promoted rank, which the case
   // above does not reach.
-  it('keeps the catalogue order between two rows that both get promoted', () => {
+  it('keeps the catalogue order between the rows that all get promoted', () => {
     const rows = buildCommands(deps(), useStore.getState())
     const catalogueOrder = rows.map((row) => row.id)
     const matches = matchCommands(rows, 'docs').map((row) => row.id)

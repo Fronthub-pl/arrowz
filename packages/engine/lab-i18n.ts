@@ -334,7 +334,7 @@ export const EN = {
     argUnknown: (arg: string) => `${arg} is not a flag this command knows`,
     argMissing: (flag: string) => `the command has no ${flag}`,
     argUnclosedQuote: (arg: string) => `a quote has no end: ${arg}`,
-    /** The accessible name of the documentation's own two-page navigation. */
+    /** The accessible name of the documentation's own navigation. */
     docsNavLabel: 'Documentation pages',
     docsArrowz: 'Arrowz',
     docsElement: 'Board element',

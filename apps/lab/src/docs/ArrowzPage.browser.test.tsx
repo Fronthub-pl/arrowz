@@ -65,6 +65,7 @@ test('playing one board leaves the others as they were', async () => {
   const boards = [...screen.container.querySelectorAll<ArrowzBoard>('figure arrowz-board')]
   const first = boards[0]
   if (first === undefined) throw new Error('no board')
+  // The board mounts asynchronously; wait until it has drawn before playing it.
   await expect.poll(() => first.viewport).not.toBeNull()
   await act(async () => {
     first.dispatchEvent(

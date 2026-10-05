@@ -28,7 +28,7 @@ function box(container: HTMLElement, selector: string): Element {
 /**
  * The docs tab, then the page's own link: the two navigations a reader makes.
  *
- * The last wait is on the page, not on the panel: both pages render the same
+ * The last wait is on the page, not on the panel: every page renders the same
  * tabpanel, and react-router navigates inside `startTransition`, so a visible
  * panel can still be the element page while the CLI page is on its way.
  */
@@ -73,7 +73,7 @@ test.each(['arrowz', 'element', 'cli'] as const)(
     expect(scroller().scrollWidth).toBe(scroller().clientWidth)
     // The panel is row three of that shell, no taller, and its own overflow is
     // what moves. `toBeCloseTo`, because `clientHeight` is whole pixels and the
-    // rect is not. `>` on the scroll height: both pages are longer than the
+    // rect is not. `>` on the scroll height: every page is longer than the
     // panel, so a panel that fits would mean the page lost its content.
     expect(panel.getBoundingClientRect().height).toBeCloseTo(main.getBoundingClientRect().height, 0)
     expect(panel.scrollHeight).toBeGreaterThan(panel.clientHeight)
@@ -241,8 +241,8 @@ test.each(['en', 'pl'] as const)(
   40_000,
 )
 
-// The document never scrolls sideways, at the eight supported widths, on both
-// pages, in both languages.
+// The document never scrolls sideways, at the eight supported widths, on every
+// page, in both languages.
 test.each([
   [1920, 1080],
   [1440, 900],
@@ -253,7 +253,7 @@ test.each([
   [600, 900],
   [375, 812],
 ] as const)(
-  'at %i×%i neither page scrolls the document sideways, in either language',
+  'at %i×%i no page scrolls the document sideways, in either language',
   async (w, h) => {
     await page.viewport(w, h)
     const screen = await openAt('/docs/element')
