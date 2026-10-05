@@ -1261,7 +1261,11 @@ Expected: PASS.
 
 In `docs/jev-guards.md`, section "Docs pages", replace `and, for the element page, the property, member, event and slot descriptions in
 \`packages/engine/lab-docs.ts\`` with `and the descriptions in \`packages/engine/lab-docs.ts\` its tables show: the property,
-member, event and slot descriptions with the element page, the key, palette and link-field descriptions with the lab page`. Then `deno fmt docs/jev-guards.md`.
+member, event and slot descriptions with the element page, the key, palette and link-field descriptions with the lab page`. The file says the same thing in two more places; change both:
+- In the CI list near the top, `\`packages/engine/lab-docs.ts\` for the element page` becomes `\`packages/engine/lab-docs.ts\` for the element and lab pages`.
+- In "Docs pages", `(pages: \`arrowz\`, \`element\`, \`cli\`;` becomes `(pages: \`arrowz\`, \`lab\`, \`cli\`, \`element\`;`, and `or \`lab-docs.ts\` for the element page.` becomes `or \`lab-docs.ts\` for the element and lab pages.`
+
+Then `grep -n "element page" docs/jev-guards.md` must show no sentence that still ties `lab-docs.ts` to the element page alone, and `deno fmt docs/jev-guards.md`.
 
 - [ ] **Step 4: Commit**
 
