@@ -272,7 +272,7 @@ test('every class row lists the class’s public members', () => {
   }
 })
 
-// --- The Docs tab's export tables ------------------------------------------------
+// --- The Docs tab's export tables ---------------------------------------------
 
 const DOCS_TABLES = {
   type: ELEMENT_TYPES,
@@ -311,7 +311,9 @@ test('the Docs tab lists every export once, in the table of its kind, and nothin
 /** The package a type is declared in: the engine's resolve to its emitted declarations. */
 function packageOf(symbol: ts.Symbol): string {
   const file = symbol.declarations?.[0]?.getSourceFile().fileName ?? ''
-  return file.includes('/engine/dist/') ? '@arrowz/engine' : '@arrowz/board-element'
+  if (file.includes('/engine/dist/')) return '@arrowz/engine'
+  if (file.startsWith(`${srcDir}/`)) return '@arrowz/board-element'
+  throw new Error(`${symbol.name} is declared in ${file}, neither package`)
 }
 
 /** A Shape cell read back: a union's literals unquoted, or a list of fields. */
@@ -350,8 +352,12 @@ test('every Docs class row spells its constructor and its public members', () =>
     if (decl === undefined || !ts.isClassDeclaration(decl)) throw new Error(`${row.key} is not a class declaration`)
     const ctor = decl.members.find(ts.isConstructorDeclaration)
     if (ctor === undefined) throw new Error(`${row.key} declares no constructor`)
-    const params = ctor.parameters.map((p) => `${p.name.getText()}: ${p.type?.getText() ?? 'unknown'}`)
-    expect(row.create, `constructor of ${row.key}`).toBe(`new ${row.key}(${params.join(', ')})`)
+    const signature = checker.getSignatureFromDeclaration(ctor)
+    if (signature === undefined) throw new Error(`${row.key} has no constructor signature`)
+    // The checker prints a constructor as `(params): Class`; the row writes `new Class(params)`.
+    const params = checker.signatureToString(signature)
+      .slice(0, -`: ${checker.typeToString(signature.getReturnType())}`.length)
+    expect(row.create, `constructor of ${row.key}`).toBe(`new ${row.key}${params}`)
     // The element's members have tables of their own, above the export tables.
     if (row.key === 'ArrowzBoard') {
       expect(row.members).toEqual([])
