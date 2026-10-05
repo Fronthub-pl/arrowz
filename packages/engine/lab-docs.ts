@@ -231,7 +231,7 @@ export type ClassKey = (typeof ELEMENT_CLASSES)[number]['key']
 /**
  * A constant's value as the Docs tab and the element's README write it: a
  * string quoted, a list in brackets, an object as `{ key: value }`, and an
- * object of objects (`THEMES`, `BOARD_LABELS`) as its keys alone.
+ * object with any object-valued field (`THEMES`, `BOARD_LABELS`) as its keys alone.
  */
 export function spellValue(value: unknown): string {
   if (typeof value === 'string') return `'${value}'`
@@ -470,7 +470,7 @@ const EN = {
   },
   types: {
     BoardData:
-      "What the element draws: the size, the arrow each cell belongs to (`-1` a cell left unfilled, `-2` a void, empty on purpose) and the arrows. The engine's `Board` is one.",
+      "What the element draws: the size, the arrow each cell belongs to (`-1` a cell no arrow filled, which `voids` shows, `-2` a hole left on purpose) and the arrows. The engine's `Board` is one.",
     BoardView:
       'The drawing options `view` takes: line, arrowhead, rounding, colour, highlight, empty cells and the four colours. Every field is optional on the property.',
     BoardViewport:
@@ -503,7 +503,8 @@ const EN = {
     resolveColours:
       'The colours a board is drawn with: the defaults, then the named theme, then `stated`, field by field.',
     themeOf: 'The built-in theme of that name, or null. An unknown name is ignored, never thrown on.',
-    assignPalette: "A colour index for each arrow: never a neighbour's, and among the free ones the least used so far.",
+    assignPalette:
+      "A colour index for each arrow: a neighbour's only when the palette has too few colours, and among the free ones the least used so far.",
     hueOf: "An arrow's diagnostic hue as CSS, from its id, not from its place in the list.",
     hueDegrees: "That hue's angle, in degrees.",
     hueBytes: 'That hue as red, green and blue bytes.',
@@ -523,7 +524,7 @@ const EN = {
     BOARD_LABELS: "The element's strings in each language.",
     GESTURE_STORAGE_KEY: "The key the browser keeps the player's gesture choice under.",
     ZOOM_STEP: 'The factor one button or key press zooms by.',
-    WHEEL_RATE: "The wheel's zoom rate: each turn scales by `exp(-deltaY * WHEEL_RATE)`.",
+    WHEEL_RATE: "The wheel's zoom rate: each wheel event scales by `exp(-deltaY * WHEEL_RATE)`.",
     MAX_CELL_PX: 'The closest zoom, in pixels per cell, unless the fit is already closer.',
     MIN_PAD_PX: 'The narrowest margin on screen, in pixels, unless `pad` is 0.',
     MIN_POINT_CELL_PX: 'Below this many pixels per cell the dot grid hides itself.',
@@ -692,7 +693,7 @@ const PL = {
   },
   types: {
     BoardData:
-      'To, co rysuje komponent: rozmiar, strzałka, do której należy każda komórka (`-1` komórka niewypełniona, `-2` pusta celowo), i same strzałki. `Board` z silnika jest takim obiektem.',
+      'To, co rysuje komponent: rozmiar, strzałka, do której należy każda komórka (`-1` komórka, której żadna strzałka nie wypełniła, a którą pokazuje `voids`, `-2` dziura zostawiona celowo), i same strzałki. `Board` z silnika jest takim obiektem.',
     BoardView:
       'Opcje rysowania, które przyjmuje `view`: linia, grot, zaokrąglenie, kolor, wyróżnienie, puste komórki i cztery kolory. We właściwości każde pole jest opcjonalne.',
     BoardViewport:
@@ -703,9 +704,9 @@ const PL = {
       'Każdy napis, który pokazuje komponent: przyciski, podpowiedzi dla każdego trybu gestów i systemu oraz komunikat, gdy brak WebGL.',
     BoardLang: 'Dwa języki tych napisów.',
     GestureMode:
-      "Reguła dla myszy i pióra: przy `'drag'` przesuwa zwykłe przeciągnięcie, przy `'click'` przeciągnięcie z klawiszem modyfikującym.",
+      "Reguła dla myszy i pióra: przy `'drag'` planszę przesuwa zwykłe przeciągnięcie, przy `'click'` – przeciągnięcie z klawiszem modyfikującym.",
     GameEvent:
-      'Jedno z trzech zdarzeń gry, tak jak host gry przekazuje je celowi: `type` nazywa zdarzenie, a `detail` to jego szczegóły.',
+      'Jedno z trzech zdarzeń gry, tak jak `GameHost` przekazuje je celowi: `type` nazywa zdarzenie, a `detail` to jego szczegóły.',
     GameTarget: 'To, czym steruje `GameHost`: dwie animacje i `emit`. Komponent jest jednym z celów.',
     Session:
       'Trwająca gra: plansza, które strzałki już wyjechały, ile zostało na planszy i czy gra jest wygrana. `index` jest wewnętrzny.',
@@ -724,9 +725,9 @@ const PL = {
   functions: {
     resolveColours:
       'Kolory, w których rysuje się plansza: domyślne, potem nazwany motyw, potem `stated`, pole po polu.',
-    themeOf: 'Wbudowany motyw o tej nazwie albo null. Nieznana nazwa jest pomijana i nigdy nie rzuca wyjątku.',
+    themeOf: 'Wbudowany motyw o tej nazwie albo null. Nieznana nazwa jest pomijana; funkcja nigdy nie rzuca wyjątku.',
     assignPalette:
-      'Indeks koloru dla każdej strzałki: nigdy taki jak u sąsiada, a spośród wolnych najrzadziej dotąd użyty.',
+      'Indeks koloru dla każdej strzałki: taki jak u sąsiada tylko wtedy, gdy w palecie brakuje kolorów, a spośród wolnych najrzadziej dotąd użyty.',
     hueOf: 'Odcień diagnostyczny strzałki jako CSS, liczony z jej identyfikatora, nie z miejsca na liście.',
     hueDegrees: 'Kąt tego odcienia, w stopniach.',
     hueBytes: 'Ten odcień jako bajty czerwieni, zieleni i błękitu.',
@@ -746,7 +747,7 @@ const PL = {
     BOARD_LABELS: 'Napisy komponentu w każdym języku.',
     GESTURE_STORAGE_KEY: 'Klucz, pod którym przeglądarka trzyma wybór gestu gracza.',
     ZOOM_STEP: 'Krotność powiększenia jednym przyciskiem albo klawiszem.',
-    WHEEL_RATE: 'Tempo powiększania kółkiem: każdy obrót skaluje o `exp(-deltaY * WHEEL_RATE)`.',
+    WHEEL_RATE: 'Tempo powiększania kółkiem: każde zdarzenie kółka skaluje o `exp(-deltaY * WHEEL_RATE)`.',
     MAX_CELL_PX: 'Największe powiększenie, w pikselach na komórkę, chyba że dopasowanie jest już większe.',
     MIN_PAD_PX: 'Najwęższy margines na ekranie, w pikselach, chyba że `pad` wynosi 0.',
     MIN_POINT_CELL_PX: 'Poniżej tylu pikseli na komórkę siatka kropek sama się chowa.',
