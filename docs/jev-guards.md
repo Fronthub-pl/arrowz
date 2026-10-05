@@ -2,7 +2,8 @@
 
 The Jev guards ask Jev, TypeSafe's System One model, whether a comment, a
 commit message, a pull request description, or a Polish dictionary entry
-breaks a written rule in `CLAUDE.md`. They only advise: a hook's
+breaks a written rule in `CLAUDE.md`, and whether a docs page agrees with its
+README and its translation and keeps the prose rules. They only advise: a hook's
 `additionalContext` is the only thing they produce, and nothing they say ever
 blocks a commit, a PR, an edit, or `deno task verify`.
 
@@ -42,6 +43,9 @@ same questions at the same thresholds as the hooks about:
 - the comments the PR adds: any comment block one of whose lines is added in
   `git diff base...head`, in the files the hook covers, at most 400 per run;
 - every commit message in `base..head`, merges left out;
+- the docs pages the PR changes (a page's Markdown in either language, or
+  `packages/engine/lab-docs.ts` for the element page), with the questions of
+  "Docs pages" below;
 - the PR title and body. An `edited` event asks only about these.
 
 Each finding is a `::warning` (on its line, for a comment) and a row in the
