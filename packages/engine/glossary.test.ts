@@ -92,7 +92,7 @@ function plFor(page: string): RegExp[] {
 }
 
 /** Code spans blanked: a key or a flag in backticks is code, not a word. */
-const withoutCode = (text: string): string => text.replace(/`[^`]*`/g, ' ')
+const withoutCode = (text: string): string => text.replace(/`[^`\n]*`/g, ' ')
 
 /** The element's reference descriptions, the rows of the Docs tab's tables. */
 function docsRows(lang: 'en' | 'pl'): [string, string][] {
@@ -168,20 +168,49 @@ Deno.test('plFor lifts the one word each docs page owns and keeps the rest', () 
 
 const DOCS_CONTENT = join(dirname(fromFileUrl(import.meta.url)), '..', '..', 'apps', 'lab', 'docs-content')
 
-/** A docs page's prose, line by line: code, directive attributes and link targets blanked, lines kept. */
-function proseLines(lang: string, page: string): [string, string][] {
-  const text = withoutCode(
-    Deno.readTextFileSync(join(DOCS_CONTENT, lang, `${page}.md`)).replace(
-      /^```[\s\S]*?^```/gm,
-      (block) => block.replace(/[^\n]/g, ''),
-    ),
-  )
-    .replace(/\{[^}\n]*\}/g, ' ')
+/**
+ * A docs page's prose: code, heading ids, directive lines and link targets
+ * blanked, lines kept so a finding names its line. A `{…}` anywhere else is prose.
+ */
+function proseOf(markdown: string): string {
+  return withoutCode(markdown.replace(/^```[\s\S]*?^```/gm, (block) => block.replace(/[^\n]/g, '')))
+    .replace(/\{#[a-z0-9-]+\}\s*$/gm, ' ')
+    .replace(/^::.*$/gm, '')
     .replace(/\]\([^)\n]*\)/g, ']')
     // The CLI's own name, as the helpText case above strips it: the CLI page's title.
     .replace(/deno task carve/g, ' ')
+}
+
+/** A docs page's prose, line by line, each line keyed by its place in the file. */
+function proseLines(lang: string, page: string): [string, string][] {
+  const text = proseOf(Deno.readTextFileSync(join(DOCS_CONTENT, lang, `${page}.md`)))
   return text.split('\n').map((line, i): [string, string] => [`docs-content/${lang}/${page}.md:${i + 1}`, line])
 }
+
+Deno.test('proseOf ends a code span at its line, so a lone backtick hides nothing below', () => {
+  const lines = proseOf('A lone ` backtick here\nthe pieces line\nends `code` ok').split('\n')
+  assert(lines.length === 3, `${lines.length} lines`)
+  assert(lines[1]?.includes('pieces'), `line 2 is "${lines[1]}"`)
+})
+
+Deno.test('proseOf keeps braces in prose', () => {
+  assert(proseOf('Clicks on {any pieces} are reported.').includes('pieces'))
+})
+
+Deno.test('proseOf blanks a heading id', () => {
+  assert(!proseOf('## Slots {#slots}').includes('{#slots}'))
+})
+
+Deno.test('proseOf blanks a directive line whole', () => {
+  assert(proseOf('::table{of="element-props"}') === '', `got "${proseOf('::table{of="element-props"}')}"`)
+})
+
+Deno.test('proseOf blanks a fenced block and keeps its lines', () => {
+  const markdown = 'before\n```sh\ndeno task pieces\n```\nafter'
+  const prose = proseOf(markdown)
+  assert(prose.split('\n').length === markdown.split('\n').length)
+  assert(prose.split('\n').slice(1, 4).every((line) => line === ''), `got "${prose}"`)
+})
 
 Deno.test('the docs pages use no retired word', () => {
   const pages = [...Deno.readDirSync(join(DOCS_CONTENT, 'en'))]
