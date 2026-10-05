@@ -2,7 +2,9 @@
 // truth: every export of mod.ts, every public member of the element and of
 // GameHost, every event and slot, and the shape of every exported type must be
 // in README.md, and nothing else may be. Each comparison runs both ways, so a
-// row for something deleted fails as surely as a missing row.
+// row for something deleted fails as surely as a missing row. The Docs tab's
+// export tables (`lab-docs.ts` in the engine) are held to the same reading of
+// `mod.ts`, at the end of this file.
 //
 // The API is read from the TypeScript checker, not from text: re-exports from
 // @arrowz/engine resolve to their declarations, and a type's fields are the
@@ -11,6 +13,7 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { ELEMENT_CLASSES, ELEMENT_CONSTANTS, ELEMENT_FUNCTIONS, ELEMENT_TYPES, spellValue } from '@arrowz/engine/docs'
 import ts from 'typescript'
 import { expect, test } from 'vitest'
 import * as api from './mod.ts'
@@ -248,28 +251,11 @@ test('every function row spells the parameter names the function declares', () =
   }
 })
 
-/**
- * A value as the Constant table writes it: strings quoted, objects as
- * `{ key: value }`, and an object of objects (THEMES, BOARD_LABELS) as its keys.
- */
-function spell(value: unknown): string {
-  if (typeof value === 'string') return `'${value}'`
-  if (Array.isArray(value)) return `[${value.map(spell).join(', ')}]`
-  if (typeof value === 'object' && value !== null) {
-    const entries = Object.entries(value)
-    if (entries.some(([, v]) => typeof v === 'object' && v !== null && !Array.isArray(v))) {
-      return `{ ${entries.map(([k]) => k).join(', ')} }`
-    }
-    return `{ ${entries.map(([k, v]) => `${k}: ${spell(v)}`).join(', ')} }`
-  }
-  return String(value)
-}
-
 test('every constant row spells the value the package exports', () => {
   const values = api as Record<string, unknown>
   for (const row of table('Constant')) {
     const name = code(row[0])
-    expect(code(row[1]), name).toBe(spell(values[name]))
+    expect(code(row[1]), name).toBe(spellValue(values[name]))
   }
 })
 
@@ -283,5 +269,96 @@ test('every class row lists the class’s public members', () => {
     const { methods, getters } = publicMembers(decl)
     const written = [...(row[2] ?? '').matchAll(/`(\w+)(?:\([^)]*\))?`/g)].map((m) => m[1] ?? '')
     expect(sorted(written), `members of ${name}`).toEqual(sorted([...methods.keys(), ...getters]))
+  }
+})
+
+// --- The Docs tab's export tables ------------------------------------------------
+
+const DOCS_TABLES = {
+  type: ELEMENT_TYPES,
+  function: ELEMENT_FUNCTIONS,
+  constant: ELEMENT_CONSTANTS,
+  class: ELEMENT_CLASSES,
+} as const
+
+/** The table an export belongs in, by its declaration. */
+function kindOf(symbol: ts.Symbol): keyof typeof DOCS_TABLES {
+  const decl = symbol.declarations?.[0]
+  if (decl === undefined) throw new Error(`${symbol.name} has no declaration`)
+  if (ts.isFunctionDeclaration(decl)) return 'function'
+  if (ts.isVariableDeclaration(decl)) return 'constant'
+  if (ts.isClassDeclaration(decl)) return 'class'
+  if (ts.isInterfaceDeclaration(decl) || ts.isTypeAliasDeclaration(decl)) return 'type'
+  throw new Error(`${symbol.name} is a ${ts.SyntaxKind[decl.kind]}, which no table holds`)
+}
+
+test('the Docs tab lists every export once, in the table of its kind, and nothing else', () => {
+  const listed: string[] = Object.values(DOCS_TABLES).flatMap((rows) => rows.map((row) => row.key))
+  const twice = listed.filter((key, i) => listed.indexOf(key) !== i)
+  expect(twice, 'listed twice').toEqual([])
+  // By name, both ways: two arrays of fifty differ in a diff Vitest truncates to their lengths.
+  expect([...exports.keys()].filter((name) => !listed.includes(name)), 'exported, not listed').toEqual([])
+  expect(listed.filter((key) => !exports.has(key)), 'listed, not exported').toEqual([])
+  for (const [kind, rows] of Object.entries(DOCS_TABLES)) {
+    for (const row of rows) {
+      const symbol = exports.get(row.key)
+      if (symbol === undefined) throw new Error(`${row.key} is not exported`)
+      expect(kindOf(symbol), row.key).toBe(kind)
+    }
+  }
+})
+
+/** The package a type is declared in: the engine's resolve to its emitted declarations. */
+function packageOf(symbol: ts.Symbol): string {
+  const file = symbol.declarations?.[0]?.getSourceFile().fileName ?? ''
+  return file.includes('/engine/dist/') ? '@arrowz/engine' : '@arrowz/board-element'
+}
+
+/** A Shape cell read back: a union's literals unquoted, or a list of fields. */
+function itemsOf(shape: string): { by: 'fields' | 'literals'; values: string[] } {
+  if (shape.startsWith("'")) return { by: 'literals', values: shape.split(' | ').map((item) => item.slice(1, -1)) }
+  return { by: 'fields', values: shape.split(', ') }
+}
+
+test('every Docs type row names its package and spells the shape the type declares', () => {
+  for (const row of ELEMENT_TYPES) {
+    const symbol = exports.get(row.key)
+    if (symbol === undefined) throw new Error(`${row.key} is not exported`)
+    expect(row.from, `package of ${row.key}`).toBe(packageOf(symbol))
+    const declared = shapeOf(symbol)
+    const written = itemsOf(row.shape)
+    expect(written.by, `shape of ${row.key}`).toBe(declared.by)
+    expect(sorted(written.values), `shape of ${row.key}`).toEqual(sorted(declared.values))
+  }
+})
+
+test('every Docs function row spells the signature the function declares', () => {
+  for (const row of ELEMENT_FUNCTIONS) {
+    const decl = exports.get(row.key)?.declarations?.[0]
+    if (decl === undefined || !ts.isFunctionDeclaration(decl)) {
+      throw new Error(`${row.key} is not a function declaration`)
+    }
+    const signature = checker.getSignatureFromDeclaration(decl)
+    if (signature === undefined) throw new Error(`${row.key} has no signature`)
+    expect(row.signature, `signature of ${row.key}`).toBe(`${row.key}${checker.signatureToString(signature)}`)
+  }
+})
+
+test('every Docs class row spells its constructor and its public members', () => {
+  for (const row of ELEMENT_CLASSES) {
+    const decl = exports.get(row.key)?.declarations?.[0]
+    if (decl === undefined || !ts.isClassDeclaration(decl)) throw new Error(`${row.key} is not a class declaration`)
+    const ctor = decl.members.find(ts.isConstructorDeclaration)
+    if (ctor === undefined) throw new Error(`${row.key} declares no constructor`)
+    const params = ctor.parameters.map((p) => `${p.name.getText()}: ${p.type?.getText() ?? 'unknown'}`)
+    expect(row.create, `constructor of ${row.key}`).toBe(`new ${row.key}(${params.join(', ')})`)
+    // The element's members have tables of their own, above the export tables.
+    if (row.key === 'ArrowzBoard') {
+      expect(row.members).toEqual([])
+      continue
+    }
+    const { methods, getters } = publicMembers(decl)
+    const spelled = [...getters, ...[...methods].map(([name, names]) => `${name}(${names.join(', ')})`)]
+    expect(sorted(row.members), `members of ${row.key}`).toEqual(sorted(spelled))
   }
 })
