@@ -44,12 +44,12 @@ async function openDocs(which: 'arrowz' | 'lab' | 'element' | 'cli') {
   await expect.element(screen.getByRole('tabpanel')).toBeVisible()
   // Each page's own marker: the Arrowz page has its three rule boards (the
   // hidden workspace has a board of its own, hence the `.fw-docs-body` scope),
-  // the CLI page the two terminal blocks, the element page the one code example, the Lab page its key table.
+  // the CLI page its help section, the element page the one code example, the Lab page its key table.
   const [marker, count] = (
     {
-      arrowz: ['.fw-docs-body arrowz-board', 3],
+      arrowz: ['.fw-docs-body arrowz-board[play]', 3],
       lab: ['.fw-docs-body table[aria-labelledby="docs-keys"]', 1],
-      cli: ['pre.fw-docs-term', 2],
+      cli: ['#docs-help', 1],
       element: ['pre.fw-docs-code', 1],
     } as const
   )[which]
@@ -88,13 +88,17 @@ test.each(['arrowz', 'lab', 'element', 'cli'] as const)(
   40_000,
 )
 
+/** The two help blocks: the terminal blocks that start as `--help` does. */
+const helpBlocks = (container: HTMLElement) =>
+  [...container.querySelectorAll('pre.fw-docs-term')].filter((pre) => pre.textContent?.startsWith('Usage:'))
+
 // The help table's longest line is 296 characters, about 2317px: the only thing
 // on either page wider than the panel, so it must scroll by itself. Measured,
 // because `overflow-x: auto` in force does not mean the block ever scrolls.
 test('at 1280×800 the CLI help scrolls sideways inside its own block', async () => {
   await page.viewport(1280, 800)
   const screen = await openDocs('cli')
-  const blocks = screen.container.querySelectorAll('pre.fw-docs-term')
+  const blocks = helpBlocks(screen.container)
   expect(blocks).toHaveLength(2)
   const panel = box(screen.container, '#docs-panel')
   // Neither block may be wider than the panel around it: a block that is
@@ -102,8 +106,8 @@ test('at 1280×800 the CLI help scrolls sideways inside its own block', async ()
   for (const block of blocks) expect(block.clientWidth).toBeLessThanOrEqual(panel.clientWidth)
   // Only the knob table overflows: the everyday form fits, so asserting that
   // it scrolls too would be asserting the viewport.
-  const knobs = blocks.item(1)
-  if (knobs === null) throw new Error('the knob block is not on the page')
+  const knobs = blocks[1]
+  if (knobs === undefined) throw new Error('the knob block is not on the page')
   expect(knobs.scrollWidth).toBeGreaterThan(knobs.clientWidth)
 }, 40_000)
 
@@ -152,7 +156,7 @@ test('a section of the other page opens that page at its heading', async () => {
   await page.viewport(1280, 800)
   const screen = await openAt('/docs/element')
   await screen.getByRole('link', { name: 'Every knob' }).click()
-  await expect.poll(() => screen.container.querySelectorAll('pre.fw-docs-term').length).toBe(2)
+  await expect.poll(() => screen.container.querySelector('#docs-knobs')).not.toBeNull()
   await expect.poll(() => below(screen.container, 'docs-knobs')).toBeCloseTo(8, 0)
   expect(box(screen.container, '#docs-panel').scrollTop).toBeGreaterThan(0)
   expect(scroller().scrollTop).toBe(0)
@@ -271,9 +275,9 @@ test.each([
       if (anchor === null) throw new Error(`no ${link}`)
       anchor.click()
       const marker = {
-        arrowz: '.fw-docs-body arrowz-board',
+        arrowz: '.fw-docs-body arrowz-board[play]',
         lab: '.fw-docs-body table[aria-labelledby="docs-keys"]',
-        cli: 'pre.fw-docs-term',
+        cli: '#docs-help',
         element: 'pre.fw-docs-code',
       }[which]
       await expect.poll(() => screen.container.querySelectorAll(marker).length).toBeGreaterThan(0)

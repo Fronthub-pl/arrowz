@@ -22,40 +22,44 @@ export function pct(v: number): string {
  * What a row is, whatever language it is in: the suffix of its label's
  * dictionary key (`stat_<key>`). A surface picks rows by it — the lab's
  * summary and its wide values — rather than by where they stand.
+ * `STAT_KEYS` lists them in the table's order.
  */
-export type StatKey =
-  | 'board'
-  | 'pieces'
-  | 'avgLen'
-  | 'longest'
-  | 'lengths'
-  | 'f0'
-  | 'almost'
-  | 'D'
-  | 'corridor'
-  | 'span'
-  | 'spanTop'
-  | 'spanMax'
-  | 'outDeg'
-  | 'maxOut'
-  | 'blockDist'
-  | 'bends'
-  | 'coil'
-  | 'border'
-  | 'multi'
-  | 'stall'
-  | 'absorbed'
-  | 'backtracks'
-  | 'time'
-  | 'farBlock'
-  | 'turnsPerCell'
-  | 'ownSides'
-  | 'neighbours'
-  | 'rework'
-  | 'stuckBy'
-  | 'stuckLen'
-  | 'selfTrap'
-  | 'shortened'
+export const STAT_KEYS = [
+  'board',
+  'pieces',
+  'avgLen',
+  'longest',
+  'lengths',
+  'f0',
+  'almost',
+  'farBlock',
+  'D',
+  'corridor',
+  'span',
+  'spanTop',
+  'spanMax',
+  'outDeg',
+  'maxOut',
+  'blockDist',
+  'bends',
+  'turnsPerCell',
+  'coil',
+  'ownSides',
+  'border',
+  'neighbours',
+  'multi',
+  'stall',
+  'absorbed',
+  'backtracks',
+  'time',
+  'rework',
+  'stuckBy',
+  'stuckLen',
+  'selfTrap',
+  'shortened',
+] as const
+
+export type StatKey = (typeof STAT_KEYS)[number]
 
 /** One line of the stats table: its key, label, shown value, help, and the number compared with the previous run. */
 export interface StatRow {

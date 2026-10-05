@@ -648,12 +648,39 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
   return out.join('\n')
 }
 
+/**
+ * The variables `carve` and `report` read, in the order `--help` names them,
+ * each as the help writes it. The tasks' `--allow-env` grants are these names
+ * (packages/cli/readme.test.ts), and the Docs page's table lists them.
+ */
+export const ENV_VARS = [
+  { name: 'ARROWZ_BOARDS_DIR', usage: 'ARROWZ_BOARDS_DIR (board store)' },
+  { name: 'CARVE_TRACE', usage: 'CARVE_TRACE=1 (progress on stderr)' },
+  { name: 'GIANT_DEBUG', usage: 'GIANT_DEBUG=1' },
+  {
+    name: 'CARVE_TIMEOUT_S',
+    usage: 'CARVE_TIMEOUT_S=N (abort after N seconds; the board built so far is stored as incomplete)',
+  },
+] as const
+
+export type EnvVar = (typeof ENV_VARS)[number]['name']
+
+/** Where `environment()` wraps: the width its two lines have always had. */
+const ENV_WIDTH = 100
+
 /** The environment variables, named the same way in both help texts. */
 function environment(): string {
-  return [
-    'Environment: ARROWZ_BOARDS_DIR (board store), CARVE_TRACE=1 (progress on stderr), GIANT_DEBUG=1,',
-    'CARVE_TIMEOUT_S=N (abort after N seconds; the board built so far is stored as incomplete).',
-  ].join('\n')
+  const lines: string[] = []
+  let line = 'Environment:'
+  ENV_VARS.forEach((v, i) => {
+    const item = `${v.usage}${i === ENV_VARS.length - 1 ? '.' : ','}`
+    if (line.length + 1 + item.length > ENV_WIDTH) {
+      lines.push(line)
+      line = item
+    } else line = `${line} ${item}`
+  })
+  lines.push(line)
+  return lines.join('\n')
 }
 
 /** Command text reproducing the board for the given parameters and view. */

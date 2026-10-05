@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { parseDocs } from './markdown'
+import { DOCS_PAGES } from './pages'
 import { problemsOf, shapeOf } from './shape'
 
 const PAGES = ['element', 'cli']
@@ -37,7 +38,7 @@ describe('problemsOf', () => {
     ['a relative link', '# T\n\n[x](cli.md)', 'is neither'],
     ['an unknown directive', '# T\n\n::video{src="x"}', '::video is not a docs directive'],
     ['an unknown attribute', '# T\n\n::table{of="element-props" wide}', '::table takes no wide'],
-    ['an unknown value', '# T\n\n::table{of="knobs"}', 'of="knobs" is not one of'],
+    ['an unknown value', '# T\n\n::table{of="nothing"}', 'of="nothing" is not one of'],
     ['a missing attribute', '# T\n\n::help', '::help needs form'],
     ['an unknown rule board', '# T\n\n::play{board="rule-nowhere"}', 'board="rule-nowhere" is not one of'],
     ['a rule board without its name', '# T\n\n::play', '::play needs board'],
@@ -73,5 +74,52 @@ describe('shapeOf', () => {
     ['another kind of list', '- a\n- b', '1. a\n2. b'],
   ])('tells %s apart', (_, a, b) => {
     expect(shapeOf(parseDocs(`# T\n\n${a}`))).not.toEqual(shapeOf(parseDocs(`# T\n\n${b}`)))
+  })
+})
+
+describe('board directives', () => {
+  const inPage = (md: string) => problemsOf(parseDocs(`# T\n\n## A {#a}\n\n${md}`), DOCS_PAGES)
+  test.each([
+    '::board[A board]{cmd="--width=20 --height=20"}',
+    '::board[Stats]{cmd="--width=20 --height=20" stats="pieces avgLen"}',
+    '::board[Big]{cmd="--width=1000 --height=1000" manual about="10"}',
+    ':::compare{stats="pieces"}\n::board[a]{cmd="--width=20 --height=20"}\n::board[b]{cmd="--width=20 --height=20 --seed=8"}\n:::',
+    ':::compare\n::board[a]{cmd="--width=20 --height=20"}\n::board[b]{cmd="--width=1000 --height=1000" manual about="10"}\n:::',
+  ])('accepts %s', (md) => {
+    expect(inPage(md)).toEqual([])
+  })
+
+  test.each([
+    ['::board{cmd="--width=20 --height=20"}', 'needs a label'],
+    ['::board[x]', 'needs cmd'],
+    ['::board[x]{cmd="deno task carve --width=20 --height=20"}', 'cmd: holds the flags only'],
+    ['::board[x]{cmd="--width=20 --height=20 --randomized"}', '--randomized'],
+    ['::board[x]{cmd="--width=600 --height=20"}', 'manual'],
+    ['::board[x]{cmd="--width=20 --height=20" manual}', 'about'],
+    ['::board[x]{cmd="--width=20 --height=20" about="10"}', 'manual'],
+    ['::board[x]{cmd="--width=20 --height=20" stats="arrows"}', 'arrows'],
+    ['::board[x]{cmd="--width=20 --height=20" size="2"}', 'takes no size'],
+    ['::table[x]{of="knobs"}', 'takes no label'],
+    [':::compare\n::board[a]{cmd="--width=20 --height=20"}\n:::', 'two boards'],
+    [
+      ':::compare\n::board[a]{cmd="--width=20 --height=20" stats="pieces"}\n::board[b]{cmd="--width=20 --height=20"}\n:::',
+      'stats',
+    ],
+    [':::compare\n::board[a]{cmd="--width=20 --height=20"}\nSome prose.\n:::', 'holds boards only'],
+    [':::row\n::board[a]{cmd="--width=20 --height=20"}\n:::', 'not a docs directive'],
+  ])('refuses %s', (md, needle) => {
+    expect(inPage(md).join(' | ')).toContain(needle)
+  })
+
+  test('the shape of a page lists a comparison and its boards, attributes sorted, labels out', () => {
+    const md =
+      ':::compare{stats="pieces"}\n::board[a]{cmd="--width=20 --height=20"}\n::board[b]{cmd="--width=20 --height=20 --seed=8"}\n:::'
+    const shape = shapeOf(parseDocs(`# T\n\n${md}`))
+    expect(shape).toEqual([
+      '#',
+      ':::compare{stats=pieces}',
+      '::board{cmd=--width=20 --height=20}',
+      '::board{cmd=--width=20 --height=20 --seed=8}',
+    ])
   })
 })

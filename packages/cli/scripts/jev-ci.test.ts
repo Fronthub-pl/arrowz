@@ -3,6 +3,7 @@ import {
   addedLines,
   annotation,
   commitsOf,
+  docsFinding,
   type Finding,
   planOf,
   prEventOf,
@@ -194,7 +195,17 @@ Deno.test('runCi asks Jev about a docs page the PR changes', async () => {
   const r = await runCi({ judge, event, git, read: (rel) => files[rel] ?? null, rule: RULE })
   assertEquals(r.checked.docs, 1)
   assertEquals(r.findings.map((f) => [f.flag.where, f.flag.question]), [[
-    'docs-content/en/cli.md:3',
+    'apps/lab/docs-content/en/cli.md:3',
     'contradicts_readme',
   ]])
+  assertEquals(r.findings.map((f) => [f.file, f.line]), [['apps/lab/docs-content/en/cli.md', 3]])
+})
+
+Deno.test('a docs finding carries its file and line when its where has them', () => {
+  const flag = { where: 'apps/lab/docs-content/en/cli.md:12', question: 'history', p: 0.9, excerpt: 'x' }
+  assertEquals(docsFinding(flag), { flag, file: 'apps/lab/docs-content/en/cli.md', line: 12 })
+  const pair = { ...flag, where: 'apps/lab/docs-content/pl/cli.md #knobs' }
+  assertEquals(docsFinding(pair), { flag: pair, file: 'apps/lab/docs-content/pl/cli.md' })
+  const row = { ...flag, where: 'packages/engine/lab-docs.ts env.CARVE_TRACE' }
+  assertEquals(docsFinding(row), { flag: row, file: 'packages/engine/lab-docs.ts' })
 })

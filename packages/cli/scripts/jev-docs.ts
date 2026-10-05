@@ -31,7 +31,7 @@ export const DOCS_GLOSSARY: readonly string[] = [
   'make or lay a board = carve',
 ]
 
-export const DOCS_QUESTIONS: Record<string, Noul> = {
+export const DOCS_QUESTIONS = {
   contradicts: {
     type: 'noul',
     instructions:
@@ -56,7 +56,7 @@ export const DOCS_QUESTIONS: Record<string, Noul> = {
       false: 'It leans on internal jargon or unexplained terms.',
     },
   },
-}
+} satisfies Record<string, Noul>
 
 // Measured on jev-1.13.0 against hand-made faults (docs/jev-guards.md, "Docs pages").
 export const CONTRADICTS_AT = 0.7
@@ -67,48 +67,92 @@ export const PLAIN_BELOW = 0.3
 const CONCURRENCY = 8
 const round = (p: number) => Math.round(p * 1000) / 1000
 
+// `history` is asked of the text alone: the CLI README tells the tool's past
+// itself, and beside it clean blocks scored as high as history (docs/jev-guards.md).
+const { history: HISTORY, ...WITH_README } = DOCS_QUESTIONS
+const HISTORY_QUESTION = { history: HISTORY }
+
+/** Both answers to one text as one; null only when Jev answered neither. */
+const merged = (a: Answers | null, b: Answers | null): Answers | null =>
+  a === null && b === null ? null : { ...a, ...b }
+
 export type DocsInput = { page: string; en: string; pl: string; source: string }
 
-/** A page's prose, block by block: code, directives and headings left out, a note's `>` taken off. */
+type Piece = { line: number; kind: 'text' | 'break' | 'heading' | 'row' | 'label'; text: string }
+
+const cells = (row: string) =>
+  row.trim().replace(/^\|/, '').replace(/\|$/, '').split(/(?<!\\)\|/).map((c) => c.trim()).join(' · ')
+
+/** The label of a `::board[…]{…}` line; the other directives have none. */
+const boardLabel = (raw: string) => /^::board\[(.*?)\](?:\{.*\})?\s*$/.exec(raw)?.[1]
+
+/** A page's lines as prose pieces: fences, table separators and directives dropped but a board's label, a bare `>` a break. */
+function pieces(markdown: string): Piece[] {
+  const out: Piece[] = []
+  let fence: string | null = null
+  markdown.split('\n').forEach((raw, i) => {
+    const line = i + 1
+    const marker = /^(```|~~~)/.exec(raw)?.[1]
+    if (fence !== null) {
+      if (marker === fence) fence = null
+      return
+    }
+    const label = boardLabel(raw)
+    if (marker !== undefined) {
+      fence = marker
+      out.push({ line, kind: 'break', text: '' })
+    } else if (label !== undefined) {
+      out.push({ line, kind: 'label', text: label })
+    } else if (raw.trim() === '' || /^>\s?$/.test(raw) || raw.startsWith('::')) {
+      out.push({ line, kind: 'break', text: '' })
+    } else if (raw.startsWith('#')) {
+      const text = raw.replace(/^#+\s*/, '').replace(/\s*\{#[a-z][a-z0-9-]*\}\s*$/, '').trim()
+      out.push({ line, kind: 'heading', text })
+    } else if (raw.startsWith('|')) {
+      if (!/^\|[\s:|-]+\|?\s*$/.test(raw)) out.push({ line, kind: 'row', text: cells(raw) })
+    } else {
+      out.push({ line, kind: 'text', text: raw.replace(/^>\s?/, '') })
+    }
+  })
+  return out
+}
+
+/** A page's prose, block by block: headings, table rows and board labels one block each, a note split at its blank `>`. */
 export function proseBlocks(markdown: string): { line: number; text: string }[] {
   const out: { line: number; text: string }[] = []
-  let fence = false
   let start = 0
   let lines: string[] = []
   const flush = () => {
     if (lines.length > 0) out.push({ line: start, text: lines.join(' ').trim() })
     lines = []
   }
-  markdown.split('\n').forEach((raw, i) => {
-    if (raw.startsWith('```')) {
-      flush()
-      fence = !fence
-    } else if (fence) {
-      return
-    } else if (raw.trim() === '' || raw.startsWith('#') || raw.startsWith('::')) {
-      flush()
+  for (const p of pieces(markdown)) {
+    if (p.kind === 'text') {
+      if (lines.length === 0) start = p.line
+      lines.push(p.text)
     } else {
-      if (lines.length === 0) start = i + 1
-      lines.push(raw.replace(/^>\s?/, ''))
+      flush()
+      if (p.kind !== 'break') out.push({ line: p.line, text: p.text })
     }
-  })
+  }
   flush()
   return out
 }
 
-/** A page's prose by section: the `{#id}` of each `##`, and `lead` before the first. */
+/** A page's prose by section: the `{#id}` of each `##`, and `lead` before the first; a heading is its section's. */
 export function sectionProse(markdown: string): Map<string, string> {
   const out = new Map<string, string>()
   let section = 'lead'
-  let fence = false
-  for (const raw of markdown.split('\n')) {
-    if (raw.startsWith('```')) fence = !fence
-    if (fence || raw.startsWith('```')) continue
+  const ids = new Map<number, string>()
+  markdown.split('\n').forEach((raw, i) => {
     const id = /^## .*\{#([a-z][a-z0-9-]*)\}\s*$/.exec(raw)?.[1]
+    if (id !== undefined) ids.set(i + 1, id)
+  })
+  for (const p of pieces(markdown)) {
+    if (p.kind === 'break') continue
+    const id = ids.get(p.line)
     if (id !== undefined) section = id
-    else if (raw.trim() !== '' && !raw.startsWith('#') && !raw.startsWith('::')) {
-      out.set(section, `${out.get(section) ?? ''}${raw.replace(/^>\s?/, '')}\n`)
-    }
+    out.set(section, `${out.get(section) ?? ''}${p.text}\n`)
   }
   return out
 }
@@ -131,6 +175,7 @@ export function textFlags(where: string, text: string, a: Answers | null): Flag[
 const DESCRIPTION_GROUPS = {
   element: ['props', 'members', 'events', 'slots'],
   lab: ['keys', 'palette', 'linkFields'],
+  cli: ['env'],
 } as const
 
 /** Whether `page` draws description tables from `lab-docs.ts`. */
@@ -154,23 +199,25 @@ function descriptionRows(page: string): { key: string; en: string; pl: string }[
 }
 
 export async function checkDocs(judge: Judge, input: DocsInput): Promise<Flag[]> {
-  const file = (lang: string) => `docs-content/${lang}/${input.page}.md`
+  const file = (lang: string) => `apps/lab/docs-content/${lang}/${input.page}.md`
   const texts = proseBlocks(input.en).map((b) => ({ where: `${file('en')}:${b.line}`, text: b.text }))
+  const enSections = sectionProse(input.en)
   const plSections = sectionProse(input.pl)
-  const pairs = [...sectionProse(input.en)].map(([id, en]) => ({
+  const ids = [...enSections.keys(), ...[...plSections.keys()].filter((id) => !enSections.has(id))]
+  const pairs = ids.map((id) => ({
     where: `${file('pl')} #${id}`,
-    en,
+    en: enSections.get(id) ?? '',
     pl: plSections.get(id) ?? '',
   }))
   for (const row of descriptionRows(input.page)) {
-    texts.push({ where: `lab-docs.ts ${row.key}`, text: row.en })
-    pairs.push({ where: `lab-docs.ts ${row.key}`, en: row.en, pl: row.pl })
+    const where = `packages/engine/lab-docs.ts ${row.key}`
+    texts.push({ where, text: row.en })
+    pairs.push({ where, en: row.en, pl: row.pl })
   }
-  const asked = await pool(
-    texts,
-    CONCURRENCY,
-    (t) => judge({ text: t.text, glossary: DOCS_GLOSSARY, source: input.source }, DOCS_QUESTIONS),
-  )
+  const asked = await pool(texts, CONCURRENCY, async (t) => {
+    const withReadme = await judge({ text: t.text, glossary: DOCS_GLOSSARY, source: input.source }, WITH_README)
+    return merged(withReadme, await judge({ text: t.text }, HISTORY_QUESTION))
+  })
   const paired = await pool(pairs, CONCURRENCY, (p) => judge({ key: p.where, en: p.en, pl: p.pl }, PAIR_QUESTIONS))
   const flags: Flag[] = []
   texts.forEach((t, i) => flags.push(...textFlags(t.where, t.text, asked[i] ?? null)))

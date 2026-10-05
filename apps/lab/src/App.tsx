@@ -6,6 +6,7 @@ import { useStoreSave } from './library/useStoreSave'
 import { CommandPalette } from './palette/CommandPalette'
 import { Workspace } from './routes/Workspace'
 import { PresetStrip } from './run/PresetStrip'
+import { RunControlContext } from './run/RunControlContext'
 import { useAutoRun } from './run/useAutoRun'
 import { useRun } from './run/useRun'
 import { useShownHash } from './run/useShownHash'
@@ -64,19 +65,21 @@ function Shell() {
   useBandReset()
   const menu = useStore((state) => state.ui.menu)
   return (
-    <div className={menu ? 'fw menu-open' : 'fw'}>
-      <TopBar presets={presetsInTop ? <PresetStrip control={control} /> : null} />
-      <TabRow />
-      <Workspace
-        control={control}
-        hidden={!onWorkspace}
-        tab={tabIndex === 1 ? 'library' : 'lab'}
-        presetsInTop={presetsInTop}
-      />
-      <AppRoutes />
-      <CommandPalette control={control} />
-      <BoardFileInput />
-    </div>
+    <RunControlContext value={control}>
+      <div className={menu ? 'fw menu-open' : 'fw'}>
+        <TopBar presets={presetsInTop ? <PresetStrip control={control} /> : null} />
+        <TabRow />
+        <Workspace
+          control={control}
+          hidden={!onWorkspace}
+          tab={tabIndex === 1 ? 'library' : 'lab'}
+          presetsInTop={presetsInTop}
+        />
+        <AppRoutes />
+        <CommandPalette control={control} />
+        <BoardFileInput />
+      </div>
+    </RunControlContext>
   )
 }
 

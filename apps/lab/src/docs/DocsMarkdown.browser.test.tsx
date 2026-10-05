@@ -1,7 +1,7 @@
-import { helpText } from '@arrowz/engine/command'
+import { helpText, KNOB_ROWS, RULE_ROWS } from '@arrowz/engine/command'
 import type { ArrowzBoard } from '@arrowz/board-element'
-import { ELEMENT_SLOTS } from '@arrowz/engine/docs'
-import { dictionary } from '@arrowz/engine/i18n'
+import { docsFor, ELEMENT_SLOTS } from '@arrowz/engine/docs'
+import { dictionary, PL } from '@arrowz/engine/i18n'
 import { act } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'
@@ -11,7 +11,10 @@ import { shownKeys } from '../shell/hotkeys'
 import { useStore } from '../state/store'
 import { VIEW_KEYS } from '../state/viewSchema'
 import { DocsMarkdown } from './DocsMarkdown'
-import { parseDocs } from './markdown'
+import { inlineOf, parseDocs, plainText } from './markdown'
+
+/** What a description reads as on the page: its inline Markdown without the markup. */
+const plainOf = (text: string) => plainText(inlineOf(text))
 
 beforeEach(() => useStore.getState().lang.setLang('en'))
 
@@ -199,4 +202,44 @@ test('::help draws the terminal text, plain', async () => {
   const screen = await show('# T\n\n## Help {#help}\n\n::help{form="short"}')
   expect(screen.container.querySelector('pre.fw-docs-term')?.textContent).toBe(helpText())
   expect(screen.container.querySelectorAll('button[aria-label="Copy: Help"]')).toHaveLength(1)
+})
+
+test('the knob table has a row per knob, its machine columns as the CLI prints them', async () => {
+  const screen = await show('# T\n\n## Every knob {#knobs}\n\n::table{of="knobs"}')
+  const rows = [...screen.container.querySelectorAll('table[aria-labelledby="docs-knobs"] tbody tr')]
+  expect(rows).toHaveLength(KNOB_ROWS.length)
+  const first = [...(rows[0]?.querySelectorAll('td') ?? [])].map((td) => td.textContent)
+  const row = KNOB_ROWS[0]
+  if (row === undefined) throw new Error('no knob rows')
+  expect(first.slice(0, 5)).toEqual([dictionary('en').d.groups[row.group], row.flag, row.values, row.step, row.def])
+})
+
+test('the knob, rule and env tables follow the language', async () => {
+  const screen = await show(
+    '# T\n\n## K {#knobs}\n\n::table{of="knobs"}\n\n## R {#rules}\n\n::table{of="rules"}\n\n## E {#env}\n\n::table{of="env"}',
+  )
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  const lastCell = (id: string) =>
+    screen.container.querySelector(`table[aria-labelledby="docs-${id}"] tbody tr td:last-child`)?.textContent
+  const rule = RULE_ROWS[0]
+  if (rule === undefined) throw new Error('no rules')
+  // The expected texts are the Polish data itself, not the code that draws them; the first knob row is --width.
+  await expect.poll(() => lastCell('knobs')).toBe(plainOf(PL.params.W.help))
+  expect(lastCell('rules')).toBe(plainOf(PL.reasons[rule.key]))
+  expect(lastCell('env')).toBe(plainOf(docsFor('pl').env.ARROWZ_BOARDS_DIR))
+  expect(screen.container.querySelector('table[aria-labelledby="docs-env"] th')?.textContent).toBe('Zmienna')
+})
+
+test('--start reads the start help, not the help of one of its two knobs', async () => {
+  const screen = await show('# T\n\n## K {#knobs}\n\n::table{of="knobs"}')
+  const start = [...screen.container.querySelectorAll('tbody tr')].find(
+    (tr) => tr.querySelector('td:nth-child(2)')?.textContent === '--start',
+  )
+  expect(start?.querySelector('td:last-child')?.textContent).toBe(plainOf(dictionary('en').d.start.help))
+})
+
+test('a code block is copied under the name of its nearest heading', async () => {
+  const screen = await show('# T\n\n## Part {#part}\n\n```sh\na\n```\n\n### Detail\n\n```sh\nb\n```')
+  await expect.element(screen.getByRole('button', { name: 'Copy: Part' })).toBeVisible()
+  await expect.element(screen.getByRole('button', { name: 'Copy: Detail' })).toBeVisible()
 })

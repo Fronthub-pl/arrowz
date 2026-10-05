@@ -68,8 +68,16 @@ test('each page lists its sections, as links to that page', async () => {
       ['Links', '/docs/lab'],
     ],
     [
-      ['Everyday help', '/docs/cli'],
+      ['Getting started', '/docs/cli'],
+      ['Making boards', '/docs/cli'],
+      ['Everyday settings', '/docs/cli'],
       ['Every knob', '/docs/cli'],
+      ['Where boards are saved', '/docs/cli'],
+      ['Environment variables', '/docs/cli'],
+      ['A standalone program', '/docs/cli'],
+      ['When something goes wrong', '/docs/cli'],
+      ['Words', '/docs/cli'],
+      ['What --help prints', '/docs/cli'],
     ],
     [
       ['Using it', '/docs/element'],

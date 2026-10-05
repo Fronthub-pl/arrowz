@@ -9,6 +9,7 @@ import { formatViolation, generate, layoutHash, PARAM_SPEC, validateParams } fro
 import {
   CARVE_FLAGS,
   COMMAND_PREFIX,
+  ENV_VARS,
   flagViolation,
   KNOB_ROWS,
   parseArgs,
@@ -264,6 +265,11 @@ Deno.test('every flag the CLI README names is one the CLI takes or refuses by na
 Deno.test('every variable the CLI README names is one a task may read', () => {
   const written = new Set([...cliReadme.matchAll(/\b(?:ARROWZ|CARVE|GIANT)_[A-Z_]+\b/g)].map((m) => m[0]))
   assertEquals([...written].filter((name) => !envGranted.has(name)), [])
+})
+
+// The help and the Docs page list ENV_VARS; the runtime lets the CLI read the grant.
+Deno.test('ENV_VARS is exactly what the tasks may read', () => {
+  assertEquals(ENV_VARS.map((v) => v.name).sort(), [...envGranted].sort())
 })
 
 Deno.test('every task the CLI README runs exists', () => {
