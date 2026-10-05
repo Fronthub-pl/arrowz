@@ -1,16 +1,19 @@
 /**
  * A parsed documentation page as React elements, block by block: no HTML
  * string reaches the DOM. The node types handled here are the ones
- * `problemsOf` (shape.ts) lets a page use; anything else renders nothing, and
- * the content guard fails before such a page ships. Headings move one level
- * down, because the shell owns `h1`.
+ * `problemsOf` (shape.ts) lets a page use, the `::table`, `::play`, `::help`
+ * and `::board` leaf directives and the `:::compare` container included;
+ * anything else renders nothing, and the content guard fails before such a
+ * page ships. Headings move one level down, because the shell owns `h1`.
  */
 import { helpText } from '@arrowz/engine/command'
 import type { Blockquote, Code, Heading, List, Root, RootContent, Table } from 'mdast'
 import type { LeafDirective } from 'mdast-util-directive'
 import type { ReactElement } from 'react'
 import { DocsBlock } from '../routes/DocsBlock'
+import { aboutOf, statKeysOf } from './boards'
 import { type CodeToken, highlightHtml, highlightJson, highlightSh } from './codeTokens'
+import { DocsBoard, DocsCompare } from './DocsBoard'
 import { DocsTable } from './DocsTable'
 import { Inline } from './Inline'
 import { type DocsSection, plainText, sectionIdOf } from './markdown'
@@ -74,6 +77,8 @@ function Block({ node, section, title }: Placed): ReactElement | null {
       return <Note node={node} />
     case 'leafDirective':
       return <Directive node={node} section={section} title={title} />
+    case 'containerDirective':
+      return node.name === 'compare' ? <DocsCompare node={node} /> : null
     default:
       return null
   }
@@ -208,6 +213,15 @@ function Directive({
     const board = attributes['board']
     return isRuleBoard(board) ? <RulePlay name={board} /> : null
   }
+  if (node.name === 'board')
+    return (
+      <DocsBoard
+        label={node.children}
+        cmd={attributes['cmd'] ?? ''}
+        stats={statKeysOf(attributes['stats'])}
+        about={aboutOf(attributes)}
+      />
+    )
   if (node.name !== 'help') return null
   const text = helpText({ knobs: attributes['form'] === 'knobs' })
   return (
