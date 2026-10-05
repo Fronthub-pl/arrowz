@@ -3,7 +3,9 @@ import { act } from 'react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
+import { silentQueue } from '../harness/docsWorkers'
 import { useStore } from '../state/store'
+import { DocsBoardsProvider } from './DocsBoards'
 import { DocsPageView } from './DocsPageView'
 // The boards take their size from docs.css; without the sheets they have none.
 import '../design/index.css'
@@ -14,13 +16,15 @@ const mount = () =>
   render(
     <MemoryRouter initialEntries={['/docs/arrowz']}>
       <div className="fw-docs-body">
-        <DocsPageView page="arrowz" />
+        <DocsBoardsProvider root={null} queue={silentQueue()}>
+          <DocsPageView page="arrowz" />
+        </DocsBoardsProvider>
       </div>
     </MemoryRouter>,
   )
 
 const figures = (container: HTMLElement) =>
-  [...container.querySelectorAll('figure')].map((figure) => figure.getAttribute('aria-label'))
+  [...container.querySelectorAll('figure.fw-docs-play')].map((figure) => figure.getAttribute('aria-label'))
 
 test('the page has its title and four sections, in order', async () => {
   const screen = await mount()
@@ -41,6 +45,13 @@ test('the rule is played on its three boards, in the order the prose takes them'
     'A horseshoe-shaped arrow with another arrow inside its bend, still free to leave',
   ])
   expect(screen.container.querySelectorAll('figure arrowz-board[play]')).toHaveLength(3)
+})
+
+test('the page shows the README’s two pictures as live boards', async () => {
+  const screen = await mount()
+  expect(
+    [...screen.container.querySelectorAll('figure.fw-docs-board')].map((f) => f.getAttribute('aria-label')),
+  ).toEqual(['A 40 by 40 board', 'A small board, each arrow in its own colour'])
 })
 
 test('the promises and the words are lists of six', async () => {
