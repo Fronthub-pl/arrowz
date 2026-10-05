@@ -15,12 +15,15 @@ import {
 
 function stubJudge(answer: (state: Record<string, unknown>) => Answers | null) {
   const calls: Record<string, unknown>[] = []
-  const judge: Judge = (state) => {
+  /** The question ids of each call, by its index in `calls`. */
+  const questions: string[][] = []
+  const judge: Judge = (state, asked) => {
     const s = state as Record<string, unknown>
     calls.push(s)
+    questions.push(Object.keys(asked))
     return Promise.resolve(answer(s))
   }
-  return { judge, calls }
+  return { judge, calls, questions }
 }
 
 const PAGE = [
@@ -81,7 +84,7 @@ Deno.test('checkDocs asks each prose block with the README and the renames, and 
   const flags = await checkDocs(judge, { page: 'cli', en: PAGE, pl, source: 'README' })
   // The CLI page also brings the env descriptions, which have their own test.
   const fromLabDocs = (c: Record<string, unknown>) => String(c.key ?? '').startsWith('packages/engine/lab-docs.ts')
-  const asked = calls.filter((c) => 'text' in c && !/^[A-Z_]+: /.test(String(c.text)))
+  const asked = calls.filter((c) => 'source' in c && !/^[A-Z_]+: /.test(String(c.text)))
   assertEquals(asked.map((c) => c.text), [
     '\\<arrowz-board>',
     'The lead, on two lines.',
@@ -98,6 +101,48 @@ Deno.test('checkDocs asks each prose block with the README and the renames, and 
     ['apps/lab/docs-content/en/cli.md:16', 'contradicts_readme'],
     ['apps/lab/docs-content/pl/cli.md #example', 'differs'],
   ])
+})
+
+Deno.test('checkDocs asks history of the text alone, the other questions with the README', async () => {
+  const { judge, calls, questions } = stubJudge(() => quiet)
+  await checkDocs(judge, { page: 'cli', en: PAGE, pl: PAGE, source: 'README' })
+  const textCalls = calls.flatMap((c, i) => ('text' in c ? [{ state: c, ids: questions[i] ?? [] }] : []))
+  const history = textCalls.filter((c) => c.ids.includes('history'))
+  const others = textCalls.filter((c) => !c.ids.includes('history'))
+  assert(history.length > 0)
+  assertEquals(history.length, others.length)
+  for (const c of history) {
+    assertEquals(c.ids, ['history'])
+    assertEquals(Object.keys(c.state), ['text'])
+  }
+  for (const c of others) {
+    assertEquals(c.ids.sort(), ['contradicts', 'plain'])
+    assertEquals(Object.keys(c.state).sort(), ['glossary', 'source', 'text'])
+  }
+})
+
+Deno.test('a board label is a prose block on its line, and prose of its section', () => {
+  const md = [
+    '# T',
+    '',
+    '## Boards {#boards}',
+    '',
+    ':::compare{stats="pieces"}',
+    '::board[`--seed=7` lays one board]{cmd="--width=20 --height=20 --seed=7"}',
+    '::board[and another]{cmd="--width=20 --height=20 --seed=8"}',
+    ':::',
+    '',
+    '::table{of="knobs"}',
+    '::board[A lone board]',
+  ].join('\n')
+  assertEquals(proseBlocks(md), [
+    { line: 1, text: 'T' },
+    { line: 3, text: 'Boards' },
+    { line: 6, text: '`--seed=7` lays one board' },
+    { line: 7, text: 'and another' },
+    { line: 11, text: 'A lone board' },
+  ])
+  assertEquals(sectionProse(md).get('boards'), 'Boards\n`--seed=7` lays one board\nand another\nA lone board\n')
 })
 
 Deno.test('checkDocs reads the element descriptions too, in both languages', async () => {

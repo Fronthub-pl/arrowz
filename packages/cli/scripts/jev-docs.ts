@@ -31,7 +31,7 @@ export const DOCS_GLOSSARY: readonly string[] = [
   'make or lay a board = carve',
 ]
 
-export const DOCS_QUESTIONS: Record<string, Noul> = {
+export const DOCS_QUESTIONS = {
   contradicts: {
     type: 'noul',
     instructions:
@@ -56,7 +56,7 @@ export const DOCS_QUESTIONS: Record<string, Noul> = {
       false: 'It leans on internal jargon or unexplained terms.',
     },
   },
-}
+} satisfies Record<string, Noul>
 
 // Measured on jev-1.13.0 against hand-made faults (docs/jev-guards.md, "Docs pages").
 export const CONTRADICTS_AT = 0.7
@@ -67,14 +67,26 @@ export const PLAIN_BELOW = 0.3
 const CONCURRENCY = 8
 const round = (p: number) => Math.round(p * 1000) / 1000
 
+// `history` is asked of the text alone: the CLI README tells the tool's past
+// itself, and beside it clean blocks scored as high as history (docs/jev-guards.md).
+const { history: HISTORY, ...WITH_README } = DOCS_QUESTIONS
+const HISTORY_QUESTION = { history: HISTORY }
+
+/** Both answers to one text as one; null only when Jev answered neither. */
+const merged = (a: Answers | null, b: Answers | null): Answers | null =>
+  a === null && b === null ? null : { ...a, ...b }
+
 export type DocsInput = { page: string; en: string; pl: string; source: string }
 
-type Piece = { line: number; kind: 'text' | 'break' | 'heading' | 'row'; text: string }
+type Piece = { line: number; kind: 'text' | 'break' | 'heading' | 'row' | 'label'; text: string }
 
 const cells = (row: string) =>
   row.trim().replace(/^\|/, '').replace(/\|$/, '').split(/(?<!\\)\|/).map((c) => c.trim()).join(' · ')
 
-/** A page's lines as prose pieces: fences, directives and table separators dropped, a bare `>` a break. */
+/** The label of a `::board[…]{…}` line; the other directives have none. */
+const boardLabel = (raw: string) => /^::board\[(.*?)\](?:\{.*\})?\s*$/.exec(raw)?.[1]
+
+/** A page's lines as prose pieces: fences, table separators and directives dropped but a board's label, a bare `>` a break. */
 function pieces(markdown: string): Piece[] {
   const out: Piece[] = []
   let fence: string | null = null
@@ -85,9 +97,12 @@ function pieces(markdown: string): Piece[] {
       if (marker === fence) fence = null
       return
     }
+    const label = boardLabel(raw)
     if (marker !== undefined) {
       fence = marker
       out.push({ line, kind: 'break', text: '' })
+    } else if (label !== undefined) {
+      out.push({ line, kind: 'label', text: label })
     } else if (raw.trim() === '' || /^>\s?$/.test(raw) || raw.startsWith('::')) {
       out.push({ line, kind: 'break', text: '' })
     } else if (raw.startsWith('#')) {
@@ -102,7 +117,7 @@ function pieces(markdown: string): Piece[] {
   return out
 }
 
-/** A page's prose, block by block: headings and table rows one block each, a note split at its blank `>`. */
+/** A page's prose, block by block: headings, table rows and board labels one block each, a note split at its blank `>`. */
 export function proseBlocks(markdown: string): { line: number; text: string }[] {
   const out: { line: number; text: string }[] = []
   let start = 0
@@ -199,11 +214,10 @@ export async function checkDocs(judge: Judge, input: DocsInput): Promise<Flag[]>
     texts.push({ where, text: row.en })
     pairs.push({ where, en: row.en, pl: row.pl })
   }
-  const asked = await pool(
-    texts,
-    CONCURRENCY,
-    (t) => judge({ text: t.text, glossary: DOCS_GLOSSARY, source: input.source }, DOCS_QUESTIONS),
-  )
+  const asked = await pool(texts, CONCURRENCY, async (t) => {
+    const withReadme = await judge({ text: t.text, glossary: DOCS_GLOSSARY, source: input.source }, WITH_README)
+    return merged(withReadme, await judge({ text: t.text }, HISTORY_QUESTION))
+  })
   const paired = await pool(pairs, CONCURRENCY, (p) => judge({ key: p.where, en: p.en, pl: p.pl }, PAIR_QUESTIONS))
   const flags: Flag[] = []
   texts.forEach((t, i) => flags.push(...textFlags(t.where, t.text, asked[i] ?? null)))

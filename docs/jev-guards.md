@@ -44,7 +44,7 @@ same questions at the same thresholds as the hooks about:
   `git diff base...head`, in the files the hook covers, at most 400 per run;
 - every commit message in `base..head`, merges left out;
 - the docs pages the PR changes (a page's Markdown in either language, or
-  `packages/engine/lab-docs.ts` for the element and lab pages), with the questions of
+  `packages/engine/lab-docs.ts` for the element, lab and CLI pages), with the questions of
   "Docs pages" below;
 - the PR title and body. An `edited` event asks only about these.
 
@@ -172,18 +172,25 @@ worktree's own project memory, which is usually empty.
 pages (`apps/lab/docs-content/{en,pl}/<page>.md`) and the descriptions in
 `packages/engine/lab-docs.ts` its tables show: the property, member, event and
 slot descriptions with the element page, the key, palette and link-field
-descriptions with the lab page. It asks four things:
+descriptions with the lab page, the environment-variable descriptions with the
+CLI page. A board's label (`::board[…]`) is prose too: a block of its own, and
+part of its section. It asks four things:
 
 | Question | Asked of | Flag when |
 |---|---|---|
 | `contradicts` (the page's README makes the text false) | every English prose block and every description the page's tables show, with the page's README and the glossary's renames in the state | `> 0.7` |
 | `same_meaning` (`PAIR_QUESTIONS`) | each section's English against its Polish, and each description pair | differs `> 0.54` (`DIFFERS_AT`) |
-| `history` (the text tells the project's past) | every English prose block | `> 0.85` |
-| `plain` (no unexplained internal term) | every English prose block | `< 0.3` |
+| `history` (the text tells the project's past) | every English prose block and description, with the text alone in the state | `> 0.85` |
+| `plain` (no unexplained internal term) | every English prose block and description, with the README and the renames, as `contradicts` | `< 0.3` |
+
+`history` is asked of the text alone: the CLI README tells the tool's own
+history, and with it in the state clean blocks scored up to 0.89, as high as
+hand-made history. `plain` keeps the README: without it, it flagged 11 of 97
+clean blocks of the CLI page (both measured below).
 
 By hand: `deno task jev:docs [page…]` (pages: `arrowz`, `lab`, `cli`, `element`;
 all by default). In CI, `jev-ci.ts` runs the same checks on the pages a PR changes:
-either language of a page, or `lab-docs.ts` for the element and lab pages. Like every
+either language of a page, or `lab-docs.ts` for the element, lab and CLI pages. Like every
 guard it only advises.
 
 Measured on jev-1.13.0, 2026-10-05, over the pages of the first docs PR, the
@@ -201,6 +208,20 @@ one.
 Without the glossary's renames (`DOCS_GLOSSARY`) in the state, `contradicts`
 read the renames as contradictions: the element lead with "arrows" scored
 0.57-0.65, the same sentence with "pieces" 0.10.
+
+Measured on jev-1.13.0, 2026-10-05, over the CLI page (97 English prose
+blocks, 11 section pairs) and hand-made faults:
+
+| Question | In the state | Measured |
+|---|---|---|
+| `contradicts` | the README | clean p90 0.27, max 0.76 (the page's lead, as the element lead before); faults 0.92 and 0.93 flagged, a changed default 0.65 and a changed range 0.35 missed |
+| `history` | the text alone | clean p90 0.33, max 0.87 (the retired-spellings entry); faults 0.89-0.95. With the CLI README in the state clean blocks reached 0.89, headings included |
+| `plain` | the README | clean min 0.39; faults 0.13 flagged and 0.37 missed. Without the README 11 of 97 clean blocks fell under 0.3 |
+| `same_meaning` | the section pair | clean pairs differ <= 0.28; two faulty Polish sections 0.97 and 0.99 |
+
+`contradicts` catches only the contradictions the README states in words close
+to the text. The thresholds are unchanged. Board labels were not read when these
+figures were taken; they are now (see above).
 
 Limits: `contradicts` knows only the README of its page, so a fact the README
 does not state is never checked. `plain` ranks well and calibrates badly, so
