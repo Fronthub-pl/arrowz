@@ -25,7 +25,7 @@ W Angularze dodaj `CUSTOM_ELEMENTS_SCHEMA` do swojego komponentu i powiąż `[bo
 
 ::table{of="element-props"}
 
-Komponent podaje też tło, które naprawdę namalował, jako zmienną CSS `--arrowz-paper` ustawioną na nim samym. Odczytasz ją przez `getComputedStyle(board).getPropertyValue('--arrowz-paper')` albo użyjesz jej w treści wewnątrz komponentu. Ponieważ jest ustawiona bezpośrednio na komponencie, nie da się nią go ostylować z zewnątrz ani jej nadpisać.
+Komponent podaje też tło, które naprawdę namalował, jako zmienną CSS `--arrowz-paper` ustawioną na nim samym. Odczytasz ją przez `getComputedStyle(board).getPropertyValue('--arrowz-paper')` albo użyjesz jej w treści wewnątrz komponentu. Ponieważ jest ustawiona bezpośrednio na komponencie, nie da się nią ostylować komponentu z zewnątrz, a nadpisać ją można tylko deklaracją z `!important`.
 
 ## Metody i gettery {#members}
 
@@ -39,7 +39,7 @@ Komponent podaje też tło, które naprawdę namalował, jako zmienną CSS `--ar
 
 ### Mysz i pióro
 
-Zwykłe przeciągnięcie przesuwa planszę. Kliknięcie z ⌘ (Ctrl na Windowsie i Linuksie) wykonuje ruch strzałką pod kursorem. Zwykłe kliknięcie nic nie robi, więc ręka, która drgnie przy przesuwaniu, nigdy nie kosztuje życia.
+Zwykłe przeciągnięcie przesuwa planszę. Kliknięcie z ⌘ (Ctrl na Windowsie i Linuksie) wykonuje ruch strzałką pod kursorem. Zwykłe kliknięcie nic nie robi, więc drgnięcie ręki przy przesuwaniu nigdy nie kosztuje życia.
 
 Z `interactive` i bez `play` to kliknięcie nie wykonuje ruchu: komponent zgłasza strzałkę jako `piece-click`, a Twoja strona decyduje, co pokazać.
 
@@ -59,9 +59,9 @@ Powtórne naciśnięcie — podwójne kliknięcie, podwójne stuknięcie — nie
 
 ## Powiększanie i przesuwanie {#zoom}
 
-Przy powiększaniu kółko trzyma punkt pod kursorem w miejscu: to, co jest pod wskaźnikiem, gdy kółko się obraca, zostaje pod nim także potem, na każdym kroku i w każdym miejscu planszy. Przy pomniejszaniu też, chyba że środek widoku musiałby wyjść poza zewnętrzną krawędź marginesu: tam widok zatrzymuje się na tej krawędzi, a punkt odjeżdża spod kursora.
+Przy powiększaniu kółko trzyma punkt pod kursorem w miejscu: to, co jest pod wskaźnikiem, gdy kółko się obraca, zostaje pod nim także potem, na każdym kroku i w każdym miejscu planszy. Przy pomniejszaniu też, chyba że widok już dotarł do krawędzi planszy: wtedy zatrzymuje się na marginesie, a punkt może odjechać spod kursora.
 
-Jest to możliwe, bo widok pilnuje tylko, żeby jego środek był na planszy albo na jej marginesie. Nie wymaga, żeby plansza wypełniała widok: przy krawędzi wypełnienie widoku oznaczałoby wyciąganie planszy spod kursora.
+Powiększanie jest dokładne, bo widok trzyma się tylko jednej reguły: jego środek zostaje na planszy albo na jej marginesie. Nie wymaga, żeby plansza wypełniała widok: przy krawędzi wypełnienie widoku oznaczałoby wyciąganie planszy spod kursora.
 
 Dlatego obok planszy możesz zobaczyć puste tło, a plansza mniejsza niż komponent nie jest już trzymana pośrodku. Przywracają ją `fit()`, klawisz `0` i przycisk w rogu. `zoomBy()` powiększa wokół środka komponentu, bo przycisk nie ma kursora, w którego stronę mógłby powiększać. Powiększenie mieści się między dopasowaną planszą a `MAX_CELL_PX` pikseli na komórkę.
 
@@ -69,7 +69,7 @@ Dlatego obok planszy możesz zobaczyć puste tło, a plansza mniejsza niż kompo
 
 Komponent, tak jak `<div>`, nie ma własnego rozmiaru: nadaj mu szerokość i wysokość albo umieść go w rodzicu, który je ma. Rysunek wypełnia komponent i nie bierze udziału w jego układzie.
 
-Liczbę albo kolor, których plansza nie narysuje, zastępuje się po cichu i tylko w rysunku: właściwość czy atrybut zachowuje Twoją wartość. Dotyczy to tak samo atrybutów, jak `view`.
+Liczbę albo kolor, których plansza nie narysuje, zastępuje się po cichu i tylko w rysunku: właściwość czy atrybut zachowuje Twoją wartość. Dotyczy to zarówno atrybutów, jak i `view`.
 
 - Wartość, która nie jest skończoną liczbą, staje się wartością domyślną.
 - `stroke` ma najwyżej jedną komórkę, a zero lub mniej staje się wartością domyślną.
@@ -86,7 +86,7 @@ Plansza ma z każdej strony margines szerokości `pad` komórek, więc grot w ko
 
 :::compare
 ::board[`--pad=0`]{cmd="--width=12 --height=12 --seed=7 --pad=0"}
-::board[domyślnie (`4`)]{cmd="--width=12 --height=12 --seed=7"}
+::board[domyślnie]{cmd="--width=12 --height=12 --seed=7"}
 ::board[`--pad=16`]{cmd="--width=12 --height=12 --seed=7 --pad=16"}
 :::
 
@@ -127,13 +127,13 @@ Podpowiedź i przyciski w rogu to domyślna zawartość slotów: dziecko z `slot
 
 ### Pasek
 
-Domyślny pasek trzyma się 8 px od krawędzi planszy, po jej wewnętrznej stronie. Gdy to, co w nim jest — jego własne kontrolki albo Twoje — nie mieści się w jednym rzędzie, pasek zawija się w górę: w dolnym rzędzie zostaje to, co jest pierwsze, czyli podpowiedź, a po niej przyciski powiększania, a reszta przechodzi wyżej. Podpowiedź szersza niż rząd zajmuje dolny rząd sama.
+Domyślny pasek trzyma się 8 px od krawędzi planszy, po jej wewnętrznej stronie. Gdy to, co w nim jest — jego własne kontrolki albo Twoje — nie mieści się w jednym rzędzie, pasek zawija się w górę: w dolnym rzędzie zostaje to, co jest pierwsze — podpowiedź i za nią przyciski powiększania — a reszta przechodzi wyżej. Podpowiedź szersza niż rząd zajmuje dolny rząd sama.
 
 Własny pasek w slocie `controls` zastępuje domyślny razem z jego położeniem. Pozostałe sloty są wewnątrz domyślnego paska, więc dziecko z `slot="fit"` obok własnego paska nie jest rysowane. Komponent ma `position: relative`, więc pasek z `absolute` układa się względem planszy; pasek bez pozycjonowania zostaje w normalnym przepływie, u góry planszy, narysowany na niej.
 
 ### Czego komponent pilnuje
 
-Na podstawionych kontrolkach `colors` i `gestures` komponent sam ustawia dwa atrybuty i sam nimi zarządza: `aria-pressed` oraz `hidden`, dopóki akcja jest niedostępna (brak `enableColors`; plansza ani `interactive`, ani `play`). `hidden` ukrywa przez wbudowane w przeglądarkę `display: none`, więc zadbaj, żeby `[hidden] { display: none }` wygrywało z Twoimi regułami `display` na tych kontrolkach. Przy grubym wskaźniku sloty `hint` i `gestures` nie są rysowane, razem z podstawioną treścią; we własnym pasku w `controls` tej reguły musisz pilnować samodzielnie.
+Na podstawionych kontrolkach `colors` i `gestures` komponent sam ustawia dwa atrybuty i sam nimi zarządza: `aria-pressed` oraz `hidden`, dopóki akcja jest niedostępna (bez `enableColors`; na planszy, która nie jest ani `interactive`, ani `play`). `hidden` ukrywa przez wbudowane w przeglądarkę `display: none`, więc zadbaj, żeby `[hidden] { display: none }` wygrywało z Twoimi regułami `display` na tych kontrolkach. Przy grubym wskaźniku sloty `hint` i `gestures` nie są rysowane, razem z podstawioną treścią; we własnym pasku w `controls` tej reguły musisz pilnować samodzielnie.
 
 Komponent nie nadaje podstawionym kontrolkom roli ani nazwy: podstaw `<button>` z własną nazwą dostępną. Kontrolka, która nie jest przyciskiem, też wykona swoją akcję po kliknięciu, ale nic poza tym.
 

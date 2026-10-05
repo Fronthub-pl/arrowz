@@ -25,7 +25,7 @@ In Angular, add `CUSTOM_ELEMENTS_SCHEMA` to the component and bind `[board]`. In
 
 ::table{of="element-props"}
 
-The element also tells you the background it actually painted, as the CSS custom property `--arrowz-paper` on its own host. Read it with `getComputedStyle(board).getPropertyValue('--arrowz-paper')`, or use it inside the element's own content. Because it is set on the host itself, you cannot style the element with it from outside, nor override it.
+The element also tells you the background it actually painted, as the CSS custom property `--arrowz-paper` on its own host. Read it with `getComputedStyle(board).getPropertyValue('--arrowz-paper')`, or use it inside the element's own content. Because it is set on the host itself, you cannot style the element with it from outside, nor override it short of `!important`.
 
 ## Methods and getters {#members}
 
@@ -59,9 +59,9 @@ A repeated press — a double click, a double tap — does nothing at all. The e
 
 ## Zoom and pan {#zoom}
 
-Zooming in, the wheel keeps the point under the cursor where it is: whatever is under the pointer when the wheel turns is still under it afterwards, at every step and anywhere on the board. Zooming out keeps it too, unless that would carry the centre of the view past the outer edge of the margin: there the view stops at that edge, and the point slides away from the cursor.
+Zooming in, the wheel keeps the point under the cursor where it is: whatever is under the pointer when the wheel turns is still under it afterwards, at every step and anywhere on the board. Zooming out keeps it too, except when the view is already up against an edge of the board: there the view stops at the margin, and the point can slide away from the cursor.
 
-That is possible because the view only keeps its centre on the board or its margin. It does not insist that the board fill the view: near an edge, filling the view would mean pulling the board out from under the cursor.
+Zooming in is exact because the view keeps only one rule: its centre stays on the board or its margin. It does not insist that the board fill the view: near an edge, filling the view would mean pulling the board out from under the cursor.
 
 So you may see empty background beside the board, and a board smaller than its host is no longer held in the middle. `fit()`, the `0` key and the corner button bring it back. `zoomBy()` zooms around the centre of the host, since a button has no cursor to zoom towards. The zoom stays between the fitted board and `MAX_CELL_PX` pixels per cell.
 
@@ -74,7 +74,7 @@ A number or a colour the board cannot draw is replaced, silently and only in the
 - A value that is not a finite number becomes its default.
 - `stroke` is at most one cell, and zero or less becomes the default.
 - Arrowhead sizes are never negative.
-- `top` is a whole number.
+- `top` is a whole number, never negative.
 - `pad` stays within `PAD_RANGE`, and `point-radius` within `POINT_RADIUS_RANGE`: past half a cell the dots would run into each other.
 - A colour the browser cannot read becomes the default of its field; in `palette` it is left out.
 
@@ -86,7 +86,7 @@ The board is drawn with a margin of `pad` cells on every side, so an arrowhead i
 
 :::compare
 ::board[`--pad=0`]{cmd="--width=12 --height=12 --seed=7 --pad=0"}
-::board[default (`4`)]{cmd="--width=12 --height=12 --seed=7"}
+::board[default]{cmd="--width=12 --height=12 --seed=7"}
 ::board[`--pad=16`]{cmd="--width=12 --height=12 --seed=7 --pad=16"}
 :::
 
