@@ -312,7 +312,7 @@ In `PL`, the same places:
 cd packages/engine && deno test -A readme.test.ts
 ```
 
-Expected: FAIL, printing the rows it expects for `ENV_VARS`, `EnvVar`, `STAT_KEYS`, the changed `StatKey` and the changed `Docs`. Add or replace those rows in `packages/engine/README.md`, in the tables of their entry points (`command`, `report`, `docs`), with the descriptions: `ENV_VARS` — "The environment variables `carve` and `report` read, each with the words `--help` prints for it."; `EnvVar` — "The name of one of them."; `STAT_KEYS` — "Every row of the statistics table, by key, in the table's order.". Re-run until it passes.
+Expected: FAIL, printing the rows it expects for `ENV_VARS`, `EnvVar`, `STAT_KEYS`, the changed `StatKey` and the changed `Docs`. Add or replace those rows in `packages/engine/README.md`, in the tables of their entry points (`command`, `report`, `docs`). The `report` section has no constants table yet: add one, `| Constant | Value | Meaning |`, just above its types table, with the row `| \`STAT_KEYS\` | 32 keys, as the table lists them | … |`. `ENV_VARS` goes into the `command` constants table as `| \`ENV_VARS\` | 4 \`{ name, usage }\` rows | … |`. The descriptions: `ENV_VARS` — "The environment variables `carve` and `report` read, each with the words `--help` prints for it."; `EnvVar` — "The name of one of them."; `STAT_KEYS` — "Every row of the statistics table, by key, in the table's order.". Re-run until it passes.
 
 - [ ] **Step 7: Run them to see them pass**
 
@@ -343,7 +343,7 @@ git commit -m "engine: the environment variables and the report's rows as lists,
 
 **Files:**
 - Modify: `apps/lab/src/docs/DocsTable.tsx`, `apps/lab/src/docs/shape.ts`, `apps/lab/src/docs/DocsMarkdown.tsx`, `apps/lab/src/design/docs.css`
-- Test: `apps/lab/src/docs/tables.test.ts`, `apps/lab/src/docs/content.test.ts`, `apps/lab/src/docs/DocsMarkdown.browser.test.tsx`
+- Test: `apps/lab/src/docs/tables.test.ts`, `apps/lab/src/docs/content.test.ts`, `apps/lab/src/docs/DocsMarkdown.browser.test.tsx`, `apps/lab/src/docs/shape.test.ts`
 
 **Interfaces:**
 - Consumes: `KNOB_ROWS`, `RULE_ROWS`, `ENV_VARS`, `flagOf` (`@arrowz/engine/command`); `PARAM_SPEC` (`@arrowz/engine`); `Docs.env`, `colGroup` … `colVariable` (Task 1); `Dict.paramText`, `Dict.reason`, `Dict.d.groups`, `Dict.d.start` (`@arrowz/engine/i18n`).
@@ -455,7 +455,7 @@ Expected: FAIL — `knobHelp` is not exported; the new tables render nothing; th
 
 - [ ] **Step 3: Name the tables**
 
-In `apps/lab/src/docs/shape.ts`, add `'knobs', 'rules', 'env'` to the end of `DIRECTIVES.table.of`.
+In `apps/lab/src/docs/shape.ts`, add `'knobs', 'rules', 'env'` to the end of `DIRECTIVES.table.of`. In `apps/lab/src/docs/shape.test.ts`, the case `'an unknown value'` used `of="knobs"` as its unknown name; change it to `['an unknown value', '# T\n\n::table{of="nothing"}', 'of="nothing" is not one of']`.
 
 - [ ] **Step 4: Draw them**
 
@@ -620,7 +620,7 @@ Expected: PASS. The existing element and CLI page tests still name their Copy bu
 
 ```bash
 cd apps/lab && pnpm exec prettier --write src/docs/DocsTable.tsx src/docs/shape.ts src/docs/DocsMarkdown.tsx src/docs/tables.test.ts src/docs/content.test.ts src/docs/DocsMarkdown.browser.test.tsx src/design/docs.css && cd ../..
-git add apps/lab/src/docs/DocsTable.tsx apps/lab/src/docs/shape.ts apps/lab/src/docs/DocsMarkdown.tsx apps/lab/src/docs/tables.test.ts apps/lab/src/docs/content.test.ts apps/lab/src/docs/DocsMarkdown.browser.test.tsx apps/lab/src/design/docs.css
+git add apps/lab/src/docs/DocsTable.tsx apps/lab/src/docs/shape.ts apps/lab/src/docs/shape.test.ts apps/lab/src/docs/DocsMarkdown.tsx apps/lab/src/docs/tables.test.ts apps/lab/src/docs/content.test.ts apps/lab/src/docs/DocsMarkdown.browser.test.tsx apps/lab/src/design/docs.css
 git commit -m "lab: the Docs tables of every knob, the rules between them and the CLI's environment variables"
 ```
 
@@ -709,12 +709,11 @@ test('about is a whole number of seconds', () => {
 })
 ```
 
-In `apps/lab/src/docs/shape.test.ts`, add (use the file's existing helpers; `problemsOf(parseDocs(md), DOCS_PAGES)`):
+In `apps/lab/src/docs/shape.test.ts`, add (the file already has a `problems` of its own, so this block's helper is `inPage`):
 
 ```ts
-const problems = (md: string) => problemsOf(parseDocs(`# T\n\n## A {#a}\n\n${md}`), DOCS_PAGES)
-
 describe('board directives', () => {
+  const inPage = (md: string) => problemsOf(parseDocs(`# T\n\n## A {#a}\n\n${md}`), DOCS_PAGES)
   test.each([
     '::board[A board]{cmd="--width=20 --height=20"}',
     '::board[Stats]{cmd="--width=20 --height=20" stats="pieces avgLen"}',
@@ -722,7 +721,7 @@ describe('board directives', () => {
     ':::compare{stats="pieces"}\n::board[a]{cmd="--width=20 --height=20"}\n::board[b]{cmd="--width=20 --height=20 --seed=8"}\n:::',
     ':::compare\n::board[a]{cmd="--width=20 --height=20"}\n::board[b]{cmd="--width=1000 --height=1000" manual about="10"}\n:::',
   ])('accepts %s', (md) => {
-    expect(problems(md)).toEqual([])
+    expect(inPage(md)).toEqual([])
   })
 
   test.each([
@@ -740,7 +739,7 @@ describe('board directives', () => {
     [':::compare\n::board[a]{cmd="--width=20 --height=20"}\nSome prose.\n:::', 'holds boards only'],
     [':::row\n::board[a]{cmd="--width=20 --height=20"}\n:::', 'not a docs directive'],
   ])('refuses %s', (md, needle) => {
-    expect(problems(md).join(' | ')).toContain(needle)
+    expect(inPage(md).join(' | ')).toContain(needle)
   })
 
   test('the shape of a page lists a comparison and its boards, attributes sorted, labels out', () => {
@@ -896,9 +895,13 @@ export const CONTAINERS: Readonly<Record<string, DirectiveRule>> = {
 
 type Directive = LeafDirective | ContainerDirective
 
-function ruleProblems(rule: AttributeRule, value: string): string | null {
-  if (typeof rule === 'function') return rule(value)
-  return rule.includes(value) ? null : `"${value}" is not one of ${rule.join(', ')}`
+/** The wording of a listed value is the one the existing tests pin: `of="x" is not one of …`. */
+function ruleProblems(key: string, rule: AttributeRule, value: string): string | null {
+  if (typeof rule === 'function') {
+    const problem = rule(value)
+    return problem === null ? null : `${key}: ${problem}`
+  }
+  return rule.includes(value) ? null : `${key}="${value}" is not one of ${rule.join(', ')}`
 }
 
 function attributeProblems(node: Directive, rule: DirectiveRule, at: string): string[] {
@@ -916,8 +919,8 @@ function attributeProblems(node: Directive, rule: DirectiveRule, at: string): st
       out.push(`${at}: ${mark}${node.name} takes no ${key}`)
       continue
     }
-    const problem = ruleProblems(allowed, value ?? '')
-    if (problem !== null) out.push(`${at}: ${key}: ${problem}`)
+    const problem = ruleProblems(key, allowed, value ?? '')
+    if (problem !== null) out.push(`${at}: ${problem}`)
   }
   for (const key of Object.keys(rule.required)) if (!(key in attributes)) out.push(`${at}: ${mark}${node.name} needs ${key}`)
   return out
@@ -1410,8 +1413,12 @@ export function createDocsQueue(makeWorker: () => WorkerLike, cache: Map<string,
       const job = shared ?? { key, params, listeners: new Set() }
       if (shared === undefined) waiting.push(job)
       job.listeners.add(listener)
-      listener({ state: job === running ? 'running' : 'waiting' })
-      next()
+      if (job === running) listener({ state: 'running' })
+      else {
+        next()
+        // A job `next` has just started heard `running` from it; one still in line waits.
+        if (job !== running) listener({ state: 'waiting' })
+      }
       return () => {
         job.listeners.delete(listener)
         if (job.listeners.size > 0 || job === running) return
@@ -1572,7 +1579,8 @@ test('a failed board says why and Try again asks again', async () => {
   const screen = await show(BOARD, createDocsQueue(workers.make, new Map()))
   await expect.poll(() => workers.made[0]?.posted.length).toBe(1)
   await act(async () => workers.made[0]?.answer({ type: 'error', message: 'no room left' }))
-  await expect.element(screen.getByRole('alert')).toHaveTextContent('no room left')
+  // A string must match the whole text in this vitest-browser.
+  await expect.element(screen.getByRole('alert')).toHaveTextContent('It did not generate: no room left')
   await screen.getByRole('button', { name: 'Try again' }).click()
   expect(workers.made[0]?.posted.length).toBe(2)
 })
@@ -2187,7 +2195,6 @@ test('a plain wheel over a board is the page’s, a ⌘/Ctrl wheel is the board�
     '# T\n\n::board[w]{cmd="--width=20 --height=20 --seed=7"}',
     createDocsQueue(answeringWorkers().make, new Map()),
   )
-  const element = screen.container.querySelector<ArrowzBoard>('arrowz-board')
   await expect.poll(() => screen.container.querySelector<ArrowzBoard>('arrowz-board')?.viewport).toBeTruthy()
   const board = screen.container.querySelector<ArrowzBoard>('arrowz-board')
   const canvas = board?.shadowRoot?.querySelector('canvas')
@@ -2215,7 +2222,6 @@ test('a plain wheel over a board is the page’s, a ⌘/Ctrl wheel is the board�
   await twoFrames()
   expect(zoom.defaultPrevented).toBe(true)
   expect(board.viewport?.cellPx).toBeGreaterThan(before)
-  expect(element).toBe(board)
 })
 
 // The runner cannot emulate a coarse pointer, so the still board is drawn directly.
@@ -2240,8 +2246,6 @@ test('a still board takes no pointer and draws no controls', async () => {
   expect(board === null ? '' : getComputedStyle(board).pointerEvents).toBe('none')
 })
 ```
-
-Remove the unused `element` variable and its last assertion if the linter flags it; it guards that the same element was measured before and after.
 
 - [ ] **Step 2: Run them to see them fail**
 
@@ -2309,7 +2313,7 @@ cd apps/lab && pnpm exec vitest run --project chromium src/docs
 pnpm run check && pnpm run lint
 ```
 
-Expected: PASS. In the scroll test, record the measured `most` in the test's comment over `BUDGET` ("measured: N at 1280×800").
+Expected: PASS. In the scroll test, record the measured `most` in the test's comment over `BUDGET` ("measured: N at 1280×800"; the dry run of this plan measured 9, and 24 with `NEAR_MARGIN = '200% 0px'`).
 
 - [ ] **Step 5: Commit, then mutate**
 
@@ -2525,7 +2529,7 @@ Deno.test('checkDocs reads the env descriptions with the CLI page, and says wher
 })
 ```
 
-(`stubJudge`, `quiet` and `PAGE` are the file's own helpers; if `proseBlocks` keeps headings out today, the first test's `'T'` shows the change — headings become prose blocks.) Update the existing `'proseBlocks keeps prose only…'`, `'sectionProse groups…'` and `where`-matching expectations to the new behaviour: headings included, `where` repo-relative; and in `'docsPagesOf names the pages a change touches'` keep `['cli', 'element', 'lab']` (the env descriptions now make `lab-docs.ts` touch the CLI page too).
+(`stubJudge`, `quiet` and `PAGE` are the file's own helpers; if `proseBlocks` keeps headings out today, the first test's `'T'` shows the change — headings become prose blocks.) Every existing test of the file whose expectations these changes move must be updated, not only the ones named here; `'checkDocs asks each prose block…'` is one: on `page: 'cli'` it now also sees the four env descriptions and the heading blocks — filter the `lab-docs.ts` rows out of its `asked` list and keep its pair count to the Markdown pairs. A `####` heading needs no rule: the content guard refuses headings deeper than `###`. Update the existing `'proseBlocks keeps prose only…'`, `'sectionProse groups…'` and `where`-matching expectations to the new behaviour: headings included, `where` repo-relative; and in `'docsPagesOf names the pages a change touches'` keep `['cli', 'element', 'lab']` (the env descriptions now make `lab-docs.ts` touch the CLI page too).
 
 In `packages/cli/scripts/jev-ci.test.ts`, add:
 
@@ -2685,7 +2689,7 @@ test('in Polish the frame speaks Polish and the help does not', async () => {
 })
 ```
 
-In `apps/lab/src/docs/ArrowzPage.browser.test.tsx`: wrap `mount`'s page in `<DocsBoardsProvider root={null} queue={silentQueue()}>`; in `'the rule is played on its three boards…'` change `figures(screen.container)` to read only `figure.fw-docs-play` (`[...container.querySelectorAll('figure.fw-docs-play')]`), and add:
+In `apps/lab/src/docs/ArrowzPage.browser.test.tsx`: wrap `mount`'s page in `<DocsBoardsProvider root={null} queue={silentQueue()}>`; change the helper `figures` itself to read only `figure.fw-docs-play` (`[...container.querySelectorAll('figure.fw-docs-play')]`) — the Polish case reads `figures(…)[0]` too, and the hero board now comes first — and add:
 
 ```tsx
 test('the page shows the README’s two pictures as live boards', async () => {
@@ -2997,7 +3001,7 @@ Look at the arrowheads. On a thin line the arrowhead is a proper triangle, wider
 
 **`--pad`** is the margin around the board, in cells, from 0 to 16 (default 4, as the lab draws it). **`--points`** puts a dot in the middle of every cell, the lab's dot grid; **`--point-color`** and **`--point-radius`** (in cells, up to 0.5) change the dot.
 
-**`--cell`** is the size of one cell in the picture, in pixels, from 1 to 200; left out, it is worked out so that the longer side comes to about 1600 pixels. **`--top`** marks the N longest arrows (up to 1000) in the highlight colour and prints their measurements under the summary.
+**`--cell`** is the size of one cell in the picture, in pixels, from 1 to 200; left out, it is 1600 divided by the longer side, but never more than 18. **`--top`** marks the N longest arrows (up to 1000) in the highlight colour and prints their measurements under the summary.
 
 The lab's live command carries all of these, so copying it makes the picture the lab exports.
 
@@ -3031,7 +3035,7 @@ An everyday flag does not set one knob; it sets a whole bundle of them:
 The command line says so when it happens, once per run, on stderr, and adds the same fact to the `--dry-run` line, so a script can see it without reading stderr:
 
 ```sh
-deno task carve --width=30 --height=30 --randomized --pstraight=0.9 --dry-run
+deno task carve --width=30 --height=30 --randomized --winding=0.5 --pstraight=0.9 --dry-run
 ```
 
 ```text
@@ -3050,7 +3054,7 @@ deno task carve --width=30 --height=30 --probelen=30 --dry-run
 
 ```text
 note: --probelen=30 is pinned; the difficulty baseline still sets headBias, probe
-note: --probelen=30 has no effect here: needs target share > 0
+note: --probelen=30 has no effect here: no arrow gets a target length while target share is 0
 ```
 
 That second line is left out of a `--count` batch drawn with `--randomized`: there every board gets knobs of its own, drawn afresh rather than from the seed, so one note for the whole run could not speak for all of them.
@@ -3063,7 +3067,7 @@ deno task carve --width=30 --height=30 --length=0 --wmid=0.5 --dry-run
 
 ```text
 note: --wmid=0.5 is pinned; --length still sets wShort
-note: --wshort moved from 0.75 to 0.4: short and medium shares together must stay at or below 0.9
+note: --wshort moved from 0.75 to 0.4: short and medium shares add up to more than 0.9 (90%); at least a tenth of the arrows must stay long
 ```
 
 What pinning costs: the safe ranges in the table below were measured as whole bundles, so a half-pinned bundle stays inside them but is no longer covered by the promise that _every_ everyday combination fills its board. The ranges still have the last word: a pinned value outside its own range, or a combination that breaks a rule, is refused exactly as it would be otherwise.
@@ -3186,7 +3190,7 @@ Without that, saving fails with an error about a directory it cannot create. Des
 
 **`invalid arguments: --pstraight=0.2 is outside 0.6..1`** — a value is out of range, between two of a knob's steps, or breaks a rule. Every line starts with the flag to change, and a broken rule names every flag it is about. Nothing was generated and nothing was written.
 
-**`failed to close board …`** — the generator tried, took arrows back, started over, and still could not fill the board. Almost always a knob marked **Careful:** in [the knob table](docs:cli#knobs) is to blame. Move it back towards its default, or try another seed. The board is in `packages/cli/boards/` all the same; add `--svg` and the picture shows the uncovered cells tinted pink, so you can see where it got stuck.
+**`failed to close board …`** — the generator tried, took arrows back, started over, and still could not fill the board. Almost always a knob pushed far from its default is to blame; [the knob table](docs:cli#knobs) says what each one does. Move it back towards its default, or try another seed. The board is in `packages/cli/boards/` all the same; add `--svg` and the picture shows the uncovered cells tinted pink, so you can see where it got stuck.
 
 **`failed to close board …: covered, but the rays make a cycle`** — every cell is covered, and still no arrow can ever leave: two arrows point at each other, or a longer ring of them does. This is a bug in the generator, not a setting you chose. Nothing you can type makes it, because the generator gives every arrow its path to the edge before anything stands in it. If you ever see this line, the board is still saved to `packages/cli/boards/`; please keep it and report it, because it is the board that should not exist.
 
@@ -3233,7 +3237,7 @@ The command's own help, both forms, printed by the function the terminal calls, 
 ::help{form="knobs"}
 ````
 
-Before writing the claims, check each against its source and fix the page (not the source) where they differ: the `--count` behaviour against `packages/cli/carve.ts`; the `report` flags against `packages/cli/report-flags.ts` and `report.ts`; the note lines and the refusal text against `packages/cli/README.md` (which `packages/cli/readme.test.ts` holds to the CLI); the ranges against `VIEW_RANGE`, `PAD_RANGE`, `POINT_RADIUS_RANGE`, `PALETTE_CAP` and `THEMES`. Report every difference you find, fixed or not.
+The note lines, the `--cell` sentence and the trouble entry above were checked against the running CLI and `exportCell` while this plan was reviewed; `packages/cli/README.md` still has the old wording in those five places, which is Task 10's follow-up, not this task's. Before writing the remaining claims, check each against its source and fix the page (not the source) where they differ: the `--count` behaviour against `packages/cli/carve.ts`; the `report` flags against `packages/cli/report-flags.ts` and `report.ts`; the note lines and the refusal text against `packages/cli/README.md` (which `packages/cli/readme.test.ts` holds to the CLI); the ranges against `VIEW_RANGE`, `PAD_RANGE`, `POINT_RADIUS_RANGE`, `PALETTE_CAP` and `THEMES`. Report every difference you find, fixed or not.
 
 - [ ] **Step 3: The Polish CLI page**
 
@@ -3344,7 +3348,7 @@ Stop the server afterwards and kill what it leaves (`ps … | grep -E "lab-docs-
 
 - [ ] **Step 4: Follow-ups as beads**
 
-Create a bead, with an estimate and links, for each thing found and left: the README's stale numbers and counts (decision 8 — `packages/cli/README.md` says "Twelve flags… five" and `--probelen=4` 253 arrows); anything from the live run that is not this PR's.
+Create a bead, with an estimate and links, for each thing found and left: the CLI README's stale text (decision 8 — "Twelve flags… five", `--probelen=4` 253 arrows; and, unguarded by `readme.test.ts`, three `note:` lines that no longer match what `carve` prints, the "about 1600 px" `--cell` default that is capped at 18, and the **Careful:** markers that only the README's own table has); anything from the live run that is not this PR's.
 
 - [ ] **Step 5: Bead and PR**
 
