@@ -10,6 +10,7 @@ import { DIFFERS_AT, excerpt, type Flag, PAIR_QUESTIONS, pool } from './jev-guar
 
 /** The README each docs page is written from. */
 export const DOCS_SOURCES: Readonly<Record<string, string>> = {
+  arrowz: 'README.md',
   element: 'packages/board-element/README.md',
   cli: 'packages/cli/README.md',
 }

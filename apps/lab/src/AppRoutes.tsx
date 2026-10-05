@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router'
+import { DOCS_HOME } from './docs/pages'
 import { DocsRoute } from './routes/DocsRoute'
 import { KeepHashNavigate } from './routes/KeepHashNavigate'
 
@@ -15,7 +16,7 @@ export function AppRoutes() {
       <Route path="/boards/file" element={null} />
       {/* The bare path is a documentation link too. Route order does not
           matter — react-router ranks matches — but it reads better here. */}
-      <Route path="/docs" element={<KeepHashNavigate to="/docs/element" />} />
+      <Route path="/docs" element={<KeepHashNavigate to={DOCS_HOME} />} />
       <Route path="/docs/:what" element={<DocsRoute />} />
       {/* A stale deep link is the lab, not a blank page. */}
       <Route path="*" element={<KeepHashNavigate to="/" />} />

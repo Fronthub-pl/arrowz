@@ -89,16 +89,16 @@ test('each panel keeps the main landmark around it', async () => {
   expect(panel?.getAttribute('tabindex')).toBe('0')
 })
 
-// An unknown page name lands on the element's page too, including upper case:
+// An unknown page name lands on the first page too, including upper case:
 // react-router matches paths case-insensitively, so `:what` captures `CLI`.
-test.each(['/docs', '/docs/nowhere', '/DOCS/CLI'])('%s lands on the element page', async (path) => {
+test.each(['/docs', '/docs/nowhere', '/DOCS/CLI'])('%s lands on the first page', async (path) => {
   const screen = await render(
     <MemoryRouter initialEntries={[path]}>
       <AppRoutes />
       <Address />
     </MemoryRouter>,
   )
-  await expect.element(screen.getByTestId('address')).toHaveTextContent('/docs/element')
+  await expect.element(screen.getByTestId('address')).toHaveTextContent('/docs/arrowz')
 })
 
 // Two segments under /docs is not a documentation page; it is a stale link.
@@ -133,11 +133,11 @@ test('after the upper-case redirect the address and the tab agree', async () => 
       <Address />
     </MemoryRouter>,
   )
-  await expect.element(screen.getByTestId('address')).toHaveTextContent('/docs/element')
+  await expect.element(screen.getByTestId('address')).toHaveTextContent('/docs/arrowz')
   await expect.element(screen.getByRole('tab', { name: 'Docs' })).toHaveAttribute('aria-selected', 'true')
 })
 
-test('clicking the Docs tab from the CLI page returns to the element page', async () => {
+test('clicking the Docs tab from the CLI page returns to the first page', async () => {
   const screen = await render(
     <MemoryRouter initialEntries={['/docs/cli']}>
       <TabRow />
@@ -146,5 +146,5 @@ test('clicking the Docs tab from the CLI page returns to the element page', asyn
     </MemoryRouter>,
   )
   await screen.getByRole('tab', { name: 'Docs' }).click()
-  await expect.element(screen.getByTestId('address')).toHaveTextContent('/docs/element')
+  await expect.element(screen.getByTestId('address')).toHaveTextContent('/docs/arrowz')
 })

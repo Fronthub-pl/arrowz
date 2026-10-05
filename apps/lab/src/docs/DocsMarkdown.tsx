@@ -15,6 +15,8 @@ import { DocsTable } from './DocsTable'
 import { Inline } from './Inline'
 import { type DocsSection, plainText, sectionIdOf } from './markdown'
 import { SECTION_PREFIX } from './pages'
+import { isRuleBoard } from './ruleBoards'
+import { RulePlay } from './RulePlay'
 import { TokenSpans } from './TokenSpans'
 import { useDocs } from './useDocs'
 
@@ -104,12 +106,18 @@ function CodeView({ node, section }: { node: Code; section: DocsSection | null }
   )
 }
 
+/**
+ * A loose list draws every item's text as a paragraph, a tight one as bare
+ * text. CommonMark decides per list: blank lines between any two items, or
+ * inside any one, make the whole list loose.
+ */
 function ListView({ node }: { node: List }): ReactElement {
+  const loose = node.spread === true || node.children.some((item) => item.spread === true)
   const items = node.children.map((item, i) => (
     <li key={i}>
       {item.children.map((child, j) =>
         child.type === 'paragraph' ? (
-          item.spread === true ? (
+          loose ? (
             <p key={j}>
               <Inline nodes={child.children} />
             </p>
@@ -183,6 +191,10 @@ function Note({ node }: { node: Blockquote }): ReactElement {
 function Directive({ node, section }: { node: LeafDirective; section: DocsSection | null }): ReactElement | null {
   const attributes = node.attributes ?? {}
   if (node.name === 'table') return <DocsTable of={attributes['of'] ?? ''} labelledBy={section?.id} />
+  if (node.name === 'play') {
+    const board = attributes['board']
+    return isRuleBoard(board) ? <RulePlay name={board} /> : null
+  }
   if (node.name !== 'help') return null
   const text = helpText({ knobs: attributes['form'] === 'knobs' })
   return (

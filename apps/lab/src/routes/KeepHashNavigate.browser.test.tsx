@@ -13,8 +13,8 @@ afterEach(() => resetApp('advanced'))
 // effects between `Navigate` (a child) and `useUrlHash` (in `Shell`, its parent).
 const CASES = [
   { from: '/no-such-page', to: '/' },
-  { from: '/docs', to: '/docs/element' },
-  { from: '/docs/no-such-page', to: '/docs/element' },
+  { from: '/docs', to: '/docs/arrowz' },
+  { from: '/docs/no-such-page', to: '/docs/arrowz' },
 ]
 
 for (const { from, to } of CASES) {

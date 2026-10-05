@@ -1,9 +1,11 @@
 import { assert, assertEquals } from '@std/assert'
+import { fromFileUrl } from '@std/path'
 import type { Answers, Judge } from './jev-client.ts'
 import {
   checkDocs,
   CONTRADICTS_AT,
   DOCS_GLOSSARY,
+  DOCS_SOURCES,
   docsPagesOf,
   proseBlocks,
   readDocs,
@@ -114,4 +116,13 @@ Deno.test('docsPagesOf names the pages a change touches', () => {
     'apps/lab/src/docs/content.ts',
   ].join('\n')
   assertEquals(docsPagesOf(names), ['cli', 'element'])
+})
+
+// Jev reads a page only through DOCS_SOURCES: a page missing there is never checked.
+Deno.test('DOCS_SOURCES names exactly the docs pages on disk', () => {
+  const dir = fromFileUrl(new URL('../../../apps/lab/docs-content/en/', import.meta.url))
+  const pages = [...Deno.readDirSync(dir)]
+    .filter((entry) => entry.name.endsWith('.md'))
+    .map((entry) => entry.name.slice(0, -3))
+  assertEquals(Object.keys(DOCS_SOURCES).sort(), pages.sort())
 })

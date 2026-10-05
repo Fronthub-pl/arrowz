@@ -1,5 +1,6 @@
 import type { KeyboardEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
+import { DOCS_HOME } from '../docs/pages'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { nextIndex, useFocusFollowsSelection } from './roving'
@@ -9,7 +10,7 @@ import { nextIndex, useFocusFollowsSelection } from './roving'
 const TABS = [
   { path: '/', panel: 'lab-panel', key: 'tabLab' },
   { path: '/boards', panel: 'boards-panel', key: 'tabLibrary' },
-  { path: '/docs/element', panel: 'docs-panel', key: 'tabDocs' },
+  { path: DOCS_HOME, panel: 'docs-panel', key: 'tabDocs' },
 ] as const
 
 export function selectedIndex(pathname: string): number {

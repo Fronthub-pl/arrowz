@@ -28,24 +28,34 @@ function box(container: HTMLElement, selector: string): Element {
 /**
  * The docs tab, then the page's own link: the two navigations a reader makes.
  *
- * The last wait is on the page, not on the panel: both pages render the same
+ * The last wait is on the page, not on the panel: every page renders the same
  * tabpanel, and react-router navigates inside `startTransition`, so a visible
  * panel can still be the element page while the CLI page is on its way.
  */
-async function openDocs(which: 'element' | 'cli') {
+async function openDocs(which: 'arrowz' | 'element' | 'cli') {
   const screen = await mountApp('advanced')
   await loadRunDone()
   await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
-  if (which === 'cli') await screen.getByRole('link', { name: 'Command line' }).click()
+  // In the column: the Arrowz page links to "Command line" too.
+  const column = screen.getByRole('navigation', { name: 'Documentation pages' })
+  if (which === 'element') await column.getByRole('link', { name: 'Board element' }).click()
+  if (which === 'cli') await column.getByRole('link', { name: 'Command line' }).click()
   await expect.element(screen.getByRole('tabpanel')).toBeVisible()
-  // Each page's own marker: the CLI page has the two terminal blocks, the
-  // element page the one code example.
-  const marker = which === 'cli' ? 'pre.fw-docs-term' : 'pre.fw-docs-code'
-  await expect.poll(() => screen.container.querySelectorAll(marker).length).toBe(which === 'cli' ? 2 : 1)
+  // Each page's own marker: the Arrowz page has its three rule boards (the
+  // hidden workspace has a board of its own, hence the `.fw-docs-body` scope),
+  // the CLI page the two terminal blocks, the element page the one code example.
+  const [marker, count] = (
+    {
+      arrowz: ['.fw-docs-body arrowz-board', 3],
+      cli: ['pre.fw-docs-term', 2],
+      element: ['pre.fw-docs-code', 1],
+    } as const
+  )[which]
+  await expect.poll(() => screen.container.querySelectorAll(marker).length).toBe(count)
   return screen
 }
 
-test.each(['element', 'cli'] as const)(
+test.each(['arrowz', 'element', 'cli'] as const)(
   'at 1280×800 the %s page scrolls inside the panel and not inside the document',
   async (which) => {
     await page.viewport(1280, 800)
@@ -63,7 +73,7 @@ test.each(['element', 'cli'] as const)(
     expect(scroller().scrollWidth).toBe(scroller().clientWidth)
     // The panel is row three of that shell, no taller, and its own overflow is
     // what moves. `toBeCloseTo`, because `clientHeight` is whole pixels and the
-    // rect is not. `>` on the scroll height: both pages are longer than the
+    // rect is not. `>` on the scroll height: every page is longer than the
     // panel, so a panel that fits would mean the page lost its content.
     expect(panel.getBoundingClientRect().height).toBeCloseTo(main.getBoundingClientRect().height, 0)
     expect(panel.scrollHeight).toBeGreaterThan(panel.clientHeight)
@@ -223,7 +233,7 @@ test.each(['en', 'pl'] as const)(
     expect(body.width).toBeCloseTo(panel.clientWidth - pad, 0)
     expect(body.width).toBeGreaterThanOrEqual(324)
     const shown = [...screen.container.querySelectorAll('.fw-docs-toc a')].filter((a) => a.getClientRects().length > 0)
-    expect(shown).toHaveLength(2 + 5)
+    expect(shown).toHaveLength(3 + 5)
     for (const a of shown) expect(a.getBoundingClientRect().height, a.textContent ?? '').toBe(44)
     expect(getComputedStyle(box(screen.container, '.fw-docs-toc')).position).toBe('static')
     expect(scroller().scrollWidth).toBe(scroller().clientWidth)
@@ -231,8 +241,8 @@ test.each(['en', 'pl'] as const)(
   40_000,
 )
 
-// The document never scrolls sideways, at the eight supported widths, on both
-// pages, in both languages.
+// The document never scrolls sideways, at the eight supported widths, on every
+// page, in both languages.
 test.each([
   [1920, 1080],
   [1440, 900],
@@ -243,20 +253,25 @@ test.each([
   [600, 900],
   [375, 812],
 ] as const)(
-  'at %i×%i neither page scrolls the document sideways, in either language',
+  'at %i×%i no page scrolls the document sideways, in either language',
   async (w, h) => {
     await page.viewport(w, h)
     const screen = await openAt('/docs/element')
     // By address rather than by link text: the links' names change with the
     // language, and this loop changes the language under them.
     for (const [which, link] of [
+      ['arrowz', 'a[href="/docs/arrowz"]'],
       ['element', 'a[href="/docs/element"]'],
       ['cli', 'a[href="/docs/cli"]'],
     ] as const) {
       const anchor = screen.container.querySelector<HTMLAnchorElement>(link)
       if (anchor === null) throw new Error(`no ${link}`)
       anchor.click()
-      const marker = which === 'cli' ? 'pre.fw-docs-term' : 'pre.fw-docs-code'
+      const marker = {
+        arrowz: '.fw-docs-body arrowz-board',
+        cli: 'pre.fw-docs-term',
+        element: 'pre.fw-docs-code',
+      }[which]
       await expect.poll(() => screen.container.querySelectorAll(marker).length).toBeGreaterThan(0)
       for (const lang of ['en', 'pl'] as const) {
         useStore.getState().lang.setLang(lang)

@@ -58,15 +58,15 @@ missing — start `deno task store` beside it.
 Three tabs: **Lab**, **Saved boards** and **Docs**. Every screen has an address,
 so a browser's back button and a bookmark work.
 
-| Route               | Shows                                                                           |
-| ------------------- | ------------------------------------------------------------------------------- |
-| `/`                 | The lab: the settings, the board and what the run reported.                     |
-| `/boards`           | The saved boards, by size; it opens on the board shown last.                    |
-| `/boards/:size/:id` | One stored board, by its size and its layout hash.                              |
-| `/boards/file`      | A board opened from a file on disk.                                             |
-| `/docs`             | Goes to `/docs/element`.                                                        |
-| `/docs/:what`       | The documentation: `element` for the board element, `cli` for the command line. |
-| `*`                 | Any other address goes to `/`.                                                  |
+| Route               | Shows                                                                                                                 |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `/`                 | The lab: the settings, the board and what the run reported.                                                           |
+| `/boards`           | The saved boards, by size; it opens on the board shown last.                                                          |
+| `/boards/:size/:id` | One stored board, by its size and its layout hash.                                                                    |
+| `/boards/file`      | A board opened from a file on disk.                                                                                   |
+| `/docs`             | Goes to `/docs/arrowz`.                                                                                               |
+| `/docs/:what`       | The documentation: `arrowz` for the puzzle and its rule, `cli` for the command line, `element` for the board element. |
+| `*`                 | Any other address goes to `/`.                                                                                        |
 
 ## Using the lab
 
@@ -155,23 +155,24 @@ would be.
 
 ![The command palette, ⌘K](docs/screenshots/palette.png)
 
-| Command                | Section | Does                                                                 |
-| ---------------------- | ------- | -------------------------------------------------------------------- |
-| `Generate`             | run     | Generates a board from the settings.                                 |
-| `Generate and save`    | run     | Generates a board and stores it.                                     |
-| `Save board`           | run     | Stores the board on screen.                                          |
-| `New seed`             | run     | Steps the seed.                                                      |
-| `Defaults`             | run     | Puts every knob back to its default.                                 |
-| `Abort`                | run     | Stops the run; while one is stopping, _Discard_ drops its board.     |
-| `Check seeds`          | run     | Runs the settings over a number of seeds (advanced view only).       |
-| `Full view (key F)`    | run     | The board alone.                                                     |
-| `Lab`                  | go to   | The lab.                                                             |
-| `Saved boards`         | go to   | The saved boards.                                                    |
-| `Open file…`           | go to   | Opens a board file from disk.                                        |
-| `Docs — Board element` | go to   | The board element's documentation.                                   |
-| `Docs — Command line`  | go to   | The command line's documentation.                                    |
-| `Simple view`          | go to   | Switches the view; in the simple view the row reads _Advanced view_. |
-| `Switch to Polish`     | go to   | Switches the language; in Polish the row offers English.             |
+| Command                | Section | Does                                                                  |
+| ---------------------- | ------- | --------------------------------------------------------------------- |
+| `Generate`             | run     | Generates a board from the settings.                                  |
+| `Generate and save`    | run     | Generates a board and stores it.                                      |
+| `Save board`           | run     | Stores the board on screen.                                           |
+| `New seed`             | run     | Steps the seed.                                                       |
+| `Defaults`             | run     | Puts every knob back to its default.                                  |
+| `Abort`                | run     | Stops the run; while one is stopping, _Discard_ drops its board.      |
+| `Check seeds`          | run     | Runs the settings over a number of seeds (advanced view only).        |
+| `Full view (key F)`    | run     | The board alone.                                                      |
+| `Lab`                  | go to   | The lab.                                                              |
+| `Saved boards`         | go to   | The saved boards.                                                     |
+| `Open file…`           | go to   | Opens a board file from disk.                                         |
+| `Docs — Arrowz`        | go to   | The puzzle, its one rule played on three small boards, and its words. |
+| `Docs — Command line`  | go to   | The command line's documentation.                                     |
+| `Docs — Board element` | go to   | The board element's documentation.                                    |
+| `Simple view`          | go to   | Switches the view; in the simple view the row reads _Advanced view_.  |
+| `Switch to Polish`     | go to   | Switches the language; in Polish the row offers English.              |
 
 ## Links
 
@@ -227,7 +228,7 @@ records how each was taken, and `pnpm nx run lab:screenshots` takes them again.
 
 ![Saved boards](docs/screenshots/boards.png)
 
-![The board element's documentation](docs/screenshots/docs.png)
+![The documentation: the puzzle and its rule](docs/screenshots/docs.png)
 
 <p>
   <img src="docs/screenshots/phone-lab.png" alt="On a phone" width="300">

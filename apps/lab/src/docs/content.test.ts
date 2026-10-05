@@ -25,10 +25,12 @@ function linksOf(node: Nodes, out: string[] = []): string[] {
 }
 
 test.each(LANGS)('every docs: link in %s names a section that exists', (lang) => {
+  let checked = 0
   for (const page of DOCS_PAGES) {
     for (const url of linksOf(docsPage(lang, page).root)) {
       const m = DOCS_LINK.exec(url)
       if (m === null) continue
+      checked++
       const target = DOCS_PAGES.find((name) => name === m[1])
       expect(target, url).toBeDefined()
       if (target === undefined) continue
@@ -38,14 +40,22 @@ test.each(LANGS)('every docs: link in %s names a section that exists', (lang) =>
       ).toContain(SECTION_PREFIX + (m[2] ?? ''))
     }
   }
+  expect(checked).toBeGreaterThan(0)
 })
 
-// Descriptions are drawn through the parser now: one that parses into
-// anything but plain inline text would lose words on the page.
+// Descriptions are drawn through the parser: one that parses into anything but
+// a single paragraph of plain inline text would lose words on the page, and
+// `inlineOf` shows a non-paragraph as its raw text, so the node types alone
+// would not catch it.
 test.each(LANGS)('every %s description is plain inline Markdown', (lang) => {
   const docs = docsFor(lang)
   const texts = [docs.props, docs.members, docs.events, docs.slots].flatMap((rows) => Object.values(rows))
   expect(texts.length).toBeGreaterThan(30)
-  for (const text of texts)
+  for (const text of texts) {
+    expect(
+      parseDocs(text).children.map((node) => node.type),
+      text,
+    ).toEqual(['paragraph'])
     for (const node of inlineOf(text)) expect(['text', 'inlineCode', 'emphasis', 'strong'], text).toContain(node.type)
+  }
 })

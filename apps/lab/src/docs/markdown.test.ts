@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { inlineOf, parseDocs, plainText, sectionIdOf, sectionsOf } from './markdown'
-import { isDocsPage } from './pages'
+import { DOCS_HOME, DOCS_PAGES, isDocsPage, pageOf } from './pages'
 
 describe('a page', () => {
   const root = parseDocs('# Title\n\n## Using it {#example}\n\nText.\n\n### Detail\n\n## Slots {#slots}\n')
@@ -52,4 +52,11 @@ test('a page name is one of the pages, case and all', () => {
   expect(isDocsPage('cli')).toBe(true)
   expect(isDocsPage('CLI')).toBe(false)
   expect(isDocsPage(undefined)).toBe(false)
+})
+
+test('the docs home is the first page, and an address names its page by its second segment', () => {
+  expect(DOCS_HOME).toBe(`/docs/${DOCS_PAGES[0]}`)
+  expect(pageOf('/docs/cli')).toBe('cli')
+  expect(pageOf('/docs/element')).toBe('element')
+  expect(pageOf('/docs/climb')).toBe(DOCS_PAGES[0])
 })

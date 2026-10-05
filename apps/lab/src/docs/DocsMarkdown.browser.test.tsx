@@ -1,4 +1,5 @@
 import { helpText } from '@arrowz/engine/command'
+import type { ArrowzBoard } from '@arrowz/board-element'
 import { ELEMENT_SLOTS } from '@arrowz/engine/docs'
 import { MemoryRouter, useLocation } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'
@@ -101,12 +102,30 @@ test('a list item with paragraphs apart keeps each as a paragraph', async () => 
   expect([...(first?.querySelectorAll(':scope > p') ?? [])].map((p) => p.textContent)).toEqual(['one', 'two'])
   // textContent joins block children with nothing; innerText is what a reader sees.
   expect(first?.innerText).not.toBe('onetwo')
+  // CommonMark makes the whole list loose, so the item with one paragraph is a paragraph too.
+  expect(screen.container.querySelectorAll('ul > li')[1]?.querySelector(':scope > p')?.textContent).toBe('three')
+})
+
+test('a list with items apart has every item a paragraph, a tight list none', async () => {
+  const screen = await show('# T\n\n- a\n\n- b\n\nBetween.\n\n- c\n- d')
+  const lists = [...screen.container.querySelectorAll('ul')]
+  expect(lists.map((ul) => ul.querySelectorAll(':scope > li > p').length)).toEqual([2, 0])
 })
 
 test('::table draws the reference table its section names', async () => {
   const screen = await show('# T\n\n## Slots {#slots}\n\n::table{of="element-slots"}')
   const table = screen.container.querySelector('table[aria-labelledby="docs-slots"]')
   expect(table?.querySelectorAll('tbody tr')).toHaveLength(ELEMENT_SLOTS.length)
+})
+
+test('::play draws the rule board it names, coloured and playable', async () => {
+  const screen = await show('# T\n\n::play{board="rule-blocked"}')
+  const figure = screen.getByRole('figure', { name: 'An arrow with another arrow standing in its path to the edge' })
+  await expect.element(figure).toBeVisible()
+  const element = figure.element().querySelector<ArrowzBoard>('arrowz-board')
+  expect(element?.hasAttribute('play')).toBe(true)
+  expect(element?.board?.pieces).toHaveLength(3)
+  await expect.poll(() => element?.colored).toBe(true)
 })
 
 test('::help draws the terminal text, plain', async () => {

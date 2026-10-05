@@ -1,6 +1,6 @@
 import { type ComponentType, lazy, type ReactElement, Suspense, useRef } from 'react'
 import { useParams } from 'react-router'
-import { type DocsPage, isDocsPage } from '../docs/pages'
+import { DOCS_HOME, type DocsPage, isDocsPage } from '../docs/pages'
 import { useDictionary } from '../i18n'
 import type { DocsBodyProps } from './DocsBody'
 import { KeepHashNavigate } from './KeepHashNavigate'
@@ -34,7 +34,7 @@ const DocsBody = lazy(() => loadDocsBody())
  */
 export function DocsRoute(): ReactElement {
   const { what } = useParams()
-  if (!isDocsPage(what)) return <KeepHashNavigate to="/docs/element" />
+  if (!isDocsPage(what)) return <KeepHashNavigate to={DOCS_HOME} />
   return <DocsPanel page={what} />
 }
 

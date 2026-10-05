@@ -2,6 +2,7 @@ import { PARAM_SPEC } from '@arrowz/engine'
 import { flagOf, wordFor } from '@arrowz/engine/command'
 import type { Dict } from '@arrowz/engine/i18n'
 import { PRESETS } from '@arrowz/engine/presets'
+import { DOCS_PAGE_NAMES, DOCS_PAGES } from '../docs/pages'
 import type { PlainUiKey } from '../console/viewFields'
 import { VIEW_FLAGS, VIEW_NUMBERS, VIEW_ROWS } from '../console/viewFields'
 import { openFilePicker } from '../library/BoardFileInput'
@@ -324,8 +325,9 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
         state.ui.closePalette()
       },
     },
-    goRow(deps, 'go-docs-element', `${dict.t('tabDocs')} — ${dict.t('docsElement')}`, '/docs/element'),
-    goRow(deps, 'go-docs-cli', `${dict.t('tabDocs')} — ${dict.t('docsCli')}`, '/docs/cli'),
+    ...DOCS_PAGES.map((page) =>
+      goRow(deps, `go-docs-${page}`, `${dict.t('tabDocs')} — ${dict.t(DOCS_PAGE_NAMES[page])}`, `/docs/${page}`),
+    ),
     {
       id: 'go-view',
       section: 'go',
