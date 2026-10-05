@@ -9,12 +9,12 @@ import { type DocsSection, parseDocs, sectionsOf } from './markdown'
 import type { DocsPage } from './pages'
 import arrowzEn from '../../docs-content/en/arrowz.md?raw'
 import cliEn from '../../docs-content/en/cli.md?raw'
-import labEn from '../../docs-content/en/lab.md?raw'
 import elementEn from '../../docs-content/en/element.md?raw'
-import labPl from '../../docs-content/pl/lab.md?raw'
+import labEn from '../../docs-content/en/lab.md?raw'
 import arrowzPl from '../../docs-content/pl/arrowz.md?raw'
 import cliPl from '../../docs-content/pl/cli.md?raw'
 import elementPl from '../../docs-content/pl/element.md?raw'
+import labPl from '../../docs-content/pl/lab.md?raw'
 
 export interface ParsedPage {
   readonly root: Root

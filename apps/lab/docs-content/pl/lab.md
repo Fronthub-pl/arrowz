@@ -36,7 +36,7 @@ W widoku zaawansowanym _generuj od razu po zmianie_ uruchamia generowanie przy k
 
 Szuflada raportu po prawej (`R`) wypisuje pomiary: strzałki i ich długości, jak trudno gra się na planszy, jak daleko sięgają strzałki i jaki mają kształt. Przy każdym jest `?`, który go objaśnia, a każda zmiana ma kolor względem poprzedniej planszy.
 
-Szuflada ustawień po lewej pojawia się i znika pod `S`. `F` chowa obie i oddaje planszy cały panel laboratorium.
+Szuflada ustawień po lewej otwiera się i zamyka klawiszem `S`. `F` chowa obie i oddaje planszy cały panel laboratorium.
 
 ## Zapisane plansze i pliki {#saved}
 
@@ -56,7 +56,7 @@ Pojedyncze klawisze działają na kartach **Laboratorium** i **Zapisane plansze*
 
 ## Paleta poleceń {#palette}
 
-`⌘K` otwiera wyszukiwanie wśród wszystkiego, co potrafi laboratorium. Jej wiersze są w sekcjach: _generowanie_ i _przejdź do_, wypisane niżej, a potem wiersz dla każdego ustawienia generatora, każdego ustawienia podglądu i każdego presetu. Wpisanie nazwy ustawienia albo jego flagi z wiersza poleceń (`--seed`) przenosi do niego. Wiersz, którego teraz nie da się uruchomić, zostaje na liście, z powodem w miejscu klawisza.
+`⌘K` otwiera wyszukiwanie wśród wszystkiego, co potrafi laboratorium. Wiersze palety są w sekcjach: _generowanie_ i _przejdź do_, wypisane niżej, a potem wiersz dla każdego ustawienia generatora, każdego ustawienia podglądu i każdego presetu. Wpisanie nazwy ustawienia albo jego flagi z wiersza poleceń (`--seed`) przenosi do niego. Wiersz, którego teraz nie da się uruchomić, zostaje na liście, z powodem w miejscu klawisza.
 
 ::table{of="palette"}
 

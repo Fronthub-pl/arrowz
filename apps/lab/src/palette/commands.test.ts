@@ -469,7 +469,11 @@ describe('docsPaletteRows', () => {
     const calm = docsPaletteRows(dictionary('en'), useStore.getState()).map((row) => [row.id, row.name])
     // The simple view drops Check seeds from ⌘K, a stopping run renames Abort,
     // and the store's language names the language row: none may reach the table.
-    useStore.setState((state) => ({ ui: { ...state.ui, mode: 'simple' }, run: { ...state.run, stopping: true } }))
+    useStore.setState((state) => ({
+      ui: { ...state.ui, mode: 'simple' },
+      run: { ...state.run, stopping: true },
+      series: { ...state.series, stopping: true },
+    }))
     useStore.getState().lang.setLang('pl')
     try {
       expect(docsPaletteRows(dictionary('en'), useStore.getState()).map((row) => [row.id, row.name])).toEqual(calm)

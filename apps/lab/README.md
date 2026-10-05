@@ -94,8 +94,10 @@ until it is fixed.
 
 ### Generating and saving
 
-**Generate** (`G`) carves a board from the settings on screen; **New seed** draws a random seed and generates, while `[` and `]` step the seed back or forward by one; **Defaults** puts every knob back; **Abort** stops
-a run and keeps the board carved so far. A board is not stored until you
+**Generate** (`G`) carves a board from the settings on screen; **New seed**
+draws a random seed and generates, while `[` and `]` step the seed back or
+forward by one; **Defaults** puts every knob back; **Abort** stops a run and
+keeps the board carved so far. A board is not stored until you
 **Save** it (`⌘S`), or use **Generate and save** (`⌘G`); the switch _save every
 board_ saves each finished run. In the advanced view, _generate right after a
 change_ starts a run whenever a knob moves, and **Check seeds** runs the current

@@ -133,9 +133,14 @@ const DESCRIPTION_GROUPS = {
   lab: ['keys', 'palette', 'linkFields'],
 } as const
 
+/** Whether `page` draws description tables from `lab-docs.ts`. */
+function hasDescriptions(page: string): page is keyof typeof DESCRIPTION_GROUPS {
+  return Object.hasOwn(DESCRIPTION_GROUPS, page)
+}
+
 /** A page's reference descriptions, as `key: text` in each language; none for a page without tables. */
 function descriptionRows(page: string): { key: string; en: string; pl: string }[] {
-  const groups = page === 'element' || page === 'lab' ? DESCRIPTION_GROUPS[page] : []
+  const groups = hasDescriptions(page) ? DESCRIPTION_GROUPS[page] : []
   const en = docsFor('en')
   const pl = docsFor('pl')
   const rows: { key: string; en: string; pl: string }[] = []
