@@ -162,6 +162,45 @@ claim deeper in a note is not checked. The hooks run only in sessions
 started in this repository. A session started in a worktree checks that
 worktree's own project memory, which is usually empty.
 
+## Docs pages
+
+`packages/cli/scripts/jev-docs.ts` reads the lab's Markdown documentation
+pages (`apps/lab/docs-content/{en,pl}/<page>.md`) and, for the element page,
+the property, member, event and slot descriptions in
+`packages/engine/lab-docs.ts`. It asks four things:
+
+| Question | Asked of | Flag when |
+|---|---|---|
+| `contradicts` (the page's README makes the text false) | every English prose block and every element description, with the page's README and the glossary's renames in the state | `> 0.7` |
+| `same_meaning` (`PAIR_QUESTIONS`) | each section's English against its Polish, and each description pair | differs `> 0.54` (`DIFFERS_AT`) |
+| `history` (the text tells the project's past) | every English prose block | `> 0.85` |
+| `plain` (no unexplained internal term) | every English prose block | `< 0.3` |
+
+By hand: `deno task jev:docs [page…]` (pages: `element`, `cli`; all by
+default). In CI, `jev-ci.ts` runs the same checks on the pages a PR changes:
+either language of a page, or `lab-docs.ts` for the element page. Like every
+guard it only advises.
+
+Measured on jev-1.13.0, 2026-10-05, over the pages of the first docs PR, the
+element descriptions and 13 hand-made faults. In-sample (about 25 clean texts,
+thresholds chosen on the same data); re-measure on the CLI page, the first long
+one.
+
+| Question | Flag when | Measured |
+|---|---|---|
+| `contradicts` | `> 0.7` | 6 faults 0.74-0.94; clean <= 0.27, except the element page's lead 0.55-0.62 |
+| `same_meaning` | differs `> 0.54` | 4 faults 0.92-0.98; clean <= 0.09 |
+| `history` | `> 0.85` | 2 faults 0.89-0.90; one false 0.88 |
+| `plain` | `< 0.3` | jargon fault 0.18; clean 0.32-0.68 (a ranking, not a calibrated scale) |
+
+Without the glossary's renames (`DOCS_GLOSSARY`) in the state, `contradicts`
+read the renames as contradictions: the element lead with "arrows" scored
+0.57-0.65, the same sentence with "pieces" 0.10.
+
+Limits: `contradicts` knows only the README of its page, so a fact the README
+does not state is never checked. `plain` ranks well and calibrates badly, so
+its threshold catches only the clearly worst text.
+
 ## Limits
 
 - An edit inside a nested worktree under the project
@@ -188,7 +227,9 @@ worktree's own project memory, which is usually empty.
 ## Re-measuring
 
 Run `deno task jev:eval comments|message|i18n` after changing any question,
-any threshold, or `MODEL` in `jev-client.ts`. The figures above stop being
+any threshold, or `MODEL` in `jev-client.ts`. Changing `DOCS_QUESTIONS`, a
+docs threshold in `jev-docs.ts`, or `MODEL` means repeating the probe on
+hand-made faults for the docs pages. The figures above stop being
 true the moment one of those changes. Editing the `## Comments` section of
 `CLAUDE.md` also changes the comment guard's input — it is sent as `rule` —
 so it too needs `deno task jev:eval comments` re-run.
