@@ -1,14 +1,9 @@
 import type { ReactElement } from 'react'
 import { Link, NavLink, useLocation } from 'react-router'
 import { docsPage } from '../docs/content'
-import type { DocsPage } from '../docs/pages'
+import { DOCS_PAGE_NAMES, DOCS_PAGES, pageOf } from '../docs/pages'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
-
-const PAGES = [
-  { page: 'element', name: 'docsElement' },
-  { page: 'cli', name: 'docsCli' },
-] as const satisfies readonly { page: DocsPage; name: string }[]
 
 /**
  * The section a navigation asked for, carried in the router's state rather
@@ -19,11 +14,6 @@ const PAGES = [
 export function sectionOf(state: unknown): string | null {
   if (typeof state !== 'object' || state === null || !('docsSection' in state)) return null
   return typeof state.docsSection === 'string' ? state.docsSection : null
-}
-
-/** The page an address names; DocsRoute has already redirected anything else. */
-export function pageOf(pathname: string): DocsPage {
-  return pathname.startsWith('/docs/cli') ? 'cli' : 'element'
 }
 
 /**
@@ -52,9 +42,9 @@ export function DocsNav({ section }: { section?: string | undefined }): ReactEle
   return (
     <nav className="fw-docs-toc" aria-label={dict.t('docsNavLabel')}>
       <ul>
-        {PAGES.map(({ page, name }) => (
+        {DOCS_PAGES.map((page) => (
           <li key={page} className={page === current ? 'pg on' : 'pg'}>
-            <NavLink to={`/docs/${page}`}>{dict.t(name)}</NavLink>
+            <NavLink to={`/docs/${page}`}>{dict.t(DOCS_PAGE_NAMES[page])}</NavLink>
             <ul>
               {docsPage(lang, page).sections.map(({ id, title }) => (
                 <li key={id}>
