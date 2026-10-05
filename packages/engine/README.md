@@ -334,7 +334,7 @@ out when it fits in a line and described when it does not.
 
 | Function | Signature | Behaviour |
 |---|---|---|
-| `docsFor` | `(lang: Lang) => Docs` | The board element's documentation in one language. |
+| `docsFor` | `(lang: Lang) => Docs` | The Docs tab's descriptions and column names in one language: the board element's tables and the lab's. |
 
 | Constant | Value | Meaning |
 |---|---|---|
@@ -345,11 +345,14 @@ out when it fits in a line and described when it does not.
 
 | Type | Shape | Meaning |
 |---|---|---|
-| `Docs` | `{ readonly props: Record<PropKey, string>; readonly members: Record<MemberKey, string>; readonly events: Record<EventKey, string>; readonly slots: Record<SlotKey, string>; readonly colProp: string; readonly colType: string; readonly colAttr: string; readonly colDefault: string; readonly colMember: string; readonly colSignature: string; readonly colEvent: string; readonly colSlot: string; readonly colDetail: string; readonly colDescription: string; readonly infoLabel: string }` | What the Docs tab's reference tables need in one language: a description per row, the column names and the name of a page's note. |
+| `Docs` | `{ readonly props: Record<PropKey, string>; readonly members: Record<MemberKey, string>; readonly events: Record<EventKey, string>; readonly slots: Record<SlotKey, string>; readonly keys: Record<LabKey, string>; readonly palette: Record<PaletteId, string>; readonly linkFields: Record<LinkField, string>; readonly colProp: string; readonly colType: string; readonly colAttr: string; readonly colDefault: string; readonly colMember: string; readonly colSignature: string; readonly colEvent: string; readonly colSlot: string; readonly colKey: string; readonly colCommand: string; readonly colSection: string; readonly colField: string; readonly colDetail: string; readonly colDescription: string; readonly infoLabel: string }` | What the Docs tab's reference tables need in one language: a description per row, the column names and the name of a page's note. |
 | `EventKey` | `(typeof ELEMENT_EVENTS)[number]['key']` | The name of an event row. |
 | `EventRow` | `{ readonly key: string; readonly detail: string }` | One event and the type of its detail. |
+| `LabKey` | `'G' \| '[' \| ']' \| 'R' \| 'S' \| 'F' \| 'Esc' \| '⌘G' \| '⌘S' \| '⌘K'` | A key of the lab's key table, as the lab shows it. |
+| `LinkField` | `'cell' \| 'stroke' \| 'headWidth' \| 'headHeight' \| 'top' \| 'colored' \| 'rounded' \| 'highlightLongest' \| 'voids' \| 'showPoints' \| 'pointColor' \| 'pointRadius' \| 'theme' \| 'palette' \| 'paper' \| 'ink' \| 'highlightColor' \| 'pad' \| 'lang'` | A field of the lab's link. |
 | `MemberKey` | `(typeof ELEMENT_MEMBERS)[number]['key']` | The name of a member row. |
 | `MemberRow` | `{ readonly key: string; readonly kind: 'method' \| 'getter'; readonly signature: string }` | One method or getter and its signature. |
+| `PaletteId` | `'run-generate' \| 'run-generate-save' \| 'run-save' \| 'run-reseed' \| 'run-defaults' \| 'run-abort' \| 'run-check-seeds' \| 'run-solo' \| 'go-lab' \| 'go-boards' \| 'go-open-file' \| 'go-docs-arrowz' \| 'go-docs-cli' \| 'go-docs-element' \| 'go-view' \| 'go-lang'` | A run or go-to row of the lab's command palette, by its id. |
 | `PropKey` | `(typeof ELEMENT_PROPS)[number]['key']` | The name of a property row. |
 | `PropRow` | `{ readonly key: string; readonly type: string; readonly attribute: string \| null; readonly def: string }` | One property: its type, its attribute (`null` when it has none) and its default. |
 | `SlotKey` | `(typeof ELEMENT_SLOTS)[number]['key']` | The name of a slot row. |
