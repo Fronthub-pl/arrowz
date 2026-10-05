@@ -101,6 +101,19 @@ test('the board looks as its command says, not as the lab is set', async () => {
   expect(el?.interactive).toBe(false)
 })
 
+test('a theme and the dot grid reach the element as the command says', async () => {
+  const screen = await show(
+    '# T\n\n::board[Look]{cmd="--width=12 --height=12 --seed=7 --theme=gruvbox-dark --colored --points --point-radius=0.15"}',
+    createDocsQueue(answeringWorkers().make, new Map()),
+  )
+  await expect.poll(() => element(screen.container)?.board?.W).toBe(12)
+  const el = element(screen.container)
+  expect(el?.theme).toBe('gruvbox-dark')
+  expect(el?.showPoints).toBe(true)
+  expect(el?.pointRadius).toBe(0.15)
+  expect(el?.colored).toBe(true)
+})
+
 test('a manual board this session made draws again without its button', async () => {
   const queue = createDocsQueue(answeringWorkers().make, new Map())
   const md = '# T\n\n::board[Big]{cmd="--width=24 --height=24 --seed=7" manual about="10"}'

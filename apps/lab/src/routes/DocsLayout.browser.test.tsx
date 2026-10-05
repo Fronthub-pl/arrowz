@@ -44,13 +44,13 @@ async function openDocs(which: 'arrowz' | 'lab' | 'element' | 'cli') {
   await expect.element(screen.getByRole('tabpanel')).toBeVisible()
   // Each page's own marker: the Arrowz page has its three rule boards (the
   // hidden workspace has a board of its own, hence the `.fw-docs-body` scope),
-  // the CLI page its help section, the element page the one code example, the Lab page its key table.
+  // the CLI page its help section, the element page its two code examples, the Lab page its key table.
   const [marker, count] = (
     {
       arrowz: ['.fw-docs-body arrowz-board[play]', 3],
       lab: ['.fw-docs-body table[aria-labelledby="docs-keys"]', 1],
       cli: ['#docs-help', 1],
-      element: ['pre.fw-docs-code', 1],
+      element: ['pre.fw-docs-code', 2],
     } as const
   )[which]
   await expect.poll(() => screen.container.querySelectorAll(marker).length).toBe(count)
@@ -193,18 +193,19 @@ test('scrolling the panel moves the section in view', async () => {
   await expect.poll(() => inView(screen.container)).toEqual(['Using it'])
 }, 40_000)
 
-// The last section of the element page is too short to bring its heading up
+// The last section of the Arrowz page is too short to bring its heading up
 // to the line at the bottom of the scroll; jumping to it must still mark it,
 // not the section above.
 test('jumping to the last section marks it, though its heading cannot reach the top', async () => {
   await page.viewport(1920, 1080)
-  const screen = await openAt('/docs/element')
-  await screen.getByRole('link', { name: 'Slots' }).click()
+  const screen = await openAt('/docs/arrowz')
+  // The column lists every page's sections; the Arrowz page's Words comes first.
+  await screen.getByRole('link', { name: 'Words' }).first().click()
   const panel = box(screen.container, '#docs-panel')
   await expect.poll(() => panel.scrollTop + panel.clientHeight).toBeCloseTo(panel.scrollHeight, 0)
   // The premise: the heading really is below the line a fifth of the way down.
-  expect(below(screen.container, 'docs-slots')).toBeGreaterThan(panel.clientHeight * 0.2)
-  await expect.poll(() => inView(screen.container)).toEqual(['Slots'])
+  expect(below(screen.container, 'docs-words')).toBeGreaterThan(panel.clientHeight * 0.2)
+  await expect.poll(() => inView(screen.container)).toEqual(['Words'])
 }, 40_000)
 
 // The column is sticky in the panel, which is the box that scrolls.
@@ -239,7 +240,7 @@ test.each(['en', 'pl'] as const)(
     expect(body.width).toBeCloseTo(panel.clientWidth - pad, 0)
     expect(body.width).toBeGreaterThanOrEqual(324)
     const shown = [...screen.container.querySelectorAll('.fw-docs-toc a')].filter((a) => a.getClientRects().length > 0)
-    expect(shown).toHaveLength(4 + 5)
+    expect(shown).toHaveLength(4 + 15)
     for (const a of shown) expect(a.getBoundingClientRect().height, a.textContent ?? '').toBe(44)
     expect(getComputedStyle(box(screen.container, '.fw-docs-toc')).position).toBe('static')
     expect(scroller().scrollWidth).toBe(scroller().clientWidth)
