@@ -158,3 +158,9 @@ Deno.test('the element reference descriptions use no retired word', () => {
   refuse(docsRows('en'), [...EN_RETIRED, LAB_ONLY_KNOB, LAB_ONLY_FLAG])
   refuse(docsRows('pl'), [...PL_RETIRED, LAB_ONLY_FLAG])
 })
+
+Deno.test('plFor lifts the one word each docs page owns and keeps the rest', () => {
+  assert(!plFor('element').includes(PL_ELEMENT) && plFor('element').includes(PL_ELEMENTS))
+  assert(!plFor('cli').includes(PL_KNOB) && plFor('cli').includes(PL_ELEMENT))
+  assert(plFor('other').length === PL_RETIRED.length)
+})
