@@ -238,40 +238,11 @@ saved are described in [the command line's own README](packages/cli/README.md).
 
 ## The lab
 
-There is a small application for playing with the settings and seeing the
-result immediately. It draws the board with the board element, which needs Lit:
-run `corepack enable pnpm && pnpm install` once at the top of the repository
-before the first start. The lab keeps its boards in the store, which is served
-by a small Deno program, so one command starts both:
-
-```sh
-pnpm nx serve lab      # the lab (8779) and, alongside it, the board store (8777)
-```
-
-Open `http://localhost:8779`. Stop it with Ctrl+C, which stops the store too.
-To run the store on its own — the CLI writes boards directly and never needs
-it — use `deno task store`. The lab expects the store on 8777; if that port is
-taken on your computer, both sides have to be told the new number — the store
-takes it after the command (`deno task store 9000`), and the lab reads it from
-one line in `apps/lab/vite.proxy.ts`. A second `pnpm nx serve lab` does not
-start a second store: Nx notices the continuous target is already running and
-waits on it, while Vite moves the second lab to the next free port (8780).
-
-The lab has two modes, and a Polish/English switch.
-
-**Simple** is the default: board size, two sliders (arrow length, winding),
-a skeleton switch and the seed — the same choices as the plain command line.
-**Advanced** shows every knob from the previous section, with a description of
-each and a list of ready-made settings, from Easy 25×25 up to Insane 1000×1000.
-
-Two things the lab does that the command line does not. It shows you the exact
-command that would reproduce whatever you are looking at, so you can copy it.
-And it keeps a library of saved boards, so you can put one aside and come back
-to it.
-
-If you set a knob outside its safe range, the offending row turns red, the
-reason appears next to it, and the Generate button stops working until you fix
-it. The command stays on screen, so you can still copy rejected settings.
+A small application for playing with the settings and seeing the result at
+once, with its measurements, the command that reproduces it and a library of
+saved boards. `pnpm nx serve lab` starts it on `http://localhost:8779`; how to
+use it, its keys, its links and screenshots are in
+[the lab's own README](apps/lab/README.md).
 
 ---
 
@@ -375,7 +346,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `docs/superpowers/specs/` | The design documents, including the full rules of the game. |
 | `packages/engine/` | The engine package (`@arrowz/engine`): generator, parameters, command parser, presets, dictionaries. Its API is in [its own README](packages/engine/README.md). |
 | `packages/cli/` | The command-line tool and the board store. |
-| `apps/lab/` | The lab: a React application served by Vite. |
+| `apps/lab/` | The lab: a React application served by Vite. See [its README](apps/lab/README.md). |
 
 Opening the repository in Claude Code runs `jbcontext index --silent` through the hooks in
 `.claude/settings.json` (at the start and end of a session), and `.mcp.json`

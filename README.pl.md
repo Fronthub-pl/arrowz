@@ -238,43 +238,11 @@ opisuje [README wiersza poleceń](packages/cli/README.md) (po angielsku).
 
 ## Laboratorium
 
-Jest mała aplikacja do zabawy ustawieniami i natychmiastowego oglądania wyniku.
-Rysuje planszę komponentem planszy, który potrzebuje Lit: przed pierwszym
-uruchomieniem wpisz raz `corepack enable pnpm && pnpm install` w głównym
-katalogu repozytorium. Laboratorium trzyma plansze w magazynie serwowanym przez
-mały program w Deno, więc jedno polecenie uruchamia oba naraz:
-
-```sh
-pnpm nx serve lab      # laboratorium (8779), a obok niego magazyn plansz (8777)
-```
-
-Otwórz `http://localhost:8779`. Zatrzymasz je klawiszami Ctrl+C, co zatrzymuje
-też magazyn. Żeby uruchomić sam magazyn — CLI zapisuje plansze bezpośrednio i
-nigdy go nie potrzebuje — użyj `deno task store`. Laboratorium spodziewa się
-magazynu na porcie 8777; jeśli ten port jest u ciebie zajęty, obie połówki
-trzeba nauczyć nowego numeru — magazyn bierze go jako argument polecenia
-(`deno task store 9000`), a laboratorium czyta go z jednej linii w
-`apps/lab/vite.proxy.ts`. Drugie `pnpm nx serve lab` nie uruchamia drugiego
-magazynu: Nx zauważa, że ciągły target już działa, i na niego czeka, a Vite
-przenosi drugie laboratorium na kolejny wolny port (8780).
-
-Laboratorium ma dwa tryby i przełącznik polski/angielski.
-
-**Prosty** jest domyślny: rozmiar planszy, dwa suwaki (długość strzałek,
-krętość), przełącznik szkieletu i ziarno — te same wybory, co w zwykłym
-trybie wiersza poleceń. **Zaawansowany** pokazuje wszystkie pokrętła z
-poprzedniej sekcji, z opisem każdego i listą gotowych ustawień, od poziomu
-„Łatwy 25×25” po „Obłęd 1000×1000”.
-
-Dwie rzeczy, które laboratorium robi, a wiersz poleceń nie. Pokazuje dokładne
-polecenie odtwarzające to, na co właśnie patrzysz, więc możesz je skopiować. I
-przechowuje zapisane plansze, więc możesz jedną odłożyć i wrócić do niej
-później.
-
-Jeśli ustawisz pokrętło poza bezpiecznym zakresem, ten wiersz tabeli robi się
-czerwony, obok pojawia się powód, a przycisk generowania przestaje działać,
-dopóki tego nie poprawisz. Polecenie zostaje na ekranie, więc odrzucone
-ustawienia i tak możesz skopiować.
+Mała aplikacja do zabawy ustawieniami i natychmiastowego oglądania wyniku,
+razem z jego pomiarami, poleceniem, które go odtwarza, i biblioteką zapisanych
+plansz. `pnpm nx serve lab` uruchamia ją pod `http://localhost:8779`; jak jej
+używać, jej skróty klawiszowe, linki i zrzuty ekranu opisuje
+[README laboratorium](apps/lab/README.md) (po angielsku).
 
 ---
 
@@ -383,7 +351,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `docs/superpowers/specs/` | Dokumenty projektowe, w tym pełne reguły gry. |
 | `packages/engine/` | Pakiet silnika (`@arrowz/engine`): generator, parametry, parser komendy, presety, słowniki. Jego API opisuje [osobne README](packages/engine/README.md) (po angielsku). |
 | `packages/cli/` | Narzędzie wiersza poleceń i magazyn plansz. |
-| `apps/lab/` | Laboratorium: aplikacja w Reakcie serwowana przez Vite. |
+| `apps/lab/` | Laboratorium: aplikacja w Reakcie serwowana przez Vite. Zob. [jego README](apps/lab/README.md). |
 
 Otwarcie repozytorium w Claude Code uruchamia `jbcontext index --silent` przez hooki w
 `.claude/settings.json` (na początku i na końcu sesji), a `.mcp.json`
