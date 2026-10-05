@@ -35,7 +35,7 @@ cases below are the inputs most likely to bite a person using the result.
 
 1. **A colon in prose silently becomes a directive.** `At 10:30` parses as text `At 10` + a text directive named `30` (measured, micromark-extension-directive 4.0.0); the reader would see "At 10." — `problemsOf` refuses `textDirective` (Task 2), `markdown.test.ts` pins the parse (Task 1), and `content.test.ts` runs every page and every description through it (Task 6).
 2. **A description that is not plain inline Markdown** (a `*`, a `<`, a colon) renders differently from the string in `lab-docs.ts` once descriptions go through the parser — `content.test.ts` checks every description's node types (Task 6).
-3. **The lazy chunk's first load on a cold optimizer** reloads the page mid-session in dev and kills the browser test run in CI (the mechanism `vitest.config.ts` records for `react-dom/client`) — `DOCS_DEPS` goes into both `optimizeDeps.include` lists (Task 1), and Task 8 runs the chromium project once with `node_modules/.vite` deleted.
+3. **The Docs chunk cannot be fetched** (a deploy replaced its hashed file, or the network dropped): `React.lazy` rejects, and with no error boundary anywhere in the lab React unmounts the whole root — the run in flight and the board with it. `loadDocsBody` turns a rejected import into a line saying the docs did not load (Task 7, with a test that injects the rejection). A cold Vite optimizer, the other first-load risk, was measured harmless by the dry run: with the parser packages left out of `optimizeDeps.include` and `node_modules/.vite` deleted, the docs tests passed with no reload, so the plan names nothing there.
 4. **A `docs:` link to a section that does not exist** (renamed `{#id}`, or a page name typo) — `problemsOf` checks the scheme and page, `content.test.ts` checks the section exists in both languages (Tasks 2, 6).
 5. **An address opened straight on `/docs/cli` reads the panel before the chunk arrives** — the `main` and `section#docs-panel` stay eager (Task 7), so `AppRoutes.browser.test.tsx`, which reads the panel synchronously after `render`, keeps passing unchanged; `LayoutInvariants` waits for the column before auditing the docs state (Task 7).
 
@@ -72,12 +72,11 @@ cases below are the inputs most likely to bite a person using the result.
 
 **Files:**
 - Modify: `apps/lab/package.json` (via pnpm), `pnpm-lock.yaml`
-- Modify: `apps/lab/vite.config.ts`, `apps/lab/vitest.config.ts`
 - Create: `apps/lab/src/docs/pages.ts`, `apps/lab/src/docs/markdown.ts`
 - Test: `apps/lab/src/docs/markdown.test.ts`
 
 **Interfaces:**
-- Produces: `DOCS_PAGES`, `type DocsPage = 'element' | 'cli'`, `isDocsPage(what: string | undefined): what is DocsPage`, `SECTION_PREFIX = 'docs-'` (pages.ts); `interface DocsSection { readonly id: string; readonly title: string }`, `parseDocs(markdown: string): Root`, `sectionIdOf(heading: Heading): string | undefined`, `sectionsOf(root: Root): DocsSection[]`, `plainText(nodes: readonly PhrasingContent[]): string`, `inlineOf(text: string): PhrasingContent[]`, `DOCS_LINK: RegExp` (markdown.ts); `DOCS_DEPS: string[]` (vite.config.ts).
+- Produces: `DOCS_PAGES`, `type DocsPage = 'element' | 'cli'`, `isDocsPage(what: string | undefined): what is DocsPage`, `SECTION_PREFIX = 'docs-'` (pages.ts); `interface DocsSection { readonly id: string; readonly title: string }`, `parseDocs(markdown: string): Root`, `sectionIdOf(heading: Heading): string | undefined`, `sectionsOf(root: Root): DocsSection[]`, `plainText(nodes: readonly PhrasingContent[]): string`, `inlineOf(text: string): PhrasingContent[]`, `DOCS_LINK: RegExp` (markdown.ts).
 
 - [ ] **Step 0: Branch and bead**
 
@@ -272,38 +271,12 @@ export function inlineOf(text: string): PhrasingContent[] {
 Run: `cd apps/lab && pnpm exec vitest run --project node src/docs/markdown.test.ts`
 Expected: PASS, 7 tests.
 
-- [ ] **Step 7: Name the new packages for the optimizer**
-
-In `apps/lab/vite.config.ts`, after `reactPlugins()`, add:
-
-```ts
-// The docs' parser loads with the Docs tab's own chunk (`DocsRoute`). Named, so
-// a cold optimizer bundles it on the first pass instead of discovering it on
-// the first visit and reloading the page (see the chromium project in
-// vitest.config.ts for what that reload does to a test run).
-export const DOCS_DEPS = [
-  'mdast-util-from-markdown',
-  'micromark-extension-directive',
-  'mdast-util-directive',
-  'micromark-extension-gfm-table',
-  'mdast-util-gfm-table',
-]
-```
-
-and in its `defineConfig({ … })` add the line `optimizeDeps: { include: DOCS_DEPS },` after `build: { target: 'es2022' },`.
-
-In `apps/lab/vitest.config.ts`, change the import to `import { DOCS_DEPS, ISOLATION, reactPlugins } from './vite.config.ts'` and the chromium project's line to:
-
-```ts
-        optimizeDeps: { include: ['react-dom/client', 'zustand/react/shallow', ...DOCS_DEPS] },
-```
-
-- [ ] **Step 8: Gates and commit**
+- [ ] **Step 7: Gates and commit**
 
 ```bash
-cd apps/lab && pnpm exec prettier --write src/docs/pages.ts src/docs/markdown.ts src/docs/markdown.test.ts vite.config.ts vitest.config.ts
+cd apps/lab && pnpm exec prettier --write src/docs/pages.ts src/docs/markdown.ts src/docs/markdown.test.ts
 pnpm run check && pnpm run lint
-git add package.json ../../pnpm-lock.yaml vite.config.ts vitest.config.ts src/docs/pages.ts src/docs/markdown.ts src/docs/markdown.test.ts
+git add package.json ../../pnpm-lock.yaml src/docs/pages.ts src/docs/markdown.ts src/docs/markdown.test.ts
 git commit -m "lab: parse the docs' Markdown, with directives, tables and section ids"
 ```
 
@@ -671,7 +644,16 @@ export function highlightJson(code: string): CodeToken[] {
 }
 ```
 
-Then update the module header's first sentence in `codeTokens.ts` from "Syntax colours for the documentation: the element page's one example and the machine columns of its three tables" to "Syntax colours for the documentation: its `html`, `sh` and `json` blocks and the machine columns of its reference tables". Read the whole header and keep the rest true: its last paragraph ("two small scanners cover them") becomes "four small scanners cover them".
+Then, in the module header of `codeTokens.ts`, replace the first sentence ("Syntax colours for the documentation: the element page's one example and the machine columns of its three tables, in GitHub Dark's colours (`--code-*`).") with "Syntax colours for the documentation: its `html`, `sh` and `json` blocks and the machine columns of its reference tables, in GitHub Dark's colours (`--code-*`).", and the last paragraph (from "No library:" to the end of the header) with:
+
+```ts
+ * No library: the blocks are short commands, one HTML example, a little JSON
+ * and type expressions in table cells, so four small scanners cover them. The
+ * HTML and type scanners follow the design mock's `highlight()` and
+ * `tsTokens()`, with one correction noted where it is made.
+```
+
+Re-wrap so the header stays within 120 columns; Prettier does not wrap comments.
 
 - [ ] **Step 4: Run them to see them pass**
 
@@ -819,6 +801,8 @@ In `packages/engine/lab-docs.ts`, replace these values exactly (everything else 
 The PL rows that keep "element" in the singular — `enableColors`, `emit`, `slots.colors`, `slots.gestures` — name the component and stay.
 
 - [ ] **Step 4: Run the engine tests**
+
+First `deno fmt packages/engine/lab-docs.ts packages/engine/glossary.test.ts`: the new `EN.props.view` line is 126 columns, and `deno fmt` moves the string onto its own line (measured by the dry run).
 
 Run: `deno test --allow-read packages/engine/glossary.test.ts packages/engine/lab-docs.test.ts packages/engine/neutral.test.ts`
 Expected: PASS. Then `deno task verify` from the root: PASS.
@@ -1653,7 +1637,7 @@ Run Step 2's command again. Expected: PASS, 2 × 3 + 2 + 2 = 10 tests.
 
 - [ ] **Step 4: Prove the shape guard tells a translation apart**
 
-Commit first (Step 9's `git add` + a WIP commit is fine, amended later). Change `{#members}` to `{#member}` in `docs-content/pl/element.md`, rerun. Expected: FAIL in `the element page > has the same shape in both languages`. Undo by hand; rerun: PASS. Then change `pl/cli.md`'s `form="knobs"` to `form="short"`, rerun: the same test fails for `cli`. Undo by hand.
+Run Step 9's commit now (the steps after this one add files to it with `git commit --amend --no-edit` at Step 9). Change `{#members}` to `{#member}` in `docs-content/pl/element.md`, rerun. Expected: FAIL in `the element page > has the same shape in both languages`. Undo by hand; rerun: PASS. Then change `{#knobs}` to `{#knob}` in `pl/cli.md` (one occurrence, so the undo is one exact replacement), rerun: the same test fails for `cli`. Undo by hand, and check `git diff --stat` is empty.
 
 - [ ] **Step 5: Write the page tests**
 
@@ -1918,7 +1902,7 @@ test('both section headings carry the ids the navigation names', async () => {
 Run: `cd apps/lab && pnpm exec vitest run --project chromium src/docs/ElementPage.browser.test.tsx src/docs/CliPage.browser.test.tsx`
 Expected: PASS, 12 + 6 tests.
 
-- [ ] **Step 6: The glossary reads the pages — failing first**
+- [ ] **Step 6: The glossary reads the pages**
 
 Append to `packages/engine/glossary.test.ts` (add `import { dirname, fromFileUrl, join } from '@std/path'` beside the other imports):
 
@@ -1934,6 +1918,8 @@ function proseLines(lang: string, page: string): [string, string][] {
   )
     .replace(/\{[^}\n]*\}/g, ' ')
     .replace(/\]\([^)\n]*\)/g, ']')
+    // The CLI's own name, as the helpText case above strips it: the CLI page's title.
+    .replace(/deno task carve/g, ' ')
   return text.split('\n').map((line, i): [string, string] => [`docs-content/${lang}/${page}.md:${i + 1}`, line])
 }
 
@@ -1950,7 +1936,7 @@ Deno.test('the docs pages use no retired word', () => {
 ```
 
 Run: `deno fmt packages/engine/glossary.test.ts && deno test --allow-read packages/engine/glossary.test.ts`
-Expected: PASS (the pages were written in the glossary). Then prove it can fail: commit (Step 9), change "reports clicks on arrows" in `docs-content/en/element.md` to "reports clicks on pieces", rerun. Expected: FAIL naming `docs-content/en/element.md:3` and `/\bpieces?\b/i`. Undo by hand; rerun: PASS. Then put "elementy" for "strzałki" in `pl/element.md`'s lead: FAIL naming `/\belement(?:y|ów|om|ami|ach)\b/i`. Undo by hand.
+Expected: PASS (the pages were written in the glossary; without the `deno task carve` line the CLI page's `# deno task carve` fails on `/\bcarv(?:e|ed|es|ing)\b/i`, measured). Then prove it can fail: amend the commit (Step 9), change "reports clicks on arrows" in `docs-content/en/element.md` to "reports clicks on pieces", rerun. Expected: FAIL naming `docs-content/en/element.md:3` and `/\bpieces?\b/i`. Undo by hand; rerun: PASS. Then put "elementy" for "strzałki" in `pl/element.md`'s lead: FAIL naming `/\belement(?:y|ów|om|ami|ach)\b/i`. Undo by hand.
 
 - [ ] **Step 7: Run every Deno gate**
 
@@ -1968,6 +1954,8 @@ Expected: no errors.
 
 - [ ] **Step 9: Commit**
 
+The first time (from Step 4) with `git commit`, afterwards with `git commit --amend --no-edit`, until every file below is in:
+
 ```bash
 git add apps/lab/docs-content apps/lab/src/docs/content.ts apps/lab/src/docs/DocsPageView.tsx \
   apps/lab/src/docs/content.test.ts apps/lab/src/docs/ElementPage.browser.test.tsx \
@@ -1983,12 +1971,13 @@ git commit -m "lab: write the element and CLI docs pages in Markdown, guarded fo
 - Create: `apps/lab/src/routes/DocsBody.tsx`
 - Modify: `apps/lab/src/routes/DocsRoute.tsx` (whole file), `apps/lab/src/routes/DocsNav.tsx` (whole file), `apps/lab/src/routes/useSectionInView.ts` (signature and imports)
 - Modify: `apps/lab/src/docs/codeTokens.test.ts` (the example's source), `apps/lab/src/routes/LayoutInvariants.browser.test.tsx` (one wait)
-- Modify: `packages/engine/lab-docs.ts` (the prose that moved)
+- Modify: `packages/engine/lab-docs.ts` (the prose that moved), `packages/engine/README.md` (the `Docs` row of its exports table, which `readme.test.ts` compares with the code), `packages/engine/lab-i18n.ts` (one key, `docsUnavailable`)
+- Test: `apps/lab/src/routes/DocsRoute.browser.test.tsx`
 - Delete: `apps/lab/src/routes/ElementDocs.tsx`, `apps/lab/src/routes/CliDocs.tsx`, `apps/lab/src/routes/ElementDocs.browser.test.tsx`, `apps/lab/src/routes/CliDocs.browser.test.tsx`, `apps/lab/src/docs/elementExample.ts`
 
 **Interfaces:**
 - Consumes: `docsPage`, `DocsPageView`, `DocsSection`, `DocsPage`, `isDocsPage`.
-- Produces: `DocsBody({ page, panel })`; `useSectionInView(panel: RefObject<HTMLElement | null>, sections: readonly DocsSection[]): string`; `Docs` without `elementLead`, `slotsLead`, `cliLead`, `cliShortHead`, `cliKnobsHead`, `cliEnglishNote`, `headProps`, `headMembers`, `headEvents`, `headSlots`, `headExample`, `readmePointer`.
+- Produces: `interface DocsBodyProps { page: DocsPage; panel: RefObject<HTMLElement | null> }`, `DocsBody(props: DocsBodyProps)`; `loadDocsBody(load?): Promise<{ default: ComponentType<DocsBodyProps> }>`; `useSectionInView(panel: RefObject<HTMLElement | null>, sections: readonly DocsSection[]): string`; `Docs` without `elementLead`, `slotsLead`, `cliLead`, `cliShortHead`, `cliKnobsHead`, `cliEnglishNote`, `headProps`, `headMembers`, `headEvents`, `headSlots`, `headExample`, `readmePointer`.
 
 - [ ] **Step 1: The section hook takes the sections**
 
@@ -2098,13 +2087,18 @@ import { useStore } from '../state/store'
 import { DocsNav } from './DocsNav'
 import { useSectionInView } from './useSectionInView'
 
+export interface DocsBodyProps {
+  page: DocsPage
+  panel: RefObject<HTMLElement | null>
+}
+
 /**
  * The documentation panel's contents: the navigation column beside the page,
  * and under 768 over it. The root of the Docs tab's own chunk (`DocsRoute`):
- * the Markdown parser alone is 78 KB minified, 22 KB gzipped, which the lab's
- * first load does not carry.
+ * with the parser and the pages it is 111 KB minified, 34 KB gzipped, which
+ * the lab's first load does not carry.
  */
-export function DocsBody({ page, panel }: { page: DocsPage; panel: RefObject<HTMLElement | null> }): ReactElement {
+export function DocsBody({ page, panel }: DocsBodyProps): ReactElement {
   const lang = useStore((state) => state.lang.lang)
   const section = useSectionInView(panel, docsPage(lang, page).sections)
   return (
@@ -2121,12 +2115,34 @@ export function DocsBody({ page, panel }: { page: DocsPage; panel: RefObject<HTM
 Replace `apps/lab/src/routes/DocsRoute.tsx` with:
 
 ```tsx
-import { lazy, type ReactElement, Suspense, useRef } from 'react'
+import { type ComponentType, lazy, type ReactElement, Suspense, useRef } from 'react'
 import { useParams } from 'react-router'
 import { type DocsPage, isDocsPage } from '../docs/pages'
+import { useDictionary } from '../i18n'
+import type { DocsBodyProps } from './DocsBody'
 import { KeepHashNavigate } from './KeepHashNavigate'
 
-const DocsBody = lazy(() => import('./DocsBody').then((module) => ({ default: module.DocsBody })))
+function DocsUnavailable(): ReactElement {
+  const dict = useDictionary()
+  return <p>{dict.t('docsUnavailable')}</p>
+}
+
+/**
+ * The body's chunk, or a line saying it did not load. A rejected import would
+ * otherwise reach React with no error boundary above it, and React unmounts
+ * the whole root: the run in flight and the board with it. `load` is a seam
+ * for the test.
+ */
+export function loadDocsBody(
+  load: () => Promise<{ DocsBody: ComponentType<DocsBodyProps> }> = () => import('./DocsBody'),
+): Promise<{ default: ComponentType<DocsBodyProps> }> {
+  return load().then(
+    (module) => ({ default: module.DocsBody }),
+    () => ({ default: DocsUnavailable }),
+  )
+}
+
+const DocsBody = lazy(() => loadDocsBody())
 
 /**
  * The documentation tab's pages. An unknown page name redirects rather than
@@ -2165,6 +2181,46 @@ function DocsPanel({ page }: { page: DocsPage }): ReactElement {
   )
 }
 ```
+
+Add the key to `packages/engine/lab-i18n.ts`, beside `docsCli` in each table:
+
+```ts
+    docsUnavailable: 'The documentation did not load. Reload the page to try again.',
+```
+
+```ts
+    docsUnavailable: 'Dokumentacja się nie wczytała. Odśwież stronę, żeby spróbować jeszcze raz.',
+```
+
+Create `apps/lab/src/routes/DocsRoute.browser.test.tsx`:
+
+```tsx
+import { beforeEach, expect, test } from 'vitest'
+import { render } from 'vitest-browser-react'
+import { useStore } from '../state/store'
+import { DocsBody } from './DocsBody'
+import { loadDocsBody } from './DocsRoute'
+
+beforeEach(() => useStore.getState().lang.setLang('en'))
+
+test('the body loads as the docs body', async () => {
+  const { default: body } = await loadDocsBody()
+  expect(body).toBe(DocsBody)
+})
+
+// A deploy that replaced the chunk, or a dropped network: the panel says so
+// instead of the rejection reaching React, which would unmount the whole lab.
+test('a body that cannot load leaves a line saying so', async () => {
+  const { default: Body } = await loadDocsBody(() => Promise.reject(new Error('offline')))
+  const screen = await render(<Body page="element" panel={{ current: null }} />)
+  await expect
+    .element(screen.getByText('The documentation did not load. Reload the page to try again.'))
+    .toBeVisible()
+})
+```
+
+Run (after `pnpm nx build engine`): `cd apps/lab && pnpm exec vitest run --project chromium src/routes/DocsRoute.browser.test.tsx`
+Expected: PASS, 2 tests. Prove the second can fail: replace the rejection handler `() => ({ default: DocsUnavailable })` with nothing (`load().then((module) => ({ default: module.DocsBody }))`), rerun: FAIL with the rejection `offline`. Undo by hand.
 
 - [ ] **Step 4: Retire the old pages**
 
@@ -2207,7 +2263,7 @@ In `apps/lab/src/routes/LayoutInvariants.browser.test.tsx`, directly after `cons
 In `packages/engine/lab-docs.ts`:
 
 1. From `interface Docs`, delete the fields `elementLead`, `slotsLead` (with its doc comment), `cliLead`, `cliShortHead`, `cliKnobsHead`, `cliEnglishNote` (each with its doc comment), `headProps`, `headMembers`, `headEvents`, `headSlots`, `headExample`, `readmePointer` (with its doc comment). Keep `props`, `members`, `events`, `slots`, the ten `col*` fields and `infoLabel`; change `infoLabel`'s doc comment to `/** The accessible name of a page's note, a blockquote in its Markdown. */`. Change the interface's doc comment to `/** What the Docs tab's reference tables need in one language: descriptions, column names, the note's name. */`.
-2. Delete the same keys from `EN` and `PL`.
+2. Delete the same keys from `EN` and `PL`. One value uses double quotes, `EN.cliEnglishNote` ("The blocks below are the terminal's own text…"): a search for single-quoted values misses it.
 3. Replace the file's first paragraph (the four lines from `// The documentation the lab's Docs tab prints` to `// copy would drift.`) with:
 
 ```ts
@@ -2219,7 +2275,9 @@ In `packages/engine/lab-docs.ts`:
 
 4. In the third paragraph, delete the sentence `Code examples live in apps/lab for the same reason.` and read the whole paragraph after the edit: it must still say only what the file does (no examples remain in it).
 
-Run: `deno task verify` from the root.
+5. In `packages/engine/README.md`, the exports table's `| \`Docs\` |` row: replace its shape (the backticked span) with `{ readonly props: Record<PropKey, string>; readonly members: Record<MemberKey, string>; readonly events: Record<EventKey, string>; readonly slots: Record<SlotKey, string>; readonly colProp: string; readonly colType: string; readonly colAttr: string; readonly colDefault: string; readonly colMember: string; readonly colSignature: string; readonly colEvent: string; readonly colSlot: string; readonly colDetail: string; readonly colDescription: string; readonly infoLabel: string }`. Without it `readme.test.ts` fails on "every signature, shape and declaration is the one the code declares" (measured by the dry run).
+
+Run: `deno fmt packages/engine && deno task verify` from the root.
 Expected: PASS — `lab-docs.test.ts`'s frame test still finds eleven strings (`col*` and `infoLabel`), above its floor of ten; `node-smoke.mjs` reads `props.board`, which stays.
 
 Then `pnpm nx build engine`.
@@ -2236,7 +2294,7 @@ Expected: everything passes, including the unchanged `routes/DocsNav.browser.tes
 - [ ] **Step 8: Commit**
 
 ```bash
-git add -A apps/lab/src packages/engine/lab-docs.ts
+git add -A apps/lab/src packages/engine/lab-docs.ts packages/engine/lab-i18n.ts packages/engine/README.md
 git commit -m "lab: the Docs tab renders its pages from Markdown, its body in a chunk of its own"
 ```
 
@@ -2677,7 +2735,7 @@ After committing (Step 8), set `CONTRADICTS_AT = 0.95` and rerun Step 4's test c
 - [ ] **Step 6: Run it on the real pages and record the natural rate**
 
 Run: `deno task jev:docs` (needs the 1Password key; `with-typesafe` is not needed — the script reads `~/.config/arrowz/typesafe.env` like the other guards).
-Expected, from the probe: at most the element page's lead (`contradicts_readme` 0.55–0.62 measured, under the 0.7 threshold, so usually silent). Every flag that appears gets one line in the PR body (Task 9 Step 5): fixed, or kept and why.
+Expected, from the probe: at most the element page's lead (`contradicts_readme` 0.55–0.62 measured, under the 0.7 threshold, so usually silent). Every flag that appears gets one line in the PR body (Task 9 Step 5's body): fixed, or kept and why.
 
 - [ ] **Step 7: Document it**
 
@@ -2713,26 +2771,18 @@ cd apps/lab && pnpm run build
 grep -l "containerDirective" dist/assets/*.js
 ```
 
-Expected: exactly one file, and its name does not start with `index-` (the string literal belongs to `mdast-util-directive`; the entry chunk must not carry it).
+Expected: exactly one file, `DocsBody-*.js` (the string literal belongs to `mdast-util-directive`; the entry chunk must not carry it). Measured by the dry run: 111 KB minified, 34 KB gzipped.
 
-- [ ] **Step 3: A cold optimizer does not reload the test page**
-
-```bash
-cd apps/lab && rm -rf node_modules/.vite && pnpm exec vitest run --project chromium src/routes/DocsLayout.browser.test.tsx
-```
-
-Expected: PASS, with no "new dependencies optimized" reload in the output. If it reloads, the package it names goes into `DOCS_DEPS`.
-
-- [ ] **Step 4: Jev reads the docs**
+- [ ] **Step 3: Jev reads the docs**
 
 Run: `deno task jev:docs`. Triage each flag: fix the text (and rerun), or keep it and write why. The list
 and its dispositions go into the PR body under "Jev".
 
-- [ ] **Step 5: Look at it**
+- [ ] **Step 4: Look at it**
 
 `pnpm nx serve lab`, open `http://localhost:8779/docs/element` and `/docs/cli` in both languages at 1440×900 and 375×812: the pages read as before, descriptions show code spans as code, the column lists the same sections, a section link scrolls the panel. Compare with `apps/lab/docs/screenshots/docs.png`.
 
-- [ ] **Step 6: Open the pull request**
+- [ ] **Step 5: Open the pull request**
 
 ```bash
 git push -u origin lab/docs-machinery
@@ -2751,7 +2801,7 @@ element's descriptions, which said "pieces" and "elementy".
 what the English says, and whether the prose tells history or leans on jargon; CI runs it on the docs
 pages a PR changes. Advisory only.
 
-Jev: <one line per flag from Task 9 Step 4, with what was done; or "nothing flagged">
+Jev: <one line per flag from Task 9 Step 3, with what was done; or "nothing flagged">
 
 First of five PRs in docs/superpowers/specs/2026-10-05-lab-docs-from-readmes-design.md.
 
@@ -2769,3 +2819,4 @@ EOF
 3. **Type consistency:** `DocsSection.id` is the prefixed DOM id everywhere (`sectionsOf`, `placed`, `DocsNav`, `useSectionInView`); `sectionIdOf` returns the bare id. `docsPage(lang, page)` takes `Lang` from `@arrowz/engine/i18n`, which is the store's `'en' | 'pl'`. `DocsTable`'s `labelledBy` is `string | undefined`, as `section?.id` gives.
 4. **Checked against the files, 2026-10-05:** `DocsBlock`'s props (`routes/DocsBlock.tsx`), `useDocs` (`docs/useDocs.ts`), the dictionary keys `docsNavLabel`, `docsElement`, `docsCli`, `copy`, `copied`, `Lang` in `lab-i18n.ts`, `leaves`/`refuse`/`EN_RETIRED`/`LAB_ONLY_KNOB`/`LAB_ONLY_FLAG`/`ALLOWED` in `glossary.test.ts`, `@std/path` in the root import map, `optimizeDeps` in `vitest.config.ts`, `expect` imported by `LayoutInvariants.browser.test.tsx`, the `AppRoutes.browser.test.tsx` cases that read the panel synchronously (kept passing by the eager panel). The glossary violations Task 4 rewrites were listed by running the guard's patterns over `docsFor` (2026-10-05); `en.props.view` is the first EN row. Parser and Prettier behaviour (escapes, text directives, tables reformatted, directives kept) were measured on a scratch copy of the five packages at the versions pinned in Task 1, not on the lab itself.
 5. **Jev review of this plan (2026-10-05, jev-1.13.0, citation-check pattern):** 28 claims about the code, each judged against a span read from disk by the script (not quoted by the plan): 28 `supports`; the two least sure (C1, the synchronous panel read in `AppRoutes.browser.test.tsx`, 0.71; C10, `DOCS_SECTIONS[page]` in `useSectionInView`, 0.71) were then read by hand and hold, as does C28 (`LayoutInvariants` waits for nothing in the docs state, which is why Task 7 Step 5 exists). 20 spec requirements, each judged against the whole plan: 20 `covered`, the weakest R15 (neutral rules, 0.54) and R18 (no attribution, 0.59) — both now stated in Global Constraints. Jev does not compile code and does not run tests: the plan's code blocks are reviewed by Jev only for what they claim, not for whether they type-check.
+6. **Dry run (2026-10-05, a Sonnet subagent executing Tasks 1–9 in a detached worktree from `84a1a82`):** every gate passed in the end (`deno task verify` 664 tests; `pnpm nx run-many -t verify`; lab 1626 tests), and every plan-named mutation turned its named test red. Fixed in this revision: `deno fmt` before Task 4's verify (a 126-column line); the CLI page's `# deno task carve` tripping the glossary (Task 6 Step 6); `packages/engine/README.md`'s `Docs` row, which `readme.test.ts` compares and no task touched (Task 7 Step 6); the double-quoted `cliEnglishNote`; the chunk size (111/34 KB, not the parser-only 78/22); a mutation whose undo by `sed` also rewrote the original line (Task 6 Step 4); the stale "No library" header paragraph (Task 3); the "WIP commit, amended later" with no amend step (Task 6). Removed: `DOCS_DEPS` and its cold-optimizer gate — with the packages out of `optimizeDeps.include` and the cache deleted the docs tests passed with no reload, so the gate could not fail. Added instead: `loadDocsBody` (Review Focus 3), checked on top of the dry run's tree: `pnpm run check` and `lint` clean, its two tests and `AppRoutes.browser.test.tsx` pass, the mutation in Task 7 Step 3 fails with `offline` as written, and the engine's `lab-i18n`, glossary and neutral tests pass with the new key. Noted, not changed: `pnpm run lint` prints an existing `react-hooks/exhaustive-deps` warning in `CommandPalette.tsx`, which predates this branch.
