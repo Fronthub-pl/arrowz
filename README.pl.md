@@ -381,7 +381,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `docs/images/manifest.json` | Komenda, która stworzyła każdy obrazek na tej stronie; `deno task docs` rysuje je wszystkie od nowa. |
 | `packages/engine/HISTORY.md` | Dziennik inżynierski: każdy pomiar, każda ślepa uliczka, każda decyzja, ze szczegółami. |
 | `docs/superpowers/specs/` | Dokumenty projektowe, w tym pełne reguły gry. |
-| `packages/engine/` | Pakiet silnika (`@arrowz/engine`): generator, parametry, parser komendy, presety, słowniki. |
+| `packages/engine/` | Pakiet silnika (`@arrowz/engine`): generator, parametry, parser komendy, presety, słowniki. Jego API opisuje [osobne README](packages/engine/README.md) (po angielsku). |
 | `packages/cli/` | Narzędzie wiersza poleceń i magazyn plansz. |
 | `apps/lab/` | Laboratorium: aplikacja w Reakcie serwowana przez Vite. |
 

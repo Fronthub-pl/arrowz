@@ -373,7 +373,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `docs/images/manifest.json` | The command behind every picture on this page; `deno task docs` draws them all again. |
 | `packages/engine/HISTORY.md` | The engineering log: every measurement, every dead end, every decision, in detail. |
 | `docs/superpowers/specs/` | The design documents, including the full rules of the game. |
-| `packages/engine/` | The engine package (`@arrowz/engine`): generator, parameters, command parser, presets, dictionaries. |
+| `packages/engine/` | The engine package (`@arrowz/engine`): generator, parameters, command parser, presets, dictionaries. Its API is in [its own README](packages/engine/README.md). |
 | `packages/cli/` | The command-line tool and the board store. |
 | `apps/lab/` | The lab: a React application served by Vite. |
 
