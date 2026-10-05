@@ -105,6 +105,12 @@ test('a plain wheel over a board is the page’s, a ⌘/Ctrl wheel is the board�
   await twoFrames()
   expect(zoom.defaultPrevented).toBe(true)
   expect(board.viewport?.cellPx).toBeGreaterThan(before)
+  const afterCtrl = board.viewport?.cellPx ?? before
+  const meta = wheel({ metaKey: true })
+  canvas.dispatchEvent(meta)
+  await twoFrames()
+  expect(meta.defaultPrevented).toBe(true)
+  expect(board.viewport?.cellPx).toBeGreaterThan(afterCtrl)
 })
 
 // The runner cannot emulate a coarse pointer, so the still board is drawn directly.

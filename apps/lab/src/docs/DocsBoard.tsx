@@ -77,16 +77,19 @@ function LiveBoard({
   const { queue, root } = useDocsBoards()
   const frame = useRef<HTMLDivElement>(null)
   const near = useNear(frame, root)
-  const [asked, setAsked] = useState(about === null)
+  // A manual board this session already made draws at once, without its button.
+  const [asked, setAsked] = useState(() => about === null || queue.cached(spec.key) !== undefined)
   const [attempt, setAttempt] = useState(0)
   const [job, setJob] = useState<DocsJob>(() => {
     const hit = queue.cached(spec.key)
     return hit === undefined ? { state: 'waiting' } : { state: 'done', run: hit }
   })
+  // A failed board asks again only through Try again, not each time it comes near.
+  const failed = job.state === 'failed'
   useEffect(() => {
-    if (!near || !asked) return
+    if (!near || !asked || failed) return
     return queue.request(spec.key, spec.params, setJob)
-  }, [near, asked, attempt, queue, spec])
+  }, [near, asked, failed, attempt, queue, spec])
   useEffect(() => {
     const element = frame.current
     if (element === null) return
@@ -120,7 +123,14 @@ function LiveBoard({
         ) : job.state === 'failed' ? (
           <div className="fw-docs-wait">
             <p role="alert">{dict.t('docsBoardFailed', job.message)}</p>
-            <button type="button" className="fw-btn" onClick={() => setAttempt((n) => n + 1)}>
+            <button
+              type="button"
+              className="fw-btn"
+              onClick={() => {
+                setJob({ state: 'waiting' })
+                setAttempt((n) => n + 1)
+              }}
+            >
               {dict.t('docsBoardTryAgain')}
             </button>
           </div>

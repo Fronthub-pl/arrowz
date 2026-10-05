@@ -1,5 +1,5 @@
 import type { ArrowzBoard } from '@arrowz/board-element'
-import { act } from 'react'
+import { act, useRef } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -17,8 +17,12 @@ import { NEAR_MARGIN } from './useNear'
 // The frame takes its size from docs.css; without the sheets it has none.
 import '../design/index.css'
 
+const COLORED = useStore.getState().view.colored
 beforeEach(() => useStore.getState().lang.setLang('en'))
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  useStore.getState().view.setFlag('colored', COLORED)
+})
 
 function show(markdown: string, queue: DocsQueue) {
   return render(
@@ -97,6 +101,28 @@ test('the board looks as its command says, not as the lab is set', async () => {
   expect(el?.interactive).toBe(false)
 })
 
+test('a manual board this session made draws again without its button', async () => {
+  const queue = createDocsQueue(answeringWorkers().make, new Map())
+  const md = '# T\n\n::board[Big]{cmd="--width=24 --height=24 --seed=7" manual about="10"}'
+  const first = await show(md, queue)
+  await first.getByRole('button', { name: 'Generate (about 10 s)' }).click()
+  await expect.poll(() => element(first.container)?.board?.W).toBe(24)
+  await first.unmount()
+  // Records every moment of the second mount, so a button that shows for one frame is caught.
+  let button = false
+  const watch = new MutationObserver(() => {
+    if (document.body.textContent?.includes('Generate (about') === true) button = true
+  })
+  watch.observe(document.body, { childList: true, subtree: true, characterData: true })
+  try {
+    const second = await show(md, queue)
+    await expect.poll(() => element(second.container)?.board?.W).toBe(24)
+  } finally {
+    watch.disconnect()
+  }
+  expect(button).toBe(false)
+})
+
 test('a manual board waits for its button and promises the seconds', async () => {
   const workers = fakeWorkers()
   const screen = await show(
@@ -116,6 +142,21 @@ test('a manual board waits for its button and promises the seconds', async () =>
   await expect.element(screen.getByText('Generating…')).toBeVisible()
 })
 
+/** A box that scrolls, a board at its top and room below to scroll it out of reach. */
+function Scrolling({ markdown, queue }: { markdown: string; queue: DocsQueue }) {
+  const box = useRef<HTMLDivElement>(null)
+  return (
+    <div ref={box} data-testid="box" style={{ height: '400px', width: '720px', overflowY: 'auto' }}>
+      <div className="fw-docs-body">
+        <DocsBoardsProvider root={box} queue={queue}>
+          <DocsMarkdown root={parseDocs(markdown)} />
+        </DocsBoardsProvider>
+      </div>
+      <div style={{ height: '4000px' }} />
+    </div>
+  )
+}
+
 test('a failed board says why and Try again asks again', async () => {
   const workers = fakeWorkers()
   const screen = await show(BOARD, createDocsQueue(workers.make, new Map()))
@@ -125,6 +166,30 @@ test('a failed board says why and Try again asks again', async () => {
   await expect.element(screen.getByRole('alert')).toHaveTextContent('It did not generate: no room left')
   await screen.getByRole('button', { name: 'Try again' }).click()
   expect(workers.made[0]?.posted.length).toBe(2)
+})
+
+test('a failed board coming near again does not ask again; only Try again does', async () => {
+  const workers = fakeWorkers()
+  const screen = await render(
+    <MemoryRouter initialEntries={['/docs/cli']}>
+      <Scrolling markdown={BOARD} queue={createDocsQueue(workers.make, new Map())} />
+    </MemoryRouter>,
+  )
+  const posted = () => workers.made.flatMap((w) => w.posted).length
+  await expect.poll(posted).toBe(1)
+  await act(async () => workers.made[0]?.answer({ type: 'error', message: 'no room left' }))
+  await expect.element(screen.getByRole('alert')).toBeVisible()
+  const box = screen.container.querySelector<HTMLElement>('[data-testid="box"]')
+  const frame = screen.container.querySelector('.fw-docs-frame')
+  if (box === null || frame === null) throw new Error('no box or frame')
+  box.scrollTo({ top: 3000 })
+  await twoFrames()
+  box.scrollTo({ top: 0 })
+  await nearNow(frame)
+  await twoFrames()
+  expect(posted()).toBe(1)
+  await screen.getByRole('button', { name: 'Try again' }).click()
+  await expect.poll(posted).toBe(2)
 })
 
 test('a board that is not complete says so and draws its empty cells', async () => {
@@ -157,9 +222,15 @@ test('a language switch relabels the stats and asks the worker for nothing', asy
   const workers = answeringWorkers()
   const screen = await show(BOARD, createDocsQueue(workers.make, new Map()))
   await expect.poll(() => element(screen.container)?.board?.W).toBe(12)
+  // The element resets its viewport when handed a new board or view.
+  const el = element(screen.container)
+  const before = { board: el?.board, view: el?.view }
   await act(async () => useStore.getState().lang.setLang('pl'))
   await expect.poll(() => screen.container.querySelector('.fw-docs-stats dt')?.textContent).toBe('strzałki')
   expect(workers.posted).toHaveLength(1)
+  expect(element(screen.container)).toBe(el)
+  expect(el?.board).toBe(before.board)
+  expect(el?.view).toBe(before.view)
 })
 
 test('a docs board leaves the lab’s run and result alone', async () => {
