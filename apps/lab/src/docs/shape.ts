@@ -3,31 +3,63 @@
  * `problemsOf` lists what the renderer would not show (`DocsMarkdown.tsx`
  * handles exactly these node types); `shapeOf` is a page with its prose taken
  * out, which both languages must share. `content.test.ts` runs both over every
- * page.
+ * page. The directives' rules are `DIRECTIVES` and `CONTAINERS`; a board's
+ * command is checked by `readBoardCmd` (boards.ts).
  */
 import type { Nodes, Root } from 'mdast'
-import type { LeafDirective } from 'mdast-util-directive'
+import type { ContainerDirective, LeafDirective } from 'mdast-util-directive'
+import { aboutProblem, DOCS_BOARD_MAX, readBoardCmd, statsProblem } from './boards'
 import { DOCS_LINK, sectionIdOf } from './markdown'
 import { RULE_BOARD_NAMES } from './ruleBoards'
 
-/** Each directive by name, and the values each of its attributes may take. */
-export const DIRECTIVES: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {
+/** What an attribute may hold: one of a list, or whatever `check` lets through (it returns the problem). */
+type AttributeRule = readonly string[] | ((value: string) => string | null)
+
+interface DirectiveRule {
+  /** `[…]` after the name: a board's caption. The other directives take none. */
+  readonly label: boolean
+  readonly required: Readonly<Record<string, AttributeRule>>
+  readonly optional: Readonly<Record<string, AttributeRule>>
+}
+
+const cmdProblem = (value: string): string | null => {
+  const { problems } = readBoardCmd(value)
+  return problems.length === 0 ? null : `cmd: ${problems.join('; ')}`
+}
+
+/** Each leaf directive by name: its label, and the values each attribute may take. */
+export const DIRECTIVES: Readonly<Record<string, DirectiveRule>> = {
   table: {
-    of: [
-      'element-props',
-      'element-members',
-      'element-events',
-      'element-slots',
-      'keys',
-      'palette',
-      'link-fields',
-      'knobs',
-      'rules',
-      'env',
-    ],
+    label: false,
+    required: {
+      of: [
+        'element-props',
+        'element-members',
+        'element-events',
+        'element-slots',
+        'keys',
+        'palette',
+        'link-fields',
+        'knobs',
+        'rules',
+        'env',
+      ],
+    },
+    optional: {},
   },
-  help: { form: ['short', 'knobs'] },
-  play: { board: RULE_BOARD_NAMES },
+  help: { label: false, required: { form: ['short', 'knobs'] }, optional: {} },
+  play: { label: false, required: { board: RULE_BOARD_NAMES }, optional: {} },
+  board: {
+    label: true,
+    required: { cmd: cmdProblem },
+    // `manual` is a bare word: the parser reads it as an empty value.
+    optional: { stats: statsProblem, manual: [''], about: aboutProblem },
+  },
+}
+
+/** `:::compare` holds boards side by side; its `stats` speak for every board in it. */
+export const CONTAINERS: Readonly<Record<string, DirectiveRule>> = {
+  compare: { label: false, required: {}, optional: { stats: statsProblem } },
 }
 
 /** Fenced code is coloured as its language; `text` is a terminal's output and stays plain. */
@@ -51,22 +83,73 @@ const SHOWN = new Set([
   'break',
   'blockquote',
   'leafDirective',
+  'containerDirective',
 ])
 
-function directiveProblems(node: LeafDirective, at: string): string[] {
-  // hasOwn first: `::toString` or `constructor="x"` would read Object.prototype.
-  const allowed = Object.hasOwn(DIRECTIVES, node.name) ? DIRECTIVES[node.name] : undefined
-  if (allowed === undefined) return [`${at}: ::${node.name} is not a docs directive`]
+type Directive = LeafDirective | ContainerDirective
+
+/** A check names its own key; a listed value keeps the wording tests pin: `of="x" is not one of …`. */
+function ruleProblems(key: string, rule: AttributeRule, value: string): string | null {
+  if (typeof rule === 'function') return rule(value)
+  return rule.includes(value) ? null : `${key}="${value}" is not one of ${rule.join(', ')}`
+}
+
+function attributeProblems(node: Directive, rule: DirectiveRule, at: string): string[] {
   const out: string[] = []
   const attributes = node.attributes ?? {}
+  const mark = node.type === 'containerDirective' ? ':::' : '::'
   for (const [key, value] of Object.entries(attributes)) {
-    const values = Object.hasOwn(allowed, key) ? allowed[key] : undefined
-    if (values === undefined) out.push(`${at}: ::${node.name} takes no ${key}`)
-    else if (!values.includes(value ?? ''))
-      out.push(`${at}: ${key}="${value ?? ''}" is not one of ${values.join(', ')}`)
+    // hasOwn first: `::toString` or `constructor="x"` would read Object.prototype.
+    const allowed = Object.hasOwn(rule.required, key)
+      ? rule.required[key]
+      : Object.hasOwn(rule.optional, key)
+        ? rule.optional[key]
+        : undefined
+    if (allowed === undefined) {
+      out.push(`${at}: ${mark}${node.name} takes no ${key}`)
+      continue
+    }
+    const problem = ruleProblems(key, allowed, value ?? '')
+    if (problem !== null) out.push(`${at}: ${problem}`)
   }
-  for (const key of Object.keys(allowed)) if (!(key in attributes)) out.push(`${at}: ::${node.name} needs ${key}`)
-  if (node.children.length > 0) out.push(`${at}: ::${node.name} takes no label`)
+  for (const key of Object.keys(rule.required))
+    if (!(key in attributes)) out.push(`${at}: ${mark}${node.name} needs ${key}`)
+  return out
+}
+
+function boardProblems(node: LeafDirective, at: string): string[] {
+  const attributes = node.attributes ?? {}
+  const out: string[] = []
+  const manual = 'manual' in attributes
+  if (manual !== 'about' in attributes) out.push(`${at}: manual and about go together`)
+  const spec = readBoardCmd(attributes['cmd'] ?? '').spec
+  if (spec !== null && !manual && Math.max(spec.params.W, spec.params.H) > DOCS_BOARD_MAX)
+    out.push(
+      `${at}: a board larger than ${DOCS_BOARD_MAX}×${DOCS_BOARD_MAX} waits for its button: add manual about="…"`,
+    )
+  return out
+}
+
+function leafProblems(node: LeafDirective, at: string): string[] {
+  const rule = Object.hasOwn(DIRECTIVES, node.name) ? DIRECTIVES[node.name] : undefined
+  if (rule === undefined) return [`${at}: ::${node.name} is not a docs directive`]
+  const out = attributeProblems(node, rule, at)
+  if (rule.label && node.children.length === 0) out.push(`${at}: ::${node.name} needs a label`)
+  if (!rule.label && node.children.length > 0) out.push(`${at}: ::${node.name} takes no label`)
+  if (node.name === 'board') out.push(...boardProblems(node, at))
+  return out
+}
+
+function containerProblems(node: ContainerDirective, at: string): string[] {
+  const rule = Object.hasOwn(CONTAINERS, node.name) ? CONTAINERS[node.name] : undefined
+  if (rule === undefined) return [`${at}: :::${node.name} is not a docs directive`]
+  const out = attributeProblems(node, rule, at)
+  const boards = node.children.filter((child) => child.type === 'leafDirective' && child.name === 'board')
+  if (boards.length !== node.children.length) out.push(`${at}: :::${node.name} holds boards only`)
+  if (boards.length < 2) out.push(`${at}: :::${node.name} needs two boards or more`)
+  for (const child of boards)
+    if (child.type === 'leafDirective' && 'stats' in (child.attributes ?? {}))
+      out.push(`${at}: a board in :::${node.name} takes its stats from the comparison`)
   return out
 }
 
@@ -100,7 +183,8 @@ export function problemsOf(root: Root, pages: readonly string[]): string[] {
       !node.children.every((child) => child.type === 'paragraph' || child.type === 'list')
     )
       out.push(`${at}: a list item holds paragraphs and lists only`)
-    if (node.type === 'leafDirective') out.push(...directiveProblems(node, at))
+    if (node.type === 'leafDirective') out.push(...leafProblems(node, at))
+    if (node.type === 'containerDirective') out.push(...containerProblems(node, at))
     if ('children' in node) for (const child of node.children) walk(child)
   }
   const first = root.children[0]
@@ -132,6 +216,7 @@ export function shapeOf(root: Root): string[] {
       out.push(node.depth === 2 ? `## {#${sectionIdOf(node) ?? ''}}` : '#'.repeat(node.depth))
     if (node.type === 'code') out.push(`code ${node.lang ?? ''}: ${codeOf(node.lang, node.value)}`)
     if (node.type === 'leafDirective') out.push(`::${node.name}{${attributesOf(node.attributes)}}`)
+    if (node.type === 'containerDirective') out.push(`:::${node.name}{${attributesOf(node.attributes)}}`)
     if (node.type === 'link') out.push(`link ${node.url}`)
     if (node.type === 'blockquote') out.push('note')
     if (node.type === 'list') out.push(`list ${node.ordered === true ? 'ordered' : 'bullet'} ${node.children.length}`)
