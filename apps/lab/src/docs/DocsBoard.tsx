@@ -25,6 +25,7 @@ import { useDocsBoards } from './DocsBoards'
 import type { DocsJob, DocsRun } from './docsQueue'
 import { Inline } from './Inline'
 import { plainText } from './markdown'
+import { useCoarsePointer } from './useCoarsePointer'
 import { useNear } from './useNear'
 
 export interface DocsBoardProps {
@@ -37,8 +38,9 @@ export interface DocsBoardProps {
 
 export function DocsBoard({ cmd, ...rest }: DocsBoardProps): ReactElement | null {
   const spec = useMemo(() => readBoardCmd(cmd).spec, [cmd])
+  const still = useCoarsePointer()
   // The content guard refuses a command that does not parse; nothing is drawn for one.
-  return spec === null ? null : <LiveBoard spec={spec} {...rest} />
+  return spec === null ? null : <LiveBoard spec={spec} still={still} {...rest} />
 }
 
 export function DocsCompare({ node }: { node: ContainerDirective }): ReactElement {
@@ -81,6 +83,18 @@ function LiveBoard({
     if (!near || !asked) return
     return queue.request(spec.key, spec.params, setJob)
   }, [near, asked, attempt, queue, spec])
+  useEffect(() => {
+    const element = frame.current
+    if (element === null) return
+    // The element zooms on every wheel turn; on a page of boards a plain wheel
+    // scrolls the page instead. Captured here, the board never sees it; with
+    // ⌘ or Ctrl (Chromium sends a trackpad pinch that way) it still zooms.
+    const pass = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) event.stopPropagation()
+    }
+    element.addEventListener('wheel', pass, { capture: true })
+    return () => element.removeEventListener('wheel', pass, { capture: true })
+  }, [])
   const run = job.state === 'done' ? job.run : null
   const { W, H } = spec.params
   const pad = spec.view.pad

@@ -341,6 +341,10 @@
   inset: 0;
   display: block;
 }
+/* Under a coarse pointer the board is a picture: the finger scrolls the page (DocsBoard). */
+.fw-docs-frame > arrowz-board.still {
+  pointer-events: none;
+}
 .fw-docs-wait {
   display: grid;
   gap: 8px;
