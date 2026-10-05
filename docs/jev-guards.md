@@ -44,7 +44,7 @@ same questions at the same thresholds as the hooks about:
   `git diff base...head`, in the files the hook covers, at most 400 per run;
 - every commit message in `base..head`, merges left out;
 - the docs pages the PR changes (a page's Markdown in either language, or
-  `packages/engine/lab-docs.ts` for the element page), with the questions of
+  `packages/engine/lab-docs.ts` for the element and lab pages), with the questions of
   "Docs pages" below;
 - the PR title and body. An `edited` event asks only about these.
 
@@ -169,20 +169,21 @@ worktree's own project memory, which is usually empty.
 ## Docs pages
 
 `packages/cli/scripts/jev-docs.ts` reads the lab's Markdown documentation
-pages (`apps/lab/docs-content/{en,pl}/<page>.md`) and, for the element page,
-the property, member, event and slot descriptions in
-`packages/engine/lab-docs.ts`. It asks four things:
+pages (`apps/lab/docs-content/{en,pl}/<page>.md`) and the descriptions in
+`packages/engine/lab-docs.ts` its tables show: the property, member, event and
+slot descriptions with the element page, the key, palette and link-field
+descriptions with the lab page. It asks four things:
 
 | Question | Asked of | Flag when |
 |---|---|---|
-| `contradicts` (the page's README makes the text false) | every English prose block and every element description, with the page's README and the glossary's renames in the state | `> 0.7` |
+| `contradicts` (the page's README makes the text false) | every English prose block and every description the page's tables show, with the page's README and the glossary's renames in the state | `> 0.7` |
 | `same_meaning` (`PAIR_QUESTIONS`) | each section's English against its Polish, and each description pair | differs `> 0.54` (`DIFFERS_AT`) |
 | `history` (the text tells the project's past) | every English prose block | `> 0.85` |
 | `plain` (no unexplained internal term) | every English prose block | `< 0.3` |
 
-By hand: `deno task jev:docs [page…]` (pages: `arrowz`, `element`, `cli`;
+By hand: `deno task jev:docs [page…]` (pages: `arrowz`, `lab`, `cli`, `element`;
 all by default). In CI, `jev-ci.ts` runs the same checks on the pages a PR changes:
-either language of a page, or `lab-docs.ts` for the element page. Like every
+either language of a page, or `lab-docs.ts` for the element and lab pages. Like every
 guard it only advises.
 
 Measured on jev-1.13.0, 2026-10-05, over the pages of the first docs PR, the

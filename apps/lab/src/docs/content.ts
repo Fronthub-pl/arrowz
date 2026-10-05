@@ -10,9 +10,11 @@ import type { DocsPage } from './pages'
 import arrowzEn from '../../docs-content/en/arrowz.md?raw'
 import cliEn from '../../docs-content/en/cli.md?raw'
 import elementEn from '../../docs-content/en/element.md?raw'
+import labEn from '../../docs-content/en/lab.md?raw'
 import arrowzPl from '../../docs-content/pl/arrowz.md?raw'
 import cliPl from '../../docs-content/pl/cli.md?raw'
 import elementPl from '../../docs-content/pl/element.md?raw'
+import labPl from '../../docs-content/pl/lab.md?raw'
 
 export interface ParsedPage {
   readonly root: Root
@@ -21,8 +23,8 @@ export interface ParsedPage {
 
 /** The Markdown of every page, as written: what the content guard parses afresh. */
 export const SOURCES: Readonly<Record<Lang, Readonly<Record<DocsPage, string>>>> = {
-  en: { arrowz: arrowzEn, element: elementEn, cli: cliEn },
-  pl: { arrowz: arrowzPl, element: elementPl, cli: cliPl },
+  en: { arrowz: arrowzEn, lab: labEn, element: elementEn, cli: cliEn },
+  pl: { arrowz: arrowzPl, lab: labPl, element: elementPl, cli: cliPl },
 }
 
 function parsed(markdown: string): ParsedPage {
@@ -31,8 +33,18 @@ function parsed(markdown: string): ParsedPage {
 }
 
 const PAGES: Readonly<Record<Lang, Readonly<Record<DocsPage, ParsedPage>>>> = {
-  en: { arrowz: parsed(SOURCES.en.arrowz), element: parsed(SOURCES.en.element), cli: parsed(SOURCES.en.cli) },
-  pl: { arrowz: parsed(SOURCES.pl.arrowz), element: parsed(SOURCES.pl.element), cli: parsed(SOURCES.pl.cli) },
+  en: {
+    arrowz: parsed(SOURCES.en.arrowz),
+    lab: parsed(SOURCES.en.lab),
+    element: parsed(SOURCES.en.element),
+    cli: parsed(SOURCES.en.cli),
+  },
+  pl: {
+    arrowz: parsed(SOURCES.pl.arrowz),
+    lab: parsed(SOURCES.pl.lab),
+    element: parsed(SOURCES.pl.element),
+    cli: parsed(SOURCES.pl.cli),
+  },
 }
 
 export function docsPage(lang: Lang, page: DocsPage): ParsedPage {

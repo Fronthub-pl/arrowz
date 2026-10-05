@@ -1,5 +1,10 @@
 import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS, ELEMENT_SLOTS } from '@arrowz/engine/docs'
 import type { ReactElement } from 'react'
+import { useDictionary } from '../i18n'
+import { docsPaletteRows } from '../palette/commands'
+import { shownKeys } from '../shell/hotkeys'
+import { useStore } from '../state/store'
+import { LINK_FIELDS } from '../state/url'
 import { type CellRole, cellTokens } from './codeTokens'
 import { InlineMarkdown } from './Inline'
 import { TokenSpans } from './TokenSpans'
@@ -17,14 +22,20 @@ function Mono({ text, column }: { text: string; column: CellRole }): ReactElemen
   )
 }
 
+/** A description by the key the code names; `tables.test.ts` fails first on a missing one. */
+function described(rows: Readonly<Record<string, string>>, key: string): string {
+  return Object.hasOwn(rows, key) ? (rows[key] ?? '') : ''
+}
+
 /**
- * One reference table of `<arrowz-board>`, as `::table{of=…}` names it. The
- * machine columns come from the shared rows and are not translated; the last
- * column is, and is inline Markdown. A name `shape.ts` does not list renders
- * nothing, and the content guard fails first.
+ * One reference table, as `::table{of=…}` names it: the element's, from the
+ * shared rows, or the lab's, from the lab's own code. The machine columns are
+ * not translated; the last column is, and is inline Markdown. A name
+ * `shape.ts` does not list renders nothing, and the content guard fails first.
  */
 export function DocsTable({ of, labelledBy }: { of: string; labelledBy?: string | undefined }): ReactElement | null {
   const docs = useDocs()
+  const dict = useDictionary()
   if (of === 'element-props')
     return (
       <table className="fw-docs-table" aria-labelledby={labelledBy}>
@@ -114,6 +125,74 @@ export function DocsTable({ of, labelledBy }: { of: string; labelledBy?: string 
               <Mono text={row.key} column="slot" />
               <td>
                 <InlineMarkdown text={docs.slots[row.key]} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  if (of === 'keys')
+    return (
+      <table className="fw-docs-table" aria-labelledby={labelledBy}>
+        <thead>
+          <tr>
+            <th scope="col">{docs.colKey}</th>
+            <th scope="col">{docs.colDescription}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {shownKeys().map((key) => (
+            <tr key={key}>
+              <td className="mono">
+                <kbd>{key}</kbd>
+              </td>
+              <td>
+                <InlineMarkdown text={described(docs.keys, key)} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  if (of === 'palette')
+    return (
+      <table className="fw-docs-table" aria-labelledby={labelledBy}>
+        <thead>
+          <tr>
+            <th scope="col">{docs.colCommand}</th>
+            <th scope="col">{docs.colSection}</th>
+            <th scope="col">{docs.colDescription}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {/* Only the language reaches these rows (`docsPaletteRows` fixes the rest), and `dict` changes with it. */}
+          {docsPaletteRows(dict, useStore.getState()).map((row) => (
+            <tr key={row.id}>
+              <td>{row.name}</td>
+              <td>{row.note}</td>
+              <td>
+                <InlineMarkdown text={described(docs.palette, row.id)} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  if (of === 'link-fields')
+    return (
+      <table className="fw-docs-table" aria-labelledby={labelledBy}>
+        <thead>
+          <tr>
+            <th scope="col">{docs.colField}</th>
+            <th scope="col">{docs.colDescription}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {LINK_FIELDS.map((field) => (
+            <tr key={field}>
+              <Mono text={field} column="prop" />
+              <td>
+                <InlineMarkdown text={described(docs.linkFields, field)} />
               </td>
             </tr>
           ))}

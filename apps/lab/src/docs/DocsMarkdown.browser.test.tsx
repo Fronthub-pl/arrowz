@@ -1,10 +1,15 @@
 import { helpText } from '@arrowz/engine/command'
 import type { ArrowzBoard } from '@arrowz/board-element'
 import { ELEMENT_SLOTS } from '@arrowz/engine/docs'
+import { dictionary } from '@arrowz/engine/i18n'
+import { act } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
+import { docsPaletteRows } from '../palette/commands'
+import { shownKeys } from '../shell/hotkeys'
 import { useStore } from '../state/store'
+import { VIEW_KEYS } from '../state/viewSchema'
 import { DocsMarkdown } from './DocsMarkdown'
 import { parseDocs } from './markdown'
 
@@ -116,6 +121,68 @@ test('::table draws the reference table its section names', async () => {
   const screen = await show('# T\n\n## Slots {#slots}\n\n::table{of="element-slots"}')
   const table = screen.container.querySelector('table[aria-labelledby="docs-slots"]')
   expect(table?.querySelectorAll('tbody tr')).toHaveLength(ELEMENT_SLOTS.length)
+})
+
+const cells = (table: Element | null) =>
+  [...(table?.querySelectorAll('tbody tr') ?? [])].map((tr) => [...tr.children].map((td) => td.textContent))
+const headers = (table: Element | null) => [...(table?.querySelectorAll('thead th') ?? [])].map((th) => th.textContent)
+
+test('::table of keys lists every key the lab binds, with what it does', async () => {
+  const screen = await show('# T\n\n## Keys {#keys}\n\n::table{of="keys"}')
+  const table = screen.container.querySelector('table[aria-labelledby="docs-keys"]')
+  expect(headers(table)).toEqual(['Key', 'Description'])
+  expect(cells(table).map(([key]) => key)).toEqual(shownKeys())
+  expect(cells(table)[0]).toEqual(['G', 'Generates a board from the settings.'])
+  expect(table?.querySelector('tbody kbd')?.textContent).toBe('G')
+})
+
+test('::table of the palette ignores the view the lab is in', async () => {
+  const mode = useStore.getState().ui.mode
+  useStore.setState((state) => ({ ui: { ...state.ui, mode: 'simple' } }))
+  try {
+    const screen = await show('# T\n\n## Palette {#palette}\n\n::table{of="palette"}')
+    const table = screen.container.querySelector('table[aria-labelledby="docs-palette"]')
+    expect(headers(table)).toEqual(['Command', 'Section', 'Description'])
+    const rows = cells(table)
+    expect(rows.map(([name]) => name)).toEqual(
+      docsPaletteRows(dictionary('en'), useStore.getState()).map((row) => row.name),
+    )
+    expect(rows).toContainEqual([
+      'Check seeds',
+      'run',
+      'Runs the settings over a number of seeds (advanced view only).',
+    ])
+    expect(rows).toContainEqual(['Open file…', 'go to', 'Opens a board file from disk.'])
+  } finally {
+    useStore.setState((state) => ({ ui: { ...state.ui, mode } }))
+  }
+})
+
+test('::table of link fields lists every field a link carries, its language last', async () => {
+  const screen = await show('# T\n\n## Links {#links}\n\n::table{of="link-fields"}')
+  const table = screen.container.querySelector('table[aria-labelledby="docs-links"]')
+  expect(headers(table)).toEqual(['Field', 'Description'])
+  const rows = cells(table)
+  expect(rows.map(([field]) => field)).toEqual([...VIEW_KEYS, 'lang'])
+  expect(rows.at(-1)).toEqual(['lang', "The page's language, en or pl."])
+  // A description is inline Markdown: its code spans are code, not backticks.
+  expect(table?.querySelectorAll('tbody tr:last-child code')).toHaveLength(2)
+})
+
+test('the lab tables follow the language', async () => {
+  const screen = await show(
+    '# T\n\n## Keys {#keys}\n\n::table{of="keys"}\n\n## Palette {#palette}\n\n::table{of="palette"}',
+  )
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  const keys = screen.container.querySelector('table[aria-labelledby="docs-keys"]')
+  await expect.poll(() => cells(keys)[0]).toEqual(['G', 'Generuje planszę z ustawień.'])
+  expect(headers(keys)).toEqual(['Klawisz', 'Opis'])
+  const palette = cells(screen.container.querySelector('table[aria-labelledby="docs-palette"]'))
+  expect(palette).toContainEqual([
+    'Przełącz na angielski',
+    'przejdź do',
+    'Przełącza język; po angielsku wiersz proponuje polski.',
+  ])
 })
 
 test('::play draws the rule board it names, coloured and playable', async () => {

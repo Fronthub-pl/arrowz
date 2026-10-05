@@ -97,6 +97,14 @@ Deno.test('checkDocs reads the element descriptions too, in both languages', asy
   assert(calls.some((c) => c.key === 'lab-docs.ts props.pad'))
 })
 
+Deno.test('checkDocs reads the lab descriptions with the lab page, and not the element ones', async () => {
+  const { judge, calls } = stubJudge(() => quiet)
+  await checkDocs(judge, { page: 'lab', en: PAGE, pl: PAGE, source: 'README' })
+  assert(calls.some((c) => c.key === 'lab-docs.ts keys.G'))
+  assert(calls.some((c) => c.key === 'lab-docs.ts linkFields.lang'))
+  assert(!calls.some((c) => typeof c.key === 'string' && c.key.startsWith('lab-docs.ts props.')))
+})
+
 Deno.test('readDocs reads both languages and the source README, and refuses an unknown page', () => {
   const files: Record<string, string> = {
     'apps/lab/docs-content/en/cli.md': 'en',
@@ -115,7 +123,7 @@ Deno.test('docsPagesOf names the pages a change touches', () => {
     'apps/lab/docs-content/en/nowhere.md',
     'apps/lab/src/docs/content.ts',
   ].join('\n')
-  assertEquals(docsPagesOf(names), ['cli', 'element'])
+  assertEquals(docsPagesOf(names), ['cli', 'element', 'lab'])
 })
 
 // Jev reads a page only through DOCS_SOURCES: a page missing there is never checked.

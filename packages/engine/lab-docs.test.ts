@@ -39,15 +39,33 @@ Deno.test('no Polish description is a copy of its English source', () => {
   for (const row of ELEMENT_SLOTS) assert(pl.slots[row.key] !== en.slots[row.key], `slot ${row.key}`)
 })
 
+// The lab's own tables: their rows are the lab's code, which `tables.test.ts`
+// in apps/lab compares; here only that each description is text, translated.
+Deno.test('every lab table description is in both languages, and translated', () => {
+  const en = docsFor('en')
+  const pl = docsFor('pl')
+  let seen = 0
+  for (const group of ['keys', 'palette', 'linkFields'] as const) {
+    const plRows: Readonly<Record<string, string>> = pl[group]
+    for (const [key, text] of Object.entries(en[group])) {
+      seen++
+      assert(text.trim().length > 0, `EN ${group}.${key}`)
+      assert((plRows[key] ?? '').trim().length > 0, `PL ${group}.${key}`)
+      assertNotEquals(plRows[key], text, `${group}.${key} is still English in the Polish docs`)
+    }
+  }
+  assertEquals(seen, 10 + 17 + 19)
+})
+
 // The frame around the tables — the column names and the note's name — is text
 // too, and the tests above walk only rows. The key list is derived from the
-// object, so a field added to `Docs` later is covered too. Eleven strings exist
-// today (ten `col*` and `infoLabel`); the floor catches a filter that finds none.
+// object, so a field added to `Docs` later is covered too. Fifteen strings exist
+// today (fourteen `col*` and `infoLabel`); the floor catches a filter that finds none.
 Deno.test('the frame around the tables is translated too', () => {
   const en = docsFor('en')
   const pl = docsFor('pl')
   const frame = (Object.keys(en) as (keyof Docs)[]).filter((key) => typeof en[key] === 'string')
-  assert(frame.length > 10, `only ${frame.length} frame strings found — the filter is wrong`)
+  assert(frame.length > 14, `only ${frame.length} frame strings found — the filter is wrong`)
   for (const key of frame) {
     const enText = en[key]
     const plText = pl[key]

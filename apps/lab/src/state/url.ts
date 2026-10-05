@@ -1,10 +1,13 @@
 import type { Lang } from '@arrowz/engine/i18n'
 import { type ParamKey, type Params, readParams } from '@arrowz/engine'
 import { isLang } from './lang.slice'
-import { pickView, readView, type ViewFields } from './viewSchema'
+import { pickView, readView, VIEW_KEYS, type ViewFields } from './viewSchema'
 
 /** The view a link states, and the page's language when it names one the dictionary has. */
 export type HashView = ViewFields & { lang?: Lang | undefined }
+
+/** Every field a link's `__view` is read for: the view's own, then the page's language. */
+export const LINK_FIELDS: readonly string[] = [...VIEW_KEYS, 'lang']
 
 /** A key the page does not read (`tab`), kept so a round trip cannot drop it. */
 export interface Carried {

@@ -94,15 +94,12 @@ function plFor(page: string): RegExp[] {
 /** Code spans blanked: a key or a flag in backticks is code, not a word. */
 const withoutCode = (text: string): string => text.replace(/`[^`\n]*`/g, ' ')
 
-/** The element's reference descriptions, the rows of the Docs tab's tables. */
+/** The descriptions of the Docs tab's tables, the element's and the lab's. */
 function docsRows(lang: 'en' | 'pl'): [string, string][] {
   const docs = docsFor(lang)
-  return [
-    ...leaves(docs.props, `${lang}.props`, []),
-    ...leaves(docs.members, `${lang}.members`, []),
-    ...leaves(docs.events, `${lang}.events`, []),
-    ...leaves(docs.slots, `${lang}.slots`, []),
-  ].map(([path, text]): [string, string] => [path, withoutCode(text)])
+  return (['props', 'members', 'events', 'slots', 'keys', 'palette', 'linkFields'] as const)
+    .flatMap((group) => leaves(docs[group], `${lang}.${group}`, []))
+    .map(([path, text]): [string, string] => [path, withoutCode(text)])
 }
 
 /** Every string a dictionary can produce, keyed by its path; a function is called with 2 for each parameter. */
@@ -155,7 +152,7 @@ Deno.test('the CLI help uses no retired word outside flag, variable and group na
   refuse(text.split('\n').map((line, i): [string, string] => [`helpText line ${i + 1}`, line]), EN_RETIRED)
 })
 
-Deno.test('the element reference descriptions use no retired word', () => {
+Deno.test("the Docs tables' descriptions use no retired word", () => {
   refuse(docsRows('en'), [...EN_RETIRED, LAB_ONLY_KNOB, LAB_ONLY_FLAG])
   refuse(docsRows('pl'), [...PL_RETIRED, LAB_ONLY_FLAG])
 })

@@ -102,12 +102,61 @@ export type MemberKey = (typeof ELEMENT_MEMBERS)[number]['key']
 export type EventKey = (typeof ELEMENT_EVENTS)[number]['key']
 export type SlotKey = (typeof ELEMENT_SLOTS)[number]['key']
 
+/**
+ * The lab's own tables on the Docs tab, keyed as the lab's code names them: a
+ * key as the lab shows it, a palette row by its id, a link field by its name.
+ * The rows come from `apps/lab`, which the engine cannot import, so
+ * `docs/tables.test.ts` there holds these keys to that code both ways.
+ */
+export type LabKey = 'G' | '[' | ']' | 'R' | 'S' | 'F' | 'Esc' | '⌘G' | '⌘S' | '⌘K'
+export type PaletteId =
+  | 'run-generate'
+  | 'run-generate-save'
+  | 'run-save'
+  | 'run-reseed'
+  | 'run-defaults'
+  | 'run-abort'
+  | 'run-check-seeds'
+  | 'run-solo'
+  | 'go-lab'
+  | 'go-boards'
+  | 'go-open-file'
+  | 'go-docs-arrowz'
+  | 'go-docs-lab'
+  | 'go-docs-cli'
+  | 'go-docs-element'
+  | 'go-view'
+  | 'go-lang'
+export type LinkField =
+  | 'cell'
+  | 'stroke'
+  | 'headWidth'
+  | 'headHeight'
+  | 'top'
+  | 'colored'
+  | 'rounded'
+  | 'highlightLongest'
+  | 'voids'
+  | 'showPoints'
+  | 'pointColor'
+  | 'pointRadius'
+  | 'theme'
+  | 'palette'
+  | 'paper'
+  | 'ink'
+  | 'highlightColor'
+  | 'pad'
+  | 'lang'
+
 /** What the Docs tab's reference tables need in one language: descriptions, column names, the note's name. */
 export interface Docs {
   readonly props: Record<PropKey, string>
   readonly members: Record<MemberKey, string>
   readonly events: Record<EventKey, string>
   readonly slots: Record<SlotKey, string>
+  readonly keys: Record<LabKey, string>
+  readonly palette: Record<PaletteId, string>
+  readonly linkFields: Record<LinkField, string>
   readonly colProp: string
   readonly colType: string
   readonly colAttr: string
@@ -116,6 +165,11 @@ export interface Docs {
   readonly colSignature: string
   readonly colEvent: string
   readonly colSlot: string
+  readonly colKey: string
+  readonly colCommand: string
+  /** The palette's section a row sits in: run or go to. */
+  readonly colSection: string
+  readonly colField: string
   /** The event's payload column. */
   readonly colDetail: string
   /** The last column of every table: the translated one. */
@@ -182,6 +236,58 @@ const EN = {
     gestures:
       'The ☝ switch, drawn only on an `interactive` or `play` board and not under a coarse pointer. The element keeps `aria-pressed` and `hidden` on a projected one.',
   },
+  keys: {
+    'G': 'Generates a board from the settings.',
+    '[': 'Steps the seed back by one and generates.',
+    ']': 'Steps the seed forward by one and generates.',
+    'R': 'Shows or hides the report.',
+    'S': 'Shows or hides the settings.',
+    'F': 'Full view: the board alone.',
+    'Esc': 'Puts away one layer: an open sheet first, then the report, then the settings.',
+    '⌘G': 'Generates a board and saves it.',
+    '⌘S': 'Saves the board on screen.',
+    '⌘K': 'Opens the command palette, on every screen, also from a field.',
+  },
+  palette: {
+    'run-generate': 'Generates a board from the settings.',
+    'run-generate-save': 'Generates a board and saves it.',
+    'run-save': 'Saves the board on screen.',
+    'run-reseed': 'Draws a random seed and generates.',
+    'run-defaults': 'Puts every setting back to its default and generates.',
+    'run-abort': 'Stops the run and keeps the board made so far; while one is stopping, _Discard_ drops its board.',
+    'run-check-seeds': 'Runs the settings over a number of seeds (advanced view only).',
+    'run-solo': 'The board alone.',
+    'go-lab': 'The settings, the board and the report.',
+    'go-boards': 'The saved boards.',
+    'go-open-file': 'Opens a board file from disk.',
+    'go-docs-arrowz': 'The puzzle, its one rule played on three small boards, and its words.',
+    'go-docs-lab': 'How the lab works: its views, keys, palette and links.',
+    'go-docs-cli': "The command line's documentation.",
+    'go-docs-element': 'The documentation of `<arrowz-board>`.',
+    'go-view': 'Switches the view; in the simple view the row reads _Advanced view_.',
+    'go-lang': 'Switches the language; in Polish the row offers English.',
+  },
+  linkFields: {
+    cell: 'The cell size of an exported SVG, in pixels.',
+    stroke: 'The line thickness, in cells.',
+    headWidth: "The arrowhead's width in cells; 0 is automatic.",
+    headHeight: "The arrowhead's length, in cells.",
+    top: 'How many longest arrows are marked.',
+    colored: 'One colour per arrow.',
+    rounded: 'Rounded turns and a disc tail.',
+    highlightLongest: 'Marks the longest arrows.',
+    voids: 'Shows the cells the generator left empty.',
+    showPoints: 'The dot grid.',
+    pointColor: 'The colour of its dots.',
+    pointRadius: 'The radius of its dots, in cells.',
+    theme: 'A built-in theme by name.',
+    palette: 'The arrow colours while `colored` is on.',
+    paper: 'The background colour.',
+    ink: 'The colour of the arrows.',
+    highlightColor: 'The colour of the marked arrows.',
+    pad: 'The margin around the board, in cells.',
+    lang: "The page's language, `en` or `pl`.",
+  },
   colProp: 'Property',
   colType: 'Type',
   colAttr: 'Attribute',
@@ -190,6 +296,10 @@ const EN = {
   colSignature: 'Signature',
   colEvent: 'Event',
   colSlot: 'Slot',
+  colKey: 'Key',
+  colCommand: 'Command',
+  colSection: 'Section',
+  colField: 'Field',
   colDetail: 'Detail',
   colDescription: 'Description',
   infoLabel: 'Note',
@@ -254,6 +364,59 @@ const PL = {
     gestures:
       'Przełącznik ☝, rysowany tylko na planszy `interactive` albo `play` i nie przy grubym wskaźniku. Na podstawionym element sam ustawia `aria-pressed` i `hidden`.',
   },
+  keys: {
+    'G': 'Generuje planszę z ustawień.',
+    '[': 'Cofa ziarno o jeden i generuje.',
+    ']': 'Przesuwa ziarno o jeden naprzód i generuje.',
+    'R': 'Pokazuje albo chowa raport.',
+    'S': 'Pokazuje albo chowa ustawienia.',
+    'F': 'Pełny podgląd: sama plansza.',
+    'Esc': 'Chowa jedną warstwę: najpierw otwarty arkusz, potem raport, potem ustawienia.',
+    '⌘G': 'Generuje planszę i ją zapisuje.',
+    '⌘S': 'Zapisuje planszę z ekranu.',
+    '⌘K': 'Otwiera paletę poleceń, na każdym ekranie, także z pola.',
+  },
+  palette: {
+    'run-generate': 'Generuje planszę z ustawień.',
+    'run-generate-save': 'Generuje planszę i ją zapisuje.',
+    'run-save': 'Zapisuje planszę z ekranu.',
+    'run-reseed': 'Losuje ziarno i generuje.',
+    'run-defaults': 'Przywraca każdemu ustawieniu wartość domyślną i generuje.',
+    'run-abort':
+      'Zatrzymuje generowanie i zostawia planszę ułożoną do tej pory; gdy generowanie już się zatrzymuje, _Odrzuć_ porzuca jego planszę.',
+    'run-check-seeds': 'Uruchamia ustawienia na wielu ziarnach (tylko w widoku zaawansowanym).',
+    'run-solo': 'Sama plansza.',
+    'go-lab': 'Ustawienia, plansza i raport.',
+    'go-boards': 'Zapisane plansze.',
+    'go-open-file': 'Otwiera plik planszy z dysku.',
+    'go-docs-arrowz': 'Łamigłówka, jej jedna reguła rozegrana na trzech małych planszach i jej słowa.',
+    'go-docs-lab': 'Jak działa laboratorium: widoki, klawisze, paleta i linki.',
+    'go-docs-cli': 'Dokumentacja wiersza poleceń.',
+    'go-docs-element': 'Dokumentacja `<arrowz-board>`.',
+    'go-view': 'Przełącza widok; w widoku prostym wiersz brzmi _Widok zaawansowany_.',
+    'go-lang': 'Przełącza język; po angielsku wiersz proponuje polski.',
+  },
+  linkFields: {
+    cell: 'Rozmiar komórki w eksportowanym SVG, w pikselach.',
+    stroke: 'Grubość linii, w komórkach.',
+    headWidth: 'Szerokość grotu w komórkach; 0 to wartość automatyczna.',
+    headHeight: 'Długość grotu, w komórkach.',
+    top: 'Ile najdłuższych strzałek jest wyróżnionych.',
+    colored: 'Każda strzałka we własnym kolorze.',
+    rounded: 'Zaokrąglone zakręty i okrągły ogon.',
+    highlightLongest: 'Wyróżnia najdłuższe strzałki.',
+    voids: 'Pokazuje komórki, które generator zostawił puste.',
+    showPoints: 'Siatka kropek.',
+    pointColor: 'Kolor jej kropek.',
+    pointRadius: 'Promień jej kropek, w komórkach.',
+    theme: 'Wbudowany motyw, po nazwie.',
+    palette: 'Kolory strzałek, gdy `colored` jest włączone.',
+    paper: 'Kolor tła.',
+    ink: 'Kolor strzałek.',
+    highlightColor: 'Kolor wyróżnionych strzałek.',
+    pad: 'Margines wokół planszy, w komórkach.',
+    lang: 'Język strony, `en` albo `pl`.',
+  },
   colProp: 'Właściwość',
   colType: 'Typ',
   colAttr: 'Atrybut',
@@ -262,6 +425,10 @@ const PL = {
   colSignature: 'Sygnatura',
   colEvent: 'Zdarzenie',
   colSlot: 'Nazwa slotu',
+  colKey: 'Klawisz',
+  colCommand: 'Polecenie',
+  colSection: 'Sekcja',
+  colField: 'Pole',
   colDetail: 'Szczegóły',
   colDescription: 'Opis',
   infoLabel: 'Uwaga',

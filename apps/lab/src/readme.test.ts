@@ -1,8 +1,8 @@
 // README.md describes the lab as the code defines it, and the code is the
-// source of truth: the routes of AppRoutes, the keys of WORKSPACE_KEYS and
-// COMMAND_KEYS, the palette's run and go-to commands, the fields a link
-// carries, the two ports, the Nx targets, and the screenshots of
-// docs/screenshots.json. Each comparison runs both ways, so a row for
+// source of truth: the routes of AppRoutes, the keys the lab binds
+// (shownKeys), the palette's run and go-to commands, the fields a link
+// carries (LINK_FIELDS), the two ports, the Nx targets, and the screenshots
+// of docs/screenshots.json. Each comparison runs both ways, so a row for
 // something removed fails as surely as a missing row.
 //
 // Prose around the tables is not checked; the tables are found by their
@@ -13,9 +13,9 @@ import labConfig from '../vite.config.ts'
 import { LAB_SERVER } from '../vite.proxy.ts'
 import { buildCommands } from './palette/commands'
 import type { RunControl } from './run/useRun'
-import { COMMAND_KEYS, WORKSPACE_KEYS } from './shell/hotkeys'
+import { shownKeys } from './shell/hotkeys'
 import { useStore } from './state/store'
-import { VIEW_KEYS } from './state/viewSchema'
+import { LINK_FIELDS } from './state/url'
 import readme from '../README.md?raw'
 import projectJson from '../project.json?raw'
 import manifestJson from '../docs/screenshots.json?raw'
@@ -73,15 +73,8 @@ test('the route table is the routes AppRoutes declares, both ways', () => {
   expect(sorted(firstColumn('## The screens', 'Route'))).toEqual(sorted(declared))
 })
 
-/** A key as the lab shows it: letters in capitals, Escape as Esc, a command key after ⌘. */
-const shown = (key: string) => (key === 'Escape' ? 'Esc' : key.toUpperCase())
-
 test('the key table is WORKSPACE_KEYS and COMMAND_KEYS, both ways', () => {
-  const keys = new Set([
-    ...WORKSPACE_KEYS.flatMap((row) => row.keys.map(shown)),
-    ...Object.values(COMMAND_KEYS).map((letter) => `⌘${letter.toUpperCase()}`),
-  ])
-  expect(sorted(firstColumn('## Keys', 'Key'))).toEqual(sorted(keys))
+  expect(sorted(firstColumn('## Keys', 'Key'))).toEqual(sorted(shownKeys()))
 })
 
 const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
@@ -103,7 +96,7 @@ test('the palette table is the run and go-to commands, both ways', () => {
 })
 
 test('the link table is the view fields a link carries, and its language, both ways', () => {
-  expect(sorted(firstColumn('## Links', 'Field'))).toEqual(sorted([...VIEW_KEYS, 'lang']))
+  expect(sorted(firstColumn('## Links', 'Field'))).toEqual(sorted(LINK_FIELDS))
 })
 
 test('the ports the README names are the ones the lab and its proxy use', () => {
