@@ -9,6 +9,7 @@
 import type { Nodes, Root } from 'mdast'
 import type { ContainerDirective, LeafDirective } from 'mdast-util-directive'
 import { aboutProblem, DOCS_BOARD_MAX, readBoardCmd, statsProblem } from './boards'
+import { EXPORT_TABLES } from './exportTables'
 import { DOCS_LINK, sectionIdOf } from './markdown'
 import { RULE_BOARD_NAMES } from './ruleBoards'
 
@@ -37,6 +38,7 @@ export const DIRECTIVES: Readonly<Record<string, DirectiveRule>> = {
         'element-members',
         'element-events',
         'element-slots',
+        ...EXPORT_TABLES,
         'keys',
         'palette',
         'link-fields',

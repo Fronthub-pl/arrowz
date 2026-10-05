@@ -8,22 +8,12 @@ import { docsPaletteRows } from '../palette/commands'
 import { shownKeys } from '../shell/hotkeys'
 import { useStore } from '../state/store'
 import { LINK_FIELDS } from '../state/url'
-import { type CellRole, cellTokens } from './codeTokens'
+import { NONE } from './codeTokens'
+import { ExportTable } from './ExportTable'
+import { isExportOf } from './exportTables'
 import { InlineMarkdown } from './Inline'
-import { TokenSpans } from './TokenSpans'
+import { Mono } from './TokenSpans'
 import { useDocs } from './useDocs'
-
-/** The dash a table cell shows where a property has no attribute at all. */
-const NONE = '—'
-
-/** A machine cell in the code colours; the column says what its text is. */
-function Mono({ text, column }: { text: string; column: CellRole }): ReactElement {
-  return (
-    <td className="mono">
-      <TokenSpans tokens={cellTokens(text, column)} />
-    </td>
-  )
-}
 
 /** A description by the key the code names; `tables.test.ts` fails first on a missing one. */
 function described(rows: Readonly<Record<string, string>>, key: string): string {
@@ -50,6 +40,7 @@ export function knobHelp(dict: Dict, row: KnobRow): string {
 export function DocsTable({ of, labelledBy }: { of: string; labelledBy?: string | undefined }): ReactElement | null {
   const docs = useDocs()
   const dict = useDictionary()
+  if (isExportOf(of)) return <ExportTable of={of} labelledBy={labelledBy} />
   if (of === 'element-props')
     return (
       <table className="fw-docs-table" aria-labelledby={labelledBy}>
