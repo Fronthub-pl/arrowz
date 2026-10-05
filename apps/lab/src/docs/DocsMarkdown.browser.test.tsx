@@ -1,7 +1,7 @@
 import { helpText, KNOB_ROWS, RULE_ROWS } from '@arrowz/engine/command'
 import type { ArrowzBoard } from '@arrowz/board-element'
 import { docsFor, ELEMENT_SLOTS } from '@arrowz/engine/docs'
-import { dictionary } from '@arrowz/engine/i18n'
+import { dictionary, PL } from '@arrowz/engine/i18n'
 import { act } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'
@@ -10,7 +10,6 @@ import { docsPaletteRows } from '../palette/commands'
 import { shownKeys } from '../shell/hotkeys'
 import { useStore } from '../state/store'
 import { VIEW_KEYS } from '../state/viewSchema'
-import { knobHelp } from './DocsTable'
 import { DocsMarkdown } from './DocsMarkdown'
 import { inlineOf, parseDocs, plainText } from './markdown'
 
@@ -220,14 +219,13 @@ test('the knob, rule and env tables follow the language', async () => {
     '# T\n\n## K {#knobs}\n\n::table{of="knobs"}\n\n## R {#rules}\n\n::table{of="rules"}\n\n## E {#env}\n\n::table{of="env"}',
   )
   await act(async () => useStore.getState().lang.setLang('pl'))
-  const pl = dictionary('pl')
   const lastCell = (id: string) =>
     screen.container.querySelector(`table[aria-labelledby="docs-${id}"] tbody tr td:last-child`)?.textContent
-  const knob = KNOB_ROWS[0]
   const rule = RULE_ROWS[0]
-  if (knob === undefined || rule === undefined) throw new Error('no rows')
-  await expect.poll(() => lastCell('knobs')).toBe(plainOf(knobHelp(pl, knob)))
-  expect(lastCell('rules')).toBe(plainOf(pl.reason(rule.key)))
+  if (rule === undefined) throw new Error('no rules')
+  // The expected texts are the Polish data itself, not the code that draws them; the first knob row is --width.
+  await expect.poll(() => lastCell('knobs')).toBe(plainOf(PL.params.W.help))
+  expect(lastCell('rules')).toBe(plainOf(PL.reasons[rule.key]))
   expect(lastCell('env')).toBe(plainOf(docsFor('pl').env.ARROWZ_BOARDS_DIR))
   expect(screen.container.querySelector('table[aria-labelledby="docs-env"] th')?.textContent).toBe('Zmienna')
 })
