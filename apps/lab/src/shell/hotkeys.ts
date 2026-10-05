@@ -32,7 +32,13 @@ function isHotkeyRefused(event: KeyboardEvent): boolean {
   return event.ctrlKey || event.metaKey || event.altKey || isOffLimits(event)
 }
 
-/** ⌘ or Ctrl with `letter`, without Alt: ⌘G is Generate and save, ⌘S Save board. */
+/**
+ * The letters pressed with ⌘ (Ctrl elsewhere): ⌘K opens the palette on every
+ * route, ⌘G is Generate and save and ⌘S Save board on the workspace tabs.
+ */
+export const COMMAND_KEYS = { palette: 'k', generateAndSave: 'g', save: 's' } as const
+
+/** ⌘ or Ctrl with `letter`, without Alt. */
 function isCommandKey(event: KeyboardEvent, letter: string): boolean {
   return event.key.toLowerCase() === letter && (event.metaKey || event.ctrlKey) && !event.altKey
 }
@@ -60,8 +66,8 @@ export interface HotkeyRow {
  * `g`, `[` and `]` are the palette footer's, silent while it is open (its
  * search box is an `<input>`); a refused run says nothing here, `RunStatusBar`
  * is the one voice for a broken rule. ⌘G and ⌘S (and Ctrl) are not in the
- * table: they are bound beside it in `useWorkspaceKeys`, and bring the lab as
- * `lab` rows do.
+ * table: they are `COMMAND_KEYS`, bound beside it in `useWorkspaceKeys`, and
+ * bring the lab as `lab` rows do.
  */
 export const WORKSPACE_KEYS: readonly HotkeyRow[] = [
   // Shift is not a modifier here, so `F` too; also with the focus on a button such as Generate.
@@ -96,7 +102,7 @@ export function useWorkspaceKeys(onWorkspace: boolean, control: RunControl, toLa
   useEffect(() => {
     if (!onWorkspace) return
     const onKey = (event: KeyboardEvent) => {
-      if (isCommandKey(event, 'g')) {
+      if (isCommandKey(event, COMMAND_KEYS.generateAndSave)) {
         if (isOffLimits(event)) return
         // The browser's ⌘G is "find next".
         event.preventDefault()
@@ -104,7 +110,7 @@ export function useWorkspaceKeys(onWorkspace: boolean, control: RunControl, toLa
         generateAndSave(control)
         return
       }
-      if (isCommandKey(event, 's')) {
+      if (isCommandKey(event, COMMAND_KEYS.save)) {
         // The browser's "Save page" is never meant here, not even in a field,
         // whose value is not committed yet, so a field saves nothing. Read
         // before `preventDefault`, which `isOffLimits` would take for a consumed key.
@@ -135,7 +141,7 @@ export function useWorkspaceKeys(onWorkspace: boolean, control: RunControl, toLa
 export function usePaletteKey(): void {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'k' && event.key !== 'K') return
+      if (event.key.toLowerCase() !== COMMAND_KEYS.palette) return
       if (!event.metaKey && !event.ctrlKey) return
       if (event.altKey || event.repeat || event.defaultPrevented) return
       event.preventDefault()
