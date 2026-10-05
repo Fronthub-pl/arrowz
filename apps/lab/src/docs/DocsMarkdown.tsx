@@ -109,7 +109,13 @@ function ListView({ node }: { node: List }): ReactElement {
     <li key={i}>
       {item.children.map((child, j) =>
         child.type === 'paragraph' ? (
-          <Inline key={j} nodes={child.children} />
+          item.spread === true ? (
+            <p key={j}>
+              <Inline nodes={child.children} />
+            </p>
+          ) : (
+            <Inline key={j} nodes={child.children} />
+          )
         ) : child.type === 'list' ? (
           <ListView key={j} node={child} />
         ) : null,

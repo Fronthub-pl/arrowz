@@ -95,6 +95,14 @@ test('lists keep their kind and their items', async () => {
   expect([...screen.container.querySelectorAll('ol > li')].map((li) => li.textContent)).toEqual(['first'])
 })
 
+test('a list item with paragraphs apart keeps each as a paragraph', async () => {
+  const screen = await show('# T\n\n- one\n\n  two\n- three')
+  const first = screen.container.querySelector<HTMLElement>('ul > li')
+  expect([...(first?.querySelectorAll(':scope > p') ?? [])].map((p) => p.textContent)).toEqual(['one', 'two'])
+  // textContent joins block children with nothing; innerText is what a reader sees.
+  expect(first?.innerText).not.toBe('onetwo')
+})
+
 test('::table draws the reference table its section names', async () => {
   const screen = await show('# T\n\n## Slots {#slots}\n\n::table{of="element-slots"}')
   const table = screen.container.querySelector('table[aria-labelledby="docs-slots"]')
