@@ -1,6 +1,6 @@
-// The Jev guards on a pull request in CI: the comments it adds, the docs pages it
-// changes (`jev-docs.ts`), its commits and its own title and body, with the
-// questions and thresholds the hooks use. Like the hooks it only advises:
+// The Jev guards on a pull request in CI: the comments it adds, its commits and its own title and
+// body, judged with the questions and thresholds the hooks use, and the docs pages it changes,
+// judged with the questions and thresholds of `jev-docs.ts`. Like the hooks it only advises:
 // warnings, a job summary, and always exit 0.
 // The key comes from the TYPESAFE_API_KEY secret, which a fork's PR never gets,
 // so there the run says so once and checks nothing. See docs/jev-guards.md.
