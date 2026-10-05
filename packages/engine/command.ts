@@ -493,7 +493,7 @@ function rangeText(key: ParamKey): string {
 /**
  * One row of the knob table: the flag, the values it takes, the step between
  * them, the default spelled the way the flag spells it, and the help line.
- * `--help=knobs` prints it and README.md tabulates it, so the two cannot say
+ * `--help=knobs` prints it and packages/cli/README.md tabulates it, so the two cannot say
  * different things (readme.test.ts holds them together).
  */
 export interface KnobRow {
@@ -876,6 +876,221 @@ export function viewNumberOf(raw: string, field: ViewNumber): number {
 /** Mode flags: not the parser's business, handed to the CLI untouched. */
 const MODE_FLAGS = new Set(['svg', 'dry-run', 'count', 'max-seeds', 'help'])
 
+/** What a flag reader writes into: one parse's choice, view, pins, modes and refusals. */
+interface ParseState {
+  choice: SimpleChoice & { random: boolean }
+  view: View
+  rest: string[]
+  problems: ArgProblem[]
+  pin(key: ParamKey, value: number): void
+}
+
+/** Reads one flag: `a` is the whole token, `raw` its value (null when there is no `=`). */
+type FlagReader = (a: string, raw: string | null, st: ParseState) => void
+
+/**
+ * A switch is on or off, so a value on one (--skeleton=off) says nothing the
+ * switch can carry: refused by name rather than read as "on".
+ */
+function switchOn(a: string, raw: string | null, st: ParseState): boolean {
+  if (raw === null) return true
+  st.problems.push({ kind: 'noValue', arg: a })
+  return false
+}
+
+function readStart(a: string, raw: string | null, st: ParseState): void {
+  const word = raw === null ? undefined : own(START.words, raw)
+  if (word !== undefined) {
+    st.pin('headBias', word.headBias)
+    st.pin('mix', word.mix)
+    return
+  }
+  const n = numberOf(raw)
+  if (n === null) {
+    st.problems.push({
+      kind: 'notStart',
+      arg: a,
+      words: Object.keys(START.words),
+      min: START.mix.min,
+      max: START.mix.max,
+    })
+    return
+  }
+  if (n < START.mix.min || n > START.mix.max) {
+    st.problems.push({ kind: 'outside', arg: a, min: START.mix.min, max: START.mix.max })
+    return
+  }
+  // Mixing on: the share is the number, and where a piece starts is left
+  // to it, exactly as the stored pair says.
+  st.pin('headBias', 0)
+  st.pin('mix', n)
+}
+
+function everydayReader(name: string, field: 'W' | 'H' | 'seed' | 'lengths' | 'shape'): FlagReader {
+  return (a, raw, st) => {
+    const n = numberOf(raw)
+    if (n === null) {
+      st.problems.push({ kind: 'notNumber', arg: a, words: [] })
+      return
+    }
+    if (SLIDERS.has(name) && (n < 0 || n > 1)) {
+      st.problems.push({ kind: 'outside', arg: a, min: 0, max: 1 })
+      return
+    }
+    // The size is a knob, and normalizeChoice rounds and clamps it for the lab
+    // (a URL hash, a stored board). The clamp has to stay there, so the CLI
+    // refuses out-of-range sizes here instead (--width=2000, not a 1000-wide board).
+    const sizeKey = SIZE_KEYS.get(name)
+    if (sizeKey) {
+      const s = specOf(sizeKey)
+      if (!Number.isInteger(n)) {
+        st.problems.push({ kind: 'notWhole', arg: a })
+        return
+      }
+      if (n < s.min || n > s.max) {
+        st.problems.push({ kind: 'outside', arg: a, min: s.min, max: s.max })
+        return
+      }
+    }
+    st.choice[field] = n
+  }
+}
+
+function knobReader(key: ParamKey): FlagReader {
+  return (a, raw, st) => {
+    const word = raw === null ? null : wordValue(key, raw)
+    const n = word ?? numberOf(raw)
+    if (n === null) {
+      st.problems.push({ kind: 'notNumber', arg: a, words: wordsOf(key) })
+      return
+    }
+    st.pin(key, n)
+  }
+}
+
+function readTheme(a: string, raw: string | null, st: ParseState): void {
+  if (raw === null || themeOf(raw) === null) {
+    st.problems.push({ kind: 'notTheme', arg: a, themes: Object.keys(THEMES) })
+    return
+  }
+  st.view.theme = raw
+}
+
+function colourReader(field: 'paper' | 'ink' | 'highlight' | 'pointColor'): FlagReader {
+  return (a, raw, st) => {
+    if (!isHexColour(raw)) {
+      st.problems.push({ kind: 'notColour', arg: a })
+      return
+    }
+    st.view[field] = raw.toLowerCase()
+  }
+}
+
+function readPalette(a: string, raw: string | null, st: ParseState): void {
+  const list = raw === null ? [] : raw.split(',')
+  if (list.length === 0 || !list.every(isHexColour)) {
+    st.problems.push({ kind: 'notColourList', arg: a })
+    return
+  }
+  if (list.length > PALETTE_CAP) {
+    st.problems.push({ kind: 'paletteTooLong', arg: a, cap: PALETTE_CAP })
+    return
+  }
+  st.view.palette = list.map((c) => c.toLowerCase())
+}
+
+function lookReader(
+  look: { field: 'pad' | 'pointRadius'; range: { min: number; max: number }; whole: boolean },
+): FlagReader {
+  return (a, raw, st) => {
+    const n = numberOf(raw)
+    if (n === null) {
+      st.problems.push({ kind: 'notNumber', arg: a, words: [] })
+      return
+    }
+    if (look.whole && !Number.isInteger(n)) {
+      st.problems.push({ kind: 'notWhole', arg: a })
+      return
+    }
+    if (n < look.range.min || n > look.range.max) {
+      st.problems.push({ kind: 'outside', arg: a, min: look.range.min, max: look.range.max })
+      return
+    }
+    st.view[look.field] = n
+  }
+}
+
+function viewNumberReader(name: string, field: ViewNumber): FlagReader {
+  return (a, raw, st) => {
+    // The fifth word of the legend, and the only one outside WORDS: that
+    // table is keyed by ParamKey, and the view is not a knob. Both sides of
+    // the pair live here — the word read in, the word printed by helpText.
+    const n = name === 'arrow-width' && raw === 'auto' ? DEFAULT_VIEW.headWidth : numberOf(raw)
+    if (n === null) {
+      st.problems.push({ kind: 'notNumber', arg: a, words: [] })
+      return
+    }
+    const r = VIEW_RANGE[field]
+    if (r.whole && !Number.isInteger(n)) {
+      st.problems.push({ kind: 'notWhole', arg: a })
+      return
+    }
+    if (n < r.min || n > r.max) {
+      st.problems.push({ kind: 'outside', arg: a, min: r.min, max: r.max })
+      return
+    }
+    st.view[field] = n
+  }
+}
+
+/**
+ * Every flag `parseArgs` takes, by its lower-cased name: the parser looks a
+ * flag up here and nowhere else, so this table is the CLI's flag list.
+ * Building it throws on a name given twice, and on one that is also a retired
+ * spelling, which `parseArgs` would refuse before ever reaching its reader.
+ */
+const FLAG_READERS: ReadonlyMap<string, FlagReader> = (() => {
+  const entries: [string, FlagReader][] = [
+    ...[...MODE_FLAGS].map((name): [string, FlagReader] => [name, (a, _raw, st) => void st.rest.push(a)]),
+    ['start', readStart],
+    ['skeleton', (a, raw, st) => {
+      if (switchOn(a, raw, st)) st.choice.skeleton = 'on'
+    }],
+    ['randomized', (a, raw, st) => {
+      if (switchOn(a, raw, st)) st.choice.random = true
+    }],
+    ...[...EVERYDAY_NUMBER].map(([name, field]): [string, FlagReader] => [name, everydayReader(name, field)]),
+    ...[...KEY_BY_FLAG].map(([name, key]): [string, FlagReader] => [name, knobReader(key)]),
+    ['colored', (a, raw, st) => {
+      if (switchOn(a, raw, st)) st.view.colored = true
+    }],
+    ['sharp', (a, raw, st) => {
+      if (switchOn(a, raw, st)) st.view.rounded = false
+    }],
+    ['points', (a, raw, st) => {
+      if (switchOn(a, raw, st)) st.view.showPoints = true
+    }],
+    ['theme', readTheme],
+    ...[...COLOUR_FLAG].map(([name, field]): [string, FlagReader] => [name, colourReader(field)]),
+    ['palette', readPalette],
+    ...[...LOOK_NUMBER].map(([name, look]): [string, FlagReader] => [name, lookReader(look)]),
+    ...[...VIEW_NUMBER].map(([name, field]): [string, FlagReader] => [name, viewNumberReader(name, field)]),
+  ]
+  const readers = new Map<string, FlagReader>()
+  for (const [name, reader] of entries) {
+    if (readers.has(name)) throw new Error(`--${name} has two readers`)
+    if (own(RETIRED, name) !== undefined) throw new Error(`--${name} is both a flag and a retired spelling`)
+    readers.set(name, reader)
+  }
+  return readers
+})()
+
+/** Every flag the CLI takes, as it is written on the command line; `-h` is the one with a single dash. */
+export const CARVE_FLAGS: readonly string[] = ['-h', ...[...FLAG_READERS.keys()].map((name) => `--${name}`)]
+
+/** The retired spellings, each refused with the flag that replaced it. */
+export const RETIRED_FLAGS: readonly string[] = Object.keys(RETIRED).map((name) => `--${name}`)
+
 /**
  * Splits argv into the everyday choice, the knobs it pins, the view, the mode
  * flags (rest) and a list of errors: a missing size, a size that is not a
@@ -896,16 +1111,15 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   const rest: string[] = []
   const problems: ArgProblem[] = []
   const seen = new Set<string>()
-  const pin = (key: ParamKey, value: number) => {
-    if (!pins.includes(key)) pins.push(key)
-    pinned[key] = value
-  }
-  // A switch is on or off, so a value on one (--skeleton=off) says nothing the
-  // switch can carry: refused by name rather than read as "on".
-  const switchOn = (a: string, raw: string | null): boolean => {
-    if (raw === null) return true
-    problems.push({ kind: 'noValue', arg: a })
-    return false
+  const st: ParseState = {
+    choice,
+    view,
+    rest,
+    problems,
+    pin: (key, value) => {
+      if (!pins.includes(key)) pins.push(key)
+      pinned[key] = value
+    },
   }
   for (const a of argv) {
     // -h is the one flag written with a single dash, and it is a mode flag.
@@ -928,169 +1142,9 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       problems.push({ kind: 'retired', arg: a, name, hint: retired.hint, use: retired.use, why: retired.why })
       continue
     }
-    if (MODE_FLAGS.has(name)) {
-      rest.push(a)
-      continue
-    }
-    if (name === 'start') {
-      const word = raw === null ? undefined : own(START.words, raw)
-      if (word !== undefined) {
-        pin('headBias', word.headBias)
-        pin('mix', word.mix)
-        continue
-      }
-      const n = numberOf(raw)
-      if (n === null) {
-        problems.push({
-          kind: 'notStart',
-          arg: a,
-          words: Object.keys(START.words),
-          min: START.mix.min,
-          max: START.mix.max,
-        })
-        continue
-      }
-      if (n < START.mix.min || n > START.mix.max) {
-        problems.push({ kind: 'outside', arg: a, min: START.mix.min, max: START.mix.max })
-        continue
-      }
-      // Mixing on: the share is the number, and where a piece starts is left
-      // to it, exactly as the stored pair says.
-      pin('headBias', 0)
-      pin('mix', n)
-      continue
-    }
-    if (name === 'skeleton') {
-      if (switchOn(a, raw)) choice.skeleton = 'on'
-      continue
-    }
-    if (name === 'randomized') {
-      if (switchOn(a, raw)) choice.random = true
-      continue
-    }
-    const field = EVERYDAY_NUMBER.get(name)
-    if (field) {
-      const n = numberOf(raw)
-      if (n === null) {
-        problems.push({ kind: 'notNumber', arg: a, words: [] })
-        continue
-      }
-      if (SLIDERS.has(name) && (n < 0 || n > 1)) {
-        problems.push({ kind: 'outside', arg: a, min: 0, max: 1 })
-        continue
-      }
-      // The size is a knob, and normalizeChoice rounds and clamps it for the lab
-      // (a URL hash, a stored board). The clamp has to stay there, so the CLI
-      // refuses out-of-range sizes here instead (--width=2000, not a 1000-wide board).
-      const sizeKey = SIZE_KEYS.get(name)
-      if (sizeKey) {
-        const s = specOf(sizeKey)
-        if (!Number.isInteger(n)) {
-          problems.push({ kind: 'notWhole', arg: a })
-          continue
-        }
-        if (n < s.min || n > s.max) {
-          problems.push({ kind: 'outside', arg: a, min: s.min, max: s.max })
-          continue
-        }
-      }
-      choice[field] = n
-      continue
-    }
-    const key = KEY_BY_FLAG.get(name)
-    if (key) {
-      const word = raw === null ? null : wordValue(key, raw)
-      const n = word ?? numberOf(raw)
-      if (n === null) {
-        problems.push({ kind: 'notNumber', arg: a, words: wordsOf(key) })
-        continue
-      }
-      pin(key, n)
-      continue
-    }
-    if (name === 'colored') {
-      if (switchOn(a, raw)) view.colored = true
-      continue
-    }
-    if (name === 'sharp') {
-      if (switchOn(a, raw)) view.rounded = false
-      continue
-    }
-    if (name === 'points') {
-      if (switchOn(a, raw)) view.showPoints = true
-      continue
-    }
-    if (name === 'theme') {
-      if (raw === null || themeOf(raw) === null) {
-        problems.push({ kind: 'notTheme', arg: a, themes: Object.keys(THEMES) })
-        continue
-      }
-      view.theme = raw
-      continue
-    }
-    const colour = COLOUR_FLAG.get(name)
-    if (colour) {
-      if (!isHexColour(raw)) {
-        problems.push({ kind: 'notColour', arg: a })
-        continue
-      }
-      view[colour] = raw.toLowerCase()
-      continue
-    }
-    if (name === 'palette') {
-      const list = raw === null ? [] : raw.split(',')
-      if (list.length === 0 || !list.every(isHexColour)) {
-        problems.push({ kind: 'notColourList', arg: a })
-        continue
-      }
-      if (list.length > PALETTE_CAP) {
-        problems.push({ kind: 'paletteTooLong', arg: a, cap: PALETTE_CAP })
-        continue
-      }
-      view.palette = list.map((c) => c.toLowerCase())
-      continue
-    }
-    const look = LOOK_NUMBER.get(name)
-    if (look) {
-      const n = numberOf(raw)
-      if (n === null) {
-        problems.push({ kind: 'notNumber', arg: a, words: [] })
-        continue
-      }
-      if (look.whole && !Number.isInteger(n)) {
-        problems.push({ kind: 'notWhole', arg: a })
-        continue
-      }
-      if (n < look.range.min || n > look.range.max) {
-        problems.push({ kind: 'outside', arg: a, min: look.range.min, max: look.range.max })
-        continue
-      }
-      view[look.field] = n
-      continue
-    }
-    const field2 = VIEW_NUMBER.get(name)
-    if (field2) {
-      // The fifth word of the legend, and the only one outside WORDS: that
-      // table is keyed by ParamKey, and the view is not a knob. Both sides of
-      // the pair live here — the word read in, the word printed by helpText.
-      const n = name === 'arrow-width' && raw === 'auto' ? DEFAULT_VIEW.headWidth : numberOf(raw)
-      if (n === null) {
-        problems.push({ kind: 'notNumber', arg: a, words: [] })
-        continue
-      }
-      const r = VIEW_RANGE[field2]
-      if (r.whole && !Number.isInteger(n)) {
-        problems.push({ kind: 'notWhole', arg: a })
-        continue
-      }
-      if (n < r.min || n > r.max) {
-        problems.push({ kind: 'outside', arg: a, min: r.min, max: r.max })
-        continue
-      }
-      view[field2] = n
-      continue
-    }
-    problems.push({ kind: 'unknownFlag', arg: a, name })
+    const reader = FLAG_READERS.get(name)
+    if (reader === undefined) problems.push({ kind: 'unknownFlag', arg: a, name })
+    else reader(a, raw, st)
   }
   const missing: ArgProblem[] = ['width', 'height']
     .filter((name) => !seen.has(name))

@@ -17,6 +17,7 @@
 import type { CarverStats, GenerateOptions, Metrics, ParamKey, Params, TraceInfo, Violation } from '@arrowz/engine'
 import { GenerateAbort, validateParams } from '@arrowz/engine'
 import { flagViolation, parseArgs } from '@arrowz/engine/command'
+import { REPORT_FLAGS } from './report-flags.ts'
 import { simpleParams } from '@arrowz/engine/simple'
 // The report and bench sections build a carver by hand; those four are engine
 // internals, not part of its public surface, so they come from its sources.
@@ -60,7 +61,6 @@ const hooks: Pick<GenerateOptions, 'trace' | 'debug'> = { ...(trace ? { trace } 
 // report.ts's own flags are not engine parameters and the shared parser refuses whatever it does not
 // recognise, so they are taken off argv before parseArgs sees the rest.
 const argvIn = Deno.args
-const REPORT_FLAGS = new Set(['runs', 'bench', 'only', 'mid', 'square', 'portrait', 'show'])
 const isReportFlag = (a: string): boolean => a.startsWith('--') && REPORT_FLAGS.has(a.slice(2).split('=')[0] ?? '')
 const rest = argvIn.filter(isReportFlag)
 const parsed = parseArgs(argvIn.filter((a) => !isReportFlag(a)))

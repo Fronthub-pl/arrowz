@@ -1,0 +1,230 @@
+{
+  "$comment": [
+    "How every screenshot in README.md was taken. `pnpm nx run lab:screenshots` replays this file:",
+    "the CLI carves `boards` into a temporary store, then each shot opens `path` (and `hash`, the knobs",
+    "a link carries) at `viewport` and `scale` with `storage` in localStorage, runs its `steps` (a key",
+    "`press` or a `click` on a Playwright selector), waits for the lab to settle and writes",
+    "docs/screenshots/<out>.png. README.md shows every shot, under its `caption`."
+  ],
+  "boards": [
+    ["--width=40", "--height=40", "--seed=7"],
+    ["--width=60", "--height=40", "--seed=3", "--length=0.8"],
+    ["--width=25", "--height=25", "--seed=11", "--winding=0.8"]
+  ],
+  "shots": [
+    {
+      "out": "lab-simple",
+      "caption": "The lab in the simple view",
+      "path": "/",
+      "hash": {
+        "W": 40,
+        "H": 40,
+        "seed": 7
+      },
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scale": 1,
+      "storage": {
+        "labLang": "en",
+        "labView": "simple"
+      }
+    },
+    {
+      "out": "lab-advanced",
+      "caption": "The advanced view: every knob",
+      "path": "/",
+      "hash": {
+        "W": 40,
+        "H": 40,
+        "seed": 7
+      },
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scale": 1,
+      "storage": {
+        "labLang": "en",
+        "labView": "advanced"
+      }
+    },
+    {
+      "out": "lab-rule",
+      "caption": "A broken rule: the rows turn red and the run is refused",
+      "path": "/",
+      "hash": {
+        "W": 40,
+        "H": 40,
+        "seed": 7,
+        "wShort": 0.8,
+        "wMid": 0.2
+      },
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scale": 1,
+      "storage": {
+        "labLang": "en",
+        "labView": "advanced"
+      },
+      "steps": [
+        {
+          "click": "text=/^lengths/"
+        }
+      ]
+    },
+    {
+      "out": "lab-report",
+      "caption": "The report drawer",
+      "path": "/",
+      "hash": {
+        "W": 40,
+        "H": 40,
+        "seed": 7
+      },
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scale": 1,
+      "storage": {
+        "labLang": "en",
+        "labView": "advanced",
+        "labReport": "open",
+        "labSettings": "closed"
+      }
+    },
+    {
+      "out": "lab-series",
+      "caption": "Check seeds: one setting over twenty seeds",
+      "path": "/",
+      "hash": {
+        "W": 40,
+        "H": 40,
+        "seed": 7
+      },
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scale": 1,
+      "storage": {
+        "labLang": "en",
+        "labView": "advanced",
+        "labSettings": "closed"
+      },
+      "steps": [
+        {
+          "click": "button:has-text('Check seeds')"
+        },
+        {
+          "press": "r"
+        }
+      ]
+    },
+    {
+      "out": "palette",
+      "caption": "The command palette, ⌘K",
+      "path": "/",
+      "hash": {
+        "W": 40,
+        "H": 40,
+        "seed": 7
+      },
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scale": 1,
+      "storage": {
+        "labLang": "en",
+        "labView": "advanced"
+      },
+      "steps": [
+        {
+          "press": "ControlOrMeta+K"
+        }
+      ]
+    },
+    {
+      "out": "boards",
+      "caption": "Saved boards",
+      "path": "/boards",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scale": 1,
+      "storage": {
+        "labLang": "en"
+      },
+      "steps": [
+        {
+          "click": "text=40×40"
+        },
+        {
+          "click": "text=/\\d+ arrows/"
+        }
+      ]
+    },
+    {
+      "out": "docs",
+      "caption": "The board element's documentation",
+      "path": "/docs/element",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scale": 1,
+      "storage": {
+        "labLang": "en"
+      }
+    },
+    {
+      "out": "phone-lab",
+      "caption": "On a phone",
+      "path": "/",
+      "hash": {
+        "W": 25,
+        "H": 25,
+        "seed": 7
+      },
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "scale": 2,
+      "storage": {
+        "labLang": "en",
+        "labView": "simple"
+      }
+    },
+    {
+      "out": "phone-settings",
+      "caption": "On a phone, the settings sheet",
+      "path": "/",
+      "hash": {
+        "W": 25,
+        "H": 25,
+        "seed": 7
+      },
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "scale": 2,
+      "storage": {
+        "labLang": "en",
+        "labView": "simple"
+      },
+      "steps": [
+        {
+          "press": "s"
+        }
+      ]
+    }
+  ]
+}

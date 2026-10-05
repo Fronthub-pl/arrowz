@@ -32,6 +32,12 @@
       "executor": "nx:run-commands",
       "options": { "cwd": "apps/lab", "command": "pnpm run smoke" }
     },
+    "screenshots": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["^build"],
+      "options": { "cwd": "apps/lab", "command": "pnpm run screenshots" }
+    },
     "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test", "build", "smoke"] }
   }
 }

@@ -1,4 +1,4 @@
-// Rebuilds every picture README.md and README.pl.md show, from the record of
+// Rebuilds every picture the READMEs show, from the record of
 // how each one was made: docs/images/manifest.json.
 //
 // Run: deno task docs [name ...]

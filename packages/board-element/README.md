@@ -1,7 +1,7 @@
 # @arrowz/board-element
 
 `<arrowz-board>`: the board view of Arrowz as a web component (Lit 3). It
-draws a `Board` from `@arrowz/engine`, owns zoom and pan, animates the two
+draws a `BoardData` (the engine's `Board` is one), owns zoom and pan, animates the two
 effects of the game reducer and reports clicks on pieces. Usable from plain
 HTML, React, Angular, Svelte or Vue.
 
@@ -48,25 +48,14 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | `saveState()` | the game in progress as a value the host can store, or `null` before a board is set |
 | `loadState(snap)` | restores a game; throws when the snapshot is not this board's |
 | `restart()` | drops the game and puts every piece back |
+| `emit(event)` | dispatches a `GameEvent` as the element's DOM event; it implements `GameTarget`, the seam the internal game host drives the element through, and is public only because a Lit element cannot narrow an interface member to `private` — a host that only renders a board has no reason to call it |
 
-Getter: `viewport` (read-only) returns
-`{ cellPx, originX, originY, fitted, hostWidth, hostHeight }`, or `null`
-before a board and a host size are both known.
-
-Getter: `pieceCount` (read-only): how many pieces the layer is drawing —
-the board's own count, not the number of DOM nodes.
-
-Getter: `gestureMode` (`'drag' | 'click'`, read-only): the rule mouse and pen
-follow now.
-
-Getter: `colored` (`boolean`, read-only): whether the board is drawn in colour
-now — never without `enableColors`, then the button's choice, then
-`view.colored`.
-
-The class also has an `emit(event)` method: it implements `GameTarget`, the
-seam the internal game host drives the element through. It is public only
-because a Lit element cannot narrow an interface member to `private`; a host
-that only renders a board has no reason to call it.
+| Getter | Type | Value |
+|---|---|---|
+| `viewport` | `BoardViewport \| null` | the current viewport, or `null` before a board and a host size are both known |
+| `pieceCount` | `number` | how many pieces the layer is drawing — the board's own count, not the number of DOM nodes |
+| `gestureMode` | `GestureMode` | the rule mouse and pen follow now |
+| `colored` | `boolean` | whether the board is drawn in colour now — never without `enableColors`, then the button's choice, then `view.colored` |
 
 | Event | `detail` |
 |---|---|
@@ -313,6 +302,83 @@ and gives it up when it is removed. If the browser takes it away — a page gets
 about sixteen — the board asks for it back as soon as it is on screen. More
 than about sixteen boards on screen at once will take each other's contexts in
 turn.
+
+## Exports
+
+Everything `@arrowz/board-element` exports, by kind. Importing the package
+registers `<arrowz-board>`. Types marked `@arrowz/engine` are re-exported from
+the engine, so a consumer needs no second import for them.
+
+| Type | From | Shape |
+|---|---|---|
+| `BoardData` | `@arrowz/engine` | { `W`: number, `H`: number, `owner`: Int32Array (the piece id per cell; -1 an uncarved cell, -2 a void), `pieces`: Piece[] } — `Piece` is the engine's (`id`, `cells`, `dir`), not exported here |
+| `BoardView` | this package | { `stroke`: number (a fraction of a cell), `headWidth`: number (cells; 0 automatic), `headHeight`: number (cells), `rounded`: boolean, `colored`: boolean, `top`: number (how many longest pieces are highlighted), `voids`: boolean, `ink`: string, `paper`: string, `highlight`: string, `palette`: string[] } |
+| `BoardViewport` | this package | { `cellPx`: number, `originX`: number, `originY`: number, `fitted`: boolean, `hostWidth`: number, `hostHeight`: number } |
+| `BoardColours` | `@arrowz/engine` | { `paper`: string, `ink`: string, `highlight`: string, `palette`: string[] } |
+| `BoardTheme` | `@arrowz/engine` | { `paper`: string, `ink`: string, `highlight`: string, `palette`: string[], `source`: string, `licence`: string, `url`: string } |
+| `BoardLabels` | this package | every visible string of the element: { `zoomIn`: string, `zoomOut`: string, `fit`: string, `dragHint`: string, `dragPlayHintMac`: string, `dragPlayHintOther`: string, `dragInspectHintMac`: string, `dragInspectHintOther`: string, `clickHintMac`: string, `clickHintOther`: string, `gesturesMac`: string, `gesturesOther`: string, `gesturesInspectMac`: string, `gesturesInspectOther`: string, `colors`: string, `noWebgl`: string } |
+| `BoardLang` | this package | `'en'` \| `'pl'` |
+| `GestureMode` | this package | `'drag'` (a plain drag pans) \| `'click'` (a drag with the modifier pans) |
+| `GameEvent` | this package | one of three `{ type, detail }` objects, `type` being `'piece-removed'`, `'life-lost'` or `'finished'`, with the `detail` of the event of that name |
+| `GameTarget` | this package | what `GameHost` drives: { `animateExit`: (pieceId, dir) => Promise<void>, `shake`: (pieceId, distance) => Promise<void>, `emit`: (event: GameEvent) => void } |
+| `Session` | `@arrowz/engine` | a game in progress: { `board`: BoardData, `gone`: Uint8Array (1 per piece id that has left), `index`: Int32Array (an internal lookup, not to be read), `left`: number, `status`: 'playing' or 'won' } |
+| `SessionSnapshot` | `@arrowz/engine` | a saved game: { `v`: 1, `board`: { W, H, pieces, fingerprint } (the board it belongs to), `removed`: number[], `colored`: boolean } |
+| `PieceClickEvent` | this package | `CustomEvent` with detail { `pieceId`: number } |
+| `PieceRemovedEvent` | this package | `CustomEvent` with detail { `pieceId`: number, `left`: number } |
+| `LifeLostEvent` | this package | `CustomEvent` with detail { `pieceId`: number, `blockerId`: number, `distance`: number } |
+| `FinishedEvent` | this package | `CustomEvent` with detail { `pieces`: number } |
+| `ViewportChangeEvent` | this package | `CustomEvent` with a `BoardViewport` as detail { `cellPx`: number, `originX`: number, `originY`: number, `fitted`: boolean, `hostWidth`: number, `hostHeight`: number } |
+| `ColoredChangeEvent` | this package | `CustomEvent` with detail { `colored`: boolean }, cancelable |
+| `ColoredChangeDetail` | this package | that detail: { `colored`: boolean } |
+| `GesturesChangeEvent` | this package | `CustomEvent` with detail { `mode`: GestureMode } |
+| `GesturesChangeDetail` | this package | that detail: { `mode`: GestureMode } |
+
+| Function | Signature | Behaviour |
+|---|---|---|
+| `resolveColours(theme, stated)` | `(theme: string, stated: Partial<BoardColours>) => BoardColours` | the colours a board is drawn with: its defaults, then the named theme, then `stated`, field by field |
+| `themeOf(name)` | `(name: string) => BoardTheme \| null` | the built-in theme of that name, or `null`; an unknown name is ignored, never thrown on |
+| `assignPalette(board, n)` | `(board: BoardData, n: number) => Int32Array` | a colour index per piece id, never a neighbour's and, among the free ones, the least used so far |
+| `hueOf(id)` | `(id: number) => string` | a piece's diagnostic hue as CSS, from its id (not its position in `pieces`) |
+| `hueDegrees(id)` | `(id: number) => number` | that hue's angle |
+| `hueBytes(id)` | `(id: number) => [number, number, number]` | that hue as RGB bytes |
+| `boardViewOf(view, voids)` | `(view: View, voids: boolean) => Partial<BoardView>` | the engine's `View` (the lab's and the CLI's) as the element takes it; `cell`, a size in the exported SVG, does not apply |
+| `labelsFor(lang)` | `(lang: string \| null \| undefined) => BoardLabels` | the labels for a BCP 47 tag: Polish for `pl` or any `pl-…` tag, English otherwise |
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `DEFAULT_PAD` | `4` | cells of margin when `pad` is not set |
+| `DEFAULT_SHOW_POINTS` | `false` | the point grid is off unless asked for |
+| `DEFAULT_POINT_COLOR` | `'#c9c9d6'` | the point grid's dot colour |
+| `DEFAULT_POINT_RADIUS` | `0.06` | the point grid's dot radius, in cells |
+| `PAD_RANGE` | `{ min: 0, max: 16 }` | the margin a board may be given, in cells |
+| `POINT_RADIUS_RANGE` | `{ min: 0, max: 0.5 }` | a dot's radius in cells; past half a cell it overlaps its neighbours |
+| `DEFAULT_VIEW` | `{ stroke: 0.5, headWidth: 0, headHeight: 1, rounded: true, colored: false, top: 0, voids: false, ink: '#232447', paper: '#f6f6fa', highlight: '#e8467c', palette: [] }` | the `BoardView` an empty `view` is merged over |
+| `THEMES` | `{ catppuccin-mocha, gruvbox-dark, tokyonight-storm, everforest-dark, rose-pine-moon, ayu-dark, catppuccin-latte, gruvbox-light, tokyonight-day, everforest-light, rose-pine-dawn, ayu-light }` | the built-in themes by name (see [Themes and attribution](#themes-and-attribution)) |
+| `BOARD_LABELS` | `{ en, pl }` | the element's strings per `BoardLang` |
+| `GESTURE_STORAGE_KEY` | `'arrowz-board.gestures'` | the `localStorage` key of the player's gesture choice |
+| `ZOOM_STEP` | `1.25` | the factor one button or key press zooms by |
+| `WHEEL_RATE` | `0.0015` | the wheel's zoom rate: each event scales by `exp(-deltaY * WHEEL_RATE)` |
+| `MAX_CELL_PX` | `48` | the closest zoom, in pixels per cell |
+| `MIN_PAD_PX` | `16` | the narrowest margin on screen, in pixels (see [The margin](#the-margin)) |
+| `MIN_POINT_CELL_PX` | `6` | below this many pixels per cell the point grid hides itself |
+| `EXIT_SPEED` | `32` | cells per second a leaving piece covers |
+| `EXIT_MIN_MS` | `160` | the shortest exit ride, in milliseconds |
+| `EXIT_MAX_MS` | `600` | the longest exit ride, in milliseconds |
+| `SHAKE_MS` | `230` | how long a blocked piece's bounce takes, in milliseconds |
+| `MIN_SHAKE_CELLS` | `0.35` | the shortest bounce, in cells, so a blocker directly in front still shows |
+
+| Class | Constructor | Members |
+|---|---|---|
+| `ArrowzBoard` | none: create it as `<arrowz-board>` or with `document.createElement` | see [API](#api) |
+| `GameHost` | `new GameHost(target: GameTarget)` | `goneIds`, `board`, `isGone(pieceId)`, `setBoard(board)`, `click(pieceId)`, `save(colored)`, `load(snap)` |
+
+`GameHost` runs a game on any `GameTarget` — the element is one — so the
+reducer's moves can be played and animated outside `<arrowz-board>`. `board` is
+the board of the current session (or `null`) and `goneIds` the ids that have
+left, kept as one set per session. `setBoard` starts a fresh session (or drops
+it, given `null`); `click` plays a piece and resolves once its ride or bounce
+has settled; `save` returns a `SessionSnapshot`, or `null` with no board;
+`load` restores one and throws when it belongs to a different board.
 
 ## Development
 

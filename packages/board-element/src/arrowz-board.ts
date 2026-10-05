@@ -5,7 +5,7 @@
 // custom controls"). The viewport is pure math from viewport.ts, the pointer
 // rules are the state machine of gestures.ts, and this file only wires DOM
 // events to both and exposes the public API.
-import { css, html, LitElement, type PropertyValues } from 'lit'
+import { css, html, LitElement } from 'lit'
 import type { BoardData, SessionSnapshot } from '@arrowz/engine'
 import { type GameEvent, GameHost, type GameTarget } from './game-host.ts'
 import { GestureMachine, type GestureMode, type Intent, type PointerSample } from './gestures.ts'
@@ -136,9 +136,9 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   /** Name of a built-in theme (see THEMES); '' selects none. */
   declare theme: string
   /** The button's choice; null while the board still follows `view.colored`. */
-  declare coloredOverride: boolean | null
+  declare private coloredOverride: boolean | null
   /** The player's gesture choice, from storage on connect and from the switch after. */
-  declare chosenMode: GestureMode
+  declare private chosenMode: GestureMode
 
   static override styles = css`
     :host {
@@ -547,7 +547,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.coloredOverride = this.dispatchEvent(event) ? colored : null
   }
 
-  override updated(changed: PropertyValues<this>): void {
+  // `PropertyValues<this>` keys on `keyof this`, which leaves out the two private state fields.
+  override updated(changed: Map<keyof this | 'coloredOverride' | 'chosenMode', unknown>): void {
     // Applies from the next press (see GestureMachine.mode), so a change mid-drag is safe.
     this.gestures.mode = this.gestureMode
     if (changed.has('chosenMode') || changed.has('play') || changed.has('interactive')) this.refreshCursor()
