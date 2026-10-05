@@ -1,15 +1,17 @@
 /**
- * Syntax colours for the documentation: the element page's one example and the
- * machine columns of its three tables, in GitHub Dark's colours (`--code-*`).
+ * Syntax colours for the documentation: its `html`, `sh` and `json` blocks and
+ * the machine columns of its reference tables, in GitHub Dark's colours
+ * (`--code-*`).
  *
  * Tokens, not markup: each is a run of the source text with the class of its
  * colour, or none for plain text. Joining the texts gives back the input
  * exactly, so Copy and a selection read the code as written;
  * `codeTokens.test.ts` holds that for every input the page shows.
  *
- * No library: the example is one fixed snippet and the table cells are short
- * type expressions, so two small scanners cover them. They follow the design
- * mock's `highlight()` and `tsTokens()`, with one correction noted where it is made.
+ * No library: the blocks are short commands, one HTML example, a little JSON
+ * and type expressions in table cells, so four small scanners cover them. The
+ * HTML and type scanners follow the design mock's `highlight()` and
+ * `tsTokens()`, with one correction noted where it is made.
  */
 
 /** A colour the stylesheet knows: `span.tk-<class>`. */
@@ -168,6 +170,69 @@ export function cellTokens(text: string, role: CellRole): CodeToken[] {
       first = false
       push(out, cls, all)
     }
+  }
+  return out
+}
+
+// Sticky. The groups, in order: a comment, `deno task <name>`, a variable with
+// `=` and its value, a flag with an optional `=` and value, a quoted string,
+// whitespace, any other word. A token starts where the last one ended, so `#`
+// opens a comment only at the start of a word.
+const SH_TOKEN =
+  /(#.*)|(deno task [a-z]+)|([A-Z_][A-Z0-9_]*)(=)(\S*)|(--?[a-z][\w-]*)(?:(=)(\S*))?|('[^']*'|"[^"]*")|(\s+)|(\S+)/y
+const NUMBER = /^-?\d+(?:\.\d+)?$/
+
+const valueClass = (value: string): TokenClass => (NUMBER.test(value) ? 'num' : 'str')
+
+/** Shell lines as the CLI's pages write them. Not a shell parser: commands of one line each. */
+export function highlightSh(code: string): CodeToken[] {
+  const out: CodeToken[] = []
+  let i = 0
+  while (i < code.length) {
+    SH_TOKEN.lastIndex = i
+    const m = SH_TOKEN.exec(code)
+    if (m === null) {
+      push(out, null, code.charAt(i))
+      i++
+      continue
+    }
+    const [all, comment, task, env, envEq = '', envValue = '', flag, flagEq = '', flagValue = '', str] = m
+    if (comment !== undefined) push(out, 'com', all)
+    else if (task !== undefined) push(out, 'fn', all)
+    else if (env !== undefined) {
+      push(out, 'type', env)
+      push(out, 'pun', envEq)
+      push(out, valueClass(envValue), envValue)
+    } else if (flag !== undefined) {
+      push(out, 'attr', flag)
+      push(out, 'pun', flagEq)
+      push(out, valueClass(flagValue), flagValue)
+    } else if (str !== undefined) push(out, 'str', all)
+    else push(out, null, all)
+    i += all.length
+  }
+  return out
+}
+
+// The groups, in order: a string and, when a colon follows, the colon that
+// makes it a key; a number; a constant; punctuation; whitespace; any other
+// character. The last one matches anywhere, so the matches tile the input.
+const JSON_TOKEN =
+  /("(?:[^"\\\n]|\\.)*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b|([{}[\],])|(\s+)|([\s\S])/g
+
+/** JSON as the CLI prints it, in the colours `cellTokens` gives a type's constants. */
+export function highlightJson(code: string): CodeToken[] {
+  const out: CodeToken[] = []
+  for (const m of code.matchAll(JSON_TOKEN)) {
+    const [all, str, colon, num, constant, pun] = m
+    if (str !== undefined && colon !== undefined) {
+      push(out, 'prop', str)
+      push(out, null, colon.slice(0, -1))
+      push(out, 'pun', ':')
+    } else if (str !== undefined) push(out, 'str', str)
+    else if (num !== undefined || constant !== undefined) push(out, 'num', all)
+    else if (pun !== undefined) push(out, 'pun', all)
+    else push(out, null, all)
   }
   return out
 }
