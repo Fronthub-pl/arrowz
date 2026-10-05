@@ -127,13 +127,20 @@ export function textFlags(where: string, text: string, a: Answers | null): Flag[
   return out
 }
 
-/** The element's reference descriptions, as `key: text` in each language. */
-function descriptionRows(): { key: string; en: string; pl: string }[] {
+/** The description tables each page draws from `lab-docs.ts`. */
+const DESCRIPTION_GROUPS = {
+  element: ['props', 'members', 'events', 'slots'],
+  lab: ['keys', 'palette', 'linkFields'],
+} as const
+
+/** A page's reference descriptions, as `key: text` in each language; none for a page without tables. */
+function descriptionRows(page: string): { key: string; en: string; pl: string }[] {
+  const groups = page === 'element' || page === 'lab' ? DESCRIPTION_GROUPS[page] : []
   const en = docsFor('en')
   const pl = docsFor('pl')
   const rows: { key: string; en: string; pl: string }[] = []
-  for (const group of ['props', 'members', 'events', 'slots'] as const) {
-    const plRows: Record<string, string> = pl[group]
+  for (const group of groups) {
+    const plRows: Readonly<Record<string, string>> = pl[group]
     for (const [key, text] of Object.entries(en[group])) {
       rows.push({ key: `${group}.${key}`, en: `${key}: ${text}`, pl: `${key}: ${plRows[key] ?? ''}` })
     }
@@ -150,11 +157,9 @@ export async function checkDocs(judge: Judge, input: DocsInput): Promise<Flag[]>
     en,
     pl: plSections.get(id) ?? '',
   }))
-  if (input.page === 'element') {
-    for (const row of descriptionRows()) {
-      texts.push({ where: `lab-docs.ts ${row.key}`, text: row.en })
-      pairs.push({ where: `lab-docs.ts ${row.key}`, en: row.en, pl: row.pl })
-    }
+  for (const row of descriptionRows(input.page)) {
+    texts.push({ where: `lab-docs.ts ${row.key}`, text: row.en })
+    pairs.push({ where: `lab-docs.ts ${row.key}`, en: row.en, pl: row.pl })
   }
   const asked = await pool(
     texts,
@@ -182,13 +187,15 @@ export function readDocs(page: string, read: (rel: string) => string | null): Do
   return en === null || pl === null || source === null ? null : { page, en, pl, source }
 }
 
-/** The docs pages a change touches: a page's Markdown in either language, or the element's descriptions. */
+/** The docs pages a change touches: a page's Markdown in either language, or the descriptions in `lab-docs.ts`. */
 export function docsPagesOf(names: string): string[] {
   const pages = new Set<string>()
   for (const name of names.split('\n').map((n) => n.trim())) {
     const page = /^apps\/lab\/docs-content\/(?:en|pl)\/([a-z]+)\.md$/.exec(name)?.[1]
     if (page !== undefined && page in DOCS_SOURCES) pages.add(page)
-    if (name === 'packages/engine/lab-docs.ts') pages.add('element')
+    if (name === 'packages/engine/lab-docs.ts') {
+      for (const described of Object.keys(DESCRIPTION_GROUPS)) pages.add(described)
+    }
   }
   return [...pages]
 }
