@@ -13,7 +13,18 @@ import { RULE_BOARD_NAMES } from './ruleBoards'
 /** Each directive by name, and the values each of its attributes may take. */
 export const DIRECTIVES: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {
   table: {
-    of: ['element-props', 'element-members', 'element-events', 'element-slots', 'keys', 'palette', 'link-fields'],
+    of: [
+      'element-props',
+      'element-members',
+      'element-events',
+      'element-slots',
+      'keys',
+      'palette',
+      'link-fields',
+      'knobs',
+      'rules',
+      'env',
+    ],
   },
   help: { form: ['short', 'knobs'] },
   play: { board: RULE_BOARD_NAMES },

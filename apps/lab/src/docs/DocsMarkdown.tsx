@@ -22,18 +22,24 @@ import { useDocs } from './useDocs'
 
 interface Placed {
   readonly node: RootContent
-  /** The section the block sits in: Copy is named after it, a table labelled by it. */
+  /** The section the block sits in: a table is labelled by it. */
   readonly section: DocsSection | null
+  /** The nearest heading above the block, `##` or `###`: Copy is named after it. */
+  readonly title: string
 }
 
 function placed(root: Root): Placed[] {
   const out: Placed[] = []
   let section: DocsSection | null = null
+  let title = ''
   for (const node of root.children) {
     const id = node.type === 'heading' && node.depth === 2 ? sectionIdOf(node) : undefined
-    if (node.type === 'heading' && id !== undefined)
+    if (node.type === 'heading' && id !== undefined) {
       section = { id: SECTION_PREFIX + id, title: plainText(node.children) }
-    out.push({ node, section })
+      title = section.title
+    }
+    if (node.type === 'heading' && node.depth === 3) title = plainText(node.children)
+    out.push({ node, section, title })
   }
   return out
 }
@@ -42,13 +48,13 @@ export function DocsMarkdown({ root }: { root: Root }): ReactElement {
   return (
     <>
       {placed(root).map((block, i) => (
-        <Block key={i} node={block.node} section={block.section} />
+        <Block key={i} node={block.node} section={block.section} title={block.title} />
       ))}
     </>
   )
 }
 
-function Block({ node, section }: Placed): ReactElement | null {
+function Block({ node, section, title }: Placed): ReactElement | null {
   switch (node.type) {
     case 'heading':
       return <HeadingView node={node} />
@@ -59,7 +65,7 @@ function Block({ node, section }: Placed): ReactElement | null {
         </p>
       )
     case 'code':
-      return <CodeView node={node} section={section} />
+      return <CodeView node={node} title={title} />
     case 'list':
       return <ListView node={node} />
     case 'table':
@@ -67,7 +73,7 @@ function Block({ node, section }: Placed): ReactElement | null {
     case 'blockquote':
       return <Note node={node} />
     case 'leafDirective':
-      return <Directive node={node} section={section} />
+      return <Directive node={node} section={section} title={title} />
     default:
       return null
   }
@@ -88,9 +94,8 @@ function tokensOf(lang: string | null | undefined, code: string): CodeToken[] | 
   return null
 }
 
-function CodeView({ node, section }: { node: Code; section: DocsSection | null }): ReactElement {
+function CodeView({ node, title }: { node: Code; title: string }): ReactElement {
   const tokens = tokensOf(node.lang, node.value)
-  const title = section?.title ?? ''
   if (tokens === null)
     return (
       <DocsBlock kind="term" section={title} text={node.value}>
@@ -188,7 +193,15 @@ function Note({ node }: { node: Blockquote }): ReactElement {
   )
 }
 
-function Directive({ node, section }: { node: LeafDirective; section: DocsSection | null }): ReactElement | null {
+function Directive({
+  node,
+  section,
+  title,
+}: {
+  node: LeafDirective
+  section: DocsSection | null
+  title: string
+}): ReactElement | null {
   const attributes = node.attributes ?? {}
   if (node.name === 'table') return <DocsTable of={attributes['of'] ?? ''} labelledBy={section?.id} />
   if (node.name === 'play') {
@@ -198,7 +211,7 @@ function Directive({ node, section }: { node: LeafDirective; section: DocsSectio
   if (node.name !== 'help') return null
   const text = helpText({ knobs: attributes['form'] === 'knobs' })
   return (
-    <DocsBlock kind="term" section={section?.title ?? ''} text={text}>
+    <DocsBlock kind="term" section={title} text={text}>
       {text}
     </DocsBlock>
   )

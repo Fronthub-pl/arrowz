@@ -37,7 +37,7 @@ describe('problemsOf', () => {
     ['a relative link', '# T\n\n[x](cli.md)', 'is neither'],
     ['an unknown directive', '# T\n\n::video{src="x"}', '::video is not a docs directive'],
     ['an unknown attribute', '# T\n\n::table{of="element-props" wide}', '::table takes no wide'],
-    ['an unknown value', '# T\n\n::table{of="knobs"}', 'of="knobs" is not one of'],
+    ['an unknown value', '# T\n\n::table{of="nothing"}', 'of="nothing" is not one of'],
     ['a missing attribute', '# T\n\n::help', '::help needs form'],
     ['an unknown rule board', '# T\n\n::play{board="rule-nowhere"}', 'board="rule-nowhere" is not one of'],
     ['a rule board without its name', '# T\n\n::play', '::play needs board'],

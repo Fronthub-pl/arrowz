@@ -1,7 +1,10 @@
+import { KNOB_ROWS, RULE_ROWS } from '@arrowz/engine/command'
 import { docsFor } from '@arrowz/engine/docs'
+import { dictionary } from '@arrowz/engine/i18n'
 import type { Nodes } from 'mdast'
 import { describe, expect, test } from 'vitest'
 import { docsPage, SOURCES } from './content'
+import { knobHelp } from './DocsTable'
 import { DOCS_LINK, inlineOf, parseDocs } from './markdown'
 import { DOCS_PAGES, SECTION_PREFIX } from './pages'
 import { problemsOf, shapeOf } from './shape'
@@ -60,6 +63,20 @@ test.each(LANGS)('every %s description is plain inline Markdown', (lang) => {
     docs.env,
   ].flatMap((rows) => Object.values(rows))
   expect(texts.length).toBeGreaterThan(75)
+  for (const text of texts) {
+    expect(
+      parseDocs(text).children.map((node) => node.type),
+      text,
+    ).toEqual(['paragraph'])
+    for (const node of inlineOf(text)) expect(['text', 'inlineCode', 'emphasis', 'strong'], text).toContain(node.type)
+  }
+})
+
+// The knob help and the rule reasons are the lab's dictionary, written for a
+// title attribute, not for Markdown; the page draws them through the parser.
+test.each(LANGS)('every %s knob help and rule reason is plain inline Markdown', (lang) => {
+  const dict = dictionary(lang)
+  const texts = [...KNOB_ROWS.map((row) => knobHelp(dict, row)), ...RULE_ROWS.map((row) => dict.reason(row.key))]
   for (const text of texts) {
     expect(
       parseDocs(text).children.map((node) => node.type),

@@ -1,4 +1,7 @@
+import { PARAM_SPEC } from '@arrowz/engine'
+import { ENV_VARS, flagOf, KNOB_ROWS, type KnobRow, RULE_ROWS } from '@arrowz/engine/command'
 import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS, ELEMENT_SLOTS } from '@arrowz/engine/docs'
+import type { Dict } from '@arrowz/engine/i18n'
 import type { ReactElement } from 'react'
 import { useDictionary } from '../i18n'
 import { docsPaletteRows } from '../palette/commands'
@@ -28,8 +31,19 @@ function described(rows: Readonly<Record<string, string>>, key: string): string 
 }
 
 /**
+ * A knob row's description: the help the lab shows for that knob, in the
+ * page's language. `--start` stands for two knobs, so it reads the start help.
+ */
+export function knobHelp(dict: Dict, row: KnobRow): string {
+  if (row.flag === '--start') return dict.d.start.help
+  const spec = PARAM_SPEC.find((s) => flagOf(s.key) === row.flag)
+  return spec === undefined ? row.help : dict.paramText(spec).help
+}
+
+/**
  * One reference table, as `::table{of=…}` names it: the element's, from the
- * shared rows, or the lab's, from the lab's own code. The machine columns are
+ * shared rows, the CLI's, from the command line's own tables, or the lab's,
+ * from the lab's own code. The machine columns are
  * not translated; the last column is, and is inline Markdown. A name
  * `shape.ts` does not list renders nothing, and the content guard fails first.
  */
@@ -193,6 +207,80 @@ export function DocsTable({ of, labelledBy }: { of: string; labelledBy?: string 
               <Mono text={field} column="prop" />
               <td>
                 <InlineMarkdown text={described(docs.linkFields, field)} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  if (of === 'knobs')
+    return (
+      // Six columns, two of them prose: on a phone the table scrolls by itself, not the panel.
+      <div className="fw-docs-scroll">
+        <table className="fw-docs-table" aria-labelledby={labelledBy}>
+          <thead>
+            <tr>
+              <th scope="col">{docs.colGroup}</th>
+              <th scope="col">{docs.colFlag}</th>
+              <th scope="col">{docs.colRange}</th>
+              <th scope="col">{docs.colStep}</th>
+              <th scope="col">{docs.colDefault}</th>
+              <th scope="col">{docs.colDescription}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {KNOB_ROWS.map((row) => (
+              <tr key={row.flag}>
+                <td>{dict.d.groups[row.group]}</td>
+                <Mono text={row.flag} column="attr" />
+                <Mono text={row.values} column="expr" />
+                <Mono text={row.step} column="expr" />
+                <Mono text={row.def} column="expr" />
+                <td>
+                  <InlineMarkdown text={knobHelp(dict, row)} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  if (of === 'rules')
+    return (
+      <table className="fw-docs-table" aria-labelledby={labelledBy}>
+        <thead>
+          <tr>
+            <th scope="col">{docs.colFlags}</th>
+            <th scope="col">{docs.colDescription}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {RULE_ROWS.map((row) => (
+            <tr key={row.key}>
+              <Mono text={row.flags.join(', ')} column="attr" />
+              <td>
+                <InlineMarkdown text={dict.reason(row.key)} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  if (of === 'env')
+    return (
+      <table className="fw-docs-table" aria-labelledby={labelledBy}>
+        <thead>
+          <tr>
+            <th scope="col">{docs.colVariable}</th>
+            <th scope="col">{docs.colDescription}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ENV_VARS.map((v) => (
+            <tr key={v.name}>
+              <Mono text={v.name} column="type" />
+              <td>
+                <InlineMarkdown text={docs.env[v.name]} />
               </td>
             </tr>
           ))}
