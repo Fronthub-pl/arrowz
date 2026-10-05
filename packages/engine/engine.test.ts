@@ -1324,6 +1324,15 @@ Deno.test('longestSummary measures the box, the span and the density of a piece'
   assert(top.coil >= 0 && top.coil <= 1)
 })
 
+// (0,1) has the piece's (2,0) at index y*W - 1: one row up, across the board, never a neighbour.
+Deno.test('longestSummary counts coiling and bends within the board, not across its edge', () => {
+  const cells = [{ x: 2, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }]
+  const owner = new Int32Array(9).fill(-1)
+  for (const c of cells) owner[c.y * 3 + c.x] = 0
+  const [only] = longestSummary({ W: 3, H: 3, owner, pieces: [{ id: 0, dir: 3, cells }] }, 1)
+  assertEquals(only, { len: 5, sx: 3, sy: 2, span: 1, density: 5 / 6, coil: 1 / 5, bends: 2 })
+})
+
 Deno.test('longestSummary asks for more pieces than exist without failing', () => {
   const r = generate({ ...defaultParams(), W: 12, H: 12, seed: 1 })
   assertEquals(longestSummary(r.board, 10_000).length, r.board.pieces.length)

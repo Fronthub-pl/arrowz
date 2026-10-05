@@ -2117,7 +2117,7 @@ function analyse(board: BoardData, ruleB = true): Metrics {
   }
 }
 
-/** The table of the N longest pieces: their box, how far they reach and how much they coil. */
+/** The table of the N longest pieces: their box, how far they reach, how much they coil and bend. */
 function longestSummary(board: BoardData, n: number): LongestSummary[] {
   const W = board.W
   // slice(), not a spread into a call: the piece count reaches ~90 000.
@@ -2125,17 +2125,25 @@ function longestSummary(board: BoardData, n: number): LongestSummary[] {
   return longest.map((pc) => {
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
     const own = new Set(pc.cells.map((c) => c.y * W + c.x))
-    let coil = 0
-    for (const c of pc.cells) {
+    let coil = 0, bends = 0
+    let prev: Step | null = null
+    for (const [i, c] of pc.cells.entries()) {
       if (c.x < minX) minX = c.x
       if (c.x > maxX) maxX = c.x
       if (c.y < minY) minY = c.y
       if (c.y > maxY) maxY = c.y
       let touch = 0
-      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]] as const) {
-        if (own.has((c.y + dy) * W + (c.x + dx))) touch++
+      for (const { dx, dy } of DIRS) {
+        const ax = c.x + dx, ay = c.y + dy
+        if (ax >= 0 && ay >= 0 && ax < W && ay < board.H && own.has(ay * W + ax)) touch++
       }
       if (touch >= 3) coil++
+      const before = pc.cells[i - 1]
+      if (before !== undefined) {
+        const step = { dx: c.x - before.x, dy: c.y - before.y }
+        if (prev !== null && (step.dx !== prev.dx || step.dy !== prev.dy)) bends++
+        prev = step
+      }
     }
     const sx = maxX - minX + 1
     const sy = maxY - minY + 1
@@ -2146,6 +2154,7 @@ function longestSummary(board: BoardData, n: number): LongestSummary[] {
       span: Math.max(sx / board.W, sy / board.H),
       density: pc.cells.length / (sx * sy),
       coil: coil / pc.cells.length,
+      bends,
     }
   })
 }

@@ -836,3 +836,14 @@ Deno.test('--dry-run reports both layers under one shape', () => {
   assertEquals(envelope.json?.errors, ['--warns=1 is outside 2..16'])
   assertEquals(envelope.json?.violations, [{ kind: 'range', key: 'warns', value: 1, min: 2, max: 16 }])
 })
+
+Deno.test('--top prints the longest pieces from the engine summary, one line each', () => {
+  const r = runCarve(['--width=20', '--height=20', '--seed=3', '--top=3'], tmp())
+  assertEquals(r.status, 0, r.stderr)
+  assertEquals(r.stdout.split('\n').slice(0, 4), [
+    '  3 longest pieces:',
+    '    len   49  bbox  11x 12 (55% x 60% of board)  cols  11  rows  12  bbox density 37%  bends 10  coiling 8%',
+    '    len   39  bbox  10x 14 (50% x 70% of board)  cols  10  rows  14  bbox density 28%  bends 9  coiling 18%',
+    '    len   36  bbox   5x 13 (25% x 65% of board)  cols   5  rows  13  bbox density 55%  bends 11  coiling 31%',
+  ])
+})

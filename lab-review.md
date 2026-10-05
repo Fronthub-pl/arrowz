@@ -137,7 +137,7 @@ different counter over 237 files; the two numbers are not comparable.)
 | ⌘K rows for colour and element fields (highlight, pad, …) | fixed on `lab/report-parity` | |
 | `pad` in the SVG | fixed on `engine/view-look` | `SvgOptions.pad`, from the view |
 | Element README drift (`pieceCount`, `emit`, `BoardData`) | fixed in `840bf34`, `1b0d079` | |
-| Duplication 2: CLI `--top` re-implements `longestSummary` | open | |
+| Duplication 2: CLI `--top` re-implements `longestSummary` | fixed on `engine/longest-summary` | `longestSummary` gains `bends` and counts coiling inside the board's edges, as `analyse` does; `cols`/`rows` print the box, which a path always fills |
 | Duplication 3: demo keeps its own view bounds | open | `demo/controls.ts` still has `headHeight` 0.1–1, `top` 0–50 |
 | Duplication 4: `colored`/`rounded` defaults hard-coded | open | |
 
