@@ -303,7 +303,8 @@ const EN = {
     ARROWZ_BOARDS_DIR: 'Where boards are saved, instead of `packages/cli/boards/`.',
     CARVE_TRACE: "Set to `1`, prints the generator's progress on stderr while it works.",
     GIANT_DEBUG: 'Set to `1`, prints on stderr how each arrow of the skeleton was grown.',
-    CARVE_TIMEOUT_S: 'Gives up a board after that many seconds; `carve` saves what it laid so far, marked not complete.',
+    CARVE_TIMEOUT_S:
+      'Gives up a board after that many seconds; `carve` saves what it laid so far, marked not complete.',
   },
   colProp: 'Property',
   colType: 'Type',
