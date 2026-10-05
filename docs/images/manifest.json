@@ -1,6 +1,6 @@
 {
   "$comment": [
-    "How every picture on README.md and README.pl.md was made. `deno task docs` replays this file:",
+    "How every picture in the READMEs was made. `deno task docs` replays this file:",
     "one CLI run per entry writing <out>.svg, then `rsvg-convert -w <width>` writing <out>.png.",
     "`width` is the PNG width in pixels; the height follows the SVG's aspect ratio.",
     "`keepSvg: false` means the drawing is too large to belong in the repository (README says so",
@@ -15,7 +15,6 @@
       "flags": ["--width=8", "--height=8", "--seed=7", "--colored"],
       "width": 420
     },
-    { "out": "tiny", "flags": ["--width=8", "--height=8", "--seed=7"], "width": 420 },
     { "out": "portrait", "flags": ["--width=20", "--height=40", "--seed=7"], "width": 420 },
     { "out": "big", "flags": ["--width=100", "--height=100", "--seed=7"], "width": 700 },
     {
