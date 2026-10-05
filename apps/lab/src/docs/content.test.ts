@@ -40,12 +40,19 @@ test.each(LANGS)('every docs: link in %s names a section that exists', (lang) =>
   }
 })
 
-// Descriptions are drawn through the parser now: one that parses into
-// anything but plain inline text would lose words on the page.
+// Descriptions are drawn through the parser: one that parses into anything but
+// a single paragraph of plain inline text would lose words on the page, and
+// `inlineOf` shows a non-paragraph as its raw text, so the node types alone
+// would not catch it.
 test.each(LANGS)('every %s description is plain inline Markdown', (lang) => {
   const docs = docsFor(lang)
   const texts = [docs.props, docs.members, docs.events, docs.slots].flatMap((rows) => Object.values(rows))
   expect(texts.length).toBeGreaterThan(30)
-  for (const text of texts)
+  for (const text of texts) {
+    expect(
+      parseDocs(text).children.map((node) => node.type),
+      text,
+    ).toEqual(['paragraph'])
     for (const node of inlineOf(text)) expect(['text', 'inlineCode', 'emphasis', 'strong'], text).toContain(node.type)
+  }
 })

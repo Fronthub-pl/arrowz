@@ -35,6 +35,37 @@
   font-family: var(--mono);
   font-size: inherit;
 }
+/* Prose beyond paragraphs, in the page body only: the navigation column is
+   lists and links too, styled below. A link keeps the text's colour and
+   carries --signal in its underline: --signal as text is 4.1:1 on --void. */
+.fw-docs-body h4 {
+  margin: 16px 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.fw-docs-body :is(ul, ol) {
+  max-width: 74ch;
+  margin: 0 0 8px;
+  padding-left: 20px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.fw-docs-body li + li {
+  margin-top: 4px;
+}
+.fw-docs-body li > p {
+  margin-bottom: 4px;
+}
+.fw-docs-body a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--signal);
+  text-underline-offset: 2px;
+}
+.fw-docs-body a:hover {
+  text-decoration-color: var(--ink);
+}
 .fw-docs-table {
   width: 100%;
   margin-bottom: 4px;

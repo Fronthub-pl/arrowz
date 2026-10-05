@@ -67,6 +67,7 @@ describe('shapeOf', () => {
     ['another link target', '[x](docs:cli#a)', '[x](docs:cli#b)'],
     ['a missing note', '> Note.\n\nText.', 'Text.'],
     ['another table size', '| a |\n|---|\n| 1 |', '| a |\n|---|\n| 1 |\n| 2 |'],
+    ['another kind of list', '- a\n- b', '1. a\n2. b'],
   ])('tells %s apart', (_, a, b) => {
     expect(shapeOf(parseDocs(`# T\n\n${a}`))).not.toEqual(shapeOf(parseDocs(`# T\n\n${b}`)))
   })

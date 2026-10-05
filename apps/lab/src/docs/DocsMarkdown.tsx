@@ -104,12 +104,18 @@ function CodeView({ node, section }: { node: Code; section: DocsSection | null }
   )
 }
 
+/**
+ * A loose list draws every item's text as a paragraph, a tight one as bare
+ * text. CommonMark decides per list: blank lines between any two items, or
+ * inside any one, make the whole list loose.
+ */
 function ListView({ node }: { node: List }): ReactElement {
+  const loose = node.spread === true || node.children.some((item) => item.spread === true)
   const items = node.children.map((item, i) => (
     <li key={i}>
       {item.children.map((child, j) =>
         child.type === 'paragraph' ? (
-          item.spread === true ? (
+          loose ? (
             <p key={j}>
               <Inline nodes={child.children} />
             </p>

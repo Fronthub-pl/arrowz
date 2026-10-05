@@ -119,7 +119,7 @@ export function shapeOf(root: Root): string[] {
     if (node.type === 'leafDirective') out.push(`::${node.name}{${attributesOf(node.attributes)}}`)
     if (node.type === 'link') out.push(`link ${node.url}`)
     if (node.type === 'blockquote') out.push('note')
-    if (node.type === 'list') out.push(`list ${node.children.length}`)
+    if (node.type === 'list') out.push(`list ${node.ordered === true ? 'ordered' : 'bullet'} ${node.children.length}`)
     if (node.type === 'table') out.push(`table ${node.children.length}×${node.children[0]?.children.length ?? 0}`)
     if ('children' in node) for (const child of node.children) walk(child)
   }

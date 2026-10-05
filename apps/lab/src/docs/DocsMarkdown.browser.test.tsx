@@ -101,6 +101,14 @@ test('a list item with paragraphs apart keeps each as a paragraph', async () => 
   expect([...(first?.querySelectorAll(':scope > p') ?? [])].map((p) => p.textContent)).toEqual(['one', 'two'])
   // textContent joins block children with nothing; innerText is what a reader sees.
   expect(first?.innerText).not.toBe('onetwo')
+  // CommonMark makes the whole list loose, so the item with one paragraph is a paragraph too.
+  expect(screen.container.querySelectorAll('ul > li')[1]?.querySelector(':scope > p')?.textContent).toBe('three')
+})
+
+test('a list with items apart has every item a paragraph, a tight list none', async () => {
+  const screen = await show('# T\n\n- a\n\n- b\n\nBetween.\n\n- c\n- d')
+  const lists = [...screen.container.querySelectorAll('ul')]
+  expect(lists.map((ul) => ul.querySelectorAll(':scope > li > p').length)).toEqual([2, 0])
 })
 
 test('::table draws the reference table its section names', async () => {
