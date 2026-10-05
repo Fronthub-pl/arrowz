@@ -35,8 +35,6 @@ import { defaultParams, MIX_SHARE, PARAM_SPEC, RULE_REASONS, RULES, validatePara
 import { PALETTE_CAP, THEMES } from './look.ts'
 import type { ParamKey, Params, ViewNumber, Violation } from './types.ts'
 
-/** The argv a shell hands carve for a command text: buildCommand quotes whole values with no spaces inside. */
-const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ').map((w) => w.replaceAll("'", ''))
 /** The prefix as a regular expression source: the spaces of "deno task carve" are literal. */
 const prefixRe = COMMAND_PREFIX.replace(/ /g, '\\s')
 /** Typed Object.keys for a parameter set: its keys are the fields of Params. */
@@ -83,7 +81,7 @@ Deno.test('buildCommand <-> parseArgs: round trip for changed knobs and view', (
   // The cell the CLI would pick for this size is not worth printing.
   assertEquals(exportCell(100, 200), 8)
   assert(!buildCommand(p, { ...v, cell: 8 }).includes('--cell'), 'the size-derived cell stays out of the command')
-  const back = parseArgs(argvOf(cmd))
+  const back = parseArgs(splitCommand(cmd).argv)
   assertEquals(back.errors, [])
   for (const s of PARAM_SPEC) assertEquals(back.params[s.key], p[s.key], s.key)
   assertEquals(back.view, v)
@@ -846,11 +844,15 @@ Deno.test('the look round-trips through the command', () => {
     { ...DEFAULT_VIEW, pad: 16, pointRadius: 0.5 },
     { ...DEFAULT_VIEW, showPoints: true },
     { ...DEFAULT_VIEW, pointColor: '#abcdef', showPoints: false },
+    {
+      ...DEFAULT_VIEW,
+      palette: Array.from({ length: PALETTE_CAP }, (_, i) => `#0000${(i + 1).toString(16).padStart(2, '0')}`),
+    },
     ...Object.keys(THEMES).map((theme) => ({ ...DEFAULT_VIEW, theme })),
   ]
   for (const v of views) {
     const view = { ...v, cell: exportCell(30, 20) }
-    const back = parseArgs(argvOf(buildCommand(p, view)))
+    const back = parseArgs(splitCommand(buildCommand(p, view)).argv)
     assertEquals(back.errors, [], JSON.stringify(v))
     assertEquals(back.view, view)
   }
@@ -874,7 +876,6 @@ Deno.test('a shell hands carve the argv the command means', () => {
   const out = new Deno.Command('sh', { args: ['-c', `printf '%s\\n' ${tail}`], stdout: 'piped' }).outputSync()
   assert(out.success)
   const argv = new TextDecoder().decode(out.stdout).split('\n').slice(0, -1)
-  assertEquals(argv, argvOf(cmd))
   assertEquals(splitCommand(cmd).argv, argv)
   assert(argv.includes('--palette=#112233,#445566'))
   const back = parseArgs(argv)
@@ -1000,6 +1001,7 @@ Deno.test('a bad look value is refused by its flag’s name', () => {
     ['--paper=#abc', '--paper=#abc is not a #rrggbb colour'],
     ['--highlight-color=red', '--highlight-color=red is not a #rrggbb colour'],
     ['--point-color=', '--point-color= is not a #rrggbb colour'],
+    ['--palette', '--palette is not a list of #rrggbb colours'],
     ['--palette=', '--palette= is not a list of #rrggbb colours'],
     ['--palette=#aa0000,', '--palette=#aa0000, is not a list of #rrggbb colours'],
     [`--palette=${Array(9).fill('#aa0000').join(',')}`, 'more than 8 colours'],

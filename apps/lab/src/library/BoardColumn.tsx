@@ -95,7 +95,8 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
     })
   }
 
-  // The board as it is drawn here: its own saved shape in the page's look, and its jammed cells when it did not close, as `BoardFrame` draws them.
+  // As `BoardFrame` draws it: the saved shape in the page's look, plus the
+  // jammed cells of a board that did not close.
   const exportOptions = () => ({
     ...svgOptions({ ...meta.view, ...lookOf(useStore.getState().view) }),
     voids: meta.ok === false,

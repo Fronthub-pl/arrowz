@@ -27,7 +27,7 @@ export interface BoardView {
    * engine's `assignPalette`. Empty keeps the golden angle over the piece id,
    * which is what every board drew before themes existed.
    */
-  palette: string[]
+  palette: readonly string[]
 }
 
 export const DEFAULT_VIEW: BoardView = {

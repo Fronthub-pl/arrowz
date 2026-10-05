@@ -15,7 +15,7 @@ export interface BoardTheme {
   ink: string
   highlight: string
   /** Arrow colours; may be a single colour, which paints a monochrome board. */
-  palette: string[]
+  palette: readonly string[]
   /** The upstream project these values come from. */
   source: string
   licence: string
@@ -27,7 +27,7 @@ export interface BoardColours {
   paper: string
   ink: string
   highlight: string
-  palette: string[]
+  palette: readonly string[]
 }
 
 /** What a board is drawn in when nothing names a colour; `toSvg` without options draws the same. */
@@ -38,7 +38,10 @@ export const DEFAULT_COLOURS: Readonly<BoardColours> = {
   palette: [],
 }
 
-/** Cells of margin unless a view says otherwise: with none an arrowhead in an edge cell ends two hundredths of a cell from the paper's edge. */
+/**
+ * Cells of margin unless a view says otherwise; with none, an edge cell's
+ * arrowhead ends two hundredths of a cell from the paper's edge.
+ */
 export const DEFAULT_PAD = 4
 /** The point grid is off unless a view asks for it. */
 export const DEFAULT_SHOW_POINTS = false

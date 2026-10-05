@@ -21,7 +21,14 @@ import {
   toSvg,
   validateParams,
 } from '@arrowz/engine'
-import { buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, flagViolation, svgOptions } from '@arrowz/engine/command'
+import {
+  buildCommand,
+  COMMAND_PREFIX,
+  DEFAULT_VIEW,
+  flagViolation,
+  splitCommand,
+  svgOptions,
+} from '@arrowz/engine/command'
 import { defaultChoice, exportCell, simpleParams, simpleRanges } from '@arrowz/engine/simple'
 import type { BoardMeta, ParamKey, Params, SimpleChoice, View } from '@arrowz/engine'
 
@@ -45,8 +52,6 @@ const storedFingerprint = (file: string): string => fingerprint(decodeBoard(JSON
 const layoutIdOf = (params: Params): Promise<string> => layoutHash(generate(params).board)
 /** The prefix as a regular expression source: the spaces of "deno task carve" are literal. */
 const prefixRe = COMMAND_PREFIX.replace(/ /g, '\\s')
-/** A command text as the argv a shell hands carve: everything after the prefix, colour quotes removed. */
-const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ').map((w) => w.replaceAll("'", ''))
 
 /** Runs carve.ts with the board store pointed at boardsDir. */
 function runCarve(argv: readonly string[], boardsDir: string, env: Record<string, string> = {}) {
@@ -103,7 +108,7 @@ Deno.test('carve.ts --svg reproduces the generate() board byte for byte', async 
   const expected = toSvg(generate(params).board, svgOptions({ ...DEFAULT_VIEW, ...view }))
 
   const cmd = buildCommand(params, view)
-  const r = runCarve([...argvOf(cmd), '--svg'], dir)
+  const r = runCarve([...splitCommand(cmd).argv, '--svg'], dir)
   assertEquals(r.status, 0, r.stderr)
   const id = await layoutIdOf(params)
   assertMatch(r.stdout, new RegExp(`25x50/${id}\\.board\\.json {2}\\+ 25x50/${id}\\.svg`))

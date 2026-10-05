@@ -312,10 +312,10 @@ the engine, so a consumer needs no second import for them.
 | Type | From | Shape |
 |---|---|---|
 | `BoardData` | `@arrowz/engine` | { `W`: number, `H`: number, `owner`: Int32Array (the piece id per cell; -1 an uncarved cell, -2 a void), `pieces`: Piece[] } — `Piece` is the engine's (`id`, `cells`, `dir`), not exported here |
-| `BoardView` | this package | { `stroke`: number (a fraction of a cell), `headWidth`: number (cells; 0 automatic), `headHeight`: number (cells), `rounded`: boolean, `colored`: boolean, `top`: number (how many longest pieces are highlighted), `voids`: boolean, `ink`: string, `paper`: string, `highlight`: string, `palette`: string[] } |
+| `BoardView` | this package | { `stroke`: number (a fraction of a cell), `headWidth`: number (cells; 0 automatic), `headHeight`: number (cells), `rounded`: boolean, `colored`: boolean, `top`: number (how many longest pieces are highlighted), `voids`: boolean, `ink`: string, `paper`: string, `highlight`: string, `palette`: readonly string[] } |
 | `BoardViewport` | this package | { `cellPx`: number, `originX`: number, `originY`: number, `fitted`: boolean, `hostWidth`: number, `hostHeight`: number } |
-| `BoardColours` | `@arrowz/engine` | { `paper`: string, `ink`: string, `highlight`: string, `palette`: string[] } |
-| `BoardTheme` | `@arrowz/engine` | { `paper`: string, `ink`: string, `highlight`: string, `palette`: string[], `source`: string, `licence`: string, `url`: string } |
+| `BoardColours` | `@arrowz/engine` | { `paper`: string, `ink`: string, `highlight`: string, `palette`: readonly string[] } |
+| `BoardTheme` | `@arrowz/engine` | { `paper`: string, `ink`: string, `highlight`: string, `palette`: readonly string[], `source`: string, `licence`: string, `url`: string } |
 | `BoardLabels` | this package | every visible string of the element: { `zoomIn`: string, `zoomOut`: string, `fit`: string, `dragHint`: string, `dragPlayHintMac`: string, `dragPlayHintOther`: string, `dragInspectHintMac`: string, `dragInspectHintOther`: string, `clickHintMac`: string, `clickHintOther`: string, `gesturesMac`: string, `gesturesOther`: string, `gesturesInspectMac`: string, `gesturesInspectOther`: string, `colors`: string, `noWebgl`: string } |
 | `BoardLang` | this package | `'en'` \| `'pl'` |
 | `GestureMode` | this package | `'drag'` (a plain drag pans) \| `'click'` (a drag with the modifier pans) |

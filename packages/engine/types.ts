@@ -244,7 +244,7 @@ export interface SvgOptions {
    * Piece colours while `colored` is on, one per piece by `assignPalette`, as
    * the board element draws them; absent or empty keeps the golden angle.
    */
-  palette?: string[]
+  palette?: readonly string[]
   /** The margin in cells; absent = 1. */
   pad?: number
   /** A dot in the centre of every cell, as the element's point grid; absent draws none. */
