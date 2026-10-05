@@ -19,6 +19,7 @@ const at = (path: string, section?: string) =>
 test('every page is a real link with an address', async () => {
   const screen = await at('/docs/element')
   await expect.element(screen.getByRole('link', { name: 'Arrowz' })).toHaveAttribute('href', '/docs/arrowz')
+  await expect.element(screen.getByRole('link', { name: 'Lab', exact: true })).toHaveAttribute('href', '/docs/lab')
   await expect.element(screen.getByRole('link', { name: 'Board element' })).toHaveAttribute('href', '/docs/element')
   await expect.element(screen.getByRole('link', { name: 'Command line' })).toHaveAttribute('href', '/docs/cli')
 })
@@ -43,7 +44,7 @@ test('the navigation carries its own name, beside the tab strip', async () => {
 test('each page lists its sections, as links to that page', async () => {
   const screen = await at('/docs/element')
   const pages = [...screen.container.querySelectorAll('nav > ul > li')]
-  expect(pages).toHaveLength(3)
+  expect(pages).toHaveLength(4)
   const sections = pages.map((li) =>
     [...li.querySelectorAll(':scope > ul a')].map((a) => [a.textContent, a.getAttribute('href')]),
   )
@@ -53,6 +54,18 @@ test('each page lists its sections, as links to that page', async () => {
       ['The one rule', '/docs/arrowz'],
       ['What the generator promises', '/docs/arrowz'],
       ['Words', '/docs/arrowz'],
+    ],
+    [
+      ['The board store', '/docs/lab'],
+      ['Simple and advanced', '/docs/lab'],
+      ['When a setting breaks a rule', '/docs/lab'],
+      ['Generating and saving', '/docs/lab'],
+      ['The report', '/docs/lab'],
+      ['Saved boards and files', '/docs/lab'],
+      ['The board', '/docs/lab'],
+      ['Keys', '/docs/lab'],
+      ['The command palette', '/docs/lab'],
+      ['Links', '/docs/lab'],
     ],
     [
       ['Everyday help', '/docs/cli'],
@@ -98,7 +111,7 @@ test('the sections are named in Polish too', async () => {
 // click on a section of the page on screen must not drop it from the bar.
 test('a section link keeps the fragment the address carries', async () => {
   const screen = await at('/docs/element#{"W":25}')
-  expect(screen.container.querySelector('nav > ul > li:nth-child(2) > ul a')?.getAttribute('href')).toBe(
+  expect(screen.container.querySelector('nav > ul > li:nth-child(3) > ul a')?.getAttribute('href')).toBe(
     '/docs/cli#{"W":25}',
   )
 })

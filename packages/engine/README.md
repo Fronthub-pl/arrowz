@@ -352,7 +352,7 @@ out when it fits in a line and described when it does not.
 | `LinkField` | `'cell' \| 'stroke' \| 'headWidth' \| 'headHeight' \| 'top' \| 'colored' \| 'rounded' \| 'highlightLongest' \| 'voids' \| 'showPoints' \| 'pointColor' \| 'pointRadius' \| 'theme' \| 'palette' \| 'paper' \| 'ink' \| 'highlightColor' \| 'pad' \| 'lang'` | A field of the lab's link. |
 | `MemberKey` | `(typeof ELEMENT_MEMBERS)[number]['key']` | The name of a member row. |
 | `MemberRow` | `{ readonly key: string; readonly kind: 'method' \| 'getter'; readonly signature: string }` | One method or getter and its signature. |
-| `PaletteId` | `'run-generate' \| 'run-generate-save' \| 'run-save' \| 'run-reseed' \| 'run-defaults' \| 'run-abort' \| 'run-check-seeds' \| 'run-solo' \| 'go-lab' \| 'go-boards' \| 'go-open-file' \| 'go-docs-arrowz' \| 'go-docs-cli' \| 'go-docs-element' \| 'go-view' \| 'go-lang'` | A run or go-to row of the lab's command palette, by its id. |
+| `PaletteId` | `'run-generate' \| 'run-generate-save' \| 'run-save' \| 'run-reseed' \| 'run-defaults' \| 'run-abort' \| 'run-check-seeds' \| 'run-solo' \| 'go-lab' \| 'go-boards' \| 'go-open-file' \| 'go-docs-arrowz' \| 'go-docs-lab' \| 'go-docs-cli' \| 'go-docs-element' \| 'go-view' \| 'go-lang'` | A run or go-to row of the lab's command palette, by its id. |
 | `PropKey` | `(typeof ELEMENT_PROPS)[number]['key']` | The name of a property row. |
 | `PropRow` | `{ readonly key: string; readonly type: string; readonly attribute: string \| null; readonly def: string }` | One property: its type, its attribute (`null` when it has none) and its default. |
 | `SlotKey` | `(typeof ELEMENT_SLOTS)[number]['key']` | The name of a slot row. |

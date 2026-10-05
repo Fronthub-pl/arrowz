@@ -32,7 +32,7 @@ function box(container: HTMLElement, selector: string): Element {
  * tabpanel, and react-router navigates inside `startTransition`, so a visible
  * panel can still be the element page while the CLI page is on its way.
  */
-async function openDocs(which: 'arrowz' | 'element' | 'cli') {
+async function openDocs(which: 'arrowz' | 'lab' | 'element' | 'cli') {
   const screen = await mountApp('advanced')
   await loadRunDone()
   await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
@@ -40,13 +40,15 @@ async function openDocs(which: 'arrowz' | 'element' | 'cli') {
   const column = screen.getByRole('navigation', { name: 'Documentation pages' })
   if (which === 'element') await column.getByRole('link', { name: 'Board element' }).click()
   if (which === 'cli') await column.getByRole('link', { name: 'Command line' }).click()
+  if (which === 'lab') await column.getByRole('link', { name: 'Lab', exact: true }).click()
   await expect.element(screen.getByRole('tabpanel')).toBeVisible()
   // Each page's own marker: the Arrowz page has its three rule boards (the
   // hidden workspace has a board of its own, hence the `.fw-docs-body` scope),
-  // the CLI page the two terminal blocks, the element page the one code example.
+  // the CLI page the two terminal blocks, the element page the one code example, the Lab page its key table.
   const [marker, count] = (
     {
       arrowz: ['.fw-docs-body arrowz-board', 3],
+      lab: ['.fw-docs-body table[aria-labelledby="docs-keys"]', 1],
       cli: ['pre.fw-docs-term', 2],
       element: ['pre.fw-docs-code', 1],
     } as const
@@ -55,7 +57,7 @@ async function openDocs(which: 'arrowz' | 'element' | 'cli') {
   return screen
 }
 
-test.each(['arrowz', 'element', 'cli'] as const)(
+test.each(['arrowz', 'lab', 'element', 'cli'] as const)(
   'at 1280×800 the %s page scrolls inside the panel and not inside the document',
   async (which) => {
     await page.viewport(1280, 800)
@@ -233,7 +235,7 @@ test.each(['en', 'pl'] as const)(
     expect(body.width).toBeCloseTo(panel.clientWidth - pad, 0)
     expect(body.width).toBeGreaterThanOrEqual(324)
     const shown = [...screen.container.querySelectorAll('.fw-docs-toc a')].filter((a) => a.getClientRects().length > 0)
-    expect(shown).toHaveLength(3 + 5)
+    expect(shown).toHaveLength(4 + 5)
     for (const a of shown) expect(a.getBoundingClientRect().height, a.textContent ?? '').toBe(44)
     expect(getComputedStyle(box(screen.container, '.fw-docs-toc')).position).toBe('static')
     expect(scroller().scrollWidth).toBe(scroller().clientWidth)
@@ -261,6 +263,7 @@ test.each([
     // language, and this loop changes the language under them.
     for (const [which, link] of [
       ['arrowz', 'a[href="/docs/arrowz"]'],
+      ['lab', 'a[href="/docs/lab"]'],
       ['element', 'a[href="/docs/element"]'],
       ['cli', 'a[href="/docs/cli"]'],
     ] as const) {
@@ -269,6 +272,7 @@ test.each([
       anchor.click()
       const marker = {
         arrowz: '.fw-docs-body arrowz-board',
+        lab: '.fw-docs-body table[aria-labelledby="docs-keys"]',
         cli: 'pre.fw-docs-term',
         element: 'pre.fw-docs-code',
       }[which]

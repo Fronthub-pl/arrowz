@@ -54,7 +54,7 @@ Deno.test('every lab table description is in both languages, and translated', ()
       assertNotEquals(plRows[key], text, `${group}.${key} is still English in the Polish docs`)
     }
   }
-  assertEquals(seen, 10 + 16 + 19)
+  assertEquals(seen, 10 + 17 + 19)
 })
 
 // The frame around the tables — the column names and the note's name — is text

@@ -58,15 +58,15 @@ missing — start `deno task store` beside it.
 Three tabs: **Lab**, **Saved boards** and **Docs**. Every screen has an address,
 so a browser's back button and a bookmark work.
 
-| Route               | Shows                                                                                                                 |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `/`                 | The lab: the settings, the board and what the run reported.                                                           |
-| `/boards`           | The saved boards, by size; it opens on the board shown last.                                                          |
-| `/boards/:size/:id` | One stored board, by its size and its layout hash.                                                                    |
-| `/boards/file`      | A board opened from a file on disk.                                                                                   |
-| `/docs`             | Goes to `/docs/arrowz`.                                                                                               |
-| `/docs/:what`       | The documentation: `arrowz` for the puzzle and its rule, `cli` for the command line, `element` for the board element. |
-| `*`                 | Any other address goes to `/`.                                                                                        |
+| Route               | Shows                                                                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                 | The lab: the settings, the board and what the run reported.                                                                                     |
+| `/boards`           | The saved boards, by size; it opens on the board shown last.                                                                                    |
+| `/boards/:size/:id` | One stored board, by its size and its layout hash.                                                                                              |
+| `/boards/file`      | A board opened from a file on disk.                                                                                                             |
+| `/docs`             | Goes to `/docs/arrowz`.                                                                                                                         |
+| `/docs/:what`       | The documentation: `arrowz` for the puzzle and its rule, `lab` for the lab itself, `cli` for the command line, `element` for the board element. |
+| `*`                 | Any other address goes to `/`.                                                                                                                  |
 
 ## Using the lab
 
@@ -94,8 +94,7 @@ until it is fixed.
 
 ### Generating and saving
 
-**Generate** (`G`) carves a board from the settings on screen; **New seed**
-(`[` and `]`) steps the seed; **Defaults** puts every knob back; **Abort** stops
+**Generate** (`G`) carves a board from the settings on screen; **New seed** draws a random seed and generates, while `[` and `]` step the seed back or forward by one; **Defaults** puts every knob back; **Abort** stops
 a run and keeps the board carved so far. A board is not stored until you
 **Save** it (`⌘S`), or use **Generate and save** (`⌘G`); the switch _save every
 board_ saves each finished run. In the advanced view, _generate right after a
@@ -160,7 +159,7 @@ would be.
 | `Generate`             | run     | Generates a board from the settings.                                  |
 | `Generate and save`    | run     | Generates a board and stores it.                                      |
 | `Save board`           | run     | Stores the board on screen.                                           |
-| `New seed`             | run     | Steps the seed.                                                       |
+| `New seed`             | run     | Draws a random seed and generates.                                    |
 | `Defaults`             | run     | Puts every knob back to its default.                                  |
 | `Abort`                | run     | Stops the run; while one is stopping, _Discard_ drops its board.      |
 | `Check seeds`          | run     | Runs the settings over a number of seeds (advanced view only).        |
@@ -169,6 +168,7 @@ would be.
 | `Saved boards`         | go to   | The saved boards.                                                     |
 | `Open file…`           | go to   | Opens a board file from disk.                                         |
 | `Docs — Arrowz`        | go to   | The puzzle, its one rule played on three small boards, and its words. |
+| `Docs — Lab`           | go to   | How the lab works: its views, keys, palette and links.                |
 | `Docs — Command line`  | go to   | The command line's documentation.                                     |
 | `Docs — Board element` | go to   | The board element's documentation.                                    |
 | `Simple view`          | go to   | Switches the view; in the simple view the row reads _Advanced view_.  |

@@ -122,6 +122,7 @@ export type PaletteId =
   | 'go-boards'
   | 'go-open-file'
   | 'go-docs-arrowz'
+  | 'go-docs-lab'
   | 'go-docs-cli'
   | 'go-docs-element'
   | 'go-view'
@@ -260,6 +261,7 @@ const EN = {
     'go-boards': 'The saved boards.',
     'go-open-file': 'Opens a board file from disk.',
     'go-docs-arrowz': 'The puzzle, its one rule played on three small boards, and its words.',
+    'go-docs-lab': 'How the lab works: its views, keys, palette and links.',
     'go-docs-cli': "The command line's documentation.",
     'go-docs-element': 'The documentation of `<arrowz-board>`.',
     'go-view': 'Switches the view; in the simple view the row reads _Advanced view_.',
@@ -388,6 +390,7 @@ const PL = {
     'go-boards': 'Zapisane plansze.',
     'go-open-file': 'Otwiera plik planszy z dysku.',
     'go-docs-arrowz': 'Łamigłówka, jej jedna reguła rozegrana na trzech małych planszach i jej słowa.',
+    'go-docs-lab': 'Jak działa laboratorium: widoki, klawisze, paleta i linki.',
     'go-docs-cli': 'Dokumentacja wiersza poleceń.',
     'go-docs-element': 'Dokumentacja `<arrowz-board>`.',
     'go-view': 'Przełącza widok; w widoku prostym wiersz brzmi _Widok zaawansowany_.',

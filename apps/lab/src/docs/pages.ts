@@ -7,13 +7,14 @@
  */
 import type { UiKey } from '@arrowz/engine/i18n'
 
-export const DOCS_PAGES = ['arrowz', 'cli', 'element'] as const
+export const DOCS_PAGES = ['arrowz', 'lab', 'cli', 'element'] as const
 
 export type DocsPage = (typeof DOCS_PAGES)[number]
 
 /** Each page's name in the column and the palette, by its dictionary key. */
 export const DOCS_PAGE_NAMES = {
   arrowz: 'docsArrowz',
+  lab: 'docsLab',
   cli: 'docsCli',
   element: 'docsElement',
 } as const satisfies Record<DocsPage, UiKey>

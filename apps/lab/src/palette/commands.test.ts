@@ -459,11 +459,8 @@ describe('the matcher', () => {
     const rows = buildCommands(deps(), useStore.getState())
     const catalogueOrder = rows.map((row) => row.id)
     const matches = matchCommands(rows, 'docs').map((row) => row.id)
-    expect(matches).toEqual(['go-docs-arrowz', 'go-docs-cli', 'go-docs-element'])
-    expect(matches.indexOf('go-docs-arrowz')).toBeLessThan(matches.indexOf('go-docs-cli'))
-    expect(matches.indexOf('go-docs-cli')).toBeLessThan(matches.indexOf('go-docs-element'))
-    expect(catalogueOrder.indexOf('go-docs-arrowz')).toBeLessThan(catalogueOrder.indexOf('go-docs-cli'))
-    expect(catalogueOrder.indexOf('go-docs-cli')).toBeLessThan(catalogueOrder.indexOf('go-docs-element'))
+    expect(matches).toEqual(['go-docs-arrowz', 'go-docs-lab', 'go-docs-cli', 'go-docs-element'])
+    expect(catalogueOrder.filter((id) => id.startsWith('go-docs-'))).toEqual(matches)
   })
 })
 

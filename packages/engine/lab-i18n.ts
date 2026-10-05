@@ -337,6 +337,7 @@ export const EN = {
     /** The accessible name of the documentation's own navigation. */
     docsNavLabel: 'Documentation pages',
     docsArrowz: 'Arrowz',
+    docsLab: 'Lab',
     docsElement: 'Board element',
     docsCli: 'Command line',
     /** The rule boards of the Arrowz page: each board's name, the line under it, its button. */
@@ -1181,6 +1182,7 @@ export const PL: Translation = {
     argUnclosedQuote: (arg) => `niezamknięty cudzysłów: ${arg}`,
     docsNavLabel: 'Strony dokumentacji',
     docsArrowz: 'Arrowz',
+    docsLab: 'Laboratorium',
     docsElement: 'Element planszy',
     docsCli: 'Wiersz poleceń',
     docsRuleFree: 'Strzałka z wolną drogą do krawędzi przed grotem',
