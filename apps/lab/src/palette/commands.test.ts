@@ -5,7 +5,7 @@ import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { PALETTE_CAP } from '../state/view.slice'
 import type { RunControl } from '../run/useRun'
-import { buildCommands, type CommandDeps, type CommandSection, matchCommands } from './commands'
+import { buildCommands, type CommandDeps, type CommandSection, docsPaletteRows, matchCommands } from './commands'
 
 const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
 
@@ -464,5 +464,30 @@ describe('the matcher', () => {
     expect(matches.indexOf('go-docs-cli')).toBeLessThan(matches.indexOf('go-docs-element'))
     expect(catalogueOrder.indexOf('go-docs-arrowz')).toBeLessThan(catalogueOrder.indexOf('go-docs-cli'))
     expect(catalogueOrder.indexOf('go-docs-cli')).toBeLessThan(catalogueOrder.indexOf('go-docs-element'))
+  })
+})
+
+describe('docsPaletteRows', () => {
+  it('lists the same rows whatever the lab is doing', () => {
+    const calm = docsPaletteRows(dictionary('en'), useStore.getState()).map((row) => [row.id, row.name])
+    // The simple view drops Check seeds from ⌘K, a stopping run renames Abort,
+    // and the store's language names the language row: none may reach the table.
+    useStore.setState((state) => ({ ui: { ...state.ui, mode: 'simple' }, run: { ...state.run, stopping: true } }))
+    useStore.getState().lang.setLang('pl')
+    try {
+      expect(docsPaletteRows(dictionary('en'), useStore.getState()).map((row) => [row.id, row.name])).toEqual(calm)
+    } finally {
+      useStore.getState().lang.setLang('en')
+    }
+    expect(calm).toContainEqual(['run-check-seeds', 'Check seeds'])
+    expect(calm).toContainEqual(['run-abort', 'Abort'])
+    expect(calm).toContainEqual(['go-view', 'Simple view'])
+    expect(calm).toContainEqual(['go-lang', 'Switch to Polish'])
+  })
+
+  it('holds the run and go-to rows only, named in the language asked for', () => {
+    const rows = docsPaletteRows(dictionary('pl'), useStore.getState())
+    expect(new Set(rows.map((row) => row.section))).toEqual(new Set(['run', 'go']))
+    expect(rows.find((row) => row.id === 'go-lang')?.name).toBe('Przełącz na angielski')
   })
 })

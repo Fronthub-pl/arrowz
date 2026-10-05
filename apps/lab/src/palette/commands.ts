@@ -366,6 +366,26 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
   ]
 }
 
+const IDLE: RunControl = { start: () => {}, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
+
+/**
+ * The run and go-to rows as the Docs tab lists them: the advanced view, in
+ * `dict`'s language, nothing stopping, whatever the lab is doing now. The ⌘K
+ * rows change with that state (Check seeds, Discard); a reference table does not.
+ */
+export function docsPaletteRows(dict: Dict, state: Store): Command[] {
+  const fixed: Store = {
+    ...state,
+    ui: { ...state.ui, mode: 'advanced' },
+    lang: { ...state.lang, lang: dict.lang },
+    run: { ...state.run, stopping: false },
+    series: { ...state.series, stopping: false },
+  }
+  return buildCommands({ control: IDLE, navigate: () => {}, dict }, fixed).filter(
+    (row) => row.section === 'run' || row.section === 'go',
+  )
+}
+
 function goRow(deps: CommandDeps, id: string, name: string, path: string): Command {
   return {
     id,

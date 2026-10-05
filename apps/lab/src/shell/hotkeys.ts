@@ -36,7 +36,7 @@ function isHotkeyRefused(event: KeyboardEvent): boolean {
  * The letters pressed with ⌘ (Ctrl elsewhere): ⌘K opens the palette on every
  * route, ⌘G is Generate and save and ⌘S Save board on the workspace tabs.
  */
-export const COMMAND_KEYS = { palette: 'k', generateAndSave: 'g', save: 's' } as const
+export const COMMAND_KEYS = { generateAndSave: 'g', save: 's', palette: 'k' } as const
 
 /** ⌘ or Ctrl with `letter`, without Alt. */
 function isCommandKey(event: KeyboardEvent, letter: string): boolean {
@@ -70,9 +70,9 @@ export interface HotkeyRow {
  * bring the lab as `lab` rows do.
  */
 export const WORKSPACE_KEYS: readonly HotkeyRow[] = [
-  // Shift is not a modifier here, so `F` too; also with the focus on a button such as Generate.
-  { keys: ['f', 'F'], run: () => useStore.getState().ui.toggleSolo() },
-  { keys: ['Escape'], run: closeOneLayer },
+  { keys: ['g', 'G'], lab: true, run: (control) => generate(control) },
+  { keys: ['['], lab: true, run: (control) => stepSeed(control, -1) },
+  { keys: [']'], lab: true, run: (control) => stepSeed(control, 1) },
   {
     keys: ['r', 'R'],
     run: () => {
@@ -89,10 +89,22 @@ export const WORKSPACE_KEYS: readonly HotkeyRow[] = [
       else ui.toggleSettings()
     },
   },
-  { keys: ['g', 'G'], lab: true, run: (control) => generate(control) },
-  { keys: [']'], lab: true, run: (control) => stepSeed(control, 1) },
-  { keys: ['['], lab: true, run: (control) => stepSeed(control, -1) },
+  // Shift is not a modifier here, so `F` too; also with the focus on a button such as Generate.
+  { keys: ['f', 'F'], run: () => useStore.getState().ui.toggleSolo() },
+  { keys: ['Escape'], run: closeOneLayer },
 ]
+
+/** A key as the lab shows it: a letter in capitals, Escape as Esc. */
+export function keyLabel(key: string): string {
+  return key === 'Escape' ? 'Esc' : key.toUpperCase()
+}
+
+/** Every key the lab binds, as it shows them: `WORKSPACE_KEYS` in order, then the ⌘ letters. */
+export function shownKeys(): string[] {
+  const single = WORKSPACE_KEYS.flatMap((row) => row.keys.map(keyLabel))
+  const command = Object.values(COMMAND_KEYS).map((letter) => `⌘${keyLabel(letter)}`)
+  return [...new Set([...single, ...command])]
+}
 
 /**
  * One bubble-phase listener for `WORKSPACE_KEYS`, while a workspace tab is

@@ -1,5 +1,9 @@
 import { expect, test } from 'vitest'
-import { COMMAND_KEYS, WORKSPACE_KEYS } from './hotkeys'
+import { COMMAND_KEYS, shownKeys, WORKSPACE_KEYS } from './hotkeys'
+
+test('the keys as the lab shows them, in the order the docs list them', () => {
+  expect(shownKeys()).toEqual(['G', '[', ']', 'R', 'S', 'F', 'Esc', '⌘G', '⌘S', '⌘K'])
+})
 
 // One listener runs the first row naming a key; a key in two rows would silently lose its second action.
 test('no key belongs to two rows of the workspace table', () => {
