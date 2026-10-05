@@ -1612,7 +1612,7 @@ A margin measured in cells shrinks with them: on a large board in a small host i
 
 ## The dot grid {#dots}
 
-With `showPoints` the board draws one dot per cell under the arrows, like the ruling of a notebook page. The arrows' lines run from cell centre to cell centre, and the dots are those centres made visible. The grid covers the cells only, not the margin, which stays plain background. `pointColor` and `pointRadius` (in cells) style the dots. The grid is one repeating pattern, so it costs the same on a 10×10 board as on a 1000×1000 one.
+With `showPoints` the board draws one dot per cell under the arrows, like the ruling of a notebook page. The arrows' lines run from cell centre to cell centre, and the dots are those centres made visible. The grid covers the cells only, not the margin, which stays plain background. `pointColor` and `pointRadius` (in cells) style the dots. The grid is drawn in one pass over the whole board, so it costs the same on a 10×10 board as on a 1000×1000 one.
 
 A full board shows none of its dots: the arrows cover every cell, and each dot sits under a line, well inside its width. The dots appear cell by cell as arrows leave, or where the generator left a cell empty. If the grid seems to be missing, look for an arrow covering the cell before suspecting anything else. With thin lines and larger dots, they show through:
 
@@ -1712,7 +1712,7 @@ Before going on, check each claim of the page against its source and fix the pag
 - the wheel anchor, the centre between the margins, the clamp of the wheel and of `zoomBy`, and `fit()`: `viewport.ts`;
 - `MIN_PAD_PX`, `pad` 0, the clip of a leaving arrow and the refit on `pad`: `viewport.ts`, `gl-layer.ts`, `arrowz-board.ts`;
 - the sanitising list: `sanitize.ts`, and whether the zoom methods ignore a bad factor (`zoomBy`);
-- the dot grid's pattern, its hiding below `MIN_POINT_CELL_PX`, and that it covers the cells only: `arrowz-board.ts` (`updatePoints`), `viewport.ts`;
+- the dot grid's single pass, its hiding below `MIN_POINT_CELL_PX`, that it covers the cells only and lies under the arrows: `arrowz-board.ts` (`updatePoints`), `gl-passes.ts` (`drawDots`), `gl-shaders.ts` (`DOT_FRAG`);
 - the ride and the reduced motion: `track.ts`, `rides.ts`;
 - the bar's wrap and its 8 px, the custom `controls`, `position: relative`, `aria-pressed`/`hidden`, the coarse pointer: `arrowz-board.ts` (`styles`, `syncActions`, `render`);
 - the theme precedence and what needs `enableColors`: `look.ts` (`resolveColours`), `arrowz-board.ts`;
@@ -1795,7 +1795,7 @@ Stop the server and kill what it leaves (`ps … | grep -E "lab-docs-element|nx/
 
 - [ ] **Step 4: Follow-ups as beads**
 
-Create a bead, with an estimate and links, for each thing found and left: README sentences the page corrected (as `arrowz-0e2l` did for the CLI), anything from the live run that is not this PR's.
+Create a bead, with an estimate and links, for each thing found and left: README sentences the page corrected (as `arrowz-0e2l` did for the CLI) — at least "The point grid": the README says the grid "is drawn once as an SVG pattern of one cell's pitch, so it costs the same two nodes", while the grid is a WebGL pass (`drawDots`, `DOT_FRAG`), and it says "point grid" where the lab says "dot grid"; and its Class table says `ArrowzBoard` has no constructor, while the class declares `constructor()` — and anything from the live run that is not this PR's.
 
 - [ ] **Step 5: Bead and PR**
 
