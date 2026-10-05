@@ -133,7 +133,8 @@ different counter over 237 files; the two numbers are not comparable.)
 | Gap 8: open a `.board.json` from disk | fixed on `lab/stop-and-open` | button, drop and ⌘K; with its meta, Load into lab |
 | Gap 9: `highlight` colour row | fixed in `b90609e` | |
 | Gap 9: `pad` (margin) row | fixed in `0d916c2`, `24bca8b` | Held to the element's new `PAD_RANGE` (`840bf34`) |
-| Gap 9: recipes, `fingerprint`, batch fill, point-grid note | open | |
+| Gap 9: `fingerprint` | fixed on `lab/fingerprint` | Beside the layout in both board columns, and under the run's statistics with a `?`; read off the board file's header, so it equals what `--dry-run` prints |
+| Gap 9: recipes, batch fill, point-grid note | open | |
 | ⌘K rows for colour and element fields (highlight, pad, …) | fixed on `lab/report-parity` | |
 | `pad` in the SVG | fixed on `engine/view-look` | `SvgOptions.pad`, from the view |
 | Element README drift (`pieceCount`, `emit`, `BoardData`) | fixed in `840bf34`, `1b0d079` | |

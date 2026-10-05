@@ -6,6 +6,7 @@ import { useStore } from '../state/store'
 import { FileFacts } from './FileFacts'
 import { LongestTable } from './LongestTable'
 import { ReportSummary } from './ReportSummary'
+import { RunFacts } from './RunFacts'
 import { StatsTable } from './StatsTable'
 import { StoredFacts } from './StoredFacts'
 
@@ -51,6 +52,7 @@ export function ReportPanel({ series = null }: { series?: ReactNode }): ReactEle
             <>
               <ReportSummary result={result} baseline={result.report.aborted ? null : baseline} />
               <StatsTable result={result} baseline={result.report.aborted ? null : baseline} />
+              <RunFacts file={result.file} />
               <LongestTable board={result.board} />
             </>
           )}

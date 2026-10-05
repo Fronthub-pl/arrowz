@@ -69,6 +69,10 @@ export function FileColumn({ opened, control }: { opened: OpenedFile; control: R
           <dt>{dict.t('factLayout')}</dt>
           <dd className="wrap">{id}</dd>
         </div>
+        <div>
+          <dt>{dict.t('factFingerprint')}</dt>
+          <dd>{file.fingerprint}</dd>
+        </div>
       </dl>
     </section>
   )
