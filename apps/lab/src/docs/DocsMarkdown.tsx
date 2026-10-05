@@ -15,6 +15,8 @@ import { DocsTable } from './DocsTable'
 import { Inline } from './Inline'
 import { type DocsSection, plainText, sectionIdOf } from './markdown'
 import { SECTION_PREFIX } from './pages'
+import { isRuleBoard } from './ruleBoards'
+import { RulePlay } from './RulePlay'
 import { TokenSpans } from './TokenSpans'
 import { useDocs } from './useDocs'
 
@@ -189,6 +191,10 @@ function Note({ node }: { node: Blockquote }): ReactElement {
 function Directive({ node, section }: { node: LeafDirective; section: DocsSection | null }): ReactElement | null {
   const attributes = node.attributes ?? {}
   if (node.name === 'table') return <DocsTable of={attributes['of'] ?? ''} labelledBy={section?.id} />
+  if (node.name === 'play') {
+    const board = attributes['board']
+    return isRuleBoard(board) ? <RulePlay name={board} /> : null
+  }
   if (node.name !== 'help') return null
   const text = helpText({ knobs: attributes['form'] === 'knobs' })
   return (

@@ -18,6 +18,7 @@ describe('problemsOf', () => {
       '```sh\ndeno task carve --width=4\n```',
       '::table{of="element-props"}',
       '::help{form="knobs"}',
+      '::play{board="rule-free"}',
     ].join('\n\n')
     expect(problems(ok)).toEqual([])
   })
@@ -38,6 +39,8 @@ describe('problemsOf', () => {
     ['an unknown attribute', '# T\n\n::table{of="element-props" wide}', '::table takes no wide'],
     ['an unknown value', '# T\n\n::table{of="knobs"}', 'of="knobs" is not one of'],
     ['a missing attribute', '# T\n\n::help', '::help needs form'],
+    ['an unknown rule board', '# T\n\n::play{board="rule-nowhere"}', 'board="rule-nowhere" is not one of'],
+    ['a rule board without its name', '# T\n\n::play', '::play needs board'],
     ['a label', '# T\n\n::help[Help]{form="short"}', '::help takes no label'],
     ['a block in a note', '# T\n\n> - a list', 'a note holds paragraphs only'],
     ['a directive named after an Object method', '# T\n\n::toString', '::toString is not a docs directive'],

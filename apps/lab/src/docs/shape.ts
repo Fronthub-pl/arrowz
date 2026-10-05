@@ -8,11 +8,13 @@
 import type { Nodes, Root } from 'mdast'
 import type { LeafDirective } from 'mdast-util-directive'
 import { DOCS_LINK, sectionIdOf } from './markdown'
+import { RULE_BOARD_NAMES } from './ruleBoards'
 
 /** Each directive by name, and the values each of its attributes may take. */
 export const DIRECTIVES: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {
   table: { of: ['element-props', 'element-members', 'element-events', 'element-slots'] },
   help: { form: ['short', 'knobs'] },
+  play: { board: RULE_BOARD_NAMES },
 }
 
 /** Fenced code is coloured as its language; `text` is a terminal's output and stays plain. */

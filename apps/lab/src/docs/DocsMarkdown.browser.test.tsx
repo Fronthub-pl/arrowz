@@ -117,6 +117,15 @@ test('::table draws the reference table its section names', async () => {
   expect(table?.querySelectorAll('tbody tr')).toHaveLength(ELEMENT_SLOTS.length)
 })
 
+test('::play draws the rule board it names, coloured and playable', async () => {
+  const screen = await show('# T\n\n::play{board="rule-blocked"}')
+  const figure = screen.getByRole('figure', { name: 'An arrow with another arrow standing in its path to the edge' })
+  await expect.element(figure).toBeVisible()
+  const element = figure.element().querySelector('arrowz-board')
+  expect(element?.hasAttribute('play')).toBe(true)
+  expect(element?.board?.pieces).toHaveLength(3)
+})
+
 test('::help draws the terminal text, plain', async () => {
   const screen = await show('# T\n\n## Help {#help}\n\n::help{form="short"}')
   expect(screen.container.querySelector('pre.fw-docs-term')?.textContent).toBe(helpText())

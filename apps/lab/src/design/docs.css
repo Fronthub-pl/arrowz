@@ -296,6 +296,27 @@
   font-style: italic;
 }
 
+/* A rule board (`::play`) at the README picture's width: 8×6 cells and a
+   cell of margin all round make it 10:8. The line and Start over sit under it. */
+.fw-docs-play {
+  max-width: 360px;
+  margin: 12px 0 16px;
+}
+.fw-docs-play arrowz-board {
+  display: block;
+  width: 100%;
+  aspect-ratio: 10 / 8;
+}
+.fw-docs-playline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--mist);
+}
+
 /* The README pointer: a note bar under the element page's lead, an `aside`
    named "Note" with a 2px --signal bar; its info glyph is hidden from
    assistive technology. */
