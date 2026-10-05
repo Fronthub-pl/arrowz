@@ -8,6 +8,7 @@
     "test": "vitest run",
     "build": "vite build",
     "smoke": "node scripts/worker-smoke.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
     "serve": "vite",
     "lint": "eslint .",
     "fmt": "prettier --check ."
