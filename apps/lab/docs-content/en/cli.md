@@ -185,7 +185,7 @@ How many cells across and down. Both are required, each anything from 4 to 1000.
 
 ### How big a board can get
 
-The ceiling is 1000×1000, a million cells. Past about two hundred cells a side the arrows stop being visible one by one at this size, and the board turns into fabric. Zoom into one — ⌘ or Ctrl with the wheel, or the buttons in its corner — and the puzzle is the same as on a small board. The million-cell board takes about ten seconds, so it waits for its button.
+The ceiling is 1000×1000, a million cells. Past about two hundred cells a side the arrows stop being visible one by one at this size, and the board turns into fabric. Zoom into one — ⌘ or Ctrl with the wheel, or the buttons in its corner — or open it in the lab, and the puzzle is the same as on a small board. The million-cell board takes about ten seconds, so it waits for its button.
 
 :::compare{stats="pieces avgLen longest time"}
 ::board[200×200]{cmd="--width=200 --height=200 --seed=7"}

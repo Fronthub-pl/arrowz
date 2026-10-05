@@ -185,7 +185,7 @@ Ile komórek w poziomie i w pionie. Obie flagi są wymagane, każda od 4 do 1000
 
 ### Jak duża może być plansza
 
-Górna granica to 1000×1000, milion komórek. Powyżej mniej więcej dwustu komórek na bok strzałek nie widać już w tej skali pojedynczo, a plansza zamienia się w tkaninę. Powiększ ją — kółkiem z wciśniętym ⌘ albo Ctrl, albo przyciskami w jej rogu — a łamigłówka jest taka sama jak na małej planszy. Plansza z milionem komórek powstaje przez około dziesięć sekund, więc czeka na swój przycisk.
+Górna granica to 1000×1000, milion komórek. Powyżej mniej więcej dwustu komórek na bok strzałek nie widać już w tej skali pojedynczo, a plansza zamienia się w tkaninę. Powiększ ją — kółkiem z wciśniętym ⌘ albo Ctrl, albo przyciskami w jej rogu — albo otwórz ją w laboratorium, a łamigłówka jest taka sama jak na małej planszy. Plansza z milionem komórek powstaje przez około dziesięć sekund, więc czeka na swój przycisk.
 
 :::compare{stats="pieces avgLen longest time"}
 ::board[200×200]{cmd="--width=200 --height=200 --seed=7"}
