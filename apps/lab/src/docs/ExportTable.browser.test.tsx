@@ -112,4 +112,9 @@ test('at phone width the export tables scroll inside their boxes, not the panel'
   // A long value wraps in its cell rather than widening the table without end.
   const view = rows(tables(screen.container)[2]).find((tr) => tr.children[0]?.textContent === 'DEFAULT_VIEW')
   expect(view?.children[1]?.classList.contains('fw-docs-wrap')).toBe(true)
+  // A cell is as tall as its row, so count the lines the value's own text sets.
+  const range = document.createRange()
+  range.selectNodeContents(view?.children[1] ?? screen.container)
+  const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size
+  expect(lines).toBeGreaterThan(1)
 })

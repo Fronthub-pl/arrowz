@@ -23,7 +23,7 @@ import { useDocs } from './useDocs'
 // The compiler holds every row to an export: a key the package does not export is a type error here.
 const VALUES: Readonly<Record<ConstantKey, unknown>> = boardElement
 
-/** Four columns at most, two of them long code: on a phone each table scrolls by itself. */
+/** Long code columns make a table wider than a phone: each table scrolls by itself. */
 function Frame({
   labelledBy,
   head,
