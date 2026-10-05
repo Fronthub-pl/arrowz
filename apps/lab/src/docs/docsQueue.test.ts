@@ -91,8 +91,24 @@ test('two requests for one board share one run', () => {
   queue.request(keyOf(a), a, two.listener)
   workers.made[0]?.answer(doneMessage(a))
   expect(generated()).toEqual([6])
-  expect(one.states.at(-1)).toBe('done')
-  expect(two.states.at(-1)).toBe('done')
+  expect(one.states).toEqual(['running', 'done'])
+  expect(two.states).toEqual(['running', 'done'])
+})
+
+test('two requests for a board still in line share its one run', () => {
+  const queue = createDocsQueue(workers.make, cache)
+  const a = board(6)
+  const b = board(8)
+  const one = heard()
+  const two = heard()
+  queue.request(keyOf(a), a, () => {})
+  queue.request(keyOf(b), b, one.listener)
+  queue.request(keyOf(b), b, two.listener)
+  workers.made[0]?.answer(doneMessage(a))
+  workers.made[0]?.answer(doneMessage(b))
+  expect(generated()).toEqual([6, 8])
+  expect(one.states).toEqual(['waiting', 'running', 'done'])
+  expect(two.states).toEqual(['waiting', 'running', 'done'])
 })
 
 test('an error fails that board only, the next one runs, and asking again asks the worker again', () => {

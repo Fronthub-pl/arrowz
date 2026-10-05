@@ -28,7 +28,7 @@ const NO_DRAW = (): number => 0
 export function readBoardCmd(cmd: string): { spec: DocsBoardSpec | null; problems: string[] } {
   const split = splitCommand(cmd)
   const problems = split.problems.map(problemText)
-  if (!/^\s*--/.test(cmd)) problems.push(`cmd holds the flags only, without deno task carve: ${cmd}`)
+  if (!/^\s*--/.test(cmd)) problems.push(`holds the flags only, without deno task carve: ${cmd}`)
   const parsed = parseArgs(split.argv)
   problems.push(...parsed.errors)
   if (parsed.choice.random) problems.push('a board on a page is the one its command makes: no --randomized')

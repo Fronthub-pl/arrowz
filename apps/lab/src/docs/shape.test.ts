@@ -92,6 +92,7 @@ describe('board directives', () => {
   test.each([
     ['::board{cmd="--width=20 --height=20"}', 'needs a label'],
     ['::board[x]', 'needs cmd'],
+    ['::board[x]{cmd="deno task carve --width=20 --height=20"}', 'cmd: holds the flags only'],
     ['::board[x]{cmd="--width=20 --height=20 --randomized"}', '--randomized'],
     ['::board[x]{cmd="--width=600 --height=20"}', 'manual'],
     ['::board[x]{cmd="--width=20 --height=20" manual}', 'about'],
