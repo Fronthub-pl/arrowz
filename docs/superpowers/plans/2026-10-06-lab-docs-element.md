@@ -509,7 +509,7 @@ Check the facts the descriptions state, each against its source, before going on
 
 - [ ] **Step 4: The glossary and Jev read the new groups**
 
-In `packages/engine/glossary.test.ts`, `docsRows`: the group list becomes
+(The two lists below are one line each in the repository today; `deno fmt` decides how they wrap.) In `packages/engine/glossary.test.ts`, `docsRows`: the group list becomes
 
 ```ts
   return ([
@@ -620,7 +620,9 @@ test('the Docs tab lists every export once, in the table of its kind, and nothin
   const listed = Object.values(DOCS_TABLES).flatMap((rows) => rows.map((row) => row.key))
   const twice = listed.filter((key, i) => listed.indexOf(key) !== i)
   expect(twice, 'listed twice').toEqual([])
-  expect(sorted(listed)).toEqual(sorted(exports.keys()))
+  // By name, both ways: two arrays of fifty differ in a diff Vitest truncates to their lengths.
+  expect([...exports.keys()].filter((name) => !listed.includes(name)), 'exported, not listed').toEqual([])
+  expect(listed.filter((key) => !exports.has(key)), 'listed, not exported').toEqual([])
   for (const [kind, rows] of Object.entries(DOCS_TABLES)) {
     for (const row of rows) {
       const symbol = exports.get(row.key)
@@ -660,7 +662,7 @@ test('every Docs function row spells the signature the function declares', () =>
     if (decl === undefined || !ts.isFunctionDeclaration(decl)) throw new Error(`${row.key} is not a function declaration`)
     const signature = checker.getSignatureFromDeclaration(decl)
     if (signature === undefined) throw new Error(`${row.key} has no signature`)
-    expect(row.signature).toBe(`${row.key}${checker.signatureToString(signature)}`)
+    expect(row.signature, `signature of ${row.key}`).toBe(`${row.key}${checker.signatureToString(signature)}`)
   }
 })
 
@@ -690,14 +692,14 @@ test('every Docs class row spells its constructor and its public members', () =>
 
 ```bash
 pnpm nx build engine
-cd packages/board-element && pnpm exec vitest run --project node src/readme-api.test.ts
+cd packages/board-element && deno fmt src/readme-api.test.ts && pnpm exec vitest run --project node src/readme-api.test.ts
 ```
 
 Expected: PASS. A failure here is a row of Task 1 the checker reads otherwise: fix the row in `lab-docs.ts` (rebuild the engine), not the test, and report it.
 
 - [ ] **Step 3: Check that the guard can fail**
 
-Commit nothing yet. For each mutation, edit, rebuild the engine (`pnpm nx build engine`), run Step 2's command, see it fail naming the row, undo by hand:
+Commit first (Step 5's commands), so `git diff` shows each undo is complete. For each mutation, edit, rebuild the engine (`pnpm nx build engine`), run Step 2's test command, see it fail with the export's name in the message, undo by hand and check `git status` is clean (`deno fmt` wraps `GameHost`'s member list over several lines: find the entry there, not on one line):
 - `ELEMENT_TYPES`: `GestureMode`'s shape `"'drag' | 'tap'"`;
 - `ELEMENT_TYPES`: `BoardTheme`'s `from` `'@arrowz/board-element'`;
 - `ELEMENT_FUNCTIONS`: `themeOf`'s signature `'themeOf(name: string): BoardTheme'`;
@@ -715,7 +717,7 @@ cd packages/board-element && pnpm exec vitest run --project node && pnpm run che
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Commit** (run in Step 3, before the mutations)
 
 ```bash
 git add packages/board-element/src/readme-api.test.ts
@@ -1253,7 +1255,7 @@ git commit -m "lab: the Docs tab's theme table, with each theme's colours as swa
 
 **Files:**
 - Modify: `apps/lab/docs-content/en/element.md`, `apps/lab/docs-content/pl/element.md`
-- Test: `apps/lab/src/docs/ElementPage.browser.test.tsx` (rewritten), `apps/lab/src/routes/DocsNav.browser.test.tsx`, `apps/lab/src/docs/DocsBoard.browser.test.tsx`
+- Test: `apps/lab/src/docs/ElementPage.browser.test.tsx` (rewritten), `apps/lab/src/routes/DocsNav.browser.test.tsx`, `apps/lab/src/routes/DocsLayout.browser.test.tsx`, `apps/lab/src/docs/DocsBoard.browser.test.tsx`
 
 **Interfaces:**
 - Consumes: every table of Tasks 3–4; `::board`, `:::compare`, `silentQueue`, `answeringWorkers` (PR 4).
@@ -1488,6 +1490,30 @@ test('every code colour clears 4.5:1 on --graphite and --void', async () => {
 
 In `apps/lab/src/routes/DocsNav.browser.test.tsx`, the element group of the column becomes the fifteen English titles, each with `'/docs/element'`: `Using it`, `Properties`, `Methods and getters`, `Events`, `Controls`, `Zoom and pan`, `Size, and values the board cannot draw`, `The margin`, `The dot grid`, `Riding the track`, `Slots`, `Playing the board`, `Themes`, `The WebGL context`, `Exports`.
 
+In `apps/lab/src/routes/DocsLayout.browser.test.tsx`:
+- in `openDocs`, the element marker becomes `element: ['pre.fw-docs-code', 2]` (the Slots section adds a second `html` block);
+- in the 375×812 case of the column, `expect(shown).toHaveLength(4 + 5)` becomes `toHaveLength(4 + 15)`;
+- the case `'jumping to the last section marks it, though its heading cannot reach the top'` moves to the Arrowz page, whose last section, Words, stays short (the element page now ends with Exports, which is long enough for its heading to reach the top, so the premise would fail there). Its comment and body become:
+
+```tsx
+// The last section of the Arrowz page is too short to bring its heading up
+// to the line at the bottom of the scroll; jumping to it must still mark it,
+// not the section above.
+test('jumping to the last section marks it, though its heading cannot reach the top', async () => {
+  await page.viewport(1920, 1080)
+  const screen = await openAt('/docs/arrowz')
+  // The column lists every page's sections; the Arrowz page's Words comes first.
+  await screen.getByRole('link', { name: 'Words' }).first().click()
+  const panel = box(screen.container, '#docs-panel')
+  await expect.poll(() => panel.scrollTop + panel.clientHeight).toBeCloseTo(panel.scrollHeight, 0)
+  // The premise: the heading really is below the line a fifth of the way down.
+  expect(below(screen.container, 'docs-words')).toBeGreaterThan(panel.clientHeight * 0.2)
+  await expect.poll(() => inView(screen.container)).toEqual(['Words'])
+}, 40_000)
+```
+
+Keep the premise line: it is what makes the case about a short last section. If it fails on the Arrowz page too, report it with the measured numbers rather than deleting it.
+
 In `apps/lab/src/docs/DocsBoard.browser.test.tsx`, after `'the board looks as its command says, not as the lab is set'`, add:
 
 ```tsx
@@ -1571,7 +1597,7 @@ Touch works the same in both modes: one finger pans, two fingers pinch to zoom, 
 
 ### Keys and the wheel
 
-The wheel zooms towards the cursor. `+` and `−` zoom, `0` fits the board, and so do the buttons in the corner. With ⌘, Ctrl or Alt held, those keys are left to the browser's own page zoom. The keys act while the board or one of its controls has focus, not while a text field or a nested board inside it does.
+The wheel zooms towards the cursor. `+` (or `=`) and `-` zoom, `0` fits the board, and so do the buttons in the corner. With ⌘, Ctrl or Alt held, those keys are left to the browser's own page zoom. The keys act while the board or one of its controls has focus, not while a text field or a nested board inside it does.
 
 A repeated press — a double click, a double tap — does nothing at all. The element reads the second one as a slip of the finger, not as an instruction.
 
@@ -1621,13 +1647,13 @@ A full board shows none of its dots: the arrows cover every cell, and each dot s
 ::board[`--points --line=0.2 --point-radius=0.15`]{cmd="--width=12 --height=12 --seed=7 --points --line=0.2 --point-radius=0.15"}
 :::
 
-Below `MIN_POINT_CELL_PX` pixels per cell the grid hides itself, and `showPoints` stays as it is: that close together, the dots would blur into grey rather than read as a grid. Zooming back in brings it back.
+Below `MIN_POINT_CELL_PX` pixels per cell the grid hides itself, and `showPoints` stays as it is: packed that tightly, the dots would blur into grey rather than read as a grid. Zooming back in brings it back.
 
 ## Riding the track {#track}
 
 An arrow never slides sideways off its shape. It drives out along its own track: the head runs straight out in its direction, and every other cell passes through the place of the one ahead of it, so a bent arrow bends its way out instead of moving as one rigid shape. The line, the tail and the head are redrawn every frame from one clock, so they never drift apart.
 
-Every arrow leaves at the same speed, `EXIT_SPEED` cells per second, and a ride takes between `EXIT_MIN_MS` and `EXIT_MAX_MS` milliseconds: a long arrow from the far side does not shoot out faster than a short one at the edge. A blocked arrow's bounce takes `SHAKE_MS`. With `prefers-reduced-motion` set, every ride and every bounce takes no time at all.
+An arrow leaves at `EXIT_SPEED` cells per second, so a long ride takes longer than a short one. No ride is shorter than `EXIT_MIN_MS` milliseconds, so an arrow at the edge is still seen to move, and none is longer than `EXIT_MAX_MS`, so an arrow from the far side of a big board does not keep you waiting. A blocked arrow's bounce takes `SHAKE_MS`. With `prefers-reduced-motion` set, every ride and every bounce takes no time at all.
 
 ## Slots {#slots}
 
@@ -1647,7 +1673,7 @@ The hint and the buttons in the corner are slot fallback content: a child with `
 
 The default bar keeps 8 px inside the board. When what it holds — its own controls or yours — does not fit in one row, it wraps upwards: the bottom row keeps what comes first, the hint and then the zoom buttons, and the rest moves above it. A hint wider than the row takes the bottom row alone.
 
-A custom `controls` replaces the bar and its position. The other slots live inside the bar, so a `slot="fit"` child next to a custom bar is not drawn. The element is `position: relative`, so a bar positioned `absolute` is placed against the board; an unpositioned bar sits above the board, in the normal flow.
+A custom `controls` replaces the bar and its position. The other slots live inside the bar, so a `slot="fit"` child next to a custom bar is not drawn. The element is `position: relative`, so a bar positioned `absolute` is placed against the board; a bar you do not position stays in the normal flow, at the top of the board, drawn over it.
 
 ### What the element keeps in step
 
@@ -1708,13 +1734,15 @@ Everything `@arrowz/board-element` exports, by kind. Importing the package regis
 
 Before going on, check each claim of the page against its source and fix the page, not the source, where they differ; report every difference found, fixed or not:
 - the gestures, the ☝ switch, the stored choice, the cursor and the context menu: `gestures.ts`, `arrowz-board.ts` (`onPointerDown`, `refreshCursor`, `onContextMenu`, `GESTURE_STORAGE_KEY`);
-- the keys, the modifiers left to the browser, focus, and the repeated press: `arrowz-board.ts` (`onKeyDown`, `takesText`), `gestures.ts`;
+- the keys (`+`/`=`, ASCII `-`, `0`), the modifiers left to the browser, focus, and the repeated press: `arrowz-board.ts` (`onKeyDown`, `takesText`), `gestures.ts`;
+- `data-board-action` on any depth, light DOM only: `arrowz-board.ts` (`onAction`, `act`);
 - the wheel anchor, the centre between the margins, the clamp of the wheel and of `zoomBy`, and `fit()`: `viewport.ts`;
 - `MIN_PAD_PX`, `pad` 0, the clip of a leaving arrow and the refit on `pad`: `viewport.ts`, `gl-layer.ts`, `arrowz-board.ts`;
 - the sanitising list: `sanitize.ts`, and whether the zoom methods ignore a bad factor (`zoomBy`);
 - the dot grid's single pass, its hiding below `MIN_POINT_CELL_PX`, that it covers the cells only and lies under the arrows: `arrowz-board.ts` (`updatePoints`), `gl-passes.ts` (`drawDots`), `gl-shaders.ts` (`DOT_FRAG`);
 - the ride and the reduced motion: `track.ts`, `rides.ts`;
-- the bar's wrap and its 8 px, the custom `controls`, `position: relative`, `aria-pressed`/`hidden`, the coarse pointer: `arrowz-board.ts` (`styles`, `syncActions`, `render`);
+- the bar's wrap and its 8 px, the custom `controls` (`slot[name='controls']::slotted(*)`), `position: relative`, `aria-pressed`/`hidden`, the coarse pointer: `arrowz-board.ts` (`styles`, `syncActions`, `render`);
+- the ride's speed and its two bounds: `track.ts` (`exitMs` clamps the time, so outside the bounds the speed is not `EXIT_SPEED`);
 - the theme precedence and what needs `enableColors`: `look.ts` (`resolveColours`), `arrowz-board.ts`;
 - the WebGL context: `arrowz-board.ts` (`connectedCallback`, `disconnectedCallback`, `watchForRevival`);
 - `--arrowz-paper`: `arrowz-board.ts`;
@@ -1745,8 +1773,8 @@ Expected: PASS (`AppRoutes`, the palette and the tab row open `/docs/element` to
 - [ ] **Step 6: Commit**
 
 ```bash
-cd apps/lab && pnpm exec prettier --write src/docs/ElementPage.browser.test.tsx src/routes/DocsNav.browser.test.tsx src/docs/DocsBoard.browser.test.tsx && pnpm run check && pnpm run lint && cd ../..
-git add apps/lab/docs-content/en/element.md apps/lab/docs-content/pl/element.md apps/lab/src/docs/ElementPage.browser.test.tsx apps/lab/src/routes/DocsNav.browser.test.tsx apps/lab/src/docs/DocsBoard.browser.test.tsx
+cd apps/lab && pnpm exec prettier --write src/docs/ElementPage.browser.test.tsx src/routes/DocsNav.browser.test.tsx src/routes/DocsLayout.browser.test.tsx src/docs/DocsBoard.browser.test.tsx && pnpm run check && pnpm run lint && cd ../..
+git add apps/lab/docs-content/en/element.md apps/lab/docs-content/pl/element.md apps/lab/src/docs/ElementPage.browser.test.tsx apps/lab/src/routes/DocsNav.browser.test.tsx apps/lab/src/routes/DocsLayout.browser.test.tsx apps/lab/src/docs/DocsBoard.browser.test.tsx
 git commit -m "lab: the Docs page Board element in full, with live comparisons of the margin, the dot grid and the themes"
 ```
 
