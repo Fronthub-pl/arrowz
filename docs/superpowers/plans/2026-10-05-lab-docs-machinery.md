@@ -24,8 +24,14 @@
 - On a fresh worktree run `pnpm install && pnpm nx build engine && pnpm nx build board-element` once before `pnpm run check` in `apps/lab`.
 - Prettier (`printWidth: 120`, no semicolons, single quotes) checks everything in `apps/lab`, the new `.md` files included: run `pnpm exec prettier --write <files>` from `apps/lab` before each commit.
 - Mutations: commit first, mutate, run, and undo by hand (or with the inverse `sed`) — never `git checkout` a file with uncommitted work.
+- No attribution lines in commit messages or the PR description; the PR body cites `Bead: arrowz-kkey.1` (the bead guard refuses `gh pr create` otherwise).
+- `lab-docs.ts` changes run under `neutral.test.ts` too: Task 4 Step 4 and Task 7 Step 6 include it (`deno task verify` runs it).
+- Jev checks never run inside `deno task test` or any gate: they are networked and not deterministic. They advise (`deno task jev:docs`, the CI job) and their findings are triaged by a person (Task 9).
 
 ## Review Focus
+
+The plan itself was reviewed by Jev on 2026-10-05 (script and results: §Self-Review, item 5). The five
+cases below are the inputs most likely to bite a person using the result.
 
 1. **A colon in prose silently becomes a directive.** `At 10:30` parses as text `At 10` + a text directive named `30` (measured, micromark-extension-directive 4.0.0); the reader would see "At 10." — `problemsOf` refuses `textDirective` (Task 2), `markdown.test.ts` pins the parse (Task 1), and `content.test.ts` runs every page and every description through it (Task 6).
 2. **A description that is not plain inline Markdown** (a `*`, a `<`, a colon) renders differently from the string in `lab-docs.ts` once descriptions go through the parser — `content.test.ts` checks every description's node types (Task 6).
@@ -55,6 +61,9 @@
 | `apps/lab/src/routes/useSectionInView.ts` | Takes the sections, not a page name. |
 | `packages/engine/lab-docs.ts` | Keeps descriptions, column names and `infoLabel`; loses the prose that moved. |
 | `packages/engine/glossary.test.ts` | Gains the element descriptions and the Markdown pages. |
+| `packages/cli/scripts/jev-docs.ts` | Jev reads the docs: README agreement, translation, history, plain prose (Task 8). |
+| `packages/cli/scripts/jev-ci.ts` | Runs `jev-docs` on the pages a PR touches. |
+| `docs/jev-guards.md` | Gains the docs check, its questions and its measured figures. |
 | Deleted | `routes/ElementDocs.tsx`, `routes/CliDocs.tsx`, `docs/elementExample.ts` and the two tests of the first two (replaced by `docs/ElementPage.browser.test.tsx`, `docs/CliPage.browser.test.tsx`). |
 
 ---
@@ -2233,7 +2242,458 @@ git commit -m "lab: the Docs tab renders its pages from Markdown, its body in a 
 
 ---
 
-### Task 8: Verify the branch
+### Task 8: Jev reads the docs
+
+Advisory, like every Jev guard: it reports and never gates. It asks four things of a docs page, with the
+wording and thresholds measured on 2026-10-05 (jev-1.13.0, `/tmp` probe over the pages of Task 6, the
+element descriptions and 13 hand-made faults; in-sample, about 25 clean texts — re-measure in PR 4,
+whose CLI page is the first long one):
+
+| Question | Asked of | Flag when | Measured |
+|---|---|---|---|
+| `contradicts` (the README makes the text false) | every EN prose block and every element description, with the page's README and the glossary's renames in the state | `> 0.7` | 6 faults 0.74–0.94; clean ≤ 0.27, except the element page's lead 0.55–0.62 |
+| `same_meaning` (`PAIR_QUESTIONS`, existing) | each section's EN against its PL, and each description pair | differs `> DIFFERS_AT` (0.54) | 4 faults 0.92–0.98; clean ≤ 0.09 |
+| `history` | every EN prose block | `> 0.85` | 2 faults 0.89–0.90; one false 0.88 |
+| `plain` | every EN prose block | `< 0.3` | jargon fault 0.18; clean 0.32–0.68 (a ranking, not a calibrated scale) |
+
+Without the renames in the state, `contradicts` read the glossary as contradictions: the element lead with
+"arrows" scored 0.57–0.65, the same sentence with "pieces" 0.10. The renames are `DOCS_GLOSSARY`.
+
+**Files:**
+- Create: `packages/cli/scripts/jev-docs.ts`, `packages/cli/scripts/jev-docs.test.ts`
+- Modify: `packages/cli/scripts/jev-ci.ts`, `packages/cli/scripts/jev-ci.test.ts`, `deno.json` (one task), `docs/jev-guards.md`
+
+**Interfaces:**
+- Consumes: `Judge`, `Answers`, `Noul`, `defaultJudge`, `keyPath` (`jev-client.ts`); `Flag`, `excerpt`, `pool`, `PAIR_QUESTIONS`, `DIFFERS_AT` (`jev-guard.ts`); `docsFor` (`@arrowz/engine/docs`).
+- Produces: `DOCS_SOURCES`, `DOCS_GLOSSARY`, `DOCS_QUESTIONS`, `CONTRADICTS_AT`, `DOCS_HISTORY_AT`, `PLAIN_BELOW`, `type DocsInput = { page: string; en: string; pl: string; source: string }`, `proseBlocks(markdown): { line: number; text: string }[]`, `sectionProse(markdown): Map<string, string>`, `textFlags(where, text, answers): Flag[]`, `checkDocs(judge, input): Promise<Flag[]>`, `readDocs(page, read): DocsInput | null`, `docsPagesOf(names: string): string[]` (jev-docs.ts); `Checked.docs: number` (jev-ci.ts).
+
+- [ ] **Step 1: Write the failing tests**
+
+Create `packages/cli/scripts/jev-docs.test.ts`:
+
+```ts
+import { assert, assertEquals } from '@std/assert'
+import type { Answers, Judge } from './jev-client.ts'
+import {
+  checkDocs,
+  CONTRADICTS_AT,
+  DOCS_GLOSSARY,
+  docsPagesOf,
+  proseBlocks,
+  readDocs,
+  sectionProse,
+  textFlags,
+} from './jev-docs.ts'
+
+function stubJudge(answer: (state: Record<string, unknown>) => Answers | null) {
+  const calls: Record<string, unknown>[] = []
+  const judge: Judge = (state) => {
+    const s = state as Record<string, unknown>
+    calls.push(s)
+    return Promise.resolve(answer(s))
+  }
+  return { judge, calls }
+}
+
+const PAGE = [
+  '# \\<arrowz-board>',
+  '',
+  'The lead,',
+  'on two lines.',
+  '',
+  '> A note.',
+  '',
+  '## Using it {#example}',
+  '',
+  '```sh',
+  'deno task carve --width=4',
+  '```',
+  '',
+  '::table{of="element-props"}',
+  '',
+  'After the table.',
+].join('\n')
+
+Deno.test('proseBlocks keeps prose only, joined, with the line it starts on', () => {
+  assertEquals(proseBlocks(PAGE), [
+    { line: 3, text: 'The lead, on two lines.' },
+    { line: 6, text: 'A note.' },
+    { line: 16, text: 'After the table.' },
+  ])
+})
+
+Deno.test('sectionProse groups the prose under each {#id}, the lead first', () => {
+  assertEquals([...sectionProse(PAGE)], [
+    ['lead', 'The lead,\non two lines.\nA note.\n'],
+    ['example', 'After the table.\n'],
+  ])
+})
+
+const quiet = { contradicts: 0.1, history: 0.1, plain: 0.6, same_meaning: 0.95 }
+
+Deno.test('textFlags flags past each threshold, and nothing without an answer', () => {
+  assertEquals(textFlags('w', 't', quiet), [])
+  assertEquals(textFlags('w', 't', null), [])
+  const flags = textFlags('w', 't', { contradicts: 0.75, history: 0.9, plain: 0.2 })
+  assertEquals(flags.map((f) => f.question), ['contradicts_readme', 'history', 'not_plain'])
+  assertEquals(textFlags('w', 't', { ...quiet, contradicts: CONTRADICTS_AT }), [])
+})
+
+Deno.test('checkDocs asks each prose block with the README and the renames, and each section pair', async () => {
+  const { judge, calls } = stubJudge((s) =>
+    s.text === 'After the table.' ? { ...quiet, contradicts: 0.9 } : s.key === 'docs-content/pl/cli.md #example'
+      ? { same_meaning: 0.2 }
+      : quiet
+  )
+  const pl = PAGE.replace('After the table.', 'Po tabeli.').replace('The lead,\non two lines.', 'Wstęp.')
+  const flags = await checkDocs(judge, { page: 'cli', en: PAGE, pl, source: 'README' })
+  const asked = calls.filter((c) => 'text' in c)
+  assertEquals(asked.map((c) => c.text), ['The lead, on two lines.', 'A note.', 'After the table.'])
+  for (const c of asked) {
+    assertEquals(c.source, 'README')
+    assertEquals(c.glossary, DOCS_GLOSSARY)
+  }
+  assertEquals(calls.filter((c) => 'en' in c).length, 2)
+  assertEquals(flags.map((f) => [f.where, f.question]), [
+    ['docs-content/en/cli.md:16', 'contradicts_readme'],
+    ['docs-content/pl/cli.md #example', 'differs'],
+  ])
+})
+
+Deno.test('checkDocs reads the element descriptions too, in both languages', async () => {
+  const { judge, calls } = stubJudge(() => quiet)
+  await checkDocs(judge, { page: 'element', en: PAGE, pl: PAGE, source: 'README' })
+  assert(calls.some((c) => typeof c.text === 'string' && c.text.startsWith('pad: ')))
+  assert(calls.some((c) => c.key === 'lab-docs.ts props.pad'))
+})
+
+Deno.test('readDocs reads both languages and the source README, and refuses an unknown page', () => {
+  const files: Record<string, string> = {
+    'apps/lab/docs-content/en/cli.md': 'en',
+    'apps/lab/docs-content/pl/cli.md': 'pl',
+    'packages/cli/README.md': 'readme',
+  }
+  assertEquals(readDocs('cli', (rel) => files[rel] ?? null), { page: 'cli', en: 'en', pl: 'pl', source: 'readme' })
+  assertEquals(readDocs('nowhere', (rel) => files[rel] ?? null), null)
+})
+
+Deno.test('docsPagesOf names the pages a change touches', () => {
+  const names = [
+    'apps/lab/docs-content/pl/cli.md',
+    'apps/lab/docs-content/en/cli.md',
+    'packages/engine/lab-docs.ts',
+    'apps/lab/docs-content/en/nowhere.md',
+    'apps/lab/src/docs/content.ts',
+  ].join('\n')
+  assertEquals(docsPagesOf(names), ['cli', 'element'])
+})
+```
+
+In `packages/cli/scripts/jev-ci.test.ts`: add `docs: 0` to every `Checked` value the file builds or expects (search `skipped:`), and add:
+
+```ts
+Deno.test('runCi asks Jev about a docs page the PR changes', async () => {
+  const calls: string[][] = []
+  const git = (args: string[]) => {
+    calls.push(args)
+    return Promise.resolve(args.includes('--name-only') ? 'apps/lab/docs-content/pl/cli.md\n' : '')
+  }
+  const files: Record<string, string> = {
+    'apps/lab/docs-content/en/cli.md': '# T\n\nWrong.\n',
+    'apps/lab/docs-content/pl/cli.md': '# T\n\nŹle.\n',
+    'packages/cli/README.md': 'README',
+  }
+  const { judge } = stubJudge((s) => (s.text === 'Wrong.' ? { ...quiet, contradicts: 0.95, plain: 0.6 } : { ...quiet, same_meaning: 0.9, plain: 0.6 }))
+  const event = { action: 'synchronize', title: 'T', body: 'B', base: 'b', head: 'h' }
+  const r = await runCi({ judge, event, git, read: (rel) => files[rel] ?? null, rule: RULE })
+  assertEquals(r.checked.docs, 1)
+  assertEquals(r.findings.map((f) => [f.flag.where, f.flag.question]), [['docs-content/en/cli.md:3', 'contradicts_readme']])
+})
+```
+
+Run: `deno test --allow-read packages/cli/scripts/jev-docs.test.ts packages/cli/scripts/jev-ci.test.ts`
+Expected: FAIL — `Module not found "file:///…/packages/cli/scripts/jev-docs.ts"`.
+
+- [ ] **Step 2: Write `jev-docs.ts`**
+
+```ts
+// Advisory checks of the lab's documentation pages, answered by Jev: does a page
+// say what its README says, does the Polish say what the English says, does it
+// tell the project's history, is it plain. They report and never gate; the
+// questions' measurement is in docs/jev-guards.md.
+import { docsFor } from '@arrowz/engine/docs'
+import { fromFileUrl, join } from '@std/path'
+import { defaultJudge, keyPath } from './jev-client.ts'
+import type { Answers, Judge, Noul } from './jev-client.ts'
+import { DIFFERS_AT, excerpt, type Flag, PAIR_QUESTIONS, pool } from './jev-guard.ts'
+
+/** The README each docs page is written from. */
+export const DOCS_SOURCES: Readonly<Record<string, string>> = {
+  element: 'packages/board-element/README.md',
+  cli: 'packages/cli/README.md',
+}
+
+/** The glossary's renames: the READMEs and the code still say the right-hand word. */
+export const DOCS_GLOSSARY: readonly string[] = [
+  'arrow = piece (the code and older READMEs say piece)',
+  'arrowhead = head',
+  'path to the edge = corridor',
+  'background = paper',
+  'arrow colour = ink',
+  'dot grid = point grid',
+  'skeleton = giants',
+  'target length = probe',
+  'complete = closed',
+  'stuck = jammed',
+  'make or lay a board = carve',
+]
+
+export const DOCS_QUESTIONS: Record<string, Noul> = {
+  contradicts: {
+    type: 'noul',
+    instructions:
+      'The package README `source` says something that makes the documentation text `text` false: a different value, default, name, behaviour or condition. The documentation renamed some words; the pairs in `glossary` name the same thing, so using one where the README uses the other is not a contradiction. Text the README simply does not mention is not a contradiction either.',
+    criteria: {
+      true: 'The README contradicts the text.',
+      false: 'The README agrees with the text or does not address it.',
+    },
+  },
+  history: {
+    type: 'noul',
+    instructions:
+      "The documentation text `text` talks about the project's own past: an earlier version, a pull request, a review, a round of work, or what something used to be.",
+    criteria: { true: 'It tells history.', false: 'It describes only how things are now.' },
+  },
+  plain: {
+    type: 'noul',
+    instructions:
+      'A person who uses the Arrowz lab, its command line or its web component, and has not read their source code, understands the documentation text `text` without having to look up an unexplained internal term.',
+    criteria: {
+      true: 'Plain: every term it uses is common or explained.',
+      false: 'It leans on internal jargon or unexplained terms.',
+    },
+  },
+}
+
+// Measured on jev-1.13.0 against hand-made faults (docs/jev-guards.md, "Docs pages").
+export const CONTRADICTS_AT = 0.7
+export const DOCS_HISTORY_AT = 0.85
+/** `plain` ranks well and calibrates badly: only the clearly worst text is worth a word. */
+export const PLAIN_BELOW = 0.3
+
+const CONCURRENCY = 8
+const round = (p: number) => Math.round(p * 1000) / 1000
+
+export type DocsInput = { page: string; en: string; pl: string; source: string }
+
+/** A page's prose, block by block: code, directives and headings left out, a note's `>` taken off. */
+export function proseBlocks(markdown: string): { line: number; text: string }[] {
+  const out: { line: number; text: string }[] = []
+  let fence = false
+  let start = 0
+  let lines: string[] = []
+  const flush = () => {
+    if (lines.length > 0) out.push({ line: start, text: lines.join(' ').trim() })
+    lines = []
+  }
+  markdown.split('\n').forEach((raw, i) => {
+    if (raw.startsWith('```')) {
+      flush()
+      fence = !fence
+    } else if (fence) {
+      return
+    } else if (raw.trim() === '' || raw.startsWith('#') || raw.startsWith('::')) {
+      flush()
+    } else {
+      if (lines.length === 0) start = i + 1
+      lines.push(raw.replace(/^>\s?/, ''))
+    }
+  })
+  flush()
+  return out
+}
+
+/** A page's prose by section: the `{#id}` of each `##`, and `lead` before the first. */
+export function sectionProse(markdown: string): Map<string, string> {
+  const out = new Map<string, string>()
+  let section = 'lead'
+  let fence = false
+  for (const raw of markdown.split('\n')) {
+    if (raw.startsWith('```')) fence = !fence
+    if (fence || raw.startsWith('```')) continue
+    const id = /^## .*\{#([a-z][a-z0-9-]*)\}\s*$/.exec(raw)?.[1]
+    if (id !== undefined) section = id
+    else if (raw.trim() !== '' && !raw.startsWith('#') && !raw.startsWith('::'))
+      out.set(section, `${out.get(section) ?? ''}${raw.replace(/^>\s?/, '')}\n`)
+  }
+  return out
+}
+
+export function textFlags(where: string, text: string, a: Answers | null): Flag[] {
+  if (a === null) return []
+  const out: Flag[] = []
+  const contradicts = a.contradicts ?? 0
+  const history = a.history ?? 0
+  const plain = a.plain ?? 1
+  if (contradicts > CONTRADICTS_AT) out.push({ where, question: 'contradicts_readme', p: round(contradicts), excerpt: text })
+  if (history > DOCS_HISTORY_AT) out.push({ where, question: 'history', p: round(history), excerpt: text })
+  if (plain < PLAIN_BELOW) out.push({ where, question: 'not_plain', p: round(1 - plain), excerpt: text })
+  return out
+}
+
+/** The element's reference descriptions, as `key: text` in each language. */
+function descriptionRows(): { key: string; en: string; pl: string }[] {
+  const en = docsFor('en')
+  const pl = docsFor('pl')
+  const rows: { key: string; en: string; pl: string }[] = []
+  for (const group of ['props', 'members', 'events', 'slots'] as const) {
+    const plRows: Record<string, string> = pl[group]
+    for (const [key, text] of Object.entries(en[group])) {
+      rows.push({ key: `${group}.${key}`, en: `${key}: ${text}`, pl: `${key}: ${plRows[key] ?? ''}` })
+    }
+  }
+  return rows
+}
+
+export async function checkDocs(judge: Judge, input: DocsInput): Promise<Flag[]> {
+  const file = (lang: string) => `docs-content/${lang}/${input.page}.md`
+  const texts = proseBlocks(input.en).map((b) => ({ where: `${file('en')}:${b.line}`, text: b.text }))
+  const plSections = sectionProse(input.pl)
+  const pairs = [...sectionProse(input.en)].map(([id, en]) => ({
+    where: `${file('pl')} #${id}`,
+    en,
+    pl: plSections.get(id) ?? '',
+  }))
+  if (input.page === 'element') {
+    for (const row of descriptionRows()) {
+      texts.push({ where: `lab-docs.ts ${row.key}`, text: row.en })
+      pairs.push({ where: `lab-docs.ts ${row.key}`, en: row.en, pl: row.pl })
+    }
+  }
+  const asked = await pool(
+    texts,
+    CONCURRENCY,
+    (t) => judge({ text: t.text, glossary: DOCS_GLOSSARY, source: input.source }, DOCS_QUESTIONS),
+  )
+  const paired = await pool(pairs, CONCURRENCY, (p) => judge({ key: p.where, en: p.en, pl: p.pl }, PAIR_QUESTIONS))
+  const flags: Flag[] = []
+  texts.forEach((t, i) => flags.push(...textFlags(t.where, t.text, asked[i] ?? null)))
+  pairs.forEach((p, i) => {
+    const a = paired[i]
+    const differs = a ? 1 - (a.same_meaning ?? 1) : 0
+    if (differs > DIFFERS_AT) flags.push({ where: p.where, question: 'differs', p: round(differs), excerpt: p.pl })
+  })
+  return flags
+}
+
+/** A page's two languages and its README, by repository-relative path; null for a page with no README. */
+export function readDocs(page: string, read: (rel: string) => string | null): DocsInput | null {
+  const sourcePath = DOCS_SOURCES[page]
+  if (sourcePath === undefined) return null
+  const en = read(`apps/lab/docs-content/en/${page}.md`)
+  const pl = read(`apps/lab/docs-content/pl/${page}.md`)
+  const source = read(sourcePath)
+  return en === null || pl === null || source === null ? null : { page, en, pl, source }
+}
+
+/** The docs pages a change touches: a page's Markdown in either language, or the element's descriptions. */
+export function docsPagesOf(names: string): string[] {
+  const pages = new Set<string>()
+  for (const name of names.split('\n').map((n) => n.trim())) {
+    const page = /^apps\/lab\/docs-content\/(?:en|pl)\/([a-z]+)\.md$/.exec(name)?.[1]
+    if (page !== undefined && page in DOCS_SOURCES) pages.add(page)
+    if (name === 'packages/engine/lab-docs.ts') pages.add('element')
+  }
+  return [...pages]
+}
+
+const ROOT = fromFileUrl(new URL('../../../', import.meta.url))
+
+function readOrNull(rel: string): string | null {
+  try {
+    return Deno.readTextFileSync(join(ROOT, rel))
+  } catch {
+    return null
+  }
+}
+
+if (import.meta.main) {
+  const pages = Deno.args.length > 0 ? Deno.args : Object.keys(DOCS_SOURCES)
+  const judge = await defaultJudge()
+  if (judge === null) {
+    console.error(`jev: no TYPESAFE_API_KEY in ${keyPath()}`)
+    Deno.exit(1)
+  }
+  const flags: Flag[] = []
+  for (const page of pages) {
+    const input = readDocs(page, readOrNull)
+    if (input === null) console.error(`jev: no docs page "${page}"`)
+    else flags.push(...(await checkDocs(judge, input)))
+  }
+  const lines = flags.map((f) => `${f.where}  ${f.question} p=${f.p.toFixed(2)}  ${excerpt(f.excerpt)}`)
+  // As in the other guards, "nothing flagged" also covers Jev not answering at all.
+  console.log(lines.length === 0 ? 'jev: nothing flagged' : lines.join('\n'))
+  Deno.exit(0)
+}
+```
+
+- [ ] **Step 3: Wire it into CI and a task**
+
+In `packages/cli/scripts/jev-ci.ts`:
+
+1. Add `import { checkDocs, docsPagesOf, readDocs } from './jev-docs.ts'` after the `jev-guard.ts` import.
+2. `export type Checked = { comments: number; files: number; commits: number; pr: boolean; skipped: number; docs: number }`, and `docs: 0` in the `checked` literal of `runCi`.
+3. In `runCi`, after the comments block and before the commits block:
+
+```ts
+  if (plan.comments) {
+    const pages = docsPagesOf(await deps.git(['diff', '--name-only', range]))
+    for (const page of pages) {
+      const input = readDocs(page, deps.read)
+      if (input !== null) for (const flag of await checkDocs(judge, input)) findings.push({ flag })
+    }
+    checked.docs = pages.length
+  }
+```
+
+4. In `summaryOf`, after the commits entry of `parts`: `...(checked.docs > 0 ? [count(checked.docs, 'docs page', 'docs pages')] : []),`.
+5. The file's header gains, after its first sentence, "and the docs pages it changes (`jev-docs.ts`)" — read the header whole and keep it true.
+
+In `deno.json`, after the `"jev"` task:
+
+```json
+    "jev:docs": "deno run --allow-net=api.typesafe.ai --allow-read --allow-env=HOME,ARROWZ_TYPESAFE_ENV packages/cli/scripts/jev-docs.ts",
+```
+
+- [ ] **Step 4: Run the tests to see them pass**
+
+Run: `deno fmt packages/cli/scripts && deno test --allow-read packages/cli/scripts/jev-docs.test.ts packages/cli/scripts/jev-ci.test.ts`
+Expected: PASS. Then `deno task verify`: PASS.
+
+- [ ] **Step 5: Prove the thresholds are the ones the tests read**
+
+After committing (Step 8), set `CONTRADICTS_AT = 0.95` and rerun Step 4's test command. Expected: FAIL in `checkDocs asks each prose block …` (the 0.9 contradiction is no longer flagged). Put 0.7 back by hand; PASS.
+
+- [ ] **Step 6: Run it on the real pages and record the natural rate**
+
+Run: `deno task jev:docs` (needs the 1Password key; `with-typesafe` is not needed — the script reads `~/.config/arrowz/typesafe.env` like the other guards).
+Expected, from the probe: at most the element page's lead (`contradicts_readme` 0.55–0.62 measured, under the 0.7 threshold, so usually silent). Every flag that appears gets one line in the PR body (Task 9 Step 5): fixed, or kept and why.
+
+- [ ] **Step 7: Document it**
+
+In `docs/jev-guards.md`, after the "Memory guard" section, add a section "Docs pages" with: what it asks (the four rows of the table at the top of this task), the commands (`deno task jev:docs [page…]`, and the CI job running it on the pages a PR changes), the measured table from the top of this task marked in-sample with its counts, the glossary finding (renames read as contradictions without `DOCS_GLOSSARY`), and the limit: `contradicts` only knows the README of the page, so a fact the README does not state is never checked; `plain` is a ranking. Add `jev-docs.ts` to "Re-measuring": changing `DOCS_QUESTIONS`, a threshold or `MODEL` means repeating the probe on hand-made faults.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add packages/cli/scripts/jev-docs.ts packages/cli/scripts/jev-docs.test.ts packages/cli/scripts/jev-ci.ts \
+  packages/cli/scripts/jev-ci.test.ts deno.json docs/jev-guards.md
+git commit -m "cli: Jev reads the docs pages against their README, their translation and the prose rules"
+```
+
+---
+
+### Task 9: Verify the branch
 
 **Files:** none changed unless a gate fails.
 
@@ -2263,11 +2723,16 @@ cd apps/lab && rm -rf node_modules/.vite && pnpm exec vitest run --project chrom
 
 Expected: PASS, with no "new dependencies optimized" reload in the output. If it reloads, the package it names goes into `DOCS_DEPS`.
 
-- [ ] **Step 4: Look at it**
+- [ ] **Step 4: Jev reads the docs**
+
+Run: `deno task jev:docs`. Triage each flag: fix the text (and rerun), or keep it and write why. The list
+and its dispositions go into the PR body under "Jev".
+
+- [ ] **Step 5: Look at it**
 
 `pnpm nx serve lab`, open `http://localhost:8779/docs/element` and `/docs/cli` in both languages at 1440×900 and 375×812: the pages read as before, descriptions show code spans as code, the column lists the same sections, a section link scrolls the panel. Compare with `apps/lab/docs/screenshots/docs.png`.
 
-- [ ] **Step 5: Open the pull request**
+- [ ] **Step 6: Open the pull request**
 
 ```bash
 git push -u origin lab/docs-machinery
@@ -2281,6 +2746,12 @@ inside an eager panel.
 Guards: `shape.ts` states what a page may contain and what its translation shares, and
 `content.test.ts` runs both over every page; the glossary guard now reads the Markdown and the
 element's descriptions, which said "pieces" and "elementy".
+
+`deno task jev:docs` asks Jev whether each passage agrees with its README, whether the Polish says
+what the English says, and whether the prose tells history or leans on jargon; CI runs it on the docs
+pages a PR changes. Advisory only.
+
+Jev: <one line per flag from Task 9 Step 4, with what was done; or "nothing flagged">
 
 First of five PRs in docs/superpowers/specs/2026-10-05-lab-docs-from-readmes-design.md.
 
@@ -2297,3 +2768,4 @@ EOF
 2. **Placeholder scan:** none; every code step carries its code.
 3. **Type consistency:** `DocsSection.id` is the prefixed DOM id everywhere (`sectionsOf`, `placed`, `DocsNav`, `useSectionInView`); `sectionIdOf` returns the bare id. `docsPage(lang, page)` takes `Lang` from `@arrowz/engine/i18n`, which is the store's `'en' | 'pl'`. `DocsTable`'s `labelledBy` is `string | undefined`, as `section?.id` gives.
 4. **Checked against the files, 2026-10-05:** `DocsBlock`'s props (`routes/DocsBlock.tsx`), `useDocs` (`docs/useDocs.ts`), the dictionary keys `docsNavLabel`, `docsElement`, `docsCli`, `copy`, `copied`, `Lang` in `lab-i18n.ts`, `leaves`/`refuse`/`EN_RETIRED`/`LAB_ONLY_KNOB`/`LAB_ONLY_FLAG`/`ALLOWED` in `glossary.test.ts`, `@std/path` in the root import map, `optimizeDeps` in `vitest.config.ts`, `expect` imported by `LayoutInvariants.browser.test.tsx`, the `AppRoutes.browser.test.tsx` cases that read the panel synchronously (kept passing by the eager panel). The glossary violations Task 4 rewrites were listed by running the guard's patterns over `docsFor` (2026-10-05); `en.props.view` is the first EN row. Parser and Prettier behaviour (escapes, text directives, tables reformatted, directives kept) were measured on a scratch copy of the five packages at the versions pinned in Task 1, not on the lab itself.
+5. **Jev review of this plan (2026-10-05, jev-1.13.0, citation-check pattern):** 28 claims about the code, each judged against a span read from disk by the script (not quoted by the plan): 28 `supports`; the two least sure (C1, the synchronous panel read in `AppRoutes.browser.test.tsx`, 0.71; C10, `DOCS_SECTIONS[page]` in `useSectionInView`, 0.71) were then read by hand and hold, as does C28 (`LayoutInvariants` waits for nothing in the docs state, which is why Task 7 Step 5 exists). 20 spec requirements, each judged against the whole plan: 20 `covered`, the weakest R15 (neutral rules, 0.54) and R18 (no attribution, 0.59) — both now stated in Global Constraints. Jev does not compile code and does not run tests: the plan's code blocks are reviewed by Jev only for what they claim, not for whether they type-check.
