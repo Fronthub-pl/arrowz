@@ -210,6 +210,35 @@ test('the host announces the paper it painted, and its own background follows', 
   el.remove()
 })
 
+test('the hint is written in the ink the arrows are drawn in', async () => {
+  const el = await mount()
+  el.board = board
+  el.theme = 'gruvbox-dark'
+  await el.updateComplete
+  await raf()
+  const hint = el.shadowRoot?.querySelector('.hint')
+  if (!hint) throw new Error('no default hint')
+  // #ebdbb2 is gruvbox-dark's ink; the default #232447 would vanish on its #282828 paper.
+  expect(el.style.getPropertyValue('--arrowz-ink')).toBe('#ebdbb2')
+  expect(getComputedStyle(hint).color).toBe('rgb(235, 219, 178)')
+  el.remove()
+})
+
+test('the no-WebGL message is written in the ink too', async () => {
+  const el = await mount()
+  el.board = board
+  el.theme = 'gruvbox-dark'
+  // The same private-field seam as `layerOf`: a browser without WebGL2 cannot be had here.
+  const seam = el as unknown as { hasWebgl: boolean }
+  seam.hasWebgl = false
+  el.requestUpdate()
+  await el.updateComplete
+  const message = el.shadowRoot?.querySelector('.unsupported')
+  if (!message) throw new Error('no fallback message')
+  expect(getComputedStyle(message).color).toBe('rgb(235, 219, 178)')
+  el.remove()
+})
+
 test('a stated paper beats the theme in what the host announces', async () => {
   const el = await mount()
   el.board = board

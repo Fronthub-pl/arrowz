@@ -25,7 +25,7 @@ W Angularze dodaj `CUSTOM_ELEMENTS_SCHEMA` do swojego komponentu i powiąż `[bo
 
 ::table{of="element-props"}
 
-Komponent podaje też tło, które naprawdę namalował, jako zmienną CSS `--arrowz-paper` ustawioną na nim samym. Odczytasz ją przez `getComputedStyle(board).getPropertyValue('--arrowz-paper')` albo użyjesz jej w treści wewnątrz komponentu. Ponieważ jest ustawiona bezpośrednio na komponencie, nie da się nią ostylować komponentu z zewnątrz, a nadpisać ją można tylko deklaracją z `!important`.
+Komponent podaje też tło, które naprawdę namalował, jako zmienną CSS `--arrowz-paper` ustawioną na nim samym, a kolor, którym rysuje strzałki, jako `--arrowz-ink`. Tym kolorem pisze własną podpowiedź, więc da się ją przeczytać także na ciemnym motywie. Odczytasz je przez `getComputedStyle(board).getPropertyValue('--arrowz-paper')` albo użyjesz ich w treści wewnątrz komponentu. Ponieważ są ustawione bezpośrednio na komponencie, nie da się nimi ostylować komponentu z zewnątrz, a nadpisać je można tylko deklaracją z `!important`.
 
 ## Metody i gettery {#members}
 

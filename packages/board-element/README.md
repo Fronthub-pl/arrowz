@@ -68,10 +68,13 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | `finished` | `{ pieces }`, after the ride of the last piece |
 
 The element also announces the paper it actually painted as the CSS custom
-property `--arrowz-paper`, set inline on its own host. Because it is set
-there, a consumer cannot style the element *with* it from an ancestor and
-cannot override it from above; it is readable by the element's own
-descendants (through ordinary inheritance), or from any element with
+property `--arrowz-paper`, and the ink its arrows are drawn in as
+`--arrowz-ink`, both set inline on its own host. The default hint and the
+"no WebGL2" message are written in that ink, and a slotted hint can use
+`var(--arrowz-ink)` to match. Because both are set there, a consumer cannot
+style the element *with* them from an ancestor and cannot override them from
+above; they are readable by the element's own descendants (through ordinary
+inheritance), or from any element with
 `getComputedStyle(el).getPropertyValue('--arrowz-paper')`.
 
 ### Themes and attribution
