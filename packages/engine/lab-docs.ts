@@ -358,7 +358,7 @@ const EN = {
       'Drawing options merged over the CLI defaults: stroke, arrowhead size, rounding, colour, highlight and background.',
     interactive: 'Reports clicks on arrows without playing them.',
     play: 'Runs the reducer: a free arrow rides out, a blocked one bounces. Implies interactivity.',
-    pad: 'Margin around the board, in cells, clamped to PAD_RANGE (0 to 16). Zero draws the cells edge to edge.',
+    pad: 'Margin around the board, in cells, clamped to `PAD_RANGE`. Zero draws the cells edge to edge.',
     showPoints: 'Draws one dot per cell under the arrows, like the ruling of a notebook page.',
     pointColor: 'Colour of the dot grid.',
     pointRadius: 'Radius of the dots in the dot grid, in cells.',
@@ -374,7 +374,8 @@ const EN = {
     colored:
       "Whether the board is drawn in colour now: the permission first, then the button's choice, then `view.colored`.",
     fit: 'Fits the board into the host.',
-    zoomBy: 'Zooms around the centre, clamped between the fitted scale and 48 pixels per cell.',
+    zoomBy:
+      'Zooms around the centre, clamped between the fitted scale and `MAX_CELL_PX` pixels per cell, unless the fit is already closer.',
     toggleColors:
       'What the colour button does, the cancelable `colored-change` included. Does nothing without `enableColors`.',
     toggleGestures:
@@ -382,7 +383,7 @@ const EN = {
     animateExit: 'Rides the arrow off the board along a direction and removes it; resolves when the ride ends.',
     shake: 'Nudges the arrow a distance down its own track and back.',
     saveState: 'The game in progress as a value the host can store, or null before a board is set.',
-    loadState: 'Restores a game; throws when the snapshot does not belong to this board.',
+    loadState: 'Restores a game; throws before a board is set and when the snapshot does not belong to this board.',
     restart: 'Drops the game and puts every arrow back.',
     emit: 'The seam the game host drives the element through; a host that only renders a board never calls it.',
   },
@@ -579,8 +580,7 @@ const PL = {
     view: 'Opcje rysowania nałożone na domyślne z CLI: grubość, rozmiar grotu, zaokrąglenie, kolor, wyróżnienie i tło.',
     interactive: 'Zgłasza kliknięcia w strzałki, ale ich nie rozgrywa.',
     play: 'Uruchamia reduktor: wolna strzałka wyjeżdża, zablokowana się odbija. Włącza też interaktywność.',
-    pad:
-      'Margines wokół planszy, w komórkach, w granicach PAD_RANGE (0 do 16). Zero rysuje komórki od krawędzi do krawędzi.',
+    pad: 'Margines wokół planszy, w komórkach, w granicach `PAD_RANGE`. Zero rysuje komórki od krawędzi do krawędzi.',
     showPoints: 'Rysuje po kropce na komórkę pod strzałkami, jak linie w zeszycie.',
     pointColor: 'Kolor siatki kropek.',
     pointRadius: 'Promień kropek w siatce kropek, w komórkach.',
@@ -591,13 +591,14 @@ const PL = {
       'Nazwa wbudowanego motywu: tło, kolor strzałek, wyróżnienie i paleta wielobarwna. Pusta nazwa nie wybiera żadnego, a to, co podano w `view`, ma pierwszeństwo.',
   },
   members: {
-    viewport: 'Widok na ekranie albo null, dopóki nie są znane i plansza, i rozmiar kontenera.',
+    viewport: 'Widok na ekranie albo null, dopóki nie są znane i plansza, i rozmiar komponentu.',
     pieceCount: 'Ile strzałek rysuje warstwa; licznik samej planszy, nie liczba węzłów.',
     gestureMode:
       'Reguła, według której działa teraz mysz i pióro: wybór gracza na grywalnej planszy, w przeciwnym razie przesuwanie.',
     colored: 'Czy plansza jest teraz rysowana w kolorze: najpierw zgoda, potem wybór przycisku, potem `view.colored`.',
-    fit: 'Dopasowuje planszę do kontenera.',
-    zoomBy: 'Powiększa względem środka, w granicach od dopasowania do 48 pikseli na komórkę.',
+    fit: 'Dopasowuje planszę do komponentu.',
+    zoomBy:
+      'Powiększa względem środka, w granicach od dopasowania do `MAX_CELL_PX` pikseli na komórkę, chyba że dopasowanie jest już większe.',
     toggleColors:
       'To samo co przycisk koloru, łącznie z anulowalnym `colored-change`. Bez `enableColors` nic nie robi.',
     toggleGestures:
@@ -605,7 +606,7 @@ const PL = {
     animateExit: 'Wyprowadza strzałkę z planszy w zadanym kierunku i usuwa ją; kończy się wraz z przejazdem.',
     shake: 'Popycha strzałkę o zadany dystans po jej własnym torze i z powrotem.',
     saveState: 'Trwająca gra jako wartość, którą host może zapisać, albo null, zanim ustawiono planszę.',
-    loadState: 'Przywraca grę; rzuca wyjątkiem, gdy zrzut nie należy do tej planszy.',
+    loadState: 'Przywraca grę; rzuca wyjątkiem, zanim ustawiono planszę, i gdy zrzut nie należy do tej planszy.',
     restart: 'Porzuca grę i przywraca wszystkie strzałki na miejsca.',
     emit: 'Szew, przez który host gry steruje elementem; host, który tylko rysuje planszę, nie woła go.',
   },
@@ -697,7 +698,7 @@ const PL = {
     BoardView:
       'Opcje rysowania, które przyjmuje `view`: linia, grot, zaokrąglenie, kolor, wyróżnienie, puste komórki i cztery kolory. We właściwości każde pole jest opcjonalne.',
     BoardViewport:
-      'Widok na ekranie: piksele na komórkę, położenie rogu planszy, czy jest dopasowana, i rozmiar kontenera.',
+      'Widok na ekranie: piksele na komórkę, położenie rogu planszy, czy jest dopasowana, i rozmiar komponentu.',
     BoardColours: 'Cztery kolory, w których rysuje się plansza: tło, strzałki, wyróżnienie i paleta wielobarwna.',
     BoardTheme: 'Wbudowany motyw: jego cztery kolory oraz projekt, z którego pochodzi, z licencją i adresem.',
     BoardLabels:
