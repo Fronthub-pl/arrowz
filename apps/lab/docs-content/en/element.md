@@ -43,7 +43,7 @@ A plain drag pans the board. A click with ⌘ (Ctrl on Windows and Linux) plays 
 
 With `interactive` and without `play`, that click does not play: the element reports the arrow as `piece-click`, and your page decides what to show.
 
-A board that takes clicks — `play` or `interactive` — shows a ☝ switch in its corner. Pressed, it swaps the two: a plain click plays, and a drag with ⌘ or Ctrl pans. The choice belongs to the player. The browser keeps it for the next visit, every board reads it when it is added to the page, and `gestureMode` says which rule is in force. There is no attribute for it. A board that only pans has no switch and always pans with a plain drag.
+A board that takes clicks — `play` or `interactive` — shows a ☝ switch in its corner. Pressed, it swaps the two: a plain click plays, and a drag with ⌘ or Ctrl pans. The choice belongs to the player. The browser keeps it for the next visit, and every board reads it when it is added to the page. Pressing the switch on one board changes every other board at once, in other tabs too. `gestureMode` says which rule is in force. There is no attribute for it. A board that only pans has no switch and always pans with a plain drag.
 
 The cursor shows what the next click will do. By default the board shows the grab hand, and an arrow shows the pointing hand only while ⌘ or Ctrl is held, because only then does a click play. With the switch pressed it is the other way round: the modifier turns the board to the grab hand. On a Mac a Ctrl click is a right click; on a board that takes clicks, in the default mode, the element keeps the context menu shut.
 
