@@ -469,6 +469,13 @@
   background: var(--graphite);
   box-shadow: 0 0 0 1px var(--border);
 }
+/* A scroll box clips its content's shadow, so the box draws the frame. */
+.fw-docs-body .fw-docs-scroll {
+  box-shadow: 0 0 0 1px var(--border);
+}
+.fw-docs-body .fw-docs-scroll .fw-docs-table {
+  box-shadow: none;
+}
 .fw-docs-body .fw-docs-table th,
 .fw-docs-body .fw-docs-table td {
   padding-left: 12px;

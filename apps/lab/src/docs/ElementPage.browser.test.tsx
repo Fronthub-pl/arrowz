@@ -87,9 +87,9 @@ test('every documented row reaches the page, the themes included', async () => {
   expect(pad?.cells[3]?.textContent).toBe('4')
 })
 
-// 343 px is a 375 px phone's panel less its padding.
+// 335 px is a 375 px phone's panel less the 20 px padding of `.fw-docs` on each side.
 test('at phone width no table pushes the panel sideways', async () => {
-  const screen = await mount(343)
+  const screen = await mount(335)
   const body = screen.container.querySelector<HTMLElement>('.fw-docs-body')
   if (body === null) throw new Error('no body')
   const tables = [...body.querySelectorAll('table')]
@@ -97,6 +97,15 @@ test('at phone width no table pushes the panel sideways', async () => {
   expect(body.scrollWidth).toBeLessThanOrEqual(body.clientWidth)
   for (const table of tables)
     expect(table.parentElement?.classList.contains('fw-docs-scroll'), table.outerHTML.slice(0, 80)).toBe(true)
+})
+
+test('the scroll box draws the table frame, which it would otherwise clip', async () => {
+  const screen = await mount()
+  const table = screen.container.querySelector('table')
+  const box = table?.parentElement
+  expect(box?.classList.contains('fw-docs-scroll')).toBe(true)
+  expect(getComputedStyle(box ?? screen.container).boxShadow).toContain('1px')
+  expect(getComputedStyle(table ?? screen.container).boxShadow).toBe('none')
 })
 
 test('a property with no attribute says it has none', async () => {

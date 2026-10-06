@@ -101,7 +101,8 @@ test('the export tables follow the language, their machine cells do not', async 
 })
 
 test('at phone width the export tables scroll inside their boxes, not the panel', async () => {
-  const screen = await show(343)
+  // 335 px is a 375 px phone's panel less the 20 px padding of `.fw-docs` on each side.
+  const screen = await show(335)
   const body = screen.container.querySelector<HTMLElement>('.fw-docs-body')
   if (body === null) throw new Error('no body')
   expect(body.scrollWidth).toBeLessThanOrEqual(body.clientWidth)

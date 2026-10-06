@@ -44,7 +44,7 @@ export function DocsTable({ of, labelledBy }: { of: string; labelledBy?: string 
   if (isExportOf(of)) return <ExportTable of={of} labelledBy={labelledBy} />
   if (of === 'themes') return <ThemeTable labelledBy={labelledBy} />
   const table = tableOf(of, labelledBy, docs, dict)
-  // A phone panel is narrower than most of these tables: the table scrolls by itself, not the panel.
+  // The wide tables would push a phone's panel sideways, so every table gets the box that scrolls instead.
   return table === null ? null : <div className="fw-docs-scroll">{table}</div>
 }
 
