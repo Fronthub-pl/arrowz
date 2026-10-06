@@ -61,7 +61,7 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 |---|---|
 | `piece-click` | `{ pieceId }`, when `interactive` or `play` |
 | `colored-change` | `{ colored }`, cancelable: fired by the ◑ button or `toggleColors()` before the colour override changes; `preventDefault()` clears the override instead, handing the colour back to `view.colored` |
-| `gestures-change` | `{ mode }` (`'drag'` or `'click'`): the player's gesture choice changed, through the ☝ button or `toggleGestures()`; not fired for the choice read back on connect |
+| `gestures-change` | `{ mode }` (`'drag'` or `'click'`): the player's gesture choice changed, through the ☝ button or `toggleGestures()`; fired by that board alone, not by the boards that follow it nor for the choice read back on connect |
 | `viewport-change` | the viewport snapshot, at most once per frame |
 | `piece-removed` | `{ pieceId, left }`, when a free piece starts its ride |
 | `life-lost` | `{ pieceId, blockerId, distance }`, when a blocked piece starts its bounce |
@@ -109,7 +109,8 @@ A board that takes clicks (`play` or `interactive`) shows a ☝ switch in the
 corner. Pressed, it swaps the two: a plain click plays or reports the piece,
 and a drag with ⌘ or Ctrl pans. The choice belongs to the player: it is kept in
 `localStorage` under `arrowz-board.gestures`, read by each board when it
-connects, and readable as the `gestureMode` property. There is no attribute for
+connects, passed at once to every other connected board, in the origin's other
+tabs too, and readable as the `gestureMode` property. There is no attribute for
 it. A board that only pans has no switch and always pans with a plain drag.
 Touch is the same in both modes: one finger pans, two pinch, a tap plays. The
 wheel zooms towards the cursor; `+`, `−`, `0` and the corner buttons zoom and

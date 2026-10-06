@@ -629,6 +629,37 @@ describe('the gesture switch', () => {
     expect(el.gestureMode).toBe('click')
   })
 
+  test('pressing it on one board switches every connected board, announced once', async () => {
+    const other = await mount({ play: '' })
+    other.hidden = true
+    await mount({ interactive: '' })
+    const seen: string[] = []
+    const onDocument = (e: Event) => seen.push((e as CustomEvent<{ mode: string }>).detail.mode)
+    document.addEventListener('gestures-change', onDocument)
+    switchOf(el)?.click()
+    await other.updateComplete
+    document.removeEventListener('gestures-change', onDocument)
+    expect(other.gestureMode).toBe('click')
+    expect(switchOf(other)?.getAttribute('aria-pressed')).toBe('true')
+    expect(seen).toEqual(['click'])
+  })
+
+  test('a choice stored by another tab reaches a connected board, unannounced', async () => {
+    await mount({ play: '' })
+    const seen: Event[] = []
+    const onDocument = (e: Event) => seen.push(e)
+    document.addEventListener('gestures-change', onDocument)
+    localStorage.setItem(GESTURE_STORAGE_KEY, 'click')
+    // The browser fires `storage` only in the other documents of the origin.
+    globalThis.dispatchEvent(
+      new StorageEvent('storage', { key: GESTURE_STORAGE_KEY, newValue: 'click', storageArea: localStorage }),
+    )
+    await el.updateComplete
+    document.removeEventListener('gestures-change', onDocument)
+    expect(el.gestureMode).toBe('click')
+    expect(seen).toEqual([])
+  })
+
   test('a stored value that is neither mode reads as drag', async () => {
     localStorage.setItem(GESTURE_STORAGE_KEY, 'sideways')
     await mount({ play: '' })

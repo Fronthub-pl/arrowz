@@ -255,6 +255,12 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private acquired = false
   /** Waits for the board to be visible after the browser took its context; see `watchForRevival`. */
   private revival: IntersectionObserver | null = null
+  /**
+   * The boards connected now, so the gesture choice made on one reaches the
+   * rest at once, storage refused or not. Other documents of the origin hear
+   * it as `storage`; the browser never fires that in the document that wrote.
+   */
+  private static readonly connected = new Set<ArrowzBoard>()
   private readonly gestures = new GestureMachine()
   private readonly game = new GameHost(this)
   private vp: Viewport | null = null
@@ -327,6 +333,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   override connectedCallback(): void {
     super.connectedCallback()
     this.chosenMode = storedMode()
+    if (ArrowzBoard.connected.size === 0) globalThis.addEventListener('storage', ArrowzBoard.onStorage)
+    ArrowzBoard.connected.add(this)
     // Back before the queued disposal ran: this was a move, not a removal.
     this.disposeQueued = false
     // The first connect: the layer takes its very first context here, at once.
@@ -370,6 +378,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
    */
   override disconnectedCallback(): void {
     super.disconnectedCallback()
+    ArrowzBoard.connected.delete(this)
+    if (ArrowzBoard.connected.size === 0) globalThis.removeEventListener('storage', ArrowzBoard.onStorage)
     this.observer?.disconnect()
     this.observer = null
     this.actionObserver.disconnect()
@@ -516,6 +526,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     if (!this.playable) return
     this.chosenMode = this.chosenMode === 'click' ? 'drag' : 'click'
     storeMode(this.chosenMode)
+    // The other boards follow unannounced, like a choice read back on connect.
+    for (const board of ArrowzBoard.connected) board.chosenMode = this.chosenMode
     this.dispatchEvent(
       new CustomEvent<GesturesChangeDetail>('gestures-change', {
         detail: { mode: this.chosenMode },
@@ -523,6 +535,13 @@ export class ArrowzBoard extends LitElement implements GameTarget {
         composed: true,
       }),
     )
+  }
+
+  /** A `null` key is another document's `localStorage.clear()`, which drops the choice too. */
+  private static readonly onStorage = (e: StorageEvent): void => {
+    if (e.key !== GESTURE_STORAGE_KEY && e.key !== null) return
+    const mode = storedMode()
+    for (const board of ArrowzBoard.connected) board.chosenMode = mode
   }
 
   /**

@@ -392,7 +392,7 @@ const EN = {
     'colored-change':
       'The colour button was clicked or `toggleColors()` was called; cancelable, and fired before the override changes. Cancelling clears the override instead, handing the colour back to `view.colored`.',
     'gestures-change':
-      "The player's gesture choice changed, through the switch or `toggleGestures()`. Not fired for the choice read back on connect.",
+      "The player's gesture choice changed, through the switch or `toggleGestures()`. Fired by that board alone: not by the boards that follow it, nor for the choice read back on connect.",
     'piece-removed': 'A free arrow started its ride off the board.',
     'life-lost': 'A blocked arrow started its bounce against the arrow that stops it.',
     'finished': 'The last arrow finished its ride.',
@@ -615,7 +615,7 @@ const PL = {
     'colored-change':
       'Kliknięto przycisk koloru albo wywołano `toggleColors()`; można je anulować, leci przed zmianą nadpisania. Anulowanie czyści nadpisanie i oddaje kolor `view.colored`.',
     'gestures-change':
-      'Zmienił się wybór gestu gracza, przełącznikiem albo przez `toggleGestures()`. Nie leci przy odczycie zapamiętanego wyboru po podłączeniu.',
+      'Zmienił się wybór gestu gracza, przełącznikiem albo przez `toggleGestures()`. Leci tylko z tej jednej planszy: nie z pozostałych, które przejmują wybór, ani przy odczycie zapamiętanego wyboru po podłączeniu.',
     'piece-removed': 'Wolna strzałka ruszyła w drogę poza planszę.',
     'life-lost': 'Zablokowana strzałka odbiła się od tej, która ją zatrzymała.',
     'finished': 'Ostatnia strzałka zakończyła przejazd.',
