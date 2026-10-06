@@ -173,7 +173,7 @@ export function textFlags(where: string, text: string, a: Answers | null): Flag[
 
 /** The description tables each page draws from `lab-docs.ts`. */
 const DESCRIPTION_GROUPS = {
-  element: ['props', 'members', 'events', 'slots'],
+  element: ['props', 'members', 'events', 'slots', 'types', 'functions', 'constants', 'classes'],
   lab: ['keys', 'palette', 'linkFields'],
   cli: ['env'],
 } as const

@@ -103,6 +103,149 @@ export type MemberKey = (typeof ELEMENT_MEMBERS)[number]['key']
 export type EventKey = (typeof ELEMENT_EVENTS)[number]['key']
 export type SlotKey = (typeof ELEMENT_SLOTS)[number]['key']
 
+/** The package an exported type is declared in: the element's own, or the engine, which it re-exports. */
+export type ExportSource = '@arrowz/board-element' | '@arrowz/engine'
+
+/** One exported type: where it is declared, and its fields — or, for a union, its members as literals. */
+export interface TypeRow {
+  readonly key: string
+  readonly from: ExportSource
+  readonly shape: string
+}
+
+/** One exported function and its signature, as the compiler prints it. */
+export interface FunctionRow {
+  readonly key: string
+  readonly signature: string
+}
+
+/** One exported constant, by name: the lab reads its value from the package itself. */
+export interface ConstantRow {
+  readonly key: string
+}
+
+/** One exported class: how to construct it, and its public members (none listed for the element: its tables come first). */
+export interface ClassRow {
+  readonly key: string
+  readonly create: string
+  readonly members: readonly string[]
+}
+
+export const ELEMENT_TYPES = [
+  { key: 'BoardData', from: '@arrowz/engine', shape: 'W, H, owner, pieces' },
+  {
+    key: 'BoardView',
+    from: '@arrowz/board-element',
+    shape: 'stroke, headWidth, headHeight, rounded, colored, top, voids, ink, paper, highlight, palette',
+  },
+  {
+    key: 'BoardViewport',
+    from: '@arrowz/board-element',
+    shape: 'cellPx, originX, originY, fitted, hostWidth, hostHeight',
+  },
+  { key: 'BoardColours', from: '@arrowz/engine', shape: 'paper, ink, highlight, palette' },
+  { key: 'BoardTheme', from: '@arrowz/engine', shape: 'paper, ink, highlight, palette, source, licence, url' },
+  {
+    key: 'BoardLabels',
+    from: '@arrowz/board-element',
+    shape:
+      'zoomIn, zoomOut, fit, dragHint, dragPlayHintMac, dragPlayHintOther, dragInspectHintMac, dragInspectHintOther, clickHintMac, clickHintOther, gesturesMac, gesturesOther, gesturesInspectMac, gesturesInspectOther, colors, noWebgl',
+  },
+  { key: 'BoardLang', from: '@arrowz/board-element', shape: "'en' | 'pl'" },
+  { key: 'GestureMode', from: '@arrowz/board-element', shape: "'drag' | 'click'" },
+  { key: 'GameEvent', from: '@arrowz/board-element', shape: "'piece-removed' | 'life-lost' | 'finished'" },
+  { key: 'GameTarget', from: '@arrowz/board-element', shape: 'animateExit, shake, emit' },
+  { key: 'Session', from: '@arrowz/engine', shape: 'board, gone, index, left, status' },
+  { key: 'SessionSnapshot', from: '@arrowz/engine', shape: 'v, board, removed, colored' },
+  { key: 'PieceClickEvent', from: '@arrowz/board-element', shape: 'pieceId' },
+  { key: 'PieceRemovedEvent', from: '@arrowz/board-element', shape: 'pieceId, left' },
+  { key: 'LifeLostEvent', from: '@arrowz/board-element', shape: 'pieceId, blockerId, distance' },
+  { key: 'FinishedEvent', from: '@arrowz/board-element', shape: 'pieces' },
+  {
+    key: 'ViewportChangeEvent',
+    from: '@arrowz/board-element',
+    shape: 'cellPx, originX, originY, fitted, hostWidth, hostHeight',
+  },
+  { key: 'ColoredChangeEvent', from: '@arrowz/board-element', shape: 'colored' },
+  { key: 'ColoredChangeDetail', from: '@arrowz/board-element', shape: 'colored' },
+  { key: 'GesturesChangeEvent', from: '@arrowz/board-element', shape: 'mode' },
+  { key: 'GesturesChangeDetail', from: '@arrowz/board-element', shape: 'mode' },
+] as const satisfies readonly TypeRow[]
+
+export const ELEMENT_FUNCTIONS = [
+  { key: 'resolveColours', signature: 'resolveColours(theme: string, stated: Partial<BoardColours>): BoardColours' },
+  { key: 'themeOf', signature: 'themeOf(name: string): BoardTheme | null' },
+  { key: 'assignPalette', signature: 'assignPalette(board: BoardData, n: number): Int32Array<ArrayBufferLike>' },
+  { key: 'hueOf', signature: 'hueOf(id: number): string' },
+  { key: 'hueDegrees', signature: 'hueDegrees(id: number): number' },
+  { key: 'hueBytes', signature: 'hueBytes(id: number): [number, number, number]' },
+  { key: 'boardViewOf', signature: 'boardViewOf(view: View, voids: boolean): Partial<BoardView>' },
+  { key: 'labelsFor', signature: 'labelsFor(lang: string | null | undefined): BoardLabels' },
+] as const satisfies readonly FunctionRow[]
+
+export const ELEMENT_CONSTANTS = [
+  { key: 'DEFAULT_PAD' },
+  { key: 'DEFAULT_SHOW_POINTS' },
+  { key: 'DEFAULT_POINT_COLOR' },
+  { key: 'DEFAULT_POINT_RADIUS' },
+  { key: 'PAD_RANGE' },
+  { key: 'POINT_RADIUS_RANGE' },
+  { key: 'DEFAULT_VIEW' },
+  { key: 'THEMES' },
+  { key: 'BOARD_LABELS' },
+  { key: 'GESTURE_STORAGE_KEY' },
+  { key: 'ZOOM_STEP' },
+  { key: 'WHEEL_RATE' },
+  { key: 'MAX_CELL_PX' },
+  { key: 'MIN_PAD_PX' },
+  { key: 'MIN_POINT_CELL_PX' },
+  { key: 'EXIT_SPEED' },
+  { key: 'EXIT_MIN_MS' },
+  { key: 'EXIT_MAX_MS' },
+  { key: 'SHAKE_MS' },
+  { key: 'MIN_SHAKE_CELLS' },
+] as const satisfies readonly ConstantRow[]
+
+export const ELEMENT_CLASSES = [
+  { key: 'ArrowzBoard', create: 'new ArrowzBoard()', members: [] },
+  {
+    key: 'GameHost',
+    create: 'new GameHost(target: GameTarget)',
+    members: [
+      'goneIds',
+      'board',
+      'isGone(pieceId)',
+      'setBoard(board)',
+      'click(pieceId)',
+      'save(colored)',
+      'load(snap)',
+    ],
+  },
+] as const satisfies readonly ClassRow[]
+
+export type TypeKey = (typeof ELEMENT_TYPES)[number]['key']
+export type FunctionKey = (typeof ELEMENT_FUNCTIONS)[number]['key']
+export type ConstantKey = (typeof ELEMENT_CONSTANTS)[number]['key']
+export type ClassKey = (typeof ELEMENT_CLASSES)[number]['key']
+
+/**
+ * A constant's value as the Docs tab and the element's README write it: a
+ * string quoted, a list in brackets, an object as `{ key: value }`, and an
+ * object with any object-valued field (`THEMES`, `BOARD_LABELS`) as its keys alone.
+ */
+export function spellValue(value: unknown): string {
+  if (typeof value === 'string') return `'${value}'`
+  if (Array.isArray(value)) return `[${value.map(spellValue).join(', ')}]`
+  if (typeof value === 'object' && value !== null) {
+    const entries = Object.entries(value)
+    if (entries.some(([, v]) => typeof v === 'object' && v !== null && !Array.isArray(v))) {
+      return `{ ${entries.map(([k]) => k).join(', ')} }`
+    }
+    return `{ ${entries.map(([k, v]) => `${k}: ${spellValue(v)}`).join(', ')} }`
+  }
+  return String(value)
+}
+
 /**
  * The lab's own tables on the Docs tab, keyed as the lab's code names them: a
  * key as the lab shows it, a palette row by its id, a link field by its name.
@@ -160,6 +303,11 @@ export interface Docs {
   readonly linkFields: Record<LinkField, string>
   /** The environment variables of the CLI page's table, by name (`ENV_VARS`). */
   readonly env: Record<EnvVar, string>
+  /** The export tables' descriptions, by export name. */
+  readonly types: Record<TypeKey, string>
+  readonly functions: Record<FunctionKey, string>
+  readonly constants: Record<ConstantKey, string>
+  readonly classes: Record<ClassKey, string>
   readonly colProp: string
   readonly colType: string
   readonly colAttr: string
@@ -183,6 +331,20 @@ export interface Docs {
   readonly colVariable: string
   /** The event's payload column. */
   readonly colDetail: string
+  /** The export tables' columns; the type table's first column is the shared `colType`. */
+  readonly colFrom: string
+  readonly colShape: string
+  readonly colFunction: string
+  readonly colConstant: string
+  readonly colValue: string
+  readonly colClass: string
+  readonly colCreate: string
+  readonly colMembers: string
+  /** The theme table's columns. */
+  readonly colTheme: string
+  readonly colColours: string
+  readonly colSource: string
+  readonly colLicence: string
   /** The last column of every table: the translated one. */
   readonly colDescription: string
   /** The accessible name of a page's note, a blockquote in its Markdown. */
@@ -196,7 +358,7 @@ const EN = {
       'Drawing options merged over the CLI defaults: stroke, arrowhead size, rounding, colour, highlight and background.',
     interactive: 'Reports clicks on arrows without playing them.',
     play: 'Runs the reducer: a free arrow rides out, a blocked one bounces. Implies interactivity.',
-    pad: 'Margin around the board, in cells, clamped to PAD_RANGE (0 to 16). Zero draws the cells edge to edge.',
+    pad: 'Margin around the board, in cells, clamped to `PAD_RANGE`. Zero draws the cells edge to edge.',
     showPoints: 'Draws one dot per cell under the arrows, like the ruling of a notebook page.',
     pointColor: 'Colour of the dot grid.',
     pointRadius: 'Radius of the dots in the dot grid, in cells.',
@@ -212,7 +374,8 @@ const EN = {
     colored:
       "Whether the board is drawn in colour now: the permission first, then the button's choice, then `view.colored`.",
     fit: 'Fits the board into the host.',
-    zoomBy: 'Zooms around the centre, clamped between the fitted scale and 48 pixels per cell.',
+    zoomBy:
+      'Zooms around the centre, clamped between the fitted scale and `MAX_CELL_PX` pixels per cell, unless the fit is already closer.',
     toggleColors:
       'What the colour button does, the cancelable `colored-change` included. Does nothing without `enableColors`.',
     toggleGestures:
@@ -220,7 +383,7 @@ const EN = {
     animateExit: 'Rides the arrow off the board along a direction and removes it; resolves when the ride ends.',
     shake: 'Nudges the arrow a distance down its own track and back.',
     saveState: 'The game in progress as a value the host can store, or null before a board is set.',
-    loadState: 'Restores a game; throws when the snapshot does not belong to this board.',
+    loadState: 'Restores a game; throws before a board is set and when the snapshot does not belong to this board.',
     restart: 'Drops the game and puts every arrow back.',
     emit: 'The seam the game host drives the element through; a host that only renders a board never calls it.',
   },
@@ -306,6 +469,76 @@ const EN = {
     CARVE_TIMEOUT_S:
       'Gives up a board after that many seconds; `carve` saves what it laid so far, marked not complete.',
   },
+  types: {
+    BoardData:
+      "What the element draws: the size, the arrow each cell belongs to (`-1` a cell no arrow filled, which `voids` shows, `-2` a hole left on purpose) and the arrows. The engine's `Board` is one.",
+    BoardView:
+      'The drawing options `view` takes: line, arrowhead, rounding, colour, highlight, empty cells and the four colours. Every field is optional on the property.',
+    BoardViewport:
+      "The view on screen: pixels per cell, where the board's corner sits, whether it is fitted, and the host's size.",
+    BoardColours: 'The four colours a board is drawn in: background, arrows, highlight and the multicolour palette.',
+    BoardTheme: 'A built-in theme: its four colours, and the project it comes from with its licence and address.',
+    BoardLabels:
+      'Every string the element shows: the buttons, the hints for each gesture mode and platform, and the message when there is no WebGL.',
+    BoardLang: 'The two languages of those strings.',
+    GestureMode:
+      "The rule the mouse and pen follow: with `'drag'` a plain drag pans, with `'click'` a drag with the modifier does.",
+    GameEvent:
+      'One of the three game events as the game host hands it to its target: a `type` naming the event and the `detail` of that event.',
+    GameTarget: 'What `GameHost` drives: the two animations and `emit`. The element is one.',
+    Session:
+      'A game in progress: the board, which arrows have left, how many are still on the board, and whether it is won. `index` is internal.',
+    SessionSnapshot:
+      'A saved game: a version, the board it belongs to (with its fingerprint), the arrows removed and the colour choice.',
+    PieceClickEvent: 'The `piece-click` event: its `detail` names the arrow.',
+    PieceRemovedEvent: 'The `piece-removed` event: the arrow, and how many are still on the board.',
+    LifeLostEvent: 'The `life-lost` event: the arrow, the one that stops it, and how far it gets before it bounces.',
+    FinishedEvent: 'The `finished` event: how many arrows the board had.',
+    ViewportChangeEvent: 'The `viewport-change` event: the view, as `viewport` reads it.',
+    ColoredChangeEvent: 'The `colored-change` event; cancelable.',
+    ColoredChangeDetail: "That event's detail: the colour state the button asks for.",
+    GesturesChangeEvent: 'The `gestures-change` event: the new gesture mode.',
+    GesturesChangeDetail: "That event's detail: the mode now in force.",
+  },
+  functions: {
+    resolveColours:
+      'The colours a board is drawn with: the defaults, then the named theme, then `stated`, field by field.',
+    themeOf: 'The built-in theme of that name, or null. An unknown name is ignored, never thrown on.',
+    assignPalette:
+      "A colour index for each arrow: a neighbour's only when the palette has too few colours, and among the free ones the least used so far.",
+    hueOf: "An arrow's diagnostic hue as CSS, from its id, not from its place in the list.",
+    hueDegrees: "That hue's angle, in degrees.",
+    hueBytes: 'That hue as red, green and blue bytes.',
+    boardViewOf:
+      "The lab's and the command line's `View` as the element takes it; `cell`, a size in the exported SVG, does not apply.",
+    labelsFor: 'The strings for a language tag: Polish for `pl` or any `pl-…` tag, English otherwise.',
+  },
+  constants: {
+    DEFAULT_PAD: 'Cells of margin when `pad` is not set.',
+    DEFAULT_SHOW_POINTS: 'The dot grid is off unless asked for.',
+    DEFAULT_POINT_COLOR: "The dot grid's colour.",
+    DEFAULT_POINT_RADIUS: "The dots' radius, in cells.",
+    PAD_RANGE: 'The margin a board may be given, in cells.',
+    POINT_RADIUS_RANGE: "A dot's radius in cells; past half a cell it would overlap its neighbours.",
+    DEFAULT_VIEW: 'What an empty `view` is merged over.',
+    THEMES: 'The built-in themes by name, as the theme table shows them.',
+    BOARD_LABELS: "The element's strings in each language.",
+    GESTURE_STORAGE_KEY: "The key the browser keeps the player's gesture choice under.",
+    ZOOM_STEP: 'The factor one button or key press zooms by.',
+    WHEEL_RATE: "The wheel's zoom rate: each wheel event scales by `exp(-deltaY * WHEEL_RATE)`.",
+    MAX_CELL_PX: 'The closest zoom, in pixels per cell, unless the fit is already closer.',
+    MIN_PAD_PX: 'The narrowest margin on screen, in pixels, unless `pad` is 0.',
+    MIN_POINT_CELL_PX: 'Below this many pixels per cell the dot grid hides itself.',
+    EXIT_SPEED: 'Cells per second a leaving arrow covers.',
+    EXIT_MIN_MS: 'The shortest ride off the board, in milliseconds.',
+    EXIT_MAX_MS: 'The longest ride off the board, in milliseconds.',
+    SHAKE_MS: "How long a blocked arrow's bounce takes, in milliseconds.",
+    MIN_SHAKE_CELLS: 'The shortest bounce, in cells, so a blocker right in front still shows.',
+  },
+  classes: {
+    ArrowzBoard: 'The element itself, usually written as a tag in HTML. Its members are in the tables above.',
+    GameHost: 'Runs a game on any `GameTarget`, outside the element too.',
+  },
   colProp: 'Property',
   colType: 'Type',
   colAttr: 'Attribute',
@@ -325,6 +558,18 @@ const EN = {
   colFlags: 'Flags',
   colVariable: 'Variable',
   colDetail: 'Detail',
+  colFrom: 'From',
+  colShape: 'Shape',
+  colFunction: 'Function',
+  colConstant: 'Constant',
+  colValue: 'Value',
+  colClass: 'Class',
+  colCreate: 'Created with',
+  colMembers: 'Members',
+  colTheme: 'Theme',
+  colColours: 'Colours',
+  colSource: 'Source',
+  colLicence: 'Licence',
   colDescription: 'Description',
   infoLabel: 'Note',
 } as const satisfies Docs
@@ -335,8 +580,7 @@ const PL = {
     view: 'Opcje rysowania nałożone na domyślne z CLI: grubość, rozmiar grotu, zaokrąglenie, kolor, wyróżnienie i tło.',
     interactive: 'Zgłasza kliknięcia w strzałki, ale ich nie rozgrywa.',
     play: 'Uruchamia reduktor: wolna strzałka wyjeżdża, zablokowana się odbija. Włącza też interaktywność.',
-    pad:
-      'Margines wokół planszy, w komórkach, w granicach PAD_RANGE (0 do 16). Zero rysuje komórki od krawędzi do krawędzi.',
+    pad: 'Margines wokół planszy, w komórkach, w granicach `PAD_RANGE`. Zero rysuje komórki od krawędzi do krawędzi.',
     showPoints: 'Rysuje po kropce na komórkę pod strzałkami, jak linie w zeszycie.',
     pointColor: 'Kolor siatki kropek.',
     pointRadius: 'Promień kropek w siatce kropek, w komórkach.',
@@ -347,13 +591,14 @@ const PL = {
       'Nazwa wbudowanego motywu: tło, kolor strzałek, wyróżnienie i paleta wielobarwna. Pusta nazwa nie wybiera żadnego, a to, co podano w `view`, ma pierwszeństwo.',
   },
   members: {
-    viewport: 'Widok na ekranie albo null, dopóki nie są znane i plansza, i rozmiar kontenera.',
+    viewport: 'Widok na ekranie albo null, dopóki nie są znane i plansza, i rozmiar komponentu.',
     pieceCount: 'Ile strzałek rysuje warstwa; licznik samej planszy, nie liczba węzłów.',
     gestureMode:
       'Reguła, według której działa teraz mysz i pióro: wybór gracza na grywalnej planszy, w przeciwnym razie przesuwanie.',
     colored: 'Czy plansza jest teraz rysowana w kolorze: najpierw zgoda, potem wybór przycisku, potem `view.colored`.',
-    fit: 'Dopasowuje planszę do kontenera.',
-    zoomBy: 'Powiększa względem środka, w granicach od dopasowania do 48 pikseli na komórkę.',
+    fit: 'Dopasowuje planszę do komponentu.',
+    zoomBy:
+      'Powiększa względem środka, w granicach od dopasowania do `MAX_CELL_PX` pikseli na komórkę, chyba że dopasowanie jest już większe.',
     toggleColors:
       'To samo co przycisk koloru, łącznie z anulowalnym `colored-change`. Bez `enableColors` nic nie robi.',
     toggleGestures:
@@ -361,7 +606,7 @@ const PL = {
     animateExit: 'Wyprowadza strzałkę z planszy w zadanym kierunku i usuwa ją; kończy się wraz z przejazdem.',
     shake: 'Popycha strzałkę o zadany dystans po jej własnym torze i z powrotem.',
     saveState: 'Trwająca gra jako wartość, którą host może zapisać, albo null, zanim ustawiono planszę.',
-    loadState: 'Przywraca grę; rzuca wyjątkiem, gdy zrzut nie należy do tej planszy.',
+    loadState: 'Przywraca grę; rzuca wyjątkiem, zanim ustawiono planszę, i gdy zrzut nie należy do tej planszy.',
     restart: 'Porzuca grę i przywraca wszystkie strzałki na miejsca.',
     emit: 'Szew, przez który host gry steruje elementem; host, który tylko rysuje planszę, nie woła go.',
   },
@@ -447,6 +692,76 @@ const PL = {
     GIANT_DEBUG: 'Ustawiona na `1` wypisuje na stderr, jak rosła każda strzałka szkieletu.',
     CARVE_TIMEOUT_S: 'Przerywa planszę po tylu sekundach; `carve` zapisuje to, co zdążył ułożyć, jako niepełną.',
   },
+  types: {
+    BoardData:
+      'To, co rysuje komponent: rozmiar, strzałka, do której należy każda komórka (`-1` komórka, której żadna strzałka nie wypełniła, a którą pokazuje `voids`, `-2` dziura zostawiona celowo), i same strzałki. `Board` z silnika jest takim obiektem.',
+    BoardView:
+      'Opcje rysowania, które przyjmuje `view`: linia, grot, zaokrąglenie, kolor, wyróżnienie, puste komórki i cztery kolory. We właściwości każde pole jest opcjonalne.',
+    BoardViewport:
+      'Widok na ekranie: piksele na komórkę, położenie rogu planszy, czy jest dopasowana, i rozmiar komponentu.',
+    BoardColours: 'Cztery kolory, w których rysuje się plansza: tło, strzałki, wyróżnienie i paleta wielobarwna.',
+    BoardTheme: 'Wbudowany motyw: jego cztery kolory oraz projekt, z którego pochodzi, z licencją i adresem.',
+    BoardLabels:
+      'Każdy napis, który pokazuje komponent: przyciski, podpowiedzi dla każdego trybu gestów i systemu oraz komunikat, gdy brak WebGL.',
+    BoardLang: 'Dwa języki tych napisów.',
+    GestureMode:
+      "Reguła dla myszy i pióra: przy `'drag'` planszę przesuwa zwykłe przeciągnięcie, przy `'click'` – przeciągnięcie z klawiszem modyfikującym.",
+    GameEvent:
+      'Jedno z trzech zdarzeń gry, tak jak `GameHost` przekazuje je celowi: `type` nazywa zdarzenie, a `detail` to jego szczegóły.',
+    GameTarget: 'To, czym steruje `GameHost`: dwie animacje i `emit`. Komponent jest jednym z celów.',
+    Session:
+      'Trwająca gra: plansza, które strzałki już wyjechały, ile zostało na planszy i czy gra jest wygrana. `index` jest wewnętrzny.',
+    SessionSnapshot:
+      'Zapisana gra: wersja, plansza, do której należy (z jej odciskiem), usunięte strzałki i wybór koloru.',
+    PieceClickEvent: 'Zdarzenie `piece-click`: jego `detail` wskazuje strzałkę.',
+    PieceRemovedEvent: 'Zdarzenie `piece-removed`: strzałka i ile ich zostało na planszy.',
+    LifeLostEvent: 'Zdarzenie `life-lost`: strzałka, ta, która ją zatrzymuje, i jak daleko dojedzie przed odbiciem.',
+    FinishedEvent: 'Zdarzenie `finished`: ile strzałek miała plansza.',
+    ViewportChangeEvent: 'Zdarzenie `viewport-change`: widok taki, jaki zwraca `viewport`.',
+    ColoredChangeEvent: 'Zdarzenie `colored-change`; można je anulować.',
+    ColoredChangeDetail: 'Szczegóły tego zdarzenia: stan koloru, o który prosi przycisk.',
+    GesturesChangeEvent: 'Zdarzenie `gestures-change`: nowy tryb gestów.',
+    GesturesChangeDetail: 'Szczegóły tego zdarzenia: tryb, który teraz obowiązuje.',
+  },
+  functions: {
+    resolveColours:
+      'Kolory, w których rysuje się plansza: domyślne, potem nazwany motyw, potem `stated`, pole po polu.',
+    themeOf: 'Wbudowany motyw o tej nazwie albo null. Nieznana nazwa jest pomijana; funkcja nigdy nie rzuca wyjątku.',
+    assignPalette:
+      'Indeks koloru dla każdej strzałki: taki jak u sąsiada tylko wtedy, gdy w palecie brakuje kolorów, a spośród wolnych najrzadziej dotąd użyty.',
+    hueOf: 'Odcień diagnostyczny strzałki jako CSS, liczony z jej identyfikatora, nie z miejsca na liście.',
+    hueDegrees: 'Kąt tego odcienia, w stopniach.',
+    hueBytes: 'Ten odcień jako bajty czerwieni, zieleni i błękitu.',
+    boardViewOf:
+      'Typ `View` laboratorium i wiersza poleceń w postaci, którą przyjmuje komponent; `cell`, rozmiar w eksportowanym SVG, tu nie ma zastosowania.',
+    labelsFor: 'Napisy dla znacznika języka: polskie dla `pl` i każdego `pl-…`, w przeciwnym razie angielskie.',
+  },
+  constants: {
+    DEFAULT_PAD: 'Margines w komórkach, gdy `pad` nie jest ustawione.',
+    DEFAULT_SHOW_POINTS: 'Siatka kropek jest wyłączona, dopóki ktoś jej nie zażąda.',
+    DEFAULT_POINT_COLOR: 'Kolor siatki kropek.',
+    DEFAULT_POINT_RADIUS: 'Promień kropek, w komórkach.',
+    PAD_RANGE: 'Margines, jaki można dać planszy, w komórkach.',
+    POINT_RADIUS_RANGE: 'Promień kropki w komórkach; powyżej pół komórki nachodziłaby na sąsiednie.',
+    DEFAULT_VIEW: 'To, na co nakłada się pusty `view`.',
+    THEMES: 'Wbudowane motywy po nazwie, tak jak pokazuje je tabela motywów.',
+    BOARD_LABELS: 'Napisy komponentu w każdym języku.',
+    GESTURE_STORAGE_KEY: 'Klucz, pod którym przeglądarka trzyma wybór gestu gracza.',
+    ZOOM_STEP: 'Krotność powiększenia jednym przyciskiem albo klawiszem.',
+    WHEEL_RATE: 'Tempo powiększania kółkiem: każde zdarzenie kółka skaluje o `exp(-deltaY * WHEEL_RATE)`.',
+    MAX_CELL_PX: 'Największe powiększenie, w pikselach na komórkę, chyba że dopasowanie jest już większe.',
+    MIN_PAD_PX: 'Najwęższy margines na ekranie, w pikselach, chyba że `pad` wynosi 0.',
+    MIN_POINT_CELL_PX: 'Poniżej tylu pikseli na komórkę siatka kropek sama się chowa.',
+    EXIT_SPEED: 'Ile komórek na sekundę pokonuje wyjeżdżająca strzałka.',
+    EXIT_MIN_MS: 'Najkrótszy przejazd poza planszę, w milisekundach.',
+    EXIT_MAX_MS: 'Najdłuższy przejazd poza planszę, w milisekundach.',
+    SHAKE_MS: 'Ile trwa odbicie zablokowanej strzałki, w milisekundach.',
+    MIN_SHAKE_CELLS: 'Najkrótsze odbicie, w komórkach, żeby było widać nawet blokadę tuż przed grotem.',
+  },
+  classes: {
+    ArrowzBoard: 'Sam komponent, zwykle zapisywany jako znacznik w HTML. Jego składowe są w tabelach wyżej.',
+    GameHost: 'Prowadzi grę na dowolnym `GameTarget`, także poza komponentem.',
+  },
   colProp: 'Właściwość',
   colType: 'Typ',
   colAttr: 'Atrybut',
@@ -466,6 +781,18 @@ const PL = {
   colFlags: 'Flagi',
   colVariable: 'Zmienna',
   colDetail: 'Szczegóły',
+  colFrom: 'Skąd',
+  colShape: 'Kształt',
+  colFunction: 'Funkcja',
+  colConstant: 'Stała',
+  colValue: 'Wartość',
+  colClass: 'Klasa',
+  colCreate: 'Tworzenie',
+  colMembers: 'Składowe',
+  colTheme: 'Motyw',
+  colColours: 'Kolory',
+  colSource: 'Źródło',
+  colLicence: 'Licencja',
   colDescription: 'Opis',
   infoLabel: 'Uwaga',
 } as const satisfies Docs

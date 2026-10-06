@@ -341,19 +341,31 @@ out when it fits in a line and described when it does not.
 | Function | Signature | Behaviour |
 |---|---|---|
 | `docsFor` | `(lang: Lang) => Docs` | The Docs tab's descriptions and column names in one language: the board element's tables and the lab's. |
+| `spellValue` | `(value: unknown) => string` | A constant's value as the Docs tab and the element's README write it: strings quoted, objects as `{ key: value }`, an object of objects as its keys. |
 
 | Constant | Value | Meaning |
 |---|---|---|
+| `ELEMENT_CLASSES` | 2 `ClassRow`s | The element package's exported classes: how each is constructed, and its members. |
+| `ELEMENT_CONSTANTS` | 20 `ConstantRow`s | The element package's exported constants, by name. |
 | `ELEMENT_EVENTS` | 7 `EventRow`s | The element's events and their detail types. |
+| `ELEMENT_FUNCTIONS` | 8 `FunctionRow`s | The element package's exported functions, with their signatures. |
 | `ELEMENT_MEMBERS` | 14 `MemberRow`s | The element's public methods and getters, with their signatures. |
 | `ELEMENT_PROPS` | 11 `PropRow`s | The element's properties: type, attribute and default. |
 | `ELEMENT_SLOTS` | 7 `SlotRow`s | The element's slots. |
+| `ELEMENT_TYPES` | 21 `TypeRow`s | The element package's exported types: where each is declared, and its fields or members. |
 
 | Type | Shape | Meaning |
 |---|---|---|
-| `Docs` | `{ readonly props: Record<PropKey, string>; readonly members: Record<MemberKey, string>; readonly events: Record<EventKey, string>; readonly slots: Record<SlotKey, string>; readonly keys: Record<LabKey, string>; readonly palette: Record<PaletteId, string>; readonly linkFields: Record<LinkField, string>; readonly env: Record<EnvVar, string>; readonly colProp: string; readonly colType: string; readonly colAttr: string; readonly colDefault: string; readonly colMember: string; readonly colSignature: string; readonly colEvent: string; readonly colSlot: string; readonly colKey: string; readonly colCommand: string; readonly colSection: string; readonly colField: string; readonly colGroup: string; readonly colFlag: string; readonly colRange: string; readonly colStep: string; readonly colFlags: string; readonly colVariable: string; readonly colDetail: string; readonly colDescription: string; readonly infoLabel: string }` | What the Docs tab's reference tables need in one language: a description per row, the column names and the name of a page's note. |
+| `ClassKey` | `(typeof ELEMENT_CLASSES)[number]['key']` | The name of a class row. |
+| `ClassRow` | `{ readonly key: string; readonly create: string; readonly members: readonly string[] }` | One exported class: how to construct it, and its public members. |
+| `ConstantKey` | `(typeof ELEMENT_CONSTANTS)[number]['key']` | The name of a constant row. |
+| `ConstantRow` | `{ readonly key: string }` | One exported constant, by name; the lab reads its value from the package. |
+| `Docs` | `{ readonly props: Record<PropKey, string>; readonly members: Record<MemberKey, string>; readonly events: Record<EventKey, string>; readonly slots: Record<SlotKey, string>; readonly keys: Record<LabKey, string>; readonly palette: Record<PaletteId, string>; readonly linkFields: Record<LinkField, string>; readonly env: Record<EnvVar, string>; readonly types: Record<TypeKey, string>; readonly functions: Record<FunctionKey, string>; readonly constants: Record<ConstantKey, string>; readonly classes: Record<ClassKey, string>; readonly colProp: string; readonly colType: string; readonly colAttr: string; readonly colDefault: string; readonly colMember: string; readonly colSignature: string; readonly colEvent: string; readonly colSlot: string; readonly colKey: string; readonly colCommand: string; readonly colSection: string; readonly colField: string; readonly colGroup: string; readonly colFlag: string; readonly colRange: string; readonly colStep: string; readonly colFlags: string; readonly colVariable: string; readonly colDetail: string; readonly colFrom: string; readonly colShape: string; readonly colFunction: string; readonly colConstant: string; readonly colValue: string; readonly colClass: string; readonly colCreate: string; readonly colMembers: string; readonly colTheme: string; readonly colColours: string; readonly colSource: string; readonly colLicence: string; readonly colDescription: string; readonly infoLabel: string }` | What the Docs tab's reference tables need in one language: a description per row, the column names and the name of a page's note. |
 | `EventKey` | `(typeof ELEMENT_EVENTS)[number]['key']` | The name of an event row. |
 | `EventRow` | `{ readonly key: string; readonly detail: string }` | One event and the type of its detail. |
+| `ExportSource` | `'@arrowz/board-element' \| '@arrowz/engine'` | The package an exported type is declared in. |
+| `FunctionKey` | `(typeof ELEMENT_FUNCTIONS)[number]['key']` | The name of a function row. |
+| `FunctionRow` | `{ readonly key: string; readonly signature: string }` | One exported function and its signature. |
 | `LabKey` | `'G' \| '[' \| ']' \| 'R' \| 'S' \| 'F' \| 'Esc' \| '⌘G' \| '⌘S' \| '⌘K'` | A key of the lab's key table, as the lab shows it. |
 | `LinkField` | `'cell' \| 'stroke' \| 'headWidth' \| 'headHeight' \| 'top' \| 'colored' \| 'rounded' \| 'highlightLongest' \| 'voids' \| 'showPoints' \| 'pointColor' \| 'pointRadius' \| 'theme' \| 'palette' \| 'paper' \| 'ink' \| 'highlightColor' \| 'pad' \| 'lang'` | A field of the lab's link. |
 | `MemberKey` | `(typeof ELEMENT_MEMBERS)[number]['key']` | The name of a member row. |
@@ -363,6 +375,8 @@ out when it fits in a line and described when it does not.
 | `PropRow` | `{ readonly key: string; readonly type: string; readonly attribute: string \| null; readonly def: string }` | One property: its type, its attribute (`null` when it has none) and its default. |
 | `SlotKey` | `(typeof ELEMENT_SLOTS)[number]['key']` | The name of a slot row. |
 | `SlotRow` | `{ readonly key: string }` | One slot, by name. |
+| `TypeKey` | `(typeof ELEMENT_TYPES)[number]['key']` | The name of a type row. |
+| `TypeRow` | `{ readonly key: string; readonly from: ExportSource; readonly shape: string }` | One exported type: its package, and its fields or members. |
 
 ### `@arrowz/engine/comment-lines`
 

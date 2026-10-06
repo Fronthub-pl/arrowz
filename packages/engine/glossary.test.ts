@@ -97,7 +97,20 @@ const withoutCode = (text: string): string => text.replace(/`[^`\n]*`/g, ' ')
 /** The descriptions of the Docs tab's tables, the element's and the lab's. */
 function docsRows(lang: 'en' | 'pl'): [string, string][] {
   const docs = docsFor(lang)
-  return (['props', 'members', 'events', 'slots', 'keys', 'palette', 'linkFields', 'env'] as const)
+  return ([
+    'props',
+    'members',
+    'events',
+    'slots',
+    'types',
+    'functions',
+    'constants',
+    'classes',
+    'keys',
+    'palette',
+    'linkFields',
+    'env',
+  ] as const)
     .flatMap((group) => leaves(docs[group], `${lang}.${group}`, []))
     .map(([path, text]): [string, string] => [path, withoutCode(text)])
 }

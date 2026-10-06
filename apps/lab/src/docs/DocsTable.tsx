@@ -8,22 +8,13 @@ import { docsPaletteRows } from '../palette/commands'
 import { shownKeys } from '../shell/hotkeys'
 import { useStore } from '../state/store'
 import { LINK_FIELDS } from '../state/url'
-import { type CellRole, cellTokens } from './codeTokens'
+import { NONE } from './codeTokens'
+import { ExportTable } from './ExportTable'
+import { isExportOf } from './exportTables'
 import { InlineMarkdown } from './Inline'
-import { TokenSpans } from './TokenSpans'
+import { ThemeTable } from './ThemeTable'
+import { Mono } from './TokenSpans'
 import { useDocs } from './useDocs'
-
-/** The dash a table cell shows where a property has no attribute at all. */
-const NONE = '—'
-
-/** A machine cell in the code colours; the column says what its text is. */
-function Mono({ text, column }: { text: string; column: CellRole }): ReactElement {
-  return (
-    <td className="mono">
-      <TokenSpans tokens={cellTokens(text, column)} />
-    </td>
-  )
-}
 
 /** A description by the key the code names; `tables.test.ts` fails first on a missing one. */
 function described(rows: Readonly<Record<string, string>>, key: string): string {
@@ -42,14 +33,27 @@ export function knobHelp(dict: Dict, row: KnobRow): string {
 
 /**
  * One reference table, as `::table{of=…}` names it: the element's, from the
- * shared rows, the CLI's, from the command line's own tables, or the lab's,
- * from the lab's own code. The machine columns are
- * not translated; the last column is, and is inline Markdown. A name
+ * shared rows, the CLI's, from the command line's own tables, the lab's,
+ * from the lab's own code, or the engine's `THEMES`. The machine columns are
+ * not translated; where a table has a description column it is, and is inline Markdown. A name
  * `shape.ts` does not list renders nothing, and the content guard fails first.
  */
 export function DocsTable({ of, labelledBy }: { of: string; labelledBy?: string | undefined }): ReactElement | null {
   const docs = useDocs()
   const dict = useDictionary()
+  if (isExportOf(of)) return <ExportTable of={of} labelledBy={labelledBy} />
+  if (of === 'themes') return <ThemeTable labelledBy={labelledBy} />
+  const table = tableOf(of, labelledBy, docs, dict)
+  // The wide tables would push a phone's panel sideways, so every table gets the box that scrolls instead.
+  return table === null ? null : <div className="fw-docs-scroll">{table}</div>
+}
+
+function tableOf(
+  of: string,
+  labelledBy: string | undefined,
+  docs: ReturnType<typeof useDocs>,
+  dict: Dict,
+): ReactElement | null {
   if (of === 'element-props')
     return (
       <table className="fw-docs-table" aria-labelledby={labelledBy}>
@@ -215,35 +219,32 @@ export function DocsTable({ of, labelledBy }: { of: string; labelledBy?: string 
     )
   if (of === 'knobs')
     return (
-      // Six columns, two of them prose: on a phone the table scrolls by itself, not the panel.
-      <div className="fw-docs-scroll">
-        <table className="fw-docs-table" aria-labelledby={labelledBy}>
-          <thead>
-            <tr>
-              <th scope="col">{docs.colGroup}</th>
-              <th scope="col">{docs.colFlag}</th>
-              <th scope="col">{docs.colRange}</th>
-              <th scope="col">{docs.colStep}</th>
-              <th scope="col">{docs.colDefault}</th>
-              <th scope="col">{docs.colDescription}</th>
+      <table className="fw-docs-table" aria-labelledby={labelledBy}>
+        <thead>
+          <tr>
+            <th scope="col">{docs.colGroup}</th>
+            <th scope="col">{docs.colFlag}</th>
+            <th scope="col">{docs.colRange}</th>
+            <th scope="col">{docs.colStep}</th>
+            <th scope="col">{docs.colDefault}</th>
+            <th scope="col">{docs.colDescription}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {KNOB_ROWS.map((row) => (
+            <tr key={row.flag}>
+              <td>{dict.d.groups[row.group]}</td>
+              <Mono text={row.flag} column="attr" />
+              <Mono text={row.values} column="expr" />
+              <Mono text={row.step} column="expr" />
+              <Mono text={row.def} column="expr" />
+              <td>
+                <InlineMarkdown text={knobHelp(dict, row)} />
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {KNOB_ROWS.map((row) => (
-              <tr key={row.flag}>
-                <td>{dict.d.groups[row.group]}</td>
-                <Mono text={row.flag} column="attr" />
-                <Mono text={row.values} column="expr" />
-                <Mono text={row.step} column="expr" />
-                <Mono text={row.def} column="expr" />
-                <td>
-                  <InlineMarkdown text={knobHelp(dict, row)} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     )
   if (of === 'rules')
     return (

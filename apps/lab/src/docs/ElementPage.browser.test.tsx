@@ -1,11 +1,23 @@
-import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS, ELEMENT_SLOTS } from '@arrowz/engine/docs'
+import { THEMES } from '@arrowz/engine'
+import {
+  ELEMENT_CLASSES,
+  ELEMENT_CONSTANTS,
+  ELEMENT_EVENTS,
+  ELEMENT_FUNCTIONS,
+  ELEMENT_MEMBERS,
+  ELEMENT_PROPS,
+  ELEMENT_SLOTS,
+  ELEMENT_TYPES,
+} from '@arrowz/engine/docs'
 import { act } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { contrast, parse } from '../design/contrast'
+import { silentQueue } from '../harness/docsWorkers'
 import { useStore } from '../state/store'
 import { docsPage } from './content'
+import { DocsBoardsProvider } from './DocsBoards'
 import { DocsPageView } from './DocsPageView'
 // The colour cases below read computed style, which a component test only has
 // with the sheets imported.
@@ -14,32 +26,86 @@ import '../design/index.css'
 beforeEach(() => useStore.getState().lang.setLang('en'))
 afterEach(() => vi.restoreAllMocks())
 
-// No wrapper element: the MemoryRouter renders none, so the page's blocks are
-// the container's children, as they are the body's in the panel.
-const mount = () =>
+// The page's prose and tables: its boards wait on a worker that never answers.
+const mount = (width?: number) =>
   render(
     <MemoryRouter initialEntries={['/docs/element']}>
-      <DocsPageView page="element" />
+      <div className="fw-docs-body" style={width === undefined ? undefined : { width: `${width}px` }}>
+        <DocsBoardsProvider root={null} queue={silentQueue()}>
+          <DocsPageView page="element" />
+        </DocsBoardsProvider>
+      </div>
     </MemoryRouter>,
   )
 
 const firstCode = docsPage('en', 'element').root.children.find((node) => node.type === 'code')
 const EXAMPLE = firstCode?.type === 'code' ? firstCode.value : ''
 
+const SECTIONS = [
+  'example',
+  'props',
+  'members',
+  'events',
+  'controls',
+  'zoom',
+  'size',
+  'margin',
+  'dots',
+  'track',
+  'slots',
+  'play',
+  'themes',
+  'webgl',
+  'exports',
+]
+
 // `querySelectorAll` hands back `Element`, which has no `cells`: the generic is not decoration.
 const rowFor = (container: HTMLElement, key: string) =>
   [...container.querySelectorAll<HTMLTableRowElement>('tbody tr')].find((tr) => tr.cells[0]?.textContent === key)
 
-test('every documented row reaches the page', async () => {
+const DESCRIBED =
+  ELEMENT_PROPS.length +
+  ELEMENT_MEMBERS.length +
+  ELEMENT_EVENTS.length +
+  ELEMENT_SLOTS.length +
+  ELEMENT_TYPES.length +
+  ELEMENT_FUNCTIONS.length +
+  ELEMENT_CONSTANTS.length +
+  ELEMENT_CLASSES.length
+
+test('the page has its fifteen sections, in order', async () => {
   const screen = await mount()
-  const rows = screen.container.querySelectorAll('tbody tr')
-  expect(rows).toHaveLength(
-    ELEMENT_PROPS.length + ELEMENT_MEMBERS.length + ELEMENT_EVENTS.length + ELEMENT_SLOTS.length,
-  )
+  expect([...screen.container.querySelectorAll('h3')].map((h) => h.id)).toEqual(SECTIONS.map((id) => `docs-${id}`))
+})
+
+test('every documented row reaches the page, the themes included', async () => {
+  const screen = await mount()
+  expect(screen.container.querySelectorAll('tbody tr')).toHaveLength(DESCRIBED + Object.keys(THEMES).length)
   const pad = rowFor(screen.container, 'pad')
   expect(pad?.cells[1]?.textContent).toBe('number')
   expect(pad?.cells[2]?.textContent).toBe('pad')
   expect(pad?.cells[3]?.textContent).toBe('4')
+})
+
+// 280 px is a 320 px phone's panel less the 20 px padding of `.fw-docs` on each side: the narrowest common phone.
+test('at phone width no table pushes the panel sideways', async () => {
+  const screen = await mount(280)
+  const body = screen.container.querySelector<HTMLElement>('.fw-docs-body')
+  if (body === null) throw new Error('no body')
+  const tables = [...body.querySelectorAll('table')]
+  expect(tables.length).toBeGreaterThan(0)
+  expect(body.scrollWidth).toBeLessThanOrEqual(body.clientWidth)
+  for (const table of tables)
+    expect(table.parentElement?.classList.contains('fw-docs-scroll'), table.outerHTML.slice(0, 80)).toBe(true)
+})
+
+test('the scroll box draws the table frame, which it would otherwise clip', async () => {
+  const screen = await mount()
+  const table = screen.container.querySelector('table')
+  const box = table?.parentElement
+  expect(box?.classList.contains('fw-docs-scroll')).toBe(true)
+  expect(getComputedStyle(box ?? screen.container).boxShadow).toContain('1px')
+  expect(getComputedStyle(table ?? screen.container).boxShadow).toBe('none')
 })
 
 test('a property with no attribute says it has none', async () => {
@@ -48,19 +114,17 @@ test('a property with no attribute says it has none', async () => {
 })
 
 const machine = (container: HTMLElement) => [...container.querySelectorAll('tbody td.mono')].map((c) => c.textContent)
+// The last cell of every row but the themes', which have no description.
 const described = (container: HTMLElement) =>
-  [...container.querySelectorAll('tbody td:not(.mono)')].map((c) => c.textContent)
+  [...container.querySelectorAll('table:not([aria-labelledby="docs-themes"]) tbody td:last-child')].map(
+    (c) => c.textContent,
+  )
 
 test('a language switch changes every description and leaves every machine cell', async () => {
   const screen = await mount()
   const before = machine(screen.container)
   const helpBefore = described(screen.container)
-  expect(before).toHaveLength(
-    ELEMENT_PROPS.length * 4 + ELEMENT_MEMBERS.length * 2 + ELEMENT_EVENTS.length * 2 + ELEMENT_SLOTS.length,
-  )
-  expect(helpBefore).toHaveLength(
-    ELEMENT_PROPS.length + ELEMENT_MEMBERS.length + ELEMENT_EVENTS.length + ELEMENT_SLOTS.length,
-  )
+  expect(helpBefore).toHaveLength(DESCRIBED)
   await act(async () => useStore.getState().lang.setLang('pl'))
   expect(machine(screen.container)).toEqual(before)
   const helpAfter = described(screen.container)
@@ -95,37 +159,41 @@ test('Copy names its section in Polish too', async () => {
   await expect.element(button).toHaveTextContent('Kopiuj')
 })
 
-test('the README note stands under the lead, named, before the first section', async () => {
+test('the page no longer sends the reader to the README', async () => {
   const screen = await mount()
-  const note = screen.getByRole('complementary', { name: 'Note' })
-  await expect.element(note).toMatchTextContent(/live in the package README\.$/)
-  const aside = note.element()
-  expect(aside.previousElementSibling?.tagName).toBe('P')
-  expect(aside.nextElementSibling?.tagName).toBe('H3')
-  expect(aside.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
-  // Nothing trails the last table.
-  expect(screen.container.lastElementChild?.tagName).toBe('TABLE')
+  expect(screen.container.querySelector('aside.fw-docs-info')).toBeNull()
+  expect(screen.container.textContent).not.toContain('README')
 })
 
-test('the slot table opens with how a host fills a slot, in both languages', async () => {
+test('the slot table follows its lead paragraph, in both languages', async () => {
   const screen = await mount()
-  const table = screen.container.querySelector('table[aria-labelledby="docs-slots"]')
-  expect(table?.previousElementSibling?.textContent).toMatch(/^A child with slot set to one of these names/)
+  const lead = () =>
+    screen.container.querySelector('table[aria-labelledby="docs-slots"]')?.parentElement?.previousElementSibling
+  expect(lead()?.tagName).toBe('P')
+  const english = lead()?.textContent
   await act(async () => useStore.getState().lang.setLang('pl'))
-  const after = screen.container.querySelector('table[aria-labelledby="docs-slots"]')
-  expect(after?.previousElementSibling?.textContent).toMatch(/^Dziecko z slot ustawionym/)
+  expect(lead()?.tagName).toBe('P')
+  expect(lead()?.textContent).not.toBe(english)
 })
 
-test('the note is named in Polish too', async () => {
-  useStore.getState().lang.setLang('pl')
+test('the margin, the dot grid and the themes are compared on live boards', async () => {
   const screen = await mount()
-  await expect.element(screen.getByRole('complementary', { name: 'Uwaga' })).toBeVisible()
-})
-
-test('every section heading carries the id the navigation names', async () => {
-  const screen = await mount()
-  const ids = [...screen.container.querySelectorAll('h3')].map((h) => h.id)
-  expect(ids).toEqual(['docs-example', 'docs-props', 'docs-members', 'docs-events', 'docs-slots'])
+  const commands = (id: string) => {
+    const heading = screen.container.querySelector(`#docs-${id}`)
+    const out: string[] = []
+    for (let el = heading?.nextElementSibling; el && el.tagName !== 'H3'; el = el.nextElementSibling)
+      for (const pre of el.querySelectorAll('figure.fw-docs-board pre.fw-cmd')) out.push(pre.textContent ?? '')
+    return out
+  }
+  const base = 'deno task carve --width=12 --height=12 --seed=7'
+  expect(commands('margin')).toEqual([`${base} --pad=0`, base, `${base} --pad=16`])
+  expect(commands('dots')).toEqual([`${base} --points`, `${base} --points --line=0.2 --point-radius=0.15`])
+  expect(commands('themes')).toEqual([
+    `${base} --theme=gruvbox-dark --colored`,
+    `${base} --theme=catppuccin-latte --colored`,
+    `${base} --theme=rose-pine-moon --colored`,
+  ])
+  expect(screen.container.querySelectorAll('figure.fw-docs-board')).toHaveLength(8)
 })
 
 /** The computed colour of the one token of `cls` in a machine cell, and its text. */
@@ -150,6 +218,8 @@ test('the machine columns wear the colour of what they hold', async () => {
   expect(token(at('piece-click'), 0, 'str').text).toBe('piece-click')
   expect(token(at('piece-click'), 1, 'prop').text).toBe('pieceId')
   expect(token(at('zoom-in'), 0, 'str').text).toBe('zoom-in')
+  expect(token(at('themeOf'), 1, 'fn').text).toBe('themeOf')
+  expect(token(at('PAD_RANGE'), 1, 'num').text).toBe('0')
   expect(at('pad')?.cells[4]?.querySelector('[class^="tk-"]')).toBeNull()
 })
 

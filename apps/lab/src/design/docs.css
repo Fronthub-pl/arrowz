@@ -35,6 +35,11 @@
   font-family: var(--mono);
   font-size: inherit;
 }
+/* A long identifier in prose has no break opportunity; on a phone it would
+   push the page sideways. Table cells scroll in their box and stay whole. */
+.fw-docs-body :is(p, li) code {
+  overflow-wrap: anywhere;
+}
 /* Prose beyond paragraphs, in the page body only: the navigation column is
    lists and links too, styled below. A link keeps the text's colour and
    carries --signal in its underline: --signal as text is 4.1:1 on --void. */
@@ -85,6 +90,24 @@
 .fw-docs-table .mono {
   font-family: var(--mono);
   white-space: nowrap;
+}
+/* A long value — DEFAULT_VIEW, a signature — breaks inside its cell instead of widening the table without end. */
+.fw-docs-table .mono.fw-docs-wrap {
+  min-width: 16ch;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* A theme's colours: background, arrows, highlight, then the palette. The ring keeps a dark background visible on the dark page. */
+.fw-docs-swatches {
+  display: inline-flex;
+  gap: 2px;
+  vertical-align: middle;
+}
+.fw-docs-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 /* A table wider than the page scrolls inside this box, so the panel never does. */
 .fw-docs-scroll {
@@ -450,6 +473,13 @@
   margin-bottom: 0;
   background: var(--graphite);
   box-shadow: 0 0 0 1px var(--border);
+}
+/* A scroll box clips its content's shadow, so the box draws the frame. */
+.fw-docs-body .fw-docs-scroll {
+  box-shadow: 0 0 0 1px var(--border);
+}
+.fw-docs-body .fw-docs-scroll .fw-docs-table {
+  box-shadow: none;
 }
 .fw-docs-body .fw-docs-table th,
 .fw-docs-body .fw-docs-table td {

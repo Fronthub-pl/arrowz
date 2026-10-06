@@ -84,7 +84,17 @@ test('each page lists its sections, as links to that page', async () => {
       ['Properties', '/docs/element'],
       ['Methods and getters', '/docs/element'],
       ['Events', '/docs/element'],
+      ['Controls', '/docs/element'],
+      ['Zoom and pan', '/docs/element'],
+      ['Size, and values the board cannot draw', '/docs/element'],
+      ['The margin', '/docs/element'],
+      ['The dot grid', '/docs/element'],
+      ['Riding the track', '/docs/element'],
       ['Slots', '/docs/element'],
+      ['Playing the board', '/docs/element'],
+      ['Themes', '/docs/element'],
+      ['The WebGL context', '/docs/element'],
+      ['Exports', '/docs/element'],
     ],
   ])
 })

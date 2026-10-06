@@ -134,7 +134,7 @@ const TS_CONSTANT = new Set(['null', 'true', 'false', 'undefined'])
 const TS_TOKEN = /('(?:[^'\\]|\\.)*')|(\d+(?:\.\d+)?)|([A-Za-z_$][\w$]*)|(\s+)|([^\sA-Za-z_$\d'])/g
 
 /** The dash a table shows for "no attribute": punctuation, not a value. */
-const NONE = '—'
+export const NONE = '—'
 
 /**
  * One machine cell of a reference table. A name column is one token in its
