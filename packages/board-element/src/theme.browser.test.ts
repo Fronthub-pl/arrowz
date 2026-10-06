@@ -235,6 +235,22 @@ function luminance(rgb: number[]): number {
 
 const channels = (css: string) => (css.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number)
 
+test('the hint sits on its own paper on every theme, not on the arrows beneath it', async () => {
+  const el = await mount()
+  el.board = board
+  const hint = el.shadowRoot?.querySelector('.hint')
+  if (!hint) throw new Error('no default hint')
+  const bare: string[] = []
+  for (const name of ['', ...Object.keys(THEMES)]) {
+    el.theme = name
+    await el.updateComplete
+    const paper = getComputedStyle(el).backgroundColor
+    if (getComputedStyle(hint).backgroundColor !== paper) bare.push(name || '(none)')
+  }
+  expect(bare).toEqual([])
+  el.remove()
+})
+
 test('the hint reads at WCAG AA contrast on every theme', async () => {
   const el = await mount()
   el.board = board
