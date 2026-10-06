@@ -224,6 +224,38 @@ test('the hint is written in the ink the arrows are drawn in', async () => {
   el.remove()
 })
 
+/** WCAG relative luminance of an `rgb()` string's first three channels. */
+function luminance(rgb: number[]): number {
+  const linear = (v: number) => {
+    const c = v / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * linear(rgb[0] ?? 0) + 0.7152 * linear(rgb[1] ?? 0) + 0.0722 * linear(rgb[2] ?? 0)
+}
+
+const channels = (css: string) => (css.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number)
+
+test('the hint reads at WCAG AA contrast on every theme', async () => {
+  const el = await mount()
+  el.board = board
+  const hint = el.shadowRoot?.querySelector('.hint')
+  if (!hint) throw new Error('no default hint')
+  const weak: string[] = []
+  for (const name of ['', ...Object.keys(THEMES)]) {
+    el.theme = name
+    await el.updateComplete
+    const style = getComputedStyle(hint)
+    const paper = channels(getComputedStyle(el).backgroundColor)
+    const alpha = Number(style.opacity)
+    const seen = channels(style.color).map((v, i) => v * alpha + (paper[i] ?? 0) * (1 - alpha))
+    const [hi, lo] = [luminance(seen), luminance(paper)].sort((a, b) => b - a)
+    const ratio = ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05)
+    if (ratio < 4.5) weak.push(`${name || '(none)'} ${ratio.toFixed(2)}`)
+  }
+  expect(weak).toEqual([])
+  el.remove()
+})
+
 test('the no-WebGL message is written in the ink too', async () => {
   const el = await mount()
   el.board = board
