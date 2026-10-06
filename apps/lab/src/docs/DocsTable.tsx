@@ -43,6 +43,17 @@ export function DocsTable({ of, labelledBy }: { of: string; labelledBy?: string 
   const dict = useDictionary()
   if (isExportOf(of)) return <ExportTable of={of} labelledBy={labelledBy} />
   if (of === 'themes') return <ThemeTable labelledBy={labelledBy} />
+  const table = tableOf(of, labelledBy, docs, dict)
+  // A phone panel is narrower than most of these tables: the table scrolls by itself, not the panel.
+  return table === null ? null : <div className="fw-docs-scroll">{table}</div>
+}
+
+function tableOf(
+  of: string,
+  labelledBy: string | undefined,
+  docs: ReturnType<typeof useDocs>,
+  dict: Dict,
+): ReactElement | null {
   if (of === 'element-props')
     return (
       <table className="fw-docs-table" aria-labelledby={labelledBy}>
@@ -208,35 +219,32 @@ export function DocsTable({ of, labelledBy }: { of: string; labelledBy?: string 
     )
   if (of === 'knobs')
     return (
-      // Six columns, two of them prose: on a phone the table scrolls by itself, not the panel.
-      <div className="fw-docs-scroll">
-        <table className="fw-docs-table" aria-labelledby={labelledBy}>
-          <thead>
-            <tr>
-              <th scope="col">{docs.colGroup}</th>
-              <th scope="col">{docs.colFlag}</th>
-              <th scope="col">{docs.colRange}</th>
-              <th scope="col">{docs.colStep}</th>
-              <th scope="col">{docs.colDefault}</th>
-              <th scope="col">{docs.colDescription}</th>
+      <table className="fw-docs-table" aria-labelledby={labelledBy}>
+        <thead>
+          <tr>
+            <th scope="col">{docs.colGroup}</th>
+            <th scope="col">{docs.colFlag}</th>
+            <th scope="col">{docs.colRange}</th>
+            <th scope="col">{docs.colStep}</th>
+            <th scope="col">{docs.colDefault}</th>
+            <th scope="col">{docs.colDescription}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {KNOB_ROWS.map((row) => (
+            <tr key={row.flag}>
+              <td>{dict.d.groups[row.group]}</td>
+              <Mono text={row.flag} column="attr" />
+              <Mono text={row.values} column="expr" />
+              <Mono text={row.step} column="expr" />
+              <Mono text={row.def} column="expr" />
+              <td>
+                <InlineMarkdown text={knobHelp(dict, row)} />
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {KNOB_ROWS.map((row) => (
-              <tr key={row.flag}>
-                <td>{dict.d.groups[row.group]}</td>
-                <Mono text={row.flag} column="attr" />
-                <Mono text={row.values} column="expr" />
-                <Mono text={row.step} column="expr" />
-                <Mono text={row.def} column="expr" />
-                <td>
-                  <InlineMarkdown text={knobHelp(dict, row)} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     )
   if (of === 'rules')
     return (

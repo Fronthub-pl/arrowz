@@ -27,10 +27,10 @@ beforeEach(() => useStore.getState().lang.setLang('en'))
 afterEach(() => vi.restoreAllMocks())
 
 // The page's prose and tables: its boards wait on a worker that never answers.
-const mount = () =>
+const mount = (width?: number) =>
   render(
     <MemoryRouter initialEntries={['/docs/element']}>
-      <div className="fw-docs-body">
+      <div className="fw-docs-body" style={width === undefined ? undefined : { width: `${width}px` }}>
         <DocsBoardsProvider root={null} queue={silentQueue()}>
           <DocsPageView page="element" />
         </DocsBoardsProvider>
@@ -85,6 +85,18 @@ test('every documented row reaches the page, the themes included', async () => {
   expect(pad?.cells[1]?.textContent).toBe('number')
   expect(pad?.cells[2]?.textContent).toBe('pad')
   expect(pad?.cells[3]?.textContent).toBe('4')
+})
+
+// 343 px is a 375 px phone's panel less its padding.
+test('at phone width no table pushes the panel sideways', async () => {
+  const screen = await mount(343)
+  const body = screen.container.querySelector<HTMLElement>('.fw-docs-body')
+  if (body === null) throw new Error('no body')
+  const tables = [...body.querySelectorAll('table')]
+  expect(tables.length).toBeGreaterThan(0)
+  expect(body.scrollWidth).toBeLessThanOrEqual(body.clientWidth)
+  for (const table of tables)
+    expect(table.parentElement?.classList.contains('fw-docs-scroll'), table.outerHTML.slice(0, 80)).toBe(true)
 })
 
 test('a property with no attribute says it has none', async () => {
@@ -146,7 +158,8 @@ test('the page no longer sends the reader to the README', async () => {
 
 test('the slot table follows its lead paragraph, in both languages', async () => {
   const screen = await mount()
-  const lead = () => screen.container.querySelector('table[aria-labelledby="docs-slots"]')?.previousElementSibling
+  const lead = () =>
+    screen.container.querySelector('table[aria-labelledby="docs-slots"]')?.parentElement?.previousElementSibling
   expect(lead()?.tagName).toBe('P')
   const english = lead()?.textContent
   await act(async () => useStore.getState().lang.setLang('pl'))
