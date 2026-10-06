@@ -61,7 +61,7 @@ A repeated press — a double click, a double tap — does nothing at all. The e
 
 Zooming in, the wheel keeps the point under the cursor where it is: whatever is under the pointer when the wheel turns is still under it afterwards, at every step and anywhere on the board. Zooming out keeps it too, except when the view is already up against an edge of the board: there the view stops at the margin, and the point can slide away from the cursor.
 
-Zooming in is exact because the view keeps only one rule: its centre stays on the board or its margin. It does not insist that the board fill the view: near an edge, filling the view would mean pulling the board out from under the cursor.
+Zooming in on the board is exact because the view keeps one rule for its centre: it stays on the board or its margin. It does not insist that the board fill the view: near an edge, filling the view would mean pulling the board out from under the cursor.
 
 So you may see empty background beside the board, and a board smaller than its host is no longer held in the middle. `fit()`, the `0` key and the corner button bring it back. `zoomBy()` zooms around the centre of the host, since a button has no cursor to zoom towards. The zoom stays between the fitted board and `MAX_CELL_PX` pixels per cell.
 

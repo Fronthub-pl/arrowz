@@ -40,7 +40,7 @@ export function ThemeTable({ labelledBy }: { labelledBy?: string | undefined }):
                     {theme.source}
                   </a>
                 </td>
-                <Mono text={theme.licence} column="expr" />
+                <Mono text={theme.licence} column="slot" />
               </tr>
             )
           })}

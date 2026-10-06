@@ -61,7 +61,7 @@ Powtórne naciśnięcie — podwójne kliknięcie, podwójne stuknięcie — nie
 
 Przy powiększaniu kółko trzyma punkt pod kursorem w miejscu: to, co jest pod wskaźnikiem, gdy kółko się obraca, zostaje pod nim także potem, na każdym kroku i w każdym miejscu planszy. Przy pomniejszaniu też, chyba że widok już dotarł do krawędzi planszy: wtedy zatrzymuje się na marginesie, a punkt może odjechać spod kursora.
 
-Powiększanie jest dokładne, bo widok trzyma się tylko jednej reguły: jego środek zostaje na planszy albo na jej marginesie. Nie wymaga, żeby plansza wypełniała widok: przy krawędzi wypełnienie widoku oznaczałoby wyciąganie planszy spod kursora.
+Powiększanie w obrębie planszy jest dokładne, bo widok ma dla swojego środka jedną regułę: środek zostaje na planszy albo na jej marginesie. Nie wymaga, żeby plansza wypełniała widok: przy krawędzi wypełnienie widoku oznaczałoby wyciąganie planszy spod kursora.
 
 Dlatego obok planszy możesz zobaczyć puste tło, a plansza mniejsza niż komponent nie jest już trzymana pośrodku. Przywracają ją `fit()`, klawisz `0` i przycisk w rogu. `zoomBy()` powiększa wokół środka komponentu, bo przycisk nie ma kursora, w którego stronę mógłby powiększać. Powiększenie mieści się między dopasowaną planszą a `MAX_CELL_PX` pikseli na komórkę.
 
@@ -161,7 +161,7 @@ Motywy to jasne i ciemne wersje otwartoźródłowych motywów edytorów kodu, a 
 
 ## Kontekst WebGL {#webgl}
 
-Plansza bierze kontekst WebGL, gdy trafia na stronę, a nie gdy powstaje, i oddaje go, gdy zostaje usunięta. Strona dostaje mniej więcej szesnaście kontekstów. Jeśli przeglądarka któryś odbierze, plansza prosi o niego z powrotem, gdy tylko znów jest na ekranie. Gdy na ekranie jest naraz więcej niż mniej więcej szesnaście plansz, zabierają sobie konteksty nawzajem, po kolei.
+Plansza bierze kontekst WebGL, gdy trafia na stronę, a nie gdy powstaje, i oddaje go, gdy zostaje usunięta. Strona dostaje mniej więcej szesnaście kontekstów. Jeśli przeglądarka któryś odbierze, plansza prosi o niego z powrotem, gdy tylko znów jest na ekranie. Gdy na ekranie jest naraz więcej niż około szesnastu plansz, zabierają sobie konteksty nawzajem, po kolei.
 
 Plansze na tej stronie żyją według tej reguły: każda istnieje tylko wtedy, gdy jest blisko widoku.
 

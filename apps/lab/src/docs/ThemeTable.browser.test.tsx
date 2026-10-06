@@ -61,6 +61,10 @@ test('the source links out, and the licence is the theme’s', async () => {
   expect(link?.getAttribute('target')).toBe('_blank')
   expect(link?.getAttribute('rel')).toBe('noreferrer')
   expect(row?.children[3]?.textContent).toBe(mocha?.licence)
+  // A licence id such as `Apache-2.0` is one name, so it is one coloured run.
+  for (const tr of rows(screen.container)) {
+    expect(tr.children[3]?.querySelectorAll('span'), tr.children[3]?.textContent ?? '').toHaveLength(1)
+  }
 })
 
 test('a language switch renames the columns and nothing else', async () => {
