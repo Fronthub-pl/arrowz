@@ -190,7 +190,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       padding: 1rem;
       text-align: center;
       font: 14px system-ui, sans-serif;
-      color: #232447;
+      color: var(--arrowz-ink, #232447);
     }
     .chrome {
       position: absolute;
@@ -207,8 +207,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     }
     .hint {
       font: 12px system-ui, sans-serif;
-      color: #232447;
-      opacity: 0.7;
+      /* The ink at full strength: a dark theme's paper hides a fixed #232447, and
+        at 0.7 opacity five light themes fall under WCAG AA 4.5 (tokyonight-day
+        2.73). In full ink the weakest, tokyonight-day, is 4.52. */
+      color: var(--arrowz-ink, #232447);
       margin-right: 6px;
     }
     button {
@@ -591,6 +593,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     // `drawView()` is the only point where precedence and sanitising have both
     // run, which is why this sits here and not in `render()`.
     this.style.setProperty('--arrowz-paper', view.paper)
+    this.style.setProperty('--arrowz-ink', view.ink)
     const colors = [view.ink, view.paper, view.highlight, view.palette.join(','), String(view.colored)].join('|')
     const onlyColors = !changed.has('board') && !changed.has('pad') &&
       this.layer.board === this.board && this.geometryKey === geometryKeyOf(view)

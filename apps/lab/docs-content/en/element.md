@@ -25,7 +25,7 @@ In Angular, add `CUSTOM_ELEMENTS_SCHEMA` to the component and bind `[board]`. In
 
 ::table{of="element-props"}
 
-The element also tells you the background it actually painted, as the CSS custom property `--arrowz-paper` on its own host. Read it with `getComputedStyle(board).getPropertyValue('--arrowz-paper')`, or use it inside the element's own content. Because it is set on the host itself, you cannot style the element with it from outside, nor override it short of `!important`.
+The element also tells you the background it actually painted, as the CSS custom property `--arrowz-paper` on its own host, and the colour its arrows are drawn in, as `--arrowz-ink`. Its own hint is written in that colour, so it stays readable on a dark theme. Read them with `getComputedStyle(board).getPropertyValue('--arrowz-paper')`, or use them inside the element's own content. Because they are set on the host itself, you cannot style the element with them from outside, nor override them short of `!important`.
 
 ## Methods and getters {#members}
 
