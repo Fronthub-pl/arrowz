@@ -87,9 +87,9 @@ test('every documented row reaches the page, the themes included', async () => {
   expect(pad?.cells[3]?.textContent).toBe('4')
 })
 
-// 335 px is a 375 px phone's panel less the 20 px padding of `.fw-docs` on each side.
+// 280 px is a 320 px phone's panel less the 20 px padding of `.fw-docs` on each side: the narrowest common phone.
 test('at phone width no table pushes the panel sideways', async () => {
-  const screen = await mount(335)
+  const screen = await mount(280)
   const body = screen.container.querySelector<HTMLElement>('.fw-docs-body')
   if (body === null) throw new Error('no body')
   const tables = [...body.querySelectorAll('table')]

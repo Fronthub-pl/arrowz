@@ -35,6 +35,11 @@
   font-family: var(--mono);
   font-size: inherit;
 }
+/* A long identifier in prose has no break opportunity; on a phone it would
+   push the page sideways. Table cells scroll in their box and stay whole. */
+.fw-docs-body :is(p, li) code {
+  overflow-wrap: anywhere;
+}
 /* Prose beyond paragraphs, in the page body only: the navigation column is
    lists and links too, styled below. A link keeps the text's colour and
    carries --signal in its underline: --signal as text is 4.1:1 on --void. */
