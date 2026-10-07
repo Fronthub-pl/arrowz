@@ -4,9 +4,8 @@ import { useCopy } from '../run/useCopy'
 
 /**
  * One block of a documentation page with its Copy button. The button comes
- * after the `pre` in the DOM and stands over its top right corner, in a strip
- * the block's top padding keeps free, so it never covers the first line (the
- * longest one in both the example and the help).
+ * after the `pre` in the DOM and stands in a column of its own beside it
+ * (`docs.css`), out of the box that scrolls, so it never covers a line.
  *
  * `text` is what Copy writes, `children` what the block shows: the example is
  * coloured spans, and the clipboard must get the code, not the markup.

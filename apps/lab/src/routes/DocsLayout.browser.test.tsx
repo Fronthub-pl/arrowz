@@ -92,7 +92,7 @@ test.each(['arrowz', 'lab', 'element', 'cli'] as const)(
 const helpBlocks = (container: HTMLElement) =>
   [...container.querySelectorAll('pre.fw-docs-term')].filter((pre) => pre.textContent?.startsWith('Usage:'))
 
-// The help table's longest line is 296 characters, about 2317px: the only thing
+// The help table's longest line is 296 characters, wider than any window: the only thing
 // on either page wider than the panel, so it must scroll by itself. Measured,
 // because `overflow-x: auto` in force does not mean the block ever scrolls.
 test('at 1280×800 the CLI help scrolls sideways inside its own block', async () => {
@@ -113,13 +113,15 @@ test('at 1280×800 the CLI help scrolls sideways inside its own block', async ()
 
 /**
  * The App opened straight on a documentation page, as a pasted address would:
- * no tab click, so it works at XS too, where the tab strip is a menu.
+ * no tab click, so it works at XS too, where the tab strip is a menu. The panel
+ * shows before its contents' chunk arrives, so wait for the column too.
  */
 async function openAt(path: string) {
   resetApp('advanced')
   history.replaceState(null, '', path)
   const screen = await render(<App />)
   await expect.element(screen.getByRole('tabpanel')).toBeVisible()
+  await expect.poll(() => screen.container.querySelector('.fw-docs-toc')).not.toBeNull()
   return screen
 }
 
@@ -135,19 +137,94 @@ function inView(container: HTMLElement): string[] {
   return [...container.querySelectorAll('.fw-docs-toc [aria-current="true"]')].map((a) => a.textContent)
 }
 
-// The navigation is a 200px column beside the page, 32px from it, and the page
-// is a reading column of at most 110ch (792px at 1280 and up). The width is
-// read against the sheet's own `110ch`, so a font change moves both.
-test('at 1280×800 the navigation is a 200px column beside a 110ch page', async () => {
-  await page.viewport(1280, 800)
+// The navigation is a 220px column beside the page, 56px from it; the page is
+// at most 1040px and its prose at most 100ch. 1440, because at 1280 the page
+// is narrower than its cap. The prose is read against the sheet's own `100ch`,
+// so a font change moves both.
+test('at 1440×900 the navigation is a 220px column beside a 1040px page of 100ch prose', async () => {
+  await page.viewport(1440, 900)
+  const screen = await openAt('/docs/element')
+  const nav = rect(screen.container, '.fw-docs-toc')
+  const body = rect(screen.container, '.fw-docs-body')
+  expect(nav.width).toBe(220)
+  expect(body.left - nav.right).toBe(56)
+  expect(nav.top).toBeCloseTo(body.top, 0)
+  expect(body.width).toBe(1040)
+  const prose = box(screen.container, '.fw-docs-body > p')
+  const cap = Number.parseFloat(getComputedStyle(prose).maxWidth)
+  expect(cap).toBeLessThan(1040)
+  expect(prose.getBoundingClientRect().width).toBeCloseTo(cap, 0)
+}, 40_000)
+
+// Under 1024 the column narrows to 200px and the gap to 36px.
+test('at 924×768 the navigation is a 200px column, 36px from the page', async () => {
+  await page.viewport(924, 768)
   const screen = await openAt('/docs/element')
   const nav = rect(screen.container, '.fw-docs-toc')
   const body = rect(screen.container, '.fw-docs-body')
   expect(nav.width).toBe(200)
-  expect(body.left - nav.right).toBe(32)
-  expect(nav.top).toBeCloseTo(body.top, 0)
-  const cap = Number.parseFloat(getComputedStyle(box(screen.container, '.fw-docs-body')).maxWidth)
-  expect(body.width).toBeCloseTo(cap, 0)
+  expect(body.left - nav.right).toBe(36)
+}, 40_000)
+
+// The Element page's fifteen sections, under two pages' worth of others, do
+// not fit a 540px window: the column scrolls by itself instead of the page,
+// and keeps the section in view in sight as the reader goes down.
+test('at 924×540 the navigation scrolls by itself and keeps the section in view in sight', async () => {
+  await page.viewport(924, 540)
+  const screen = await openAt('/docs/element')
+  const panel = box(screen.container, '#docs-panel')
+  const toc = box(screen.container, '.fw-docs-toc')
+  /**
+   * The marked link lies wholly inside the column's visible box. 1px of slack:
+   * the panel starts at a fractional y and `scrollTop` is whole, so the list's
+   * last link at the end of its scroll stands out by under a pixel.
+   */
+  const sighted = () => {
+    const link = toc.querySelector('[aria-current="true"]')
+    if (link === null) return false
+    const shown = toc.getBoundingClientRect()
+    const at = link.getBoundingClientRect()
+    return at.top >= shown.top - 1 && at.bottom <= shown.bottom + 1
+  }
+  await expect.poll(() => inView(screen.container)).toEqual(['Using it'])
+  expect(toc.clientHeight).toBeLessThanOrEqual(panel.clientHeight)
+  expect(toc.scrollHeight).toBeGreaterThan(toc.clientHeight)
+  // The first section of the third page is already below the column's first screen.
+  await expect.poll(sighted).toBe(true)
+  const start = toc.scrollTop
+  expect(start).toBeGreaterThan(0)
+  // To the last section's heading, as the section tracking's own test does.
+  const last = [...screen.container.querySelectorAll('.fw-docs-body h3[id]')].at(-1)
+  if (last === undefined) throw new Error('the page has no sections')
+  panel.scrollTo({ top: panel.scrollTop + below(screen.container, last.id) - 20 })
+  await expect.poll(() => inView(screen.container)).toEqual([last.textContent])
+  await expect.poll(() => toc.scrollTop).toBeGreaterThan(start)
+  await expect.poll(sighted).toBe(true)
+  // Only the column moved to follow: the panel is where the reader left it.
+  expect(below(screen.container, last.id)).toBeCloseTo(20, 0)
+}, 40_000)
+
+// Copy stands beside its block, never over a line, and a command and its
+// output stand 8px apart as one exchange.
+test('at 1280×800 every Copy stands beside its block, and paired blocks stand 8px apart', async () => {
+  await page.viewport(1280, 800)
+  const screen = await openDocs('cli')
+  const blocks = [...screen.container.querySelectorAll('.fw-docs-block')]
+  expect(blocks.length).toBeGreaterThan(0)
+  for (const block of blocks) {
+    const pre = block.querySelector('pre')
+    const copy = block.querySelector('.fw-docs-copy')
+    if (pre === null || copy === null) throw new Error('a block without its pre or Copy')
+    expect(pre.getBoundingClientRect().right).toBeLessThanOrEqual(copy.getBoundingClientRect().left)
+  }
+  const pairs = blocks.filter((block) => block.nextElementSibling?.classList.contains('fw-docs-block'))
+  expect(pairs.length).toBeGreaterThan(0)
+  for (const block of pairs) {
+    const next = block.nextElementSibling?.querySelector('pre')
+    const pre = block.querySelector('pre')
+    if (pre === null || next === null || next === undefined) throw new Error('a pair without its pre')
+    expect(next.getBoundingClientRect().top - pre.getBoundingClientRect().bottom).toBeCloseTo(8, 0)
+  }
 }, 40_000)
 
 // A section of the other page is one click: the page changes and the panel —
@@ -220,7 +297,7 @@ test('the navigation stays at the top of the panel while the page scrolls', asyn
 
 // Under 768 the column stands over the page, not sticky, and lists the sections
 // of the page on screen only, every link a finger's 44px. At 375×812 the page
-// is 324px wide.
+// is 332px wide.
 test.each(['en', 'pl'] as const)(
   'at 375×812 (%s) the column stands over the page',
   async (lang) => {
@@ -233,34 +310,39 @@ test.each(['en', 'pl'] as const)(
     const nav = rect(screen.container, '.fw-docs-toc')
     const body = rect(screen.container, '.fw-docs-body')
     expect(nav.bottom).toBeLessThanOrEqual(body.top)
-    // 324px assumes a classic 11px scrollbar; the headless runner's overlay
+    // 332px assumes a classic 11px scrollbar; the headless runner's overlay
     // scrollbars take none, so the page is the panel's content box.
     const panel = box(screen.container, '#docs-panel')
     const pad = Number.parseFloat(getComputedStyle(panel).paddingLeft) * 2
     expect(body.width).toBeCloseTo(panel.clientWidth - pad, 0)
-    expect(body.width).toBeGreaterThanOrEqual(324)
+    expect(body.width).toBeGreaterThanOrEqual(332)
     const shown = [...screen.container.querySelectorAll('.fw-docs-toc a')].filter((a) => a.getClientRects().length > 0)
     expect(shown).toHaveLength(4 + 15)
     for (const a of shown) expect(a.getBoundingClientRect().height, a.textContent ?? '').toBe(44)
-    expect(getComputedStyle(box(screen.container, '.fw-docs-toc')).position).toBe('static')
+    const toc = box(screen.container, '.fw-docs-toc')
+    expect(getComputedStyle(toc).position).toBe('static')
+    expect(toc.scrollHeight).toBe(toc.clientHeight)
     expect(scroller().scrollWidth).toBe(scroller().clientWidth)
   },
   40_000,
 )
 
-// The document never scrolls sideways, at the eight supported widths, on every
-// page, in both languages.
+// Neither the document nor the panel scrolls sideways, at the eight supported
+// widths and a low window, on every page, in both languages. At 924 the Element
+// page's three boards side by side leave a column too narrow for Copy and
+// Open in lab on one row in Polish.
 test.each([
   [1920, 1080],
   [1440, 900],
   [1280, 800],
   [1024, 768],
   [924, 768],
+  [924, 540],
   [768, 1024],
   [600, 900],
   [375, 812],
 ] as const)(
-  'at %i×%i no page scrolls the document sideways, in either language',
+  'at %i×%i no page scrolls the document or the panel sideways, in either language',
   async (w, h) => {
     await page.viewport(w, h)
     const screen = await openAt('/docs/element')
@@ -289,6 +371,8 @@ test.each([
           .toBe(lang === 'pl' ? 'Strony dokumentacji' : 'Documentation pages')
         expect(scroller().clientWidth, `${which} ${lang}`).toBe(w)
         expect(scroller().scrollWidth, `${which} ${lang}`).toBe(w)
+        const panel = box(screen.container, '#docs-panel')
+        expect(panel.scrollWidth, `${which} ${lang} panel`).toBe(panel.clientWidth)
       }
     }
   },
