@@ -188,8 +188,8 @@ lacks fails there.
 `DocsTabs.tsx` follows the WAI-ARIA tabs pattern the way `shell/TabRow.tsx`
 does:
 
-- a `div role="tablist"` named by the dictionary (`docsTabsFramework`: EN
-  "Framework", PL "Framework");
+- a `div role="tablist"` named by the Docs dictionary (`Docs.frameworkLabel`:
+  EN "Framework", PL "Framework");
 - one `button role="tab"` per tab, `aria-selected`, roving `tabIndex` (0 on the
   selected tab, -1 on the rest), `aria-controls` on the selected tab only;
 - ← and → move the selection and the focus and wrap, Home and End jump:
@@ -243,9 +243,9 @@ page's tables).
 ## 4. The fields table from code
 
 `BOARD_FILE_FIELDS` in `packages/engine/lab-docs.ts`: `{ key, type }` per
-field, typed `keyof BoardFile`. `lab-docs.test.ts` reads `BoardFile` through
-`deno doc --json` and requires the same fields, in the same order, with the
-same type text, both ways. `DocsTable` renders `board-file` as the other code
+field, typed `keyof BoardFile`. The engine's `readme.test.ts`, which already
+reads the API through `deno doc --json`, requires the same fields of
+`BoardFile`, in the same order, with the same type text, both ways. `DocsTable` renders `board-file` as the other code
 tables do (`Mono` for the key and the type, `InlineMarkdown` for the
 description).
 
@@ -259,8 +259,9 @@ description).
   a file name repeated in a panel.
 - `codeTokens.test.ts`: each language's colours on a short input; the
   round-trip over every block of every page.
-- `lab-docs.test.ts`: the fields guard; a field added to `BoardFile` and not to
-  the rows fails it.
+- `readme.test.ts` (engine): the fields guard; a field added to `BoardFile` and
+  not to the rows fails it. `lab-docs.test.ts`: every field is described in both
+  languages and translated.
 - `ui.slice.test.ts`: `setDocsTab` writes, the start reads, an unknown value
   falls back.
 
