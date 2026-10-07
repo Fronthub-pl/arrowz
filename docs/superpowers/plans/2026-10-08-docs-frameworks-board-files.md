@@ -159,7 +159,7 @@ In `const PL`, at the same two places:
   },
 ```
 
-and after `infoLabel: 'Uwaga',`: `frameworkLabel: 'Framework',`.
+and after `infoLabel: 'Uwaga',`: `frameworkLabel: 'Wybór frameworka',`. (The test "the frame around the tables is translated too" requires every frame string to differ between the languages.)
 
 The file header forbids naming the browser's key-value store by its API name in prose (`neutral.test.ts`); none of the strings above does.
 
@@ -204,12 +204,19 @@ Deno.test('every board-file field is described in both languages, and translated
 })
 ```
 
+In the same file, the comment above `the frame around the tables is translated too` counts the frame strings; change its last two lines to:
+
+```ts
+// object, so a field added to `Docs` later is covered too. Thirty-four strings exist
+// today (thirty-two `col*`, `infoLabel` and `frameworkLabel`); the floor catches a filter that finds none.
+```
+
 In `packages/engine/glossary.test.ts`, function `docsRows`, add `'boardFile',` after `'classes',` in the list of groups.
 
 - [ ] **Step 7: Run the engine's tests**
 
 Run: `deno task test`
-Expected: PASS (all engine and CLI tests).
+Expected: PASS (all engine and CLI tests). `deno fmt` in Step 9 may rewrap the longer strings; commit what it writes.
 
 - [ ] **Step 8: Mutation.** In `BOARD_FILE_FIELDS` change `{ key: 'v', type: '1' }` to `{ key: 'v', type: 'number' }`; run `deno test --allow-read --allow-write --allow-env --allow-run --allow-net packages/engine/readme.test.ts`; expect the board-file case to FAIL naming `v: number` against `v: 1`. Undo the edit by hand. Then swap the `W` and `H` rows; expect FAIL; undo by hand.
 
@@ -327,6 +334,13 @@ describe('a TSX block', () => {
     expect(inColour(tokens, 'str')).toEqual(["'80vh'"])
   })
 
+  // A self-closing element ends at its `/>`: the script after it is script again.
+  test('a self-closing element ends at its slash', () => {
+    const tokens = highlight('tsx', 'const a = <b />\nconst c = 1') ?? []
+    expect(inColour(tokens, 'kw')).toEqual(['const', 'const'])
+    expect(inColour(tokens, 'num')).toEqual(['1'])
+  })
+
   // A `<` after a name is a type argument, not an element.
   test('a type argument is not an element', () => {
     const generic = highlight('tsx', 'const [a, b] = useState<string | null>(null)') ?? []
@@ -399,7 +413,7 @@ test('a language the page shows plain has no colours', () => {
 - [ ] **Step 2: Run them to see them fail**
 
 Run: `cd apps/lab && pnpm vitest run --project node src/docs/codeTokens.test.ts`
-Expected: FAIL — `highlight` is not exported.
+Expected: FAIL — `TypeError: highlight is not a function`.
 
 - [ ] **Step 3: Implement.** In `apps/lab/src/docs/codeTokens.ts`:
 
@@ -451,6 +465,7 @@ const TS_KEYWORDS = new Set([
   'void',
   'in',
   'of',
+  'instanceof',
 ])
 ```
 
@@ -641,7 +656,8 @@ function scanJsx(code: string, start: number, out: CodeToken[], keywords: Readon
 type Flavour = 'html' | 'vue' | 'svelte'
 
 const SCRIPTS: Record<Flavour, TagScripts> = {
-  html: { keywords: JS_KEYWORDS, braces: false, jsx: false, quoted: () => false },
+  // TypeScript's words in HTML too: a module script uses `if`, `try` and `catch` like any other.
+  html: { keywords: TS_KEYWORDS, braces: false, jsx: false, quoted: () => false },
   vue: { keywords: TS_KEYWORDS, braces: false, jsx: false, quoted: (attr) => /^(?::|@|v-)/.test(attr) },
   svelte: { keywords: TS_KEYWORDS, braces: true, jsx: false, quoted: () => false },
 }
@@ -704,9 +720,9 @@ export function highlight(lang: string | null | undefined, code: string): CodeTo
 Run: `cd apps/lab && pnpm vitest run --project node src/docs/codeTokens.test.ts`
 Expected: PASS, the existing `the example` cases included — the HTML example's colours do not change.
 
-- [ ] **Step 5: Mutation.** In `JSX_AFTER` delete `'return'`; run the TSX case; expect FAIL (no `arrowz-board` tag). Undo by hand. In `SCRIPTS.vue.quoted` return `false`; expect the Vue case to FAIL (`ready` and `onPiece` lose their script scan, `"ready"` turns up as `str`). Undo by hand.
+- [ ] **Step 5: Mutation.** In `JSX_AFTER` delete `'return'`; run the TSX case; expect FAIL (no `arrowz-board` tag). Undo by hand. In `SCRIPTS.vue.quoted` return `false`; expect the Vue case to FAIL (`ready` and `onPiece` lose their script scan, `"ready"` turns up as `str`). Undo by hand. In `scanTag` never set `empty`; expect "a self-closing element ends at its slash" to FAIL. Undo by hand.
 
-- [ ] **Step 6: Type-check, lint, format**
+- [ ] **Step 6: Type-check, lint, format** (Prettier rewraps some of the plan's long lines; commit what it writes)
 
 ```bash
 cd apps/lab && npx prettier --write src/docs/codeTokens.ts src/docs/codeTokens.test.ts && cd ../.. && pnpm nx run lab:check --skip-nx-cache && pnpm nx run lab:lint --skip-nx-cache
@@ -794,6 +810,8 @@ describe('tab directives', () => {
     ['a heading in a tab', all('### Heading'), 'a tab holds paragraphs, lists and code only'],
     ['a group in a tab', all(all()), 'a tab holds paragraphs, lists and code only'],
     ['a tab on its own', tab('html'), 'stands only in a ::::tabs'],
+    ['a tab with a label', all().replace(':::tab{id="react"}', ':::tab[React]{id="react"}'), ':::tab takes no label'],
+    ['an empty tab', all().replace(':::tab{id="vue"}\nProse.\n:::', ':::tab{id="vue"}\n:::'), 'an empty tab'],
     ['two unnamed blocks in a tab', all('```ts\nx\n```\n\n```ts\ny\n```'), 'names every code block but one by its file'],
     ['one file name twice in a tab', all('```ts a.ts\nx\n```\n\n```ts a.ts\ny\n```'), 'a file name twice'],
     ['a meta of two words', all('```ts a b\nx\n```'), "a code block's meta is one file name"],
@@ -943,6 +961,10 @@ function tabsProblems(node: ContainerDirective, at: string): string[] {
 function tabProblems(node: ContainerDirective, at: string, parent: Nodes | null): string[] {
   const out: string[] = []
   if (parent?.type !== 'containerDirective' || parent.name !== 'tabs') out.push(`${at}: :::tab stands only in a ::::tabs`)
+  // A `[label]` parses as a first paragraph flagged `directiveLabel`, which the page would show as prose.
+  if (node.children.some((child) => child.type === 'paragraph' && child.data?.directiveLabel === true))
+    out.push(`${at}: :::tab takes no label`)
+  if (node.children.length === 0) out.push(`${at}: an empty tab`)
   if (!node.children.every((child) => PANEL.has(child.type)))
     out.push(`${at}: a tab holds paragraphs, lists and code only`)
   const names = node.children.flatMap((child) => (child.type === 'code' ? [child.meta ?? null] : []))
@@ -1153,11 +1175,14 @@ const group = (word: string) =>
 
 const PAGE = parseDocs(['# T', '## Part {#part}', group('one'), 'Between.', group('two')].join('\n\n'))
 
+// `.fw-docs` as on the page: its paragraph rule competes with the caption's.
 const mount = (width?: number) =>
   renderAt(
-    <div className="fw-docs-body" style={width === undefined ? undefined : { width: `${width}px` }}>
-      <DocsMarkdown root={PAGE} />
-    </div>,
+    <section className="fw-docs">
+      <div className="fw-docs-body" style={width === undefined ? undefined : { width: `${width}px` }}>
+        <DocsMarkdown root={PAGE} />
+      </div>
+    </section>,
   )
 
 const selected = (container: HTMLElement) =>
@@ -1197,6 +1222,28 @@ test('only the chosen panel is in the document, labelled by its tab', async () =
     expect(tab?.getAttribute('aria-controls')).toBe(panel.id)
   }
   expect(screen.container.querySelectorAll('[role="tab"][aria-controls]')).toHaveLength(2)
+  // A panel with no control of its own is a Tab stop, so the keyboard reaches its text.
+  for (const panel of panels) expect(panel.getAttribute('tabindex')).toBe('0')
+})
+
+test('every id on the page is unique, and each panel belongs to its own group', async () => {
+  const screen = await mount()
+  const ids = [...screen.container.querySelectorAll('[id]')].map((el) => el.id)
+  expect(new Set(ids).size).toBe(ids.length)
+  for (const panel of screen.container.querySelectorAll('[role="tabpanel"]')) {
+    const tab = document.getElementById(panel.getAttribute('aria-labelledby') ?? '')
+    expect(tab?.closest('.fw-docs-tabs')).toBe(panel.closest('.fw-docs-tabs'))
+  }
+})
+
+// Unhandled, an arrow key would scroll the page sideways under the strip.
+test('an arrow key on a tab is the strip\'s, not the page\'s', async () => {
+  const screen = await mount()
+  const tab = screen.container.querySelector<HTMLElement>('[role="tab"]')
+  if (tab === null) throw new Error('no tab')
+  const key = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })
+  await act(async () => tab.dispatchEvent(key))
+  expect(key.defaultPrevented).toBe(true)
 })
 
 test('choosing a tab in one group chooses it in every group', async () => {
@@ -1257,6 +1304,10 @@ test('a block is captioned and copied by its file name, or by its section and ta
     'a.d.ts',
     'a.d.ts',
   ])
+  const caption = screen.container.querySelector('.fw-docs-file')
+  if (caption === null) throw new Error('no caption')
+  expect(getComputedStyle(caption).marginBottom).toBe('6px')
+  expect(getComputedStyle(caption).fontSize).toBe('12px')
   await screen.getByRole('button', { name: 'Copy: a.d.ts' }).first().click()
   expect(write).toHaveBeenCalledWith('const a = 1')
 })
@@ -1329,7 +1380,7 @@ export function DocsTabs({
     0,
     tabs.findIndex((tab) => tab.id === chosen),
   )
-  // `tabs[0]` always exists: a group's tabs are a non-empty tuple.
+  // `current` is already inside the tuple; `?? tabs[0]` only satisfies the index type.
   const selected = tabs[current] ?? tabs[0]
   const content = node.children.find(
     (child) => child.type === 'containerDirective' && child.name === 'tab' && child.attributes?.['id'] === selected.id,
@@ -1364,7 +1415,14 @@ export function DocsTabs({
           </button>
         ))}
       </div>
-      <div className="fw-docs-tabpanel" role="tabpanel" id={`${base}-panel`} aria-labelledby={`${base}-${selected.id}`}>
+      <div
+        className="fw-docs-tabpanel"
+        role="tabpanel"
+        id={`${base}-panel`}
+        aria-labelledby={`${base}-${selected.id}`}
+        // A panel of prose has no control of its own; as in `Workspace`, the panel is the Tab stop.
+        tabIndex={0}
+      >
         {content?.type === 'containerDirective' ? panel(content, selected.label) : null}
       </div>
     </div>
@@ -1548,7 +1606,8 @@ Add `'board-file'` to the `DocsTable` header comment's list only if the comment 
   color: var(--ink);
   border-bottom-color: var(--signal);
 }
-.fw-docs-file {
+/* `p.` because `.fw-docs p` sets every paragraph's margin and size. */
+.fw-docs p.fw-docs-file {
   margin: 0 0 6px;
   color: var(--ash);
   font-family: var(--mono);
@@ -1570,7 +1629,7 @@ cd apps/lab && pnpm vitest run --project chromium src/docs/DocsTabs.browser.test
 
 Expected: PASS. `ElementPage` passes untouched: its page has no tabs and no named block yet.
 
-- [ ] **Step 9: Mutation.** (a) In `DocsTabs` read `chosen` from a `useState` local to the component instead of the store; "choosing a tab in one group chooses it in every group" FAILS. Undo by hand. (b) Delete `overflow-x: auto` from `.fw-docs-tablist`; the narrow-width case FAILS. Undo by hand. (c) In `CodeView` name every block after `title` alone; the Copy case FAILS. Undo by hand.
+- [ ] **Step 9: Mutation.** (a) In `DocsTabs` read `chosen` from a `useState` local to the component instead of the store; "choosing a tab in one group chooses it in every group" FAILS. Undo by hand. (b) Delete `overflow-x: auto` from `.fw-docs-tablist`; the narrow-width case FAILS. Undo by hand. (c) In `CodeView` name every block after `title` alone; the Copy case FAILS. Undo by hand. (d) Make `base` a constant string; the unique-id case FAILS. Undo by hand. (e) Drop `p` from `.fw-docs p.fw-docs-file`; the caption case FAILS on `16px`. Undo by hand. (f) Remove `event.preventDefault()` from `onKeyDown`; the arrow-key case FAILS. Undo by hand.
 
 - [ ] **Step 10: Check, lint, format, commit**
 
@@ -1585,6 +1644,8 @@ The `--project node` run covers `design/*.test.ts`, which pin CSS values (`docs.
 ---
 
 ### Task 6: Prove every example in a real project, outside the repository
+
+**Executed in plan review round 1 at `5a44025`: every example PASSED as written and every control showed the failure the prose describes.** Re-run it during execution only if Task 7's code blocks change. Harness notes from that run: jsdom has no `ResizeObserver` (stub it, or the element's `connectedCallback` throws an unhandled error while the tests still pass); Svelte under Vitest needs `resolve.conditions: ['browser']`, or `mount()` throws `lifecycle_function_unavailable`.
 
 This task changes no file in the repository. It builds the element, installs it into one throwaway project per framework under `/tmp/arrowz-docs-examples`, and proves each example of Task 7 as written there. Its deliverable is a report: for each example, PASS, or the exact change it needed. An example that needs a change is changed in this plan's Task 7 text by the controller before Task 7 starts.
 
@@ -1607,7 +1668,7 @@ ls /tmp/arrowz-docs-examples/packs
 `pnpm pack` rewrites `workspace:*` to the version, which `npm pack` would not. Expected: two `.tgz` files. Install both tarballs in every project below.
 
 - [ ] **Step 2: Angular 22 — compile under strict templates.** In `/tmp/arrowz-docs-examples/angular`: `npm init -y`, then `npm i @angular/core@22 @angular/common@22 @angular/compiler@22 @angular/compiler-cli@22 @angular/platform-browser@22 rxjs typescript@~6.0 ../packs/*.tgz`. Write `tsconfig.json` with `"strict": true`, `"module": "es2022"`, `"moduleResolution": "bundler"`, `"target": "es2022"`, `"lib": ["es2022", "dom"]`, `"angularCompilerOptions": { "strictTemplates": true }`, `"files"` naming the two component files. Put `board.component.ts` (Task 7 Step 2) and `stored-board.component.ts` with `load-board.ts` (Task 7 Step 3) beside it. Run `npx ngc -p tsconfig.json`.
-Expected: exit 0. Then delete the `import type` line of `board.component.ts` and run again; expected: `TS2339: Property 'detail' does not exist on type 'Event'` — the sentence on the Angular tab rests on this. Put the line back.
+Expected: exit 0. Control for the sentence on the Angular tab: replace the `import type` line with a local `type PieceClickEvent = CustomEvent<{ pieceId: number }>` and `type BoardData = unknown`, keep the `import()`, and expect exit 0 (the dynamic import alone types `$event`); then also remove the `afterNextRender` line and expect `TS2345` (`Event` is not assignable to `PieceClickEvent`). Restore the file.
 
 - [ ] **Step 3: React 19 — type-check, then run.** In `/tmp/arrowz-docs-examples/react`: `npm i react@19 react-dom@19 @types/react@19 @types/react-dom@19 typescript@~6.0 jsdom vitest ../packs/*.tgz`. Put `arrowz-board.d.ts` and `Board.tsx` (Task 7 Step 2), `load-board.ts` and `StoredBoard.tsx` (Task 7 Step 3) in `src/`. Type-check with `npx tsc --noEmit --strict --jsx react-jsx --module esnext --moduleResolution bundler --target es2022 --lib es2022,dom src/*.ts src/*.tsx`. Expected: exit 0.
 Then a vitest test in jsdom (`// @vitest-environment jsdom`) that renders `<Board />` with `react-dom/client` inside `act`, waits until `document.querySelector('arrowz-board')` exists, and asserts: `customElements.get('arrowz-board')` is defined; `el.board` is an object with `W === 50`; `el.hasAttribute('board') === false`; `el.interactive === true`; dispatching `new CustomEvent('piece-click', { detail: { pieceId: 3 } })` on it reaches the handler (spy on `console.log`, expect `('piece', 3)`). For `StoredBoard`, stub `globalThis.fetch` to answer the JSON of `encodeBoard(generate({ ...defaultParams(), W: 12, H: 12, seed: 7 }).board)` and assert `el.board.W === 12`; stub it to answer `{ "format": "x" }` and assert a `role="alert"` paragraph whose text starts with `not a board file`.
@@ -1703,7 +1764,7 @@ Import the package once, which registers the tag. Then give the element a size a
 ```
 :::
 :::tab{id="angular"}
-The type import from the package is what types `$event.detail` under `strictTemplates`.
+Any import of the package, the `import()` included, brings its event types into the program, so under `strictTemplates` the template's `$event` is a `PieceClickEvent`; the type import only names it for the method.
 
 ```ts board.component.ts
 import { afterNextRender, Component, CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core'
@@ -2001,24 +2062,24 @@ A game in progress is not part of the file: `saveState()` and `loadState()` keep
 
 - [ ] **Step 3: The same section, Polish.** In `apps/lab/docs-content/pl/element.md`, replace from `## Jak użyć {#example}` up to (not including) `## Właściwości {#props}`. Every code block, its language and its file name are **identical** to Step 2 (the shape guard compares them); only the prose changes:
 
-- Lead: `Zaimportuj pakiet raz, a import zarejestruje znacznik. Potem nadaj komponentowi rozmiar i daj mu planszę. Zakładki pokazują tę samą planszę w czystym HTML i w czterech frameworkach; wybrana zakładka jest wybrana we wszystkich grupach zakładek na tych stronach.`
-- Angular tab: `Import typu z pakietu nadaje typ `$event.detail` przy `strictTemplates`.`
+- Lead: `Zaimportuj pakiet raz, a import zarejestruje znacznik. Potem nadaj komponentowi rozmiar i daj mu planszę. Zakładki pokazują tę samą planszę w czystym HTML i w czterech frameworkach; wybór obowiązuje we wszystkich grupach zakładek na tych stronach.`
+- Angular tab: `Każdy import pakietu, także ten przez `import()`, wprowadza do programu jego typy zdarzeń, więc przy `strictTemplates` `$event` w szablonie ma typ `PieceClickEvent`; import typu tylko nazywa go w metodzie.`
 - React tab: `React 19 sam wiąże komponenty webowe, więc `@lit/react` nie jest potrzebne. Plik deklaracji nadaje znacznikowi typ w JSX.`
 - Vue tab: `` `shallowRef` sprawia, że Vue nie opakowuje każdej strzałki planszy w reaktywne proxy. ``
 - After the first `::::`: `Bez względu na framework obowiązują trzy reguły. Zdefiniuj komponent, zanim framework pierwszy raz ustawi `board`: React i Vue przekazują obiekt do właściwości tylko wtedy, gdy komponent już ją ma, a w przeciwnym razie zapisują go jako atrybut, który komponent pomija. Dlatego przykłady renderują znacznik dopiero po zakończeniu importu. Nie przekazuj `false` do `interactive` ani `play`, zanim komponent zostanie zdefiniowany: Vue i Svelte zapiszą wtedy atrybut `interactive="false"`, a obecny atrybut logiczny znaczy „włączone”. I importuj pakiet tylko w przeglądarce, nigdy przy renderowaniu na serwerze: komponent rysuje przez WebGL.`
 - Heading: `## Pliki planszy {#files}`
-- `Plansza podróżuje i leży w magazynie jako plik planszy, `.board.json`: zapisuje go wiersz poleceń, trzyma je magazyn plansz laboratorium, a `encodeBoard` robi go z każdej planszy. To obiekt JSON, który da się przeczytać — rozmiar, liczniki i odcisk — wokół spakowanego `body`, które czyta tylko `decodeBoard`.`
+- `Plansza podróżuje i leży w magazynie jako plik planszy, `.board.json`: zapisuje go wiersz poleceń, trzyma go magazyn plansz laboratorium, a `encodeBoard` robi go z każdej planszy. To obiekt JSON, który da się przeczytać — rozmiar, liczniki i odcisk — wokół spakowanego `body`, które czyta tylko `decodeBoard`.`
 - `::table{of="board-file"}`
-- `Plik to nie plansza. `board` przyjmuje `BoardData`, którego `owner` to `Int32Array`, a JSON nie ma takiego typu: `JSON.stringify` zrobiłby z niej obiekt z numerowanymi kluczami. Plik to postać, w której plansza podróżuje i leży w magazynie, a `BoardData` to postać, z której rysuje komponent. Plik pobrany z serwera albo odczytany z bazy danych potrzebuje więc czterech kroków, żeby trafić do komponentu:`
+- `Plik to nie plansza. `board` przyjmuje `BoardData`, którego `owner` to `Int32Array`, a JSON nie ma takiego typu: `JSON.stringify` zrobiłby z niego obiekt z numerowanymi kluczami. Plik to postać, w której plansza podróżuje i leży w magazynie, a `BoardData` to postać, z której rysuje komponent. Plik pobrany z serwera albo odczytany z bazy danych potrzebuje więc czterech kroków, żeby trafić do komponentu:`
 - The list, four items:
-  1. `Miej plik jako obiekt. Z serwera to `await response.json()`. Kolumna JSON albo JSONB zwykle przychodzi już jako obiekt, a kolumna tekstowa wymaga `JSON.parse`.`
+  1. `Zacznij od pliku jako obiektu. Z serwera to `await response.json()`. Kolumna JSON albo JSONB zwykle przychodzi już jako obiekt, a kolumna tekstowa wymaga `JSON.parse`.`
   2. `Przekaż go do `decodeBoard` z `@arrowz/engine`, w przeglądarce, tam gdzie jest komponent. Funkcja przyjmuje dowolną wartość i sprawdza ją całą, odcisk na końcu, więc dane z zewnątrz nie potrzebują własnego schematu. `decodeBoardFile` oddaje też sam plik, z typem.`
   3. `Złap `BoardFileError`: jego `message` mówi, co jest nie tak z plikiem.`
   4. `Przypisz wynik do `board`.`
 - The `load-board.ts` block.
 - `Te same kroki w każdym frameworku, z powodem pokazanym, gdy pliku nie da się odczytać:`
 - The second tab group; its Svelte tab's sentence: `` `$state.raw` sprawia, że Svelte nie opakowuje planszy w reaktywne proxy. ``
-- `Serwer albo baza danych trzyma plik takim, jaki jest, i takim go wysyła: dekodowanie po ich stronie trzeba by cofnąć, żeby przesłać planszę dalej. Nagłówek da się czytać bez dekodowania — `W`, `H` i `pieces` do listy, `fingerprint`, żeby odróżnić plansze — a wiersz poleceń nazywa każdy plik przez `layoutHash`, nazwę, która dla tych samych strzałek jest zawsze ta sama. Żeby zapisać planszę, którą masz, wyślij `JSON.stringify(encodeBoard(board))`.`
+- `Serwer albo baza danych trzyma plik takim, jaki jest, i takim go wysyła: dekodowanie po ich stronie trzeba by cofnąć, żeby przesłać planszę dalej. Nagłówek da się czytać bez dekodowania — `W`, `H` i `pieces` do listy, `fingerprint`, żeby odróżnić plansze — a wiersz poleceń nadaje każdemu plikowi nazwę z `layoutHash`, która dla tych samych strzałek jest zawsze ta sama. Żeby zapisać planszę, którą masz, wyślij `JSON.stringify(encodeBoard(board))`.`
 - `Gra w toku nie jest częścią pliku: trzymają ją osobno `saveState()` i `loadState()` ([rozgrywka](docs:element#play)).`
 
 - [ ] **Step 4: The element's README.** In `packages/board-element/README.md`, replace the two lines after the Usage example (`Angular: add …` and `React: wrap …`) with:

@@ -34,9 +34,9 @@ tab holds more than one file:
 | Vue | `vite.config.ts` (`ts`), `Board.vue` (`vue`) | `isCustomElement` in the Vue plugin's compiler options; `v-if="ready"`, `:board`, `@piece-click` |
 | Svelte | `Board.svelte` (`svelte`) | `onMount` with `import()`, `{board}`, `onpiece-click` |
 
-Each tab adds at most two sentences of prose: Angular, that a type import from
-the package (`import type { ArrowzBoard } from '@arrowz/board-element'`) is
-what types `$event.detail` under `strictTemplates`; React, that `@lit/react`
+Each tab adds at most two sentences of prose: Angular, that any import of the
+package, the `import()` included, brings its event types into the program, so
+`$event` is a `PieceClickEvent` under `strictTemplates`; React, that `@lit/react`
 is optional, since React 19 binds custom elements itself.
 
 Under the tabs, one paragraph states the rule every framework shares (2.2):
@@ -189,7 +189,7 @@ lacks fails there.
 does:
 
 - a `div role="tablist"` named by the Docs dictionary (`Docs.frameworkLabel`:
-  EN "Framework", PL "Framework");
+  EN "Framework", PL "Wybór frameworka");
 - one `button role="tab"` per tab, `aria-selected`, roving `tabIndex` (0 on the
   selected tab, -1 on the rest), `aria-controls` on the selected tab only;
 - ← and → move the selection and the focus and wrap, Home and End jump:
