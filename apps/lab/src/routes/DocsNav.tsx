@@ -1,9 +1,12 @@
-import type { ReactElement } from 'react'
+import { type ReactElement, useEffect, useRef } from 'react'
 import { Link, NavLink, useLocation } from 'react-router'
 import { docsPage } from '../docs/content'
 import { DOCS_PAGE_NAMES, DOCS_PAGES, pageOf } from '../docs/pages'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
+
+/** How far from the list's edge the section in view is kept when the list scrolls by itself. */
+const KEEP = 24
 
 /**
  * The section a navigation asked for, carried in the router's state rather
@@ -33,14 +36,39 @@ export function sectionOf(state: unknown): string | null {
  *
  * Under 768 the column stands over the page and lists the sections of the
  * page on screen only; `on` is the class that tells the sheet which.
+ *
+ * On a low window the column is a list that scrolls by itself, and it follows
+ * the page and the window: the section in view is kept in sight by moving the
+ * list alone, when the section changes and when the list is resized.
+ * Not `scrollIntoView`, which would scroll the panel too and so change the
+ * section in view under the reader.
  */
 export function DocsNav({ section }: { section?: string | undefined }): ReactElement {
   const dict = useDictionary()
   const lang = useStore((state) => state.lang.lang)
   const location = useLocation()
   const current = pageOf(location.pathname)
+  const nav = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const toc = nav.current
+    if (toc === null || section === undefined) return
+    const follow = () => {
+      if (toc.scrollHeight <= toc.clientHeight) return
+      const link = toc.querySelector('[aria-current="true"]')
+      if (link === null) return
+      const box = toc.getBoundingClientRect()
+      const at = link.getBoundingClientRect()
+      if (at.top < box.top + KEEP) toc.scrollTop -= box.top + KEEP - at.top
+      else if (at.bottom > box.bottom - KEEP) toc.scrollTop += at.bottom - (box.bottom - KEEP)
+    }
+    follow()
+    // A window made lower shortens the list under a section that has not changed.
+    const observer = new ResizeObserver(follow)
+    observer.observe(toc)
+    return () => observer.disconnect()
+  }, [section, current, lang])
   return (
-    <nav className="fw-docs-toc" aria-label={dict.t('docsNavLabel')}>
+    <nav ref={nav} className="fw-docs-toc" aria-label={dict.t('docsNavLabel')}>
       <ul>
         {DOCS_PAGES.map((page) => (
           <li key={page} className={page === current ? 'pg on' : 'pg'}>

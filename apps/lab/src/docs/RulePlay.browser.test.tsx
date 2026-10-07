@@ -11,8 +11,15 @@ import '../design/index.css'
 beforeEach(() => useStore.getState().lang.setLang('en'))
 afterEach(() => localStorage.removeItem(GESTURE_STORAGE_KEY))
 
+// In the page's body, as on the page: a bare figure would be the shell grid's
+// 48px first row, and its own margins would leave it no height.
 async function mount(name: RuleBoardName) {
-  const screen = await renderAt(<RulePlay name={name} />, { style: { width: '400px' } })
+  const screen = await renderAt(
+    <div className="fw-docs-body">
+      <RulePlay name={name} />
+    </div>,
+    { style: { width: '400px' } },
+  )
   const element = screen.container.querySelector<ArrowzBoard>('arrowz-board')
   if (element === null) throw new Error('no element')
   await expect.poll(() => element.viewport).not.toBeNull()

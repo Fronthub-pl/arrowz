@@ -3,17 +3,21 @@
    `height: 100%` makes that true: as a block child of a block <main> it would
    grow to its content and scroll the whole document, bars and all.
    `box-sizing` repeats `.fw *` so a test that mounts the panel without the
-   shell sizes it the same. */
+   shell sizes it the same. A size container, so the navigation column can be
+   no taller than the panel (`100cqh`): the height is definite, the shell's. */
 .fw-docs {
   height: 100%;
   box-sizing: border-box;
   overflow-y: auto;
-  padding: 16px 20px;
+  padding: 32px 40px;
+  container-type: size;
 }
 .fw-docs h2 {
-  margin: 0 0 8px;
-  font-size: 15px;
+  margin: 0 0 20px;
+  font-size: 28px;
   font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 .fw-docs h3 {
   margin: 20px 0 6px;
@@ -24,10 +28,10 @@
   color: var(--ash);
 }
 .fw-docs p {
-  max-width: 74ch;
-  margin: 0 0 8px;
-  font-size: 12px;
-  line-height: 1.6;
+  max-width: 100ch;
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.75;
 }
 /* Inline code in prose and descriptions: the code font at the text's size, and
    no colour — colour belongs to blocks and machine columns. */
@@ -40,27 +44,39 @@
 .fw-docs-body :is(p, li) code {
   overflow-wrap: anywhere;
 }
+/* On a page set wholly in mono, code in prose needs a ground of its own to
+   stand out. The machine columns (`td.mono`) have the --code-* colours instead.
+   Not `box-decoration-break: clone`: Chrome breaks the line without the cloned
+   end padding, and a long span pushed a 280px page 3px sideways. */
+.fw-docs-body :is(p, li, h3, h4, figcaption) code,
+.fw-docs-body .fw-docs-table td:last-child code {
+  padding: 1px 5px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--ink);
+}
 /* Prose beyond paragraphs, in the page body only: the navigation column is
    lists and links too, styled below. A link keeps the text's colour and
    carries --signal in its underline: --signal as text is 4.1:1 on --void. */
 .fw-docs-body h4 {
-  margin: 16px 0 6px;
-  font-size: 12px;
+  margin: 44px 0 12px;
+  font-size: 15px;
   font-weight: 500;
+  line-height: 1.4;
   color: var(--ink);
 }
 .fw-docs-body :is(ul, ol) {
-  max-width: 74ch;
-  margin: 0 0 8px;
+  max-width: 100ch;
+  margin: 0 0 20px;
   padding-left: 20px;
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.75;
 }
 .fw-docs-body li + li {
-  margin-top: 4px;
+  margin-top: 8px;
 }
 .fw-docs-body li > p {
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 .fw-docs-body a {
   color: inherit;
@@ -112,6 +128,7 @@
 /* A table wider than the page scrolls inside this box, so the panel never does. */
 .fw-docs-scroll {
   max-width: 100%;
+  margin: 8px 0 28px;
   overflow-x: auto;
 }
 /* Both blocks of the documentation pages are one box. Each `pre` still wears
@@ -119,25 +136,33 @@
    CLI page by `pre.fw-docs-code` against `pre.fw-docs-term`. */
 .fw-docs-pre {
   max-width: 100%;
-  padding: 10px 12px;
+  padding: 16px 18px;
   overflow-x: auto;
   background: var(--graphite);
   color: var(--mist);
   font-family: var(--mono);
-  font-size: 11px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.6;
 }
 .fw-docs-code {
-  margin: 0 0 8px;
+  margin: 0 0 24px;
 }
 
 /* The help is a table aligned with spaces, so the layout IS the content:
    `pre` keeps it, and `overflow-x: auto` keeps the longest line — 296
-   characters, about 2317px at this size — from scrolling the whole page.
-   `pre-wrap` is not an alternative: it keeps the spaces and breaks the rows. */
+   characters, wider than any window — from scrolling the whole page.
+   `pre-wrap` is not an alternative: it keeps the spaces and breaks the rows.
+   A command is filled and its output outlined, so the two read as one
+   exchange; a block followed by another stands 8px from it. */
 .fw-docs-term {
-  margin: 0 0 12px;
+  margin: 0 0 24px;
   white-space: pre;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--mist);
+}
+.fw-docs-block:has(+ .fw-docs-block) > .fw-docs-pre {
+  margin-bottom: 8px;
 }
 
 /* One navigation column beside the page, two levels: each page a heading
@@ -146,19 +171,26 @@
    lists only the page on screen. */
 .fw-docs-grid {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  gap: 32px;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 56px;
   align-items: start;
 }
 .fw-docs-body {
   min-width: 0;
-  max-width: 110ch;
+  max-width: 1040px;
 }
-/* Sticky inside the panel, which is the box that scrolls (the rule above). */
+/* Sticky inside the panel, which is the box that scrolls (the rule above),
+   and never taller than it: on a low window the list scrolls by itself, and
+   `contain` keeps its end from scrolling the page. DocsNav keeps the section
+   in view in sight. */
 .fw-docs-toc {
   position: sticky;
   top: 0;
+  max-height: 100cqh;
   padding-top: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 .fw-docs-toc ul {
   margin: 0;
@@ -166,11 +198,11 @@
   list-style: none;
 }
 .fw-docs-toc .pg + .pg {
-  margin-top: 18px;
+  margin-top: 24px;
 }
 .fw-docs-toc .pg > a {
   display: block;
-  padding: 2px 0 8px;
+  padding: 2px 0 10px;
   font-size: 13px;
   font-weight: 500;
   color: var(--mist);
@@ -190,8 +222,9 @@
 }
 .fw-docs-toc .pg > ul a {
   display: block;
-  padding: 5px 8px 5px 16px;
+  padding: 6px 8px 6px 16px;
   font-size: 12px;
+  line-height: 1.5;
   color: var(--ash);
   text-decoration: none;
 }
@@ -214,18 +247,23 @@
   color: var(--mist);
   text-wrap: pretty;
 }
+/* Copy stands in a track of its own beside the block, out of the box that
+   scrolls: no line, however long, passes under it, and a one-line block is no
+   taller than its line. */
 .fw-docs-block {
-  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
 }
-/* The button stands in a strip of its own over the first line, so it never
-   covers text: the example's first line and the help's are the longest. */
 .fw-docs-block > .fw-docs-pre {
-  padding-top: 34px;
+  grid-column: 1;
+  grid-row: 1;
+  padding: 14px 18px;
 }
 .fw-docs-copy {
-  position: absolute;
-  top: 6px;
-  right: 6px;
+  grid-column: 2;
+  grid-row: 1;
+  margin: 9px 0 0 8px;
   display: inline-flex;
   padding: 2px 8px;
   border: 1px solid var(--border-strong);
@@ -239,13 +277,31 @@
   color: var(--ink);
   border-color: var(--ash);
 }
+@media (max-width: 1023px) {
+  .fw-docs {
+    padding: 28px;
+  }
+  .fw-docs-grid {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 36px;
+  }
+}
 @media (max-width: 767px) {
+  .fw-docs {
+    padding: 20px 16px;
+  }
+  .fw-docs h2 {
+    margin-bottom: 16px;
+    font-size: 22px;
+  }
   .fw-docs-grid {
     grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
+    gap: 24px;
   }
   .fw-docs-toc {
     position: static;
+    max-height: none;
+    overflow: visible;
   }
   .fw-docs-toc .pg:not(.on) > ul {
     display: none;
@@ -328,7 +384,7 @@
    8×6 cells and a cell of margin all round make the board 10:8. */
 .fw-docs-play {
   max-width: 480px;
-  margin: 12px 0 16px;
+  margin: 28px 0 36px;
 }
 .fw-docs-play arrowz-board {
   display: block;
@@ -340,7 +396,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 6px;
+  margin-top: 10px;
   font-size: 12px;
   color: var(--mist);
 }
@@ -349,7 +405,7 @@
    `--ar` from DocsBoard) and is never taller than 60% of the window, so a tall
    board narrows instead of filling the screen. The element fills the frame. */
 .fw-docs-board {
-  margin: 12px 0 16px;
+  margin: 28px 0 36px;
 }
 .fw-docs-frame {
   position: relative;
@@ -377,14 +433,15 @@
   color: var(--mist);
 }
 .fw-docs-board figcaption {
-  margin-top: 6px;
+  margin-top: 10px;
   font-size: 12px;
+  line-height: 1.6;
 }
 .fw-docs-stats {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 16px;
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   font-size: 12px;
 }
 .fw-docs-stats div {
@@ -402,22 +459,24 @@
   color: var(--signal);
 }
 .fw-docs-boardcmd {
-  margin-top: 6px;
+  margin-top: 10px;
 }
 .fw-docs-boardcmd .fw-cmd {
   min-height: 0;
 }
+/* Wraps in a narrow comparison column rather than push the panel sideways. */
 .fw-docs-boardacts {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 10px;
 }
 /* Boards side by side, as many as fit at 180px and up; one under another on a phone. */
 .fw-docs-compare {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  margin: 12px 0 16px;
+  gap: 24px;
+  margin: 28px 0 36px;
 }
 .fw-docs-compare .fw-docs-board {
   margin: 0;
@@ -429,10 +488,10 @@
 .fw-docs-info {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 12px;
   max-width: 110ch;
-  margin: 12px 0 4px;
-  padding: 8px 12px;
+  margin: 24px 0 28px;
+  padding: 14px 16px;
   background: var(--graphite);
   box-shadow: inset 2px 0 0 var(--signal);
 }
@@ -444,6 +503,7 @@
   stroke: currentColor;
   stroke-width: 1.5;
   stroke-linecap: round;
+  margin-top: 4px;
   color: var(--signal);
   transform: translateY(2px);
 }
@@ -453,26 +513,31 @@
   text-wrap: pretty;
 }
 
-/* The tables must not run into one another: each h3 has 40px above its rule
+/* The tables must not run into one another: each h3 has 72px above its rule
    (a table's last rule is never the next heading's), and each table sits on
-   its own framed --graphite plane. The first heading keeps 24px. */
+   its own framed --graphite plane. After prose a heading keeps 64px. */
 .fw-docs-body h3 {
-  margin: 40px 0 10px;
-  padding-bottom: 6px;
-  font-size: 13px;
+  margin: 72px 0 20px;
+  padding-bottom: 12px;
+  font-size: 18px;
   font-weight: 500;
+  line-height: 1.35;
   letter-spacing: 0;
   text-transform: none;
   color: var(--ink);
   border-bottom: 1px solid var(--border-strong);
 }
 .fw-docs-body :is(p, .fw-docs-info) + h3 {
-  margin-top: 24px;
+  margin-top: 64px;
 }
 .fw-docs-body .fw-docs-table {
   margin-bottom: 0;
   background: var(--graphite);
   box-shadow: 0 0 0 1px var(--border);
+}
+/* A table straight from the Markdown has no scroll box to keep it off the prose. */
+.fw-docs-body > .fw-docs-table {
+  margin: 8px 0 28px;
 }
 /* A scroll box clips its content's shadow, so the box draws the frame. */
 .fw-docs-body .fw-docs-scroll {
@@ -490,10 +555,24 @@
   padding-right: 12px;
 }
 .fw-docs-body .fw-docs-table th {
-  padding-top: 7px;
-  padding-bottom: 7px;
+  padding-top: 10px;
+  padding-bottom: 10px;
   background: var(--surface);
+}
+.fw-docs-body .fw-docs-table td {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  line-height: 1.6;
 }
 .fw-docs-body .fw-docs-table tbody tr:last-child td {
   border-bottom: 0;
+}
+@media (max-width: 767px) {
+  .fw-docs-body h3 {
+    margin-top: 48px;
+    font-size: 16px;
+  }
+  .fw-docs-body :is(p, .fw-docs-info) + h3 {
+    margin-top: 44px;
+  }
 }
