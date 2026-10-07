@@ -38,7 +38,8 @@ export function sectionOf(state: unknown): string | null {
  * page on screen only; `on` is the class that tells the sheet which.
  *
  * On a low window the column is a list that scrolls by itself, and it follows
- * the page: the section in view is kept in sight by moving the list alone.
+ * the page and the window: the section in view is kept in sight by moving the
+ * list alone, when the section changes and when the list is resized.
  * Not `scrollIntoView`, which would scroll the panel too and so change the
  * section in view under the reader.
  */
@@ -50,13 +51,21 @@ export function DocsNav({ section }: { section?: string | undefined }): ReactEle
   const nav = useRef<HTMLElement>(null)
   useEffect(() => {
     const toc = nav.current
-    if (toc === null || section === undefined || toc.scrollHeight <= toc.clientHeight) return
-    const link = toc.querySelector('[aria-current="true"]')
-    if (link === null) return
-    const box = toc.getBoundingClientRect()
-    const at = link.getBoundingClientRect()
-    if (at.top < box.top + KEEP) toc.scrollTop -= box.top + KEEP - at.top
-    else if (at.bottom > box.bottom - KEEP) toc.scrollTop += at.bottom - (box.bottom - KEEP)
+    if (toc === null || section === undefined) return
+    const follow = () => {
+      if (toc.scrollHeight <= toc.clientHeight) return
+      const link = toc.querySelector('[aria-current="true"]')
+      if (link === null) return
+      const box = toc.getBoundingClientRect()
+      const at = link.getBoundingClientRect()
+      if (at.top < box.top + KEEP) toc.scrollTop -= box.top + KEEP - at.top
+      else if (at.bottom > box.bottom - KEEP) toc.scrollTop += at.bottom - (box.bottom - KEEP)
+    }
+    follow()
+    // A window made lower shortens the list under a section that has not changed.
+    const observer = new ResizeObserver(follow)
+    observer.observe(toc)
+    return () => observer.disconnect()
   }, [section, current, lang])
   return (
     <nav ref={nav} className="fw-docs-toc" aria-label={dict.t('docsNavLabel')}>

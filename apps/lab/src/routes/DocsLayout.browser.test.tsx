@@ -166,6 +166,19 @@ test('at 924×768 the navigation is a 200px column, 36px from the page', async (
   expect(body.left - nav.right).toBe(36)
 }, 40_000)
 
+/**
+ * The marked link lies wholly inside the column's visible box. 1px of slack:
+ * the panel starts at a fractional y and `scrollTop` is whole, so the list's
+ * last link at the end of its scroll stands out by under a pixel.
+ */
+function markSighted(toc: Element): boolean {
+  const link = toc.querySelector('[aria-current="true"]')
+  if (link === null) return false
+  const shown = toc.getBoundingClientRect()
+  const at = link.getBoundingClientRect()
+  return at.top >= shown.top - 1 && at.bottom <= shown.bottom + 1
+}
+
 // The Element page's fifteen sections, under two pages' worth of others, do
 // not fit a 540px window: the column scrolls by itself instead of the page,
 // and keeps the section in view in sight as the reader goes down.
@@ -174,18 +187,7 @@ test('at 924×540 the navigation scrolls by itself and keeps the section in view
   const screen = await openAt('/docs/element')
   const panel = box(screen.container, '#docs-panel')
   const toc = box(screen.container, '.fw-docs-toc')
-  /**
-   * The marked link lies wholly inside the column's visible box. 1px of slack:
-   * the panel starts at a fractional y and `scrollTop` is whole, so the list's
-   * last link at the end of its scroll stands out by under a pixel.
-   */
-  const sighted = () => {
-    const link = toc.querySelector('[aria-current="true"]')
-    if (link === null) return false
-    const shown = toc.getBoundingClientRect()
-    const at = link.getBoundingClientRect()
-    return at.top >= shown.top - 1 && at.bottom <= shown.bottom + 1
-  }
+  const sighted = () => markSighted(toc)
   await expect.poll(() => inView(screen.container)).toEqual(['Using it'])
   expect(toc.clientHeight).toBeLessThanOrEqual(panel.clientHeight)
   expect(toc.scrollHeight).toBeGreaterThan(toc.clientHeight)
@@ -202,6 +204,20 @@ test('at 924×540 the navigation scrolls by itself and keeps the section in view
   await expect.poll(sighted).toBe(true)
   // Only the column moved to follow: the panel is where the reader left it.
   expect(below(screen.container, last.id)).toBeCloseTo(20, 0)
+}, 40_000)
+
+// At 1920×1600 the whole list fits and stands at its top; made 924×540, the
+// window shortens the list under a section that has not changed.
+test('a window made lower keeps the section in view in sight', async () => {
+  await page.viewport(1920, 1600)
+  const screen = await openAt('/docs/element')
+  const toc = box(screen.container, '.fw-docs-toc')
+  await expect.poll(() => inView(screen.container)).toEqual(['Using it'])
+  expect(toc.scrollHeight).toBe(toc.clientHeight)
+  await page.viewport(924, 540)
+  await expect.poll(() => toc.scrollHeight).toBeGreaterThan(toc.clientHeight)
+  await expect.poll(() => markSighted(toc)).toBe(true)
+  expect(inView(screen.container)).toEqual(['Using it'])
 }, 40_000)
 
 // Copy stands beside its block, never over a line, and a command and its
