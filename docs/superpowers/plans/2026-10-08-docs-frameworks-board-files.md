@@ -26,7 +26,7 @@
 
 ## Before the first task
 
-The worktree is `.claude/worktrees/docs-frameworks` on branch `lab/docs-frameworks`. Run every command from it.
+The worktree is `.claude/worktrees/docs-frameworks` on branch `lab/docs-frameworks`. Run every command from it: each `bash` block starts at the worktree root, and a block that `cd`s into `apps/lab` returns with `cd ../..` before any `git` line — if a chain stops midway, `cd` back to the root before committing.
 
 ```bash
 corepack enable pnpm 2>/dev/null || pnpm --version
@@ -66,7 +66,7 @@ Facts that bite in this repo (from the lab's test harness notes):
 **Interfaces:**
 - Produces: `BOARD_FILE_FIELDS: readonly { key: keyof BoardFile; type: string }[]` (9 rows, `BoardFile`'s order), `type BoardFileField`, `interface FieldRow`, `Docs.boardFile: Record<BoardFileField, string>`, `Docs.frameworkLabel: string` — all from `@arrowz/engine/docs`.
 
-- [ ] **Step 1: Write the failing guard** in `packages/engine/readme.test.ts`. Add `BOARD_FILE_FIELDS` to the imports at the top (`import { BOARD_FILE_FIELDS } from './lab-docs.ts'`), and append before the `// --- Development` block:
+- [ ] **Step 1: Write the failing guard** in `packages/engine/readme.test.ts`; `symbolsOf`, `only` and `render` are that file's own helpers. Add `BOARD_FILE_FIELDS` to the imports at the top (`import { BOARD_FILE_FIELDS } from './lab-docs.ts'`), and append before the `// --- Development` block:
 
 ```ts
 // --- The Docs tab's board-file table ----------------------------------------------
@@ -263,7 +263,7 @@ import {
 } from './codeTokens'
 ```
 
-Add `import type { Code, Nodes } from 'mdast'` and `import { DOCS_PAGES } from './pages'`. Replace the two lines that find `firstCode` and `ELEMENT_EXAMPLE` with:
+Add `import type { Code, Nodes } from 'mdast'` and `import { DOCS_PAGES } from './pages'`. Replace the lines that find `firstCode` and `ELEMENT_EXAMPLE` (with the doc comment between them) with:
 
 ```ts
 /** Every fenced block of a page, the ones inside tabs included. */
@@ -402,6 +402,13 @@ describe('a Svelte block', () => {
     expect(inColour(tokens, 'fn')).toEqual(['$props'])
     expect(inColour(tokens, 'str')).toEqual(['"ts"', "'svelte'", '"alert"'])
   })
+})
+
+// A module script uses TypeScript's word list too: `if` and `catch` are words, not calls.
+test("an HTML script's try, catch, if, instanceof and throw are keywords", () => {
+  const script =
+    highlight('html', '<script type="module">\ntry { go() } catch (e) { if (!(e instanceof Err)) throw e }\n</script>') ?? []
+  expect(inColour(script, 'kw')).toEqual(['try', 'catch', 'if', 'instanceof', 'throw'])
 })
 
 test('a language the page shows plain has no colours', () => {
@@ -720,7 +727,7 @@ export function highlight(lang: string | null | undefined, code: string): CodeTo
 Run: `cd apps/lab && pnpm vitest run --project node src/docs/codeTokens.test.ts`
 Expected: PASS, the existing `the example` cases included — the HTML example's colours do not change.
 
-- [ ] **Step 5: Mutation.** In `JSX_AFTER` delete `'return'`; run the TSX case; expect FAIL (no `arrowz-board` tag). Undo by hand. In `SCRIPTS.vue.quoted` return `false`; expect the Vue case to FAIL (`ready` and `onPiece` lose their script scan, `"ready"` turns up as `str`). Undo by hand. In `scanTag` never set `empty`; expect "a self-closing element ends at its slash" to FAIL. Undo by hand.
+- [ ] **Step 5: Mutation.** In `JSX_AFTER` delete `'return'`; run the TSX case; expect FAIL (no `arrowz-board` tag). Undo by hand. In `SCRIPTS.vue.quoted` return `false`; expect the Vue case to FAIL (`ready` and `onPiece` lose their script scan, `"ready"` turns up as `str`). Undo by hand. In `scanTag` never set `empty`; expect "a self-closing element ends at its slash" to FAIL. Undo by hand. Set `SCRIPTS.html.keywords` to `JS_KEYWORDS`; expect "an HTML script's try, catch, if, instanceof and throw are keywords" to FAIL. Undo by hand.
 
 - [ ] **Step 6: Type-check, lint, format** (Prettier rewraps some of the plan's long lines; commit what it writes)
 
@@ -788,6 +795,7 @@ In `apps/lab/src/docs/shape.test.ts`, append:
 
 ```ts
 describe('tab directives', () => {
+  // `DOCS_PAGES` is already imported at the top of this file.
   const inPage = (md: string) => problemsOf(parseDocs(`# T\n\n## A {#a}\n\n${md}`), DOCS_PAGES)
   const tab = (id: string, body = 'Prose.') => `:::tab{id="${id}"}\n${body}\n:::`
   const group = (...tabs: string[]) => `::::tabs{group="framework"}\n${tabs.join('\n')}\n::::`
@@ -1341,7 +1349,7 @@ and the same line to the second table (raised at XS), after its `a docs section 
 - [ ] **Step 2: Run them to see them fail**
 
 Run: `pnpm nx build engine --skip-nx-cache && cd apps/lab && pnpm vitest run --project chromium src/docs/DocsTabs.browser.test.tsx src/design/touch.browser.test.tsx`
-Expected: FAIL — no tablist is drawn (the renderer draws nothing for `tabs`), and the two docs-tab touch cases read 0.
+Expected: every case FAILS but the unique-id one (vacuously green with no tabs drawn) — the renderer draws nothing for `tabs` — and the two docs-tab touch cases read 0.
 
 - [ ] **Step 3: The component.** Create `apps/lab/src/docs/DocsTabs.tsx`:
 
@@ -1645,7 +1653,7 @@ The `--project node` run covers `design/*.test.ts`, which pin CSS values (`docs.
 
 ### Task 6: Prove every example in a real project, outside the repository
 
-**Executed in plan review round 1 at `5a44025`: every example PASSED as written and every control showed the failure the prose describes.** Re-run it during execution only if Task 7's code blocks change. Harness notes from that run: jsdom has no `ResizeObserver` (stub it, or the element's `connectedCallback` throws an unhandled error while the tests still pass); Svelte under Vitest needs `resolve.conditions: ['browser']`, or `mount()` throws `lifecycle_function_unavailable`.
+**Executed in plan review round 1 at `5a44025` for every example (all PASSED as written) and for the React, Vue and Svelte controls (each showed the failure the prose describes); the Angular control was rewritten afterwards and verified in round 2 with a single-file program (see Step 2).** Re-run it during execution only if Task 7's code blocks change. Harness notes from that run: jsdom has no `ResizeObserver` (stub it, or the element's `connectedCallback` throws an unhandled error while the tests still pass); Svelte under Vitest needs `resolve.conditions: ['browser']`, or `mount()` throws `lifecycle_function_unavailable`.
 
 This task changes no file in the repository. It builds the element, installs it into one throwaway project per framework under `/tmp/arrowz-docs-examples`, and proves each example of Task 7 as written there. Its deliverable is a report: for each example, PASS, or the exact change it needed. An example that needs a change is changed in this plan's Task 7 text by the controller before Task 7 starts.
 
@@ -1668,7 +1676,7 @@ ls /tmp/arrowz-docs-examples/packs
 `pnpm pack` rewrites `workspace:*` to the version, which `npm pack` would not. Expected: two `.tgz` files. Install both tarballs in every project below.
 
 - [ ] **Step 2: Angular 22 — compile under strict templates.** In `/tmp/arrowz-docs-examples/angular`: `npm init -y`, then `npm i @angular/core@22 @angular/common@22 @angular/compiler@22 @angular/compiler-cli@22 @angular/platform-browser@22 rxjs typescript@~6.0 ../packs/*.tgz`. Write `tsconfig.json` with `"strict": true`, `"module": "es2022"`, `"moduleResolution": "bundler"`, `"target": "es2022"`, `"lib": ["es2022", "dom"]`, `"angularCompilerOptions": { "strictTemplates": true }`, `"files"` naming the two component files. Put `board.component.ts` (Task 7 Step 2) and `stored-board.component.ts` with `load-board.ts` (Task 7 Step 3) beside it. Run `npx ngc -p tsconfig.json`.
-Expected: exit 0. Control for the sentence on the Angular tab: replace the `import type` line with a local `type PieceClickEvent = CustomEvent<{ pieceId: number }>` and `type BoardData = unknown`, keep the `import()`, and expect exit 0 (the dynamic import alone types `$event`); then also remove the `afterNextRender` line and expect `TS2345` (`Event` is not assignable to `PieceClickEvent`). Restore the file.
+Expected: exit 0. Control for the sentence on the Angular tab, in a program holding `board.component.ts` alone (`"files": ["board.component.ts"]`; with `stored-board.component.ts` present, its own import of the package brings the event types in and the control cannot fail): replace the `import type` line with a local `type PieceClickEvent = CustomEvent<{ pieceId: number }>` and `type BoardData = unknown`, keep the `import()`, and expect exit 0 (the dynamic import alone types `$event`); then also remove the `afterNextRender` line and expect `TS2345` (`Event` is not assignable to `PieceClickEvent`). Restore the file.
 
 - [ ] **Step 3: React 19 — type-check, then run.** In `/tmp/arrowz-docs-examples/react`: `npm i react@19 react-dom@19 @types/react@19 @types/react-dom@19 typescript@~6.0 jsdom vitest ../packs/*.tgz`. Put `arrowz-board.d.ts` and `Board.tsx` (Task 7 Step 2), `load-board.ts` and `StoredBoard.tsx` (Task 7 Step 3) in `src/`. Type-check with `npx tsc --noEmit --strict --jsx react-jsx --module esnext --moduleResolution bundler --target es2022 --lib es2022,dom src/*.ts src/*.tsx`. Expected: exit 0.
 Then a vitest test in jsdom (`// @vitest-environment jsdom`) that renders `<Board />` with `react-dom/client` inside `act`, waits until `document.querySelector('arrowz-board')` exists, and asserts: `customElements.get('arrowz-board')` is defined; `el.board` is an object with `W === 50`; `el.hasAttribute('board') === false`; `el.interactive === true`; dispatching `new CustomEvent('piece-click', { detail: { pieceId: 3 } })` on it reaches the handler (spy on `console.log`, expect `('piece', 3)`). For `StoredBoard`, stub `globalThis.fetch` to answer the JSON of `encodeBoard(generate({ ...defaultParams(), W: 12, H: 12, seed: 7 }).board)` and assert `el.board.W === 12`; stub it to answer `{ "format": "x" }` and assert a `role="alert"` paragraph whose text starts with `not a board file`.
@@ -1714,7 +1722,7 @@ function codeBlocks(node: Nodes, out: Code[] = []): Code[] {
 const EXAMPLE = codeBlocks(docsPage('en', 'element').root).find((block) => block.lang === 'html')?.value ?? ''
 ```
 
-Insert `'files',` after `'example',` in `SECTIONS`; rename the test `'the page has its fifteen sections, in order'` to `'the page has its sixteen sections, in order'`. Add `BOARD_FILE_FIELDS.length +` to `DESCRIBED`. In `'Copy on the example writes the code, not its colouring'`, change the two names to `'Copy: Using it, HTML'` and `'Copied: Using it, HTML'`; in `'Copy names its section in Polish too'`, change the name to `'Kopiuj: Jak użyć, HTML'`. Append:
+Insert `'files',` after `'example',` in `SECTIONS`; rename the test `'the page has its fifteen sections, in order'` to `'the page has its sixteen sections, in order'`. Add `BOARD_FILE_FIELDS.length +` as the first term of the sum in `DESCRIBED`. In `'Copy on the example writes the code, not its colouring'`, change the two names to `'Copy: Using it, HTML'` and `'Copied: Using it, HTML'`; in `'Copy names its section in Polish too'`, change the name to `'Kopiuj: Jak użyć, HTML'`. Append:
 
 ```ts
 test('the board-file table lists the fields of a board file, under Board files', async () => {
@@ -1735,6 +1743,19 @@ test('the page has two framework groups, and both follow one choice', async () =
     .toEqual(['Angular', 'Angular'])
   await expect.element(screen.getByRole('button', { name: 'Copy: board.component.ts' })).toBeVisible()
   await expect.element(screen.getByRole('button', { name: 'Copy: stored-board.component.ts' })).toBeVisible()
+})
+```
+
+Last in the file, because a viewport set by `page.viewport` outlives its case (add `import { page } from 'vitest/browser'`):
+
+```ts
+// The effect, not the declared overflow: the document itself must not scroll sideways.
+test('at 280 px the page does not scroll sideways', async () => {
+  await page.viewport(280, 800)
+  await mount()
+  const root = document.scrollingElement
+  if (root === null) throw new Error('no root')
+  expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth)
 })
 ```
 
@@ -2060,10 +2081,10 @@ A game in progress is not part of the file: `saveState()` and `loadState()` keep
 
 (The outer five-backtick fence above belongs to this plan only; the page has none.)
 
-- [ ] **Step 3: The same section, Polish.** In `apps/lab/docs-content/pl/element.md`, replace from `## Jak użyć {#example}` up to (not including) `## Właściwości {#props}`. Every code block, its language and its file name are **identical** to Step 2 (the shape guard compares them); only the prose changes:
+- [ ] **Step 3: The same section, Polish.** In `apps/lab/docs-content/pl/element.md`, replace from `## Jak użyć {#example}` up to (not including) `## Właściwości {#props}`. Build it from the English section of Step 2: copy it whole, then swap only the prose lines for the Polish below, so every directive, code block and list stays byte-identical. Every code block, its language and its file name are **identical** to Step 2 (the shape guard compares them); only the prose changes:
 
 - Lead: `Zaimportuj pakiet raz, a import zarejestruje znacznik. Potem nadaj komponentowi rozmiar i daj mu planszę. Zakładki pokazują tę samą planszę w czystym HTML i w czterech frameworkach; wybór obowiązuje we wszystkich grupach zakładek na tych stronach.`
-- Angular tab: `Każdy import pakietu, także ten przez `import()`, wprowadza do programu jego typy zdarzeń, więc przy `strictTemplates` `$event` w szablonie ma typ `PieceClickEvent`; import typu tylko nazywa go w metodzie.`
+- Angular tab: `Każdy import pakietu, także ten przez `import()`, wprowadza do programu jego typy zdarzeń, więc przy `strictTemplates` `$event` w szablonie ma typ `PieceClickEvent`; import typu służy tylko do nazwania go w sygnaturze metody.`
 - React tab: `React 19 sam wiąże komponenty webowe, więc `@lit/react` nie jest potrzebne. Plik deklaracji nadaje znacznikowi typ w JSX.`
 - Vue tab: `` `shallowRef` sprawia, że Vue nie opakowuje każdej strzałki planszy w reaktywne proxy. ``
 - After the first `::::`: `Bez względu na framework obowiązują trzy reguły. Zdefiniuj komponent, zanim framework pierwszy raz ustawi `board`: React i Vue przekazują obiekt do właściwości tylko wtedy, gdy komponent już ją ma, a w przeciwnym razie zapisują go jako atrybut, który komponent pomija. Dlatego przykłady renderują znacznik dopiero po zakończeniu importu. Nie przekazuj `false` do `interactive` ani `play`, zanim komponent zostanie zdefiniowany: Vue i Svelte zapiszą wtedy atrybut `interactive="false"`, a obecny atrybut logiczny znaczy „włączone”. I importuj pakiet tylko w przeglądarce, nigdy przy renderowaniu na serwerze: komponent rysuje przez WebGL.`
