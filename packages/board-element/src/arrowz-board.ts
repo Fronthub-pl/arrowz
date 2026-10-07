@@ -211,7 +211,13 @@ export class ArrowzBoard extends LitElement implements GameTarget {
         at 0.7 opacity five light themes fall under WCAG AA 4.5 (tokyonight-day
         2.73). In full ink the weakest, tokyonight-day, is 4.52. */
       color: var(--arrowz-ink, #232447);
-      margin-right: 6px;
+      /* Its own paper, like the buttons' own white: the bar floats over the
+        canvas, and a dense board or one panned under the corner drew arrows of
+        the same ink behind the words. The contrast above is measured on this. */
+      background: var(--arrowz-paper, #f6f6fa);
+      border-radius: 6px;
+      padding: 2px 6px;
+      margin-right: 2px;
     }
     button {
       width: 32px;
