@@ -314,7 +314,7 @@ function redDots(cellPx: number): number {
   return n
 }
 
-test('the point grid appears only once a cell is big enough to hold a dot', () => {
+test('the dot grid appears only once a cell is big enough to hold a dot', () => {
   const b = { ...board(), pieces: [] }
   const v = fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 0 })
   layer.setBoard(b, { ...DEFAULT_VIEW, paper: '#ffffff' })

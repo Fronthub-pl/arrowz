@@ -1,7 +1,7 @@
 // The GLSL the layer draws with, and how a pair of sources becomes a program.
 // The main program draws every triangle the tesselator makes, in one flat
 // colour or the per-vertex one; the disc program draws every tail cap and
-// round join; the dot program draws the point grid.
+// round join; the dot program draws the dot grid.
 
 export const VERT = `#version 300 es
 in vec2 a_pos;

@@ -482,7 +482,7 @@ Z `play` komponent sam rozstrzyga ruch: wolna strzałka wyjeżdża, zablokowana 
 
 Kolory są wyłączone, dopóki nie ustawisz `enableColors`: gra w jednym kolorze to część łamigłówki, bo zadanie polega właśnie na odróżnianiu strzałek bez koloru. Z tym pozwoleniem na planszy pojawia się przycisk ◑ (albo Twój własny, zobacz [sloty](docs:element#slots)), a plansza może przyjść już kolorowa przez `view.colored` albo z wczytanej gry. Przed działaniem przycisk wysyła anulowalne `colored-change`. Strona, która nic z nim nie robi, zostawia decyzję przyciskowi; strona, która wywoła `preventDefault()`, czyści wybór samego przycisku — także ten zrobiony wcześniej, kliknięciem albo przez `loadState()` — więc od tego kliknięcia decyduje `view.colored`.
 
-Przypisanie nowej planszy do `board` zawsze zaczyna nową grę i rysuje planszę od nowa w całości. Dlatego strona, która prowadzi grę, nigdy nie wyjmuje strzałek z planszy, żeby oddać ją z powrotem: zostawia prowadzenie gry `play` i ze zdarzeń odczytuje, co się stało.
+Przypisanie innej planszy do `board` zaczyna nową grę i rysuje planszę od nowa w całości; ponowne przypisanie tego samego obiektu nic nie robi. Dlatego strona, która prowadzi grę, nigdy nie wyjmuje strzałek z planszy, żeby oddać ją z powrotem: ten sam obiekt nie wywołałby przerysowania, a przefiltrowana kopia zaczęłaby grę od nowa. Strona zostawia prowadzenie gry `play` i ze zdarzeń odczytuje, co się stało.
 
 ## Motywy {#themes}
 

@@ -125,11 +125,11 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   declare play: boolean
   /** Margin around the board, in cells. See DEFAULT_PAD. */
   declare pad: number
-  /** Whether the point grid is drawn under the pieces. See DEFAULT_SHOW_POINTS. */
+  /** Whether the dot grid is drawn under the pieces. See DEFAULT_SHOW_POINTS. */
   declare showPoints: boolean
-  /** Colour of the point grid's dots. */
+  /** Colour of the dot grid's dots. */
   declare pointColor: string
-  /** Radius of the point grid's dots, in cells. */
+  /** Radius of the dot grid's dots, in cells. */
   declare pointRadius: number
   /** Permission to colour the board. Without it the element is monochrome and shows no button. */
   declare enableColors: boolean
@@ -583,9 +583,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       changed.has('enableColors') || changed.has('coloredOverride') || changed.has('view') ||
       changed.has('chosenMode') || changed.has('play') || changed.has('interactive')
     ) this.syncActions()
-    // Independent of everything below: the grid lives in its own two nodes,
-    // and re-reading `this.vp` here is what lets a plain colour or radius
-    // change (no board, no viewport move) still repaint it.
+    // Before the early return below: a dot colour or radius change moves no
+    // board, view or pad, yet must still repaint the dot grid.
     if (changed.has('showPoints') || changed.has('pointColor') || changed.has('pointRadius')) this.updatePoints()
     if (
       !changed.has('board') && !changed.has('view') && !changed.has('pad') &&
@@ -739,7 +738,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   }
 
   /**
-   * Tells the layer whether to draw the point grid. Only this element knows
+   * Tells the layer whether to draw the dot grid. Only this element knows
    * `cellPx`, so it — not the layer — decides: `showPoints` asks for the
    * grid, but below `MIN_POINT_CELL_PX` the raster would moiré, so the
    * viewport can veto it without `showPoints` itself ever changing. Called on

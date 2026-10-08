@@ -16,7 +16,7 @@ const PASSES: readonly { block: Block; highlight: boolean }[] = [
   { block: 'topHeads', highlight: true },
 ]
 
-/** The point grid as the layer was last told to show it. */
+/** The dot grid as the layer was last told to show it. */
 export interface Points {
   visible: boolean
   rgba: Rgba
@@ -249,10 +249,10 @@ export function drawPieces(
 
 /**
  * The pieces part way down their own track, over the resting ones and
- * clipped to the paper: each rider's triangles, then its discs. Only a
+ * clipped to the margin's outer edge: each rider's triangles, then its discs. Only a
  * riding piece is clipped: a scissor over the whole board would cost nothing
- * here, but the rule is the SVG's — a piece leaves at the paper's edge, and
- * nothing else ever reaches it.
+ * here, but the rule is the SVG's — a piece leaves at the margin's outer
+ * edge, and nothing else ever reaches it.
  */
 export function drawRiders(
   res: GlResources,

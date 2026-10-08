@@ -482,7 +482,7 @@ With `play` the element decides the move itself: a free arrow rides out, a block
 
 Colours are off unless `enableColors` is set: playing in one colour is part of the puzzle, since telling the arrows apart without colour is the task. With the permission the board grows a ◑ button (or shows your own, see [the slots](docs:element#slots)), and a board may arrive coloured through `view.colored` or through a loaded game. The button announces a cancelable `colored-change` before it acts. A page that does nothing leaves the button in charge; one that calls `preventDefault()` clears the button's own choice — including one made earlier, by a click or by `loadState()` — so `view.colored` decides from that click on.
 
-Assigning a new `board` always starts a new game and redraws the board in full. So a page that runs a game never takes arrows out of a board and hands it back: it lets `play` run the game and reads what happened from the events.
+Assigning a different `board` starts a new game and redraws the board in full; assigning the same object again does nothing. So a page that runs a game never takes arrows out of a board and hands it back: the same object would not redraw, and a filtered copy would start the game over. It lets `play` run the game and reads what happened from the events.
 
 ## Themes {#themes}
 
