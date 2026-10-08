@@ -206,10 +206,11 @@ test('at 924×540 the navigation scrolls by itself and keeps the section in view
   expect(below(screen.container, last.id)).toBeCloseTo(20, 0)
 }, 40_000)
 
-// At 1920×1600 the whole list fits and stands at its top; made 924×540, the
-// window shortens the list under a section that has not changed.
+// At 1920×2000 the whole list fits and stands at its top; made 924×540, the
+// window shortens the list under a section that has not changed. The list is
+// about 1450px on macOS and 1465px on Linux fonts, so 1600 is too low a start.
 test('a window made lower keeps the section in view in sight', async () => {
-  await page.viewport(1920, 1600)
+  await page.viewport(1920, 2000)
   const screen = await openAt('/docs/element')
   const toc = box(screen.container, '.fw-docs-toc')
   await expect.poll(() => inView(screen.container)).toEqual(['Using it'])
