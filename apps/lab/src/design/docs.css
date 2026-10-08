@@ -524,15 +524,50 @@
   gap: 8px;
   margin-top: 10px;
 }
-/* Boards side by side, as many as fit at 180px and up; one under another on a phone. */
+/* Boards side by side, as many as fit at 180px and up; one under another on a phone.
+   Each figure lays out on seven rows of the comparison's grid (`subgrid`), so a
+   command or caption that wraps in one column moves its row in every column
+   and the buttons stay level. The first of the seven is the 24px between rows
+   of boards, none above the first: a row gap would also stand around every row
+   a comparison leaves empty (no stats, no note). */
 .fw-docs-compare {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 24px;
+  grid-template-rows: 0 repeat(6, auto);
+  grid-auto-rows: 24px auto auto auto auto auto auto;
+  column-gap: 24px;
   margin: 28px 0 36px;
 }
 .fw-docs-compare .fw-docs-board {
+  display: grid;
+  grid-row: span 7;
+  grid-template-rows: subgrid;
   margin: 0;
+}
+.fw-docs-compare .fw-docs-boardcmd {
+  display: contents;
+}
+/* A shorter board stands on its row's floor, so its caption stays under it. */
+.fw-docs-compare .fw-docs-frame {
+  grid-row: 2;
+  align-self: end;
+}
+.fw-docs-compare figcaption {
+  grid-row: 3;
+}
+.fw-docs-compare .fw-docs-stats {
+  grid-row: 4;
+}
+.fw-docs-compare .fw-docs-boardnote {
+  grid-row: 5;
+}
+.fw-docs-compare .fw-cmd {
+  grid-row: 6;
+  margin-top: 10px;
+}
+.fw-docs-compare .fw-docs-boardacts {
+  grid-row: 7;
+  align-self: start;
 }
 
 /* The README pointer: a note bar under the element page's lead, an `aside`
