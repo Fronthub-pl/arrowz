@@ -367,6 +367,22 @@ describe('saving and restoring', () => {
     expect(el.pieceCount).toBe(board.pieces.length)
     expect(el.saveState()?.removed).toEqual([])
   })
+
+  test('assigning the board it already holds keeps the game, and a copy of it starts a new one', async () => {
+    const board = makeBoard()
+    const { free } = verdicts(board)
+    await mount({ play: '' }, board)
+    clickPiece(el, free)
+    await exited()
+    el.board = board
+    await el.updateComplete
+    expect(el.saveState()?.removed).toEqual([free])
+    expect(el.pieceCount).toBe(board.pieces.length - 1)
+    el.board = { ...board }
+    await el.updateComplete
+    expect(el.saveState()?.removed).toEqual([])
+    expect(el.pieceCount).toBe(board.pieces.length)
+  })
 })
 
 describe('colours', () => {

@@ -85,7 +85,7 @@ export class GameHost {
     return this.session === null ? null : saveSession(this.session, colored)
   }
 
-  /** Restores a session; throws when the snapshot does not describe this board. */
+  /** Restores a session; throws with no board, and when the snapshot does not describe this board. */
   load(snap: SessionSnapshot): void {
     const session = this.session
     if (session === null) throw new Error('arrowz-board: no board to load a game into')

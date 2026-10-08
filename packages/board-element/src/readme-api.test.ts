@@ -2,7 +2,9 @@
 // truth: every export of mod.ts, every public member of the element and of
 // GameHost, every event and slot, and the shape of every exported type must be
 // in README.md, and nothing else may be. Each comparison runs both ways, so a
-// row for something deleted fails as surely as a missing row. The Docs tab's
+// row for something deleted fails as surely as a missing row. What the prose
+// copies from the code (property defaults, the board keys, ranges and other
+// numbers) is held to the code the same way. The Docs tab's
 // export tables (`lab-docs.ts` in the engine) are held to the same reading of
 // `mod.ts`, at the end of this file.
 //
@@ -195,6 +197,72 @@ test('the slot table is the slots the element renders, both ways', () => {
   expect(sorted(names('Slot'))).toEqual(sorted(new Set(rendered)))
 })
 
+/** `this.<name> = <value>` in the element's constructor: what each property starts as. */
+function constructorDefaults(node: ts.ClassDeclaration): Map<string, ts.Expression> {
+  const ctor = node.members.find(ts.isConstructorDeclaration)
+  if (ctor?.body === undefined) throw new Error(`${node.name?.text} declares no constructor`)
+  const defaults = new Map<string, ts.Expression>()
+  for (const statement of ctor.body.statements) {
+    if (!ts.isExpressionStatement(statement)) continue
+    const e = statement.expression
+    if (!ts.isBinaryExpression(e) || e.operatorToken.kind !== ts.SyntaxKind.EqualsToken) continue
+    const target = e.left
+    if (!ts.isPropertyAccessExpression(target) || target.expression.kind !== ts.SyntaxKind.ThisKeyword) continue
+    defaults.set(target.name.text, e.right)
+  }
+  return defaults
+}
+
+test('the property table’s defaults are the values the constructor assigns', () => {
+  const values = api as Record<string, unknown>
+  const defaults = constructorDefaults(element)
+  // `lang` has no accessor: its default is the global attribute's, not the constructor's.
+  expect(names('Property').filter((name) => !defaults.has(name))).toEqual(['lang'])
+  for (const row of table('Property')) {
+    const value = defaults.get(code(row[0]))
+    if (value === undefined) continue
+    const spelled = ts.isIdentifier(value) ? spellValue(values[value.text]) : value.getText()
+    expect(code(row[2]), code(row[0])).toBe(spelled)
+  }
+})
+
+test('every paragraph that names the board keys names the keys onKeyDown matches, as typed', () => {
+  const handler = element.members.find((member) => member.name?.getText() === 'onKeyDown')
+  if (handler === undefined) throw new Error('ArrowzBoard has no onKeyDown')
+  const keys = [...handler.getText().matchAll(/e\.key === '([^']+)'/g)].map((m) => m[1] ?? '')
+  expect(keys.length).toBeGreaterThan(0)
+  const paragraphs = readme.split('\n\n').filter((p) => !p.startsWith('|') && p.includes('`+`'))
+  expect(paragraphs.length).toBeGreaterThan(0)
+  for (const p of paragraphs) {
+    const spans = [...p.matchAll(/`(.)`/g)].map((m) => m[1] ?? '')
+    expect(sorted(spans), p.slice(0, 60)).toEqual(sorted(keys))
+  }
+})
+
+// --- Numbers the prose copies -------------------------------------------------
+
+test('every range the prose spells out is the range the package exports', () => {
+  const values = api as Record<string, unknown>
+  const spelled = [...readme.matchAll(/`(\w+_RANGE)` \((\S+) to (\S+)\)/g)]
+  expect(spelled.length).toBeGreaterThan(0)
+  for (const [, name = '', min, max] of spelled) {
+    expect(`{ min: ${min}, max: ${max} }`, name).toBe(spellValue(values[name]))
+  }
+})
+
+/** Numbers written out in the prose, each found by its sentence, with the value it copies. */
+const COPIED: readonly { sentence: RegExp; value: number }[] = [
+  { sentence: /merged over the CLI defaults \(stroke (\S+),/, value: api.DEFAULT_VIEW.stroke },
+  { sentence: /radius `pointRadius` \(default `(\S+)`\)/, value: api.DEFAULT_POINT_RADIUS },
+  { sentence: /default stroke half-width \(`(\S+)`\)/, value: api.DEFAULT_VIEW.stroke / 2 },
+]
+
+test('every number the prose copies from the code is that number', () => {
+  for (const { sentence, value } of COPIED) {
+    expect(sentence.exec(readme)?.[1], String(sentence)).toBe(String(value))
+  }
+})
+
 // --- The exports --------------------------------------------------------------
 
 const EXPORT_TABLES = ['Type', 'Function', 'Constant', 'Class'] as const
@@ -259,14 +327,38 @@ test('every constant row spells the value the package exports', () => {
   }
 })
 
+function classOf(name: string): ts.ClassDeclaration {
+  const decl = exports.get(name)?.declarations?.[0]
+  if (decl === undefined || !ts.isClassDeclaration(decl)) throw new Error(`${name} is not a class declaration`)
+  return decl
+}
+
+/** A class's constructor as a caller writes it: `new Class(params)`, with the declared parameter types. */
+function construction(decl: ts.ClassDeclaration): string {
+  const name = decl.name?.text ?? ''
+  const ctor = decl.members.find(ts.isConstructorDeclaration)
+  if (ctor === undefined) throw new Error(`${name} declares no constructor`)
+  const signature = checker.getSignatureFromDeclaration(ctor)
+  if (signature === undefined) throw new Error(`${name} has no constructor signature`)
+  // The checker prints a constructor as `(params): Class`.
+  const params = checker.signatureToString(signature)
+    .slice(0, -`: ${checker.typeToString(signature.getReturnType())}`.length)
+  return `new ${name}${params}`
+}
+
+test('every class row spells the constructor the class declares', () => {
+  for (const row of table('Class')) {
+    const name = code(row[0])
+    expect(code(row[1]), name).toBe(construction(classOf(name)))
+  }
+})
+
 test('every class row lists the class’s public members', () => {
   for (const row of table('Class')) {
     const name = code(row[0])
     // The element's members have their own tables above; its row points there.
     if (name === 'ArrowzBoard') continue
-    const decl = exports.get(name)?.declarations?.[0]
-    if (decl === undefined || !ts.isClassDeclaration(decl)) throw new Error(`${name} is not a class declaration`)
-    const { methods, getters } = publicMembers(decl)
+    const { methods, getters } = publicMembers(classOf(name))
     const written = [...(row[2] ?? '').matchAll(/`(\w+)(?:\([^)]*\))?`/g)].map((m) => m[1] ?? '')
     expect(sorted(written), `members of ${name}`).toEqual(sorted([...methods.keys(), ...getters]))
   }
@@ -348,16 +440,8 @@ test('every Docs function row spells the signature the function declares', () =>
 
 test('every Docs class row spells its constructor and its public members', () => {
   for (const row of ELEMENT_CLASSES) {
-    const decl = exports.get(row.key)?.declarations?.[0]
-    if (decl === undefined || !ts.isClassDeclaration(decl)) throw new Error(`${row.key} is not a class declaration`)
-    const ctor = decl.members.find(ts.isConstructorDeclaration)
-    if (ctor === undefined) throw new Error(`${row.key} declares no constructor`)
-    const signature = checker.getSignatureFromDeclaration(ctor)
-    if (signature === undefined) throw new Error(`${row.key} has no constructor signature`)
-    // The checker prints a constructor as `(params): Class`; the row writes `new Class(params)`.
-    const params = checker.signatureToString(signature)
-      .slice(0, -`: ${checker.typeToString(signature.getReturnType())}`.length)
-    expect(row.create, `constructor of ${row.key}`).toBe(`new ${row.key}${params}`)
+    const decl = classOf(row.key)
+    expect(row.create, `constructor of ${row.key}`).toBe(construction(decl))
     // The element's members have tables of their own, above the export tables.
     if (row.key === 'ArrowzBoard') {
       expect(row.members).toEqual([])
