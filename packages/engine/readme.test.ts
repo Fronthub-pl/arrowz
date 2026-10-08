@@ -10,6 +10,7 @@
 // failing row prints the text it expects.
 import { assert, assertEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
+import { BOARD_FILE_FIELDS } from './lab-docs.ts'
 
 const dir = dirname(fromFileUrl(import.meta.url))
 const readme = Deno.readTextFileSync(join(dir, 'README.md'))
@@ -426,6 +427,18 @@ for (const entry of ENTRIES) {
     }
   })
 }
+
+// --- The Docs tab's board-file table ----------------------------------------------
+
+Deno.test("the Docs tab's board-file table is BoardFile's fields, in order, with their types", () => {
+  const symbol = symbolsOf('mod.ts').find((s) => s.name === 'BoardFile')
+  const decl = symbol === undefined ? undefined : only(symbol)
+  if (decl?.kind !== 'interface') throw new Error('@arrowz/engine exports no interface BoardFile')
+  const declared = (decl.def.properties ?? []).map((p) =>
+    `${p.name}: ${p.tsType === undefined ? '' : render(p.tsType)}`
+  )
+  assertEquals(BOARD_FILE_FIELDS.map((row) => `${row.key}: ${row.type}`), declared)
+})
 
 // --- Development ----------------------------------------------------------------------
 
