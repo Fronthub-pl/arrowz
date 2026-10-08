@@ -61,6 +61,7 @@ test.each(LANGS)('every %s description is plain inline Markdown', (lang) => {
     docs.palette,
     docs.linkFields,
     docs.env,
+    docs.boardFile,
   ].flatMap((rows) => Object.values(rows))
   expect(texts.length).toBeGreaterThan(75)
   for (const text of texts) {

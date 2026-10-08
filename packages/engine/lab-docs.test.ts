@@ -6,6 +6,7 @@
 import { assert, assertEquals, assertNotEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import {
+  BOARD_FILE_FIELDS,
   type Docs,
   docsFor,
   ELEMENT_CLASSES,
@@ -108,8 +109,8 @@ Deno.test('spellValue writes a constant as the tables do', () => {
 
 // The frame around the tables — the column names and the note's name — is text
 // too, and the tests above walk only rows. The key list is derived from the
-// object, so a field added to `Docs` later is covered too. Thirty-three strings exist
-// today (thirty-two `col*` and `infoLabel`); the floor catches a filter that finds none.
+// object, so a field added to `Docs` later is covered too. Thirty-four strings exist
+// today (thirty-two `col*`, `infoLabel` and `frameworkLabel`); the floor catches a filter that finds none.
 Deno.test('the frame around the tables is translated too', () => {
   const en = docsFor('en')
   const pl = docsFor('pl')
@@ -404,5 +405,15 @@ Deno.test('the member table spells the signature the class declares', () => {
     const member = found.find((member) => member.name === row.key)
     assert(member, `no signature for ${row.key}`)
     assertEquals(expand(member.signature), expand(row.signature), `signature of ${row.key}`)
+  }
+})
+
+Deno.test('every board-file field is described in both languages, and translated', () => {
+  const en = docsFor('en')
+  const pl = docsFor('pl')
+  for (const row of BOARD_FILE_FIELDS) {
+    assert(en.boardFile[row.key].trim().length > 0, `EN ${row.key}`)
+    assert(pl.boardFile[row.key].trim().length > 0, `PL ${row.key}`)
+    assertNotEquals(pl.boardFile[row.key], en.boardFile[row.key], `${row.key} is still English in the Polish docs`)
   }
 })

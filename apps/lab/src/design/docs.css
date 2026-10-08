@@ -33,8 +33,7 @@
   font-size: 13px;
   line-height: 1.75;
 }
-/* Inline code in prose and descriptions: the code font at the text's size, and
-   no colour — colour belongs to blocks and machine columns. */
+/* Inline code in prose and descriptions: the code font at the text's size. */
 .fw-docs :is(p, li, td, th) code {
   font-family: var(--mono);
   font-size: inherit;
@@ -44,8 +43,8 @@
 .fw-docs-body :is(p, li) code {
   overflow-wrap: anywhere;
 }
-/* On a page set wholly in mono, code in prose needs a ground of its own to
-   stand out. The machine columns (`td.mono`) have the --code-* colours instead.
+/* On a page set wholly in mono, code in prose needs a ground and a colour of
+   its own to stand out: --code-prop, as the tables' names, since it is mostly one.
    Not `box-decoration-break: clone`: Chrome breaks the line without the cloned
    end padding, and a long span pushed a 280px page 3px sideways. */
 .fw-docs-body :is(p, li, h3, h4, figcaption) code,
@@ -53,7 +52,7 @@
   padding: 1px 5px;
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--border);
-  color: var(--ink);
+  color: var(--code-prop);
 }
 /* Prose beyond paragraphs, in the page body only: the navigation column is
    lists and links too, styled below. A link keeps the text's colour and
@@ -277,6 +276,49 @@
   color: var(--ink);
   border-color: var(--ash);
 }
+/* A tab group over its panel. The strip scrolls sideways by itself, so five
+   names on a phone never widen the page; the selected tab's bar is drawn
+   inside the button, since a negative margin would make the strip scroll
+   vertically too. */
+.fw-docs-tabs {
+  margin: 8px 0 24px;
+}
+.fw-docs-tablist {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+.fw-docs-tablist button {
+  flex: none;
+  padding: 8px 4px 6px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ash);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.fw-docs-tablist button:hover {
+  color: var(--ink);
+}
+.fw-docs-tablist button[aria-selected='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--signal);
+}
+/* The strip scrolls, so it clips: the ring is drawn inside the button. */
+.fw-docs-tablist button:focus-visible {
+  outline-offset: -2px;
+}
+/* `p.` because `.fw-docs p` sets every paragraph's margin and size. */
+.fw-docs p.fw-docs-file {
+  margin: 0 0 6px;
+  color: var(--ash);
+  font-family: var(--mono);
+  font-size: 12px;
+}
 @media (max-width: 1023px) {
   .fw-docs {
     padding: 28px;
@@ -310,8 +352,8 @@
     margin-top: 0;
   }
 }
-/* A finger's 44px for every link of the column: at XS, and under a coarse
-   pointer at any width, so a tablet at 768 and up gets it too. */
+/* A finger's 44px for every link of the column and every framework tab: at XS,
+   and under a coarse pointer at any width, so a tablet at 768 and up gets it too. */
 @media (pointer: coarse), (max-width: 767px) {
   .fw-docs-toc .pg > a,
   .fw-docs-toc .pg > ul a {
@@ -320,6 +362,9 @@
     min-height: var(--touch);
     padding-top: 0;
     padding-bottom: 0;
+  }
+  .fw-docs-tablist button {
+    min-height: var(--touch);
   }
 }
 /* The element page's example in GitHub Dark's syntax colours; the CLI blocks

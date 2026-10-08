@@ -86,6 +86,7 @@ test.each([
     'a',
     44,
   ],
+  ['a docs tab', '<div class="fw-docs-tablist"><button>React</button></div>', 'button', 44],
   // The M/S bar's controls under a finger.
   [
     'a bar control',
@@ -117,6 +118,7 @@ test.each([
     'a',
     44,
   ],
+  ['a docs tab', '<div class="fw-docs-tablist"><button>React</button></div>', 'button', 44],
   [
     'Delete from disk',
     '<div class="fw-bcol"><div class="fw-alt"><button class="danger">Delete</button></div></div>',

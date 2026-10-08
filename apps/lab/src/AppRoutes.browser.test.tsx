@@ -42,7 +42,8 @@ test("a board's address renders no panel of its own, and is not the wildcard", a
 // whole-app test asserts the accessible name.
 test('/docs/element renders the docs panel, wired to its tab', async () => {
   const screen = await at('/docs/element')
-  await expect.element(screen.getByRole('tabpanel')).toBeVisible()
+  // The Element page's framework tabs are tabpanels too, nested inside this one.
+  await expect.element(screen.getByRole('tabpanel').first()).toBeVisible()
   const panel = screen.container.querySelector('[role="tabpanel"]')
   expect(panel?.getAttribute('aria-labelledby')).toBe('tab-docs-panel')
   // Named, though it is the only navigation landmark today: a second one would

@@ -106,6 +106,7 @@ function docsRows(lang: 'en' | 'pl'): [string, string][] {
     'functions',
     'constants',
     'classes',
+    'boardFile',
     'keys',
     'palette',
     'linkFields',

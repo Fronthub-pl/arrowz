@@ -1,6 +1,6 @@
 import { PARAM_SPEC } from '@arrowz/engine'
 import { ENV_VARS, flagOf, KNOB_ROWS, type KnobRow, RULE_ROWS } from '@arrowz/engine/command'
-import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS, ELEMENT_SLOTS } from '@arrowz/engine/docs'
+import { BOARD_FILE_FIELDS, ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS, ELEMENT_SLOTS } from '@arrowz/engine/docs'
 import type { Dict } from '@arrowz/engine/i18n'
 import type { ReactElement } from 'react'
 import { useDictionary } from '../i18n'
@@ -143,6 +143,29 @@ function tableOf(
               <Mono text={row.key} column="slot" />
               <td>
                 <InlineMarkdown text={docs.slots[row.key]} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  if (of === 'board-file')
+    return (
+      <table className="fw-docs-table" aria-labelledby={labelledBy}>
+        <thead>
+          <tr>
+            <th scope="col">{docs.colField}</th>
+            <th scope="col">{docs.colType}</th>
+            <th scope="col">{docs.colDescription}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {BOARD_FILE_FIELDS.map((row) => (
+            <tr key={row.key}>
+              <Mono text={row.key} column="prop" />
+              <Mono text={row.type} column="type" />
+              <td>
+                <InlineMarkdown text={docs.boardFile[row.key]} />
               </td>
             </tr>
           ))}

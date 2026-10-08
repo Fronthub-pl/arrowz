@@ -1,5 +1,6 @@
 import { THEMES } from '@arrowz/engine'
 import {
+  BOARD_FILE_FIELDS,
   ELEMENT_CLASSES,
   ELEMENT_CONSTANTS,
   ELEMENT_EVENTS,
@@ -9,10 +10,12 @@ import {
   ELEMENT_SLOTS,
   ELEMENT_TYPES,
 } from '@arrowz/engine/docs'
+import type { Code, Nodes } from 'mdast'
 import { act } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
+import { page } from 'vitest/browser'
 import { contrast, parse } from '../design/contrast'
 import { silentQueue } from '../harness/docsWorkers'
 import { useStore } from '../state/store'
@@ -38,11 +41,17 @@ const mount = (width?: number) =>
     </MemoryRouter>,
   )
 
-const firstCode = docsPage('en', 'element').root.children.find((node) => node.type === 'code')
-const EXAMPLE = firstCode?.type === 'code' ? firstCode.value : ''
+function codeBlocks(node: Nodes, out: Code[] = []): Code[] {
+  if (node.type === 'code') out.push(node)
+  if ('children' in node) for (const child of node.children) codeBlocks(child, out)
+  return out
+}
+/** The HTML tab of Using it: the page's first `html` block. */
+const EXAMPLE = codeBlocks(docsPage('en', 'element').root).find((block) => block.lang === 'html')?.value ?? ''
 
 const SECTIONS = [
   'example',
+  'files',
   'props',
   'members',
   'events',
@@ -64,6 +73,7 @@ const rowFor = (container: HTMLElement, key: string) =>
   [...container.querySelectorAll<HTMLTableRowElement>('tbody tr')].find((tr) => tr.cells[0]?.textContent === key)
 
 const DESCRIBED =
+  BOARD_FILE_FIELDS.length +
   ELEMENT_PROPS.length +
   ELEMENT_MEMBERS.length +
   ELEMENT_EVENTS.length +
@@ -73,7 +83,7 @@ const DESCRIBED =
   ELEMENT_CONSTANTS.length +
   ELEMENT_CLASSES.length
 
-test('the page has its fifteen sections, in order', async () => {
+test('the page has its sixteen sections, in order', async () => {
   const screen = await mount()
   expect([...screen.container.querySelectorAll('h3')].map((h) => h.id)).toEqual(SECTIONS.map((id) => `docs-${id}`))
 })
@@ -147,15 +157,15 @@ test('Copy on the example writes the code, not its colouring', async () => {
   expect(EXAMPLE).toContain('<arrowz-board')
   expect(code?.textContent).toBe(EXAMPLE)
   expect(code?.querySelectorAll('span[class^="tk-"]').length).toBeGreaterThan(20)
-  await screen.getByRole('button', { name: 'Copy: Using it' }).click()
+  await screen.getByRole('button', { name: 'Copy: Using it, HTML' }).click()
   expect(write).toHaveBeenCalledWith(EXAMPLE)
-  await expect.element(screen.getByRole('button', { name: 'Copied: Using it' })).toBeInTheDocument()
+  await expect.element(screen.getByRole('button', { name: 'Copied: Using it, HTML' })).toBeInTheDocument()
 })
 
 test('Copy names its section in Polish too', async () => {
   useStore.getState().lang.setLang('pl')
   const screen = await mount()
-  const button = screen.getByRole('button', { name: 'Kopiuj: Jak użyć' })
+  const button = screen.getByRole('button', { name: 'Kopiuj: Jak użyć, HTML' })
   await expect.element(button).toHaveTextContent('Kopiuj')
 })
 
@@ -223,6 +233,19 @@ test('the machine columns wear the colour of what they hold', async () => {
   expect(at('pad')?.cells[4]?.querySelector('[class^="tk-"]')).toBeNull()
 })
 
+// The page is set wholly in mono, so the font cannot tell code from prose: its colour must.
+test('code in prose wears the property colour, readable on its own ground', async () => {
+  const screen = await mount()
+  const code = screen.container.querySelector('.fw-docs-body p code')
+  if (code === null) throw new Error('no code in prose')
+  const probe = document.createElement('span')
+  probe.style.color = 'var(--code-prop)'
+  screen.container.append(probe)
+  const color = parse(getComputedStyle(code).color).rgb
+  expect(color).toEqual(parse(getComputedStyle(probe).color).rgb)
+  expect(contrast(color, parse(getComputedStyle(code).backgroundColor).rgb)).toBeGreaterThanOrEqual(4.5)
+})
+
 test('every code colour clears 4.5:1 on --graphite and --void', async () => {
   const screen = await render(<div className="fw" />)
   const probe = document.createElement('span')
@@ -239,4 +262,33 @@ test('every code colour clears 4.5:1 on --graphite and --void', async () => {
     expect(getComputedStyle(document.documentElement).getPropertyValue(name), name).not.toBe('')
     for (const plane of planes) expect(contrast(resolve(name), plane), name).toBeGreaterThanOrEqual(4.5)
   }
+})
+
+test('the board-file table lists the fields of a board file, under Board files', async () => {
+  const screen = await mount()
+  const table = screen.container.querySelector('table[aria-labelledby="docs-files"]')
+  expect([...(table?.querySelectorAll('tbody tr') ?? [])].map((tr) => tr.querySelector('td')?.textContent)).toEqual(
+    BOARD_FILE_FIELDS.map((row) => row.key),
+  )
+  expect(rowFor(screen.container, 'fingerprint')?.cells[1]?.textContent).toBe('string')
+})
+
+test('the page has two framework groups, and both follow one choice', async () => {
+  const screen = await mount()
+  expect(screen.container.querySelectorAll('[role="tablist"]')).toHaveLength(2)
+  await screen.getByRole('tab', { name: 'Angular' }).first().click()
+  await expect
+    .poll(() => [...screen.container.querySelectorAll('[role="tab"][aria-selected="true"]')].map((t) => t.textContent))
+    .toEqual(['Angular', 'Angular'])
+  await expect.element(screen.getByRole('button', { name: 'Copy: board.component.ts' })).toBeVisible()
+  await expect.element(screen.getByRole('button', { name: 'Copy: stored-board.component.ts' })).toBeVisible()
+})
+
+// The effect, not the declared overflow: the document itself must not scroll sideways.
+test('at 280 px the page does not scroll sideways', async () => {
+  await page.viewport(280, 800)
+  await mount()
+  const root = document.scrollingElement
+  if (root === null) throw new Error('no root')
+  expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth)
 })

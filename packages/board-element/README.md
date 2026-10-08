@@ -18,8 +18,24 @@ HTML, React, Angular, Svelte or Vue.
 </script>
 ```
 
-Angular: add `CUSTOM_ELEMENTS_SCHEMA` to the component and bind `[board]`.
-React: wrap with `@lit/react` (`createComponent`) in the consumer.
+`board` has no attribute, so a framework must set it as a property:
+
+- **Angular**: `schemas: [CUSTOM_ELEMENTS_SCHEMA]`, `[board]="board"`, `(piece-click)="…"`; a type
+  import from this package types `$event.detail`.
+- **React 19**: `<arrowz-board board={board} onpiece-click={…}>`, rendered only once the package
+  is imported; `@lit/react` is optional.
+- **Vue 3**: `isCustomElement` for the tag, `:board="board"` from a `shallowRef`, `@piece-click`;
+  render the tag once the package is imported.
+- **Svelte 5**: `{board}`, `onpiece-click={…}`.
+
+Import the package in the browser only: the element draws with WebGL. The lab's Docs tab, page
+Element, has a full example for each.
+
+### Board files
+
+A board stored or sent over the network is a `.board.json` (`BoardFile`), not a `BoardData`:
+decode it with `decodeBoard` from `@arrowz/engine` where the element is, catch `BoardFileError`,
+and assign the result to `board`.
 
 ## API
 

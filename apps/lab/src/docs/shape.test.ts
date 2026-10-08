@@ -75,6 +75,16 @@ describe('shapeOf', () => {
   ])('tells %s apart', (_, a, b) => {
     expect(shapeOf(parseDocs(`# T\n\n${a}`))).not.toEqual(shapeOf(parseDocs(`# T\n\n${b}`)))
   })
+
+  test('tells another file name apart', () => {
+    expect(shapeOf(parseDocs('# T\n\n```ts a.ts\nx\n```'))).not.toEqual(shapeOf(parseDocs('# T\n\n```ts b.ts\nx\n```')))
+  })
+
+  test('a translated // comment keeps the shape of a script block', () => {
+    const en = "# T\n\n```ts\nconst a = 1 // one\n// the rest\nconst url = 'https://x'\n```"
+    const pl = "# T\n\n```ts\nconst a = 1 // jeden\n// reszta\nconst url = 'https://x'\n```"
+    expect(shapeOf(parseDocs(pl))).toEqual(shapeOf(parseDocs(en)))
+  })
 })
 
 describe('board directives', () => {
@@ -121,5 +131,56 @@ describe('board directives', () => {
       '::board{cmd=--width=20 --height=20}',
       '::board{cmd=--width=20 --height=20 --seed=8}',
     ])
+  })
+})
+
+describe('tab directives', () => {
+  const inPage = (md: string) => problemsOf(parseDocs(`# T\n\n## A {#a}\n\n${md}`), DOCS_PAGES)
+  const tab = (id: string, body = 'Prose.') => `:::tab{id="${id}"}\n${body}\n:::`
+  const group = (...tabs: string[]) => `::::tabs{group="framework"}\n${tabs.join('\n')}\n::::`
+  const ALL = ['html', 'angular', 'react', 'vue', 'svelte']
+  const all = (body = 'Prose.') => group(...ALL.map((id) => tab(id, body)))
+
+  test('a group with every tab in order, prose, lists and named code is fine', () => {
+    const react = tab('react', 'Prose.\n\n```ts a.d.ts\nx\n```\n\n```tsx\ny\n```')
+    const vue = tab('vue', '- a list')
+    expect(inPage(group(tab('html'), tab('angular'), react, vue, tab('svelte')))).toEqual([])
+  })
+
+  test.each([
+    ['an unknown group', all().replace('framework', 'os'), 'group="os" is not one of framework'],
+    [
+      'a missing tab',
+      group(...ALL.slice(0, 4).map((id) => tab(id))),
+      'needs the tabs html, angular, react, vue, svelte',
+    ],
+    ['tabs out of order', group(...[...ALL].reverse().map((id) => tab(id))), 'needs the tabs'],
+    ['a tab twice', group(...[...ALL, 'html'].map((id) => tab(id))), 'needs the tabs'],
+    ['an unknown tab', group(...ALL.map((id) => tab(id === 'svelte' ? 'solid' : id))), 'id="solid" is not one of'],
+    [
+      'prose straight in the group',
+      all().replace('::::tabs{group="framework"}', '::::tabs{group="framework"}\nLoose.'),
+      'holds tabs only',
+    ],
+    ['a heading in a tab', all('### Heading'), 'a tab holds paragraphs, lists and code only'],
+    ['a group in a tab', all(all()), 'a tab holds paragraphs, lists and code only'],
+    ['a tab on its own', tab('html'), 'stands only in a ::::tabs'],
+    ['a tab with a label', all().replace(':::tab{id="react"}', ':::tab[React]{id="react"}'), ':::tab takes no label'],
+    ['an empty tab', all().replace(':::tab{id="vue"}\nProse.\n:::', ':::tab{id="vue"}\n:::'), 'an empty tab'],
+    [
+      'two unnamed blocks in a tab',
+      all('```ts\nx\n```\n\n```ts\ny\n```'),
+      'names every code block but one by its file',
+    ],
+    ['one file name twice in a tab', all('```ts a.ts\nx\n```\n\n```ts a.ts\ny\n```'), 'a file name twice'],
+    ['a meta of two words', all('```ts a b\nx\n```'), "a code block's meta is one file name"],
+    // The parser closes a tab at a `:::` line, even inside a fenced block.
+    ['a ::: line inside a block', all('```html\n:::\n```'), 'holds tabs only'],
+  ])('refuses %s', (_, md, needle) => {
+    expect(inPage(md).join(' | ')).toContain(needle)
+  })
+
+  test('a code block takes a language of the framework examples', () => {
+    for (const lang of ['ts', 'tsx', 'vue', 'svelte']) expect(inPage(`\`\`\`${lang}\nx\n\`\`\``)).toEqual([])
   })
 })

@@ -15,6 +15,7 @@
 // sentence about the DOM can trip a rule this module does not break.
 import type { Lang } from './lab-i18n.ts'
 import type { EnvVar } from './command.ts'
+import type { BoardFile } from './types.ts'
 
 /** One row of the property table. `attribute` is null when the property has none. */
 export interface PropRow {
@@ -228,6 +229,27 @@ export type FunctionKey = (typeof ELEMENT_FUNCTIONS)[number]['key']
 export type ConstantKey = (typeof ELEMENT_CONSTANTS)[number]['key']
 export type ClassKey = (typeof ELEMENT_CLASSES)[number]['key']
 
+/** One field of the board file, as `BoardFile` declares it. */
+export interface FieldRow {
+  readonly key: keyof BoardFile
+  readonly type: string
+}
+
+/** The fields of a board file, in `BoardFile`'s order: the Element page's `board-file` table. */
+export const BOARD_FILE_FIELDS = [
+  { key: 'format', type: "'arrowz-board'" },
+  { key: 'v', type: '1' },
+  { key: 'W', type: 'number' },
+  { key: 'H', type: 'number' },
+  { key: 'pieces', type: 'number' },
+  { key: 'voids', type: 'number' },
+  { key: 'unfilled', type: 'number' },
+  { key: 'fingerprint', type: 'string' },
+  { key: 'body', type: 'string' },
+] as const satisfies readonly FieldRow[]
+
+export type BoardFileField = (typeof BOARD_FILE_FIELDS)[number]['key']
+
 /**
  * A constant's value as the Docs tab and the element's README write it: a
  * string quoted, a list in brackets, an object as `{ key: value }`, and an
@@ -308,6 +330,8 @@ export interface Docs {
   readonly functions: Record<FunctionKey, string>
   readonly constants: Record<ConstantKey, string>
   readonly classes: Record<ClassKey, string>
+  /** The board file's fields, by name (`BOARD_FILE_FIELDS`). */
+  readonly boardFile: Record<BoardFileField, string>
   readonly colProp: string
   readonly colType: string
   readonly colAttr: string
@@ -349,6 +373,8 @@ export interface Docs {
   readonly colDescription: string
   /** The accessible name of a page's note, a blockquote in its Markdown. */
   readonly infoLabel: string
+  /** The accessible name of a page's framework tabs. */
+  readonly frameworkLabel: string
 }
 
 const EN = {
@@ -539,6 +565,18 @@ const EN = {
     ArrowzBoard: 'The element itself, usually written as a tag in HTML. Its members are in the tables above.',
     GameHost: 'Runs a game on any `GameTarget`, outside the element too.',
   },
+  boardFile: {
+    format: "Always `'arrowz-board'`: what tells a board file from any other JSON.",
+    v: 'The version of the format. This engine writes and reads `1` (`BOARD_FILE_VERSION`).',
+    W: 'Width of the board, in cells.',
+    H: 'Height of the board, in cells.',
+    pieces: 'How many arrows the board holds.',
+    voids: 'How many cells are holes left on purpose (`-2` in `owner`), where no arrow goes.',
+    unfilled:
+      'How many cells no arrow filled (`-1` in `owner`), which `voids` in the view shows; `0` on a complete board.',
+    fingerprint: "The board's `fingerprint()`: the same board always has the same one. `decodeBoard` checks it last.",
+    body: 'The arrows and the holes, packed, in base64. Only `decodeBoard` reads it.',
+  },
   colProp: 'Property',
   colType: 'Type',
   colAttr: 'Attribute',
@@ -572,6 +610,7 @@ const EN = {
   colLicence: 'Licence',
   colDescription: 'Description',
   infoLabel: 'Note',
+  frameworkLabel: 'Framework',
 } as const satisfies Docs
 
 const PL = {
@@ -762,6 +801,19 @@ const PL = {
     ArrowzBoard: 'Sam komponent, zwykle zapisywany jako znacznik w HTML. Jego składowe są w tabelach wyżej.',
     GameHost: 'Prowadzi grę na dowolnym `GameTarget`, także poza komponentem.',
   },
+  boardFile: {
+    format: "Zawsze `'arrowz-board'`: po tym plik planszy odróżnia się od innego JSON-a.",
+    v: 'Wersja formatu. Ten silnik zapisuje i czyta `1` (`BOARD_FILE_VERSION`).',
+    W: 'Szerokość planszy w komórkach.',
+    H: 'Wysokość planszy w komórkach.',
+    pieces: 'Ile strzałek ma plansza.',
+    voids: 'Ile komórek to dziury zostawione celowo (`-2` w `owner`), gdzie nie ma strzałki.',
+    unfilled:
+      'Ile komórek nie wypełniła żadna strzałka (`-1` w `owner`); pokazuje je `voids` w widoku. `0` na pełnej planszy.',
+    fingerprint:
+      'Odcisk planszy, `fingerprint()`: ta sama plansza ma zawsze ten sam. `decodeBoard` sprawdza go na końcu.',
+    body: 'Strzałki i dziury, spakowane, w base64. Czyta je tylko `decodeBoard`.',
+  },
   colProp: 'Właściwość',
   colType: 'Typ',
   colAttr: 'Atrybut',
@@ -795,6 +847,7 @@ const PL = {
   colLicence: 'Licencja',
   colDescription: 'Opis',
   infoLabel: 'Uwaga',
+  frameworkLabel: 'Wybór frameworka',
 } as const satisfies Docs
 
 /** The documentation in one language. Built by the surface once per language, as the dictionary is. */

@@ -1,4 +1,5 @@
 import { type ParamGroup, PARAM_SPEC } from '@arrowz/engine'
+import { type DocsTabs, docsTabsOf, type TabGroup } from '../docs/tabs'
 import { narrow, readBand } from './band'
 import { readStored, writeStored } from './storage'
 import { patcher, persistedFlag, type SliceSet } from './slice'
@@ -46,6 +47,9 @@ export const REPORT_KEY = 'labReport'
 /** Where the settings drawer's state is remembered, as the report's is. */
 export const SETTINGS_KEY = 'labSettings'
 
+/** Where the docs' chosen tabs are remembered: one id per group, as JSON. */
+export const DOCS_TABS_KEY = 'labDocsTabs'
+
 /** Only a stored `advanced` opens the advanced view. */
 export function modeOf(stored: string | null): ViewMode {
   return stored === 'advanced' ? 'advanced' : 'simple'
@@ -92,6 +96,8 @@ export interface UiState {
    */
   focusTarget: string | null
   boardMode: BoardMode
+  /** The chosen tab of each docs tab group, shared by every group of that name. Remembered, never in the hash. */
+  docsTabs: DocsTabs
   select(entry: RailEntry): void
   setAuto(on: boolean): void
   setSaveEvery(on: boolean): void
@@ -119,6 +125,7 @@ export interface UiState {
   requestFocus(id: string): void
   clearFocusRequest(): void
   setBoardMode(mode: BoardMode): void
+  setDocsTab(group: TabGroup, id: string): void
 }
 
 export function createUiSlice(set: SliceSet<'ui', UiState>): UiState {
@@ -144,6 +151,7 @@ export function createUiSlice(set: SliceSet<'ui', UiState>): UiState {
     lastBoards: '/boards',
     focusTarget: null,
     boardMode: 'view',
+    docsTabs: docsTabsOf(readStored(DOCS_TABS_KEY)),
     select: (entry) => patch({ entry }),
     setAuto: (auto) => patch({ auto }),
     setSaveEvery: (saveEvery) => patch({ saveEvery }),
@@ -176,5 +184,12 @@ export function createUiSlice(set: SliceSet<'ui', UiState>): UiState {
     requestFocus: (focusTarget) => patch({ focusTarget }),
     clearFocusRequest: () => patch({ focusTarget: null }),
     setBoardMode: (boardMode) => patch({ boardMode }),
+    // Read inside the update, like `toggleSolo`: a click and a key can both land before a render.
+    setDocsTab: (group, id) =>
+      set((state) => {
+        const docsTabs = { ...state.ui.docsTabs, [group]: id }
+        writeStored(DOCS_TABS_KEY, JSON.stringify(docsTabs))
+        return { ui: { ...state.ui, docsTabs } }
+      }),
   }
 }

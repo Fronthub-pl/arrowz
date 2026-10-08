@@ -12,6 +12,7 @@ import { aboutProblem, DOCS_BOARD_MAX, readBoardCmd, statsProblem } from './boar
 import { EXPORT_TABLES } from './exportTables'
 import { DOCS_LINK, sectionIdOf } from './markdown'
 import { RULE_BOARD_NAMES } from './ruleBoards'
+import { isTabGroup, TAB_GROUPS, TAB_IDS } from './tabs'
 
 /** What an attribute may hold: one of a list, or whatever `check` lets through (it returns the problem). */
 type AttributeRule = readonly string[] | ((value: string) => string | null)
@@ -38,6 +39,7 @@ export const DIRECTIVES: Readonly<Record<string, DirectiveRule>> = {
         'element-members',
         'element-events',
         'element-slots',
+        'board-file',
         ...EXPORT_TABLES,
         'themes',
         'keys',
@@ -60,13 +62,24 @@ export const DIRECTIVES: Readonly<Record<string, DirectiveRule>> = {
   },
 }
 
-/** `:::compare` holds boards side by side; its `stats` speak for every board in it. */
+/**
+ * `:::compare` holds boards side by side; its `stats` speak for every board in
+ * it. `::::tabs` holds one `:::tab` per tab of its group (`TAB_GROUPS`).
+ */
 export const CONTAINERS: Readonly<Record<string, DirectiveRule>> = {
   compare: { label: false, required: {}, optional: { stats: statsProblem } },
+  tabs: { label: false, required: { group: Object.keys(TAB_GROUPS) }, optional: {} },
+  tab: { label: false, required: { id: TAB_IDS }, optional: {} },
 }
 
 /** Fenced code is coloured as its language; `text` is a terminal's output and stays plain. */
-export const CODE_LANGS: readonly string[] = ['html', 'sh', 'json', 'text']
+export const CODE_LANGS: readonly string[] = ['html', 'sh', 'json', 'text', 'ts', 'tsx', 'vue', 'svelte']
+
+/** A code block's meta: the one file name it is shown under. */
+const FILE_NAME = /^[\w.-]+$/
+
+/** What a tab holds: no heading, which would be a section the reader cannot see, and no directive. */
+const PANEL = new Set(['paragraph', 'list', 'code'])
 
 const SHOWN = new Set([
   'root',
@@ -143,10 +156,12 @@ function leafProblems(node: LeafDirective, at: string): string[] {
   return out
 }
 
-function containerProblems(node: ContainerDirective, at: string): string[] {
+function containerProblems(node: ContainerDirective, at: string, parent: Nodes | null): string[] {
   const rule = Object.hasOwn(CONTAINERS, node.name) ? CONTAINERS[node.name] : undefined
   if (rule === undefined) return [`${at}: :::${node.name} is not a docs directive`]
   const out = attributeProblems(node, rule, at)
+  if (node.name === 'tabs') return [...out, ...tabsProblems(node, at)]
+  if (node.name === 'tab') return [...out, ...tabProblems(node, at, parent)]
   const boards = node.children.filter((child) => child.type === 'leafDirective' && child.name === 'board')
   if (boards.length !== node.children.length) out.push(`${at}: :::${node.name} holds boards only`)
   if (boards.length < 2) out.push(`${at}: :::${node.name} needs two boards or more`)
@@ -156,11 +171,43 @@ function containerProblems(node: ContainerDirective, at: string): string[] {
   return out
 }
 
+/** Every tab of the group, once each, in the group's order: a page may not leave a framework out. */
+function tabsProblems(node: ContainerDirective, at: string): string[] {
+  const out: string[] = []
+  const tabs = node.children.filter((child) => child.type === 'containerDirective' && child.name === 'tab')
+  if (tabs.length !== node.children.length) out.push(`${at}: ::::tabs holds tabs only`)
+  const group = node.attributes?.['group']
+  if (!isTabGroup(group)) return out
+  const want = TAB_GROUPS[group].map((tab) => tab.id)
+  const got = tabs.map((tab) => (tab.type === 'containerDirective' ? (tab.attributes?.['id'] ?? '') : ''))
+  if (got.join(' ') !== want.join(' '))
+    out.push(`${at}: ::::tabs{group="${group}"} needs the tabs ${want.join(', ')}, in that order`)
+  return out
+}
+
+function tabProblems(node: ContainerDirective, at: string, parent: Nodes | null): string[] {
+  const out: string[] = []
+  if (parent?.type !== 'containerDirective' || parent.name !== 'tabs')
+    out.push(`${at}: :::tab stands only in a ::::tabs`)
+  // A `[label]` parses as a first paragraph flagged `directiveLabel`, which the page would show as prose.
+  if (node.children.some((child) => child.type === 'paragraph' && child.data?.directiveLabel === true))
+    out.push(`${at}: :::tab takes no label`)
+  if (node.children.length === 0) out.push(`${at}: an empty tab`)
+  if (!node.children.every((child) => PANEL.has(child.type)))
+    out.push(`${at}: a tab holds paragraphs, lists and code only`)
+  const names = node.children.flatMap((child) => (child.type === 'code' ? [child.meta ?? null] : []))
+  if (names.filter((name) => name === null).length > 1)
+    out.push(`${at}: a tab names every code block but one by its file`)
+  const named = names.filter((name) => name !== null)
+  if (new Set(named).size !== named.length) out.push(`${at}: a file name twice in one tab`)
+  return out
+}
+
 /** What in this page the renderer would not show, one message per finding; none is a page that ships. */
 export function problemsOf(root: Root, pages: readonly string[]): string[] {
   const out: string[] = []
   const seen = new Set<string>()
-  const walk = (node: Nodes): void => {
+  const walk = (node: Nodes, parent: Nodes | null): void => {
     const at = `line ${node.position?.start.line ?? '?'}`
     if (!SHOWN.has(node.type)) out.push(`${at}: ${node.type} is not shown by the docs renderer`)
     if (node.type === 'heading') {
@@ -174,6 +221,8 @@ export function problemsOf(root: Root, pages: readonly string[]): string[] {
     }
     if (node.type === 'code' && !CODE_LANGS.includes(node.lang ?? ''))
       out.push(`${at}: code needs one of ${CODE_LANGS.join(', ')}`)
+    if (node.type === 'code' && node.meta != null && !FILE_NAME.test(node.meta))
+      out.push(`${at}: a code block's meta is one file name`)
     if (node.type === 'link' && !node.url.startsWith('https://')) {
       const page = DOCS_LINK.exec(node.url)?.[1]
       if (page === undefined || !pages.includes(page))
@@ -187,23 +236,34 @@ export function problemsOf(root: Root, pages: readonly string[]): string[] {
     )
       out.push(`${at}: a list item holds paragraphs and lists only`)
     if (node.type === 'leafDirective') out.push(...leafProblems(node, at))
-    if (node.type === 'containerDirective') out.push(...containerProblems(node, at))
-    if ('children' in node) for (const child of node.children) walk(child)
+    if (node.type === 'containerDirective') out.push(...containerProblems(node, at, parent))
+    if ('children' in node) for (const child of node.children) walk(child, node)
   }
   const first = root.children[0]
   if (first?.type !== 'heading' || first.depth !== 1) out.push('line 1: a page opens with its # title')
-  walk(root)
+  walk(root, null)
   return out
 }
 
-/** A `sh` block without its comments, which are prose and are translated. */
-const codeOf = (lang: string | null | undefined, value: string): string =>
-  lang === 'sh'
+/** What a translation may change in a block: its comments, which are prose. */
+const COMMENT: Readonly<Record<string, RegExp>> = {
+  sh: /(^|\s+)#.*$/,
+  ts: /(^|\s+)\/\/.*$/,
+  tsx: /(^|\s+)\/\/.*$/,
+  vue: /(^|\s+)\/\/.*$/,
+  svelte: /(^|\s+)\/\/.*$/,
+}
+
+/** A block without its comments. */
+const codeOf = (lang: string | null | undefined, value: string): string => {
+  const comment = lang != null && Object.hasOwn(COMMENT, lang) ? COMMENT[lang] : undefined
+  return comment === undefined
     ? value
-        .split('\n')
-        .map((line) => line.replace(/(^|\s+)#.*$/, ''))
-        .join('\n')
     : value
+        .split('\n')
+        .map((line) => line.replace(comment, ''))
+        .join('\n')
+}
 
 const attributesOf = (attributes: LeafDirective['attributes']): string =>
   Object.entries(attributes ?? {})
@@ -217,7 +277,8 @@ export function shapeOf(root: Root): string[] {
   const walk = (node: Nodes): void => {
     if (node.type === 'heading')
       out.push(node.depth === 2 ? `## {#${sectionIdOf(node) ?? ''}}` : '#'.repeat(node.depth))
-    if (node.type === 'code') out.push(`code ${node.lang ?? ''}: ${codeOf(node.lang, node.value)}`)
+    if (node.type === 'code')
+      out.push(`code ${node.lang ?? ''}${node.meta == null ? '' : ` ${node.meta}`}: ${codeOf(node.lang, node.value)}`)
     if (node.type === 'leafDirective') out.push(`::${node.name}{${attributesOf(node.attributes)}}`)
     if (node.type === 'containerDirective') out.push(`:::${node.name}{${attributesOf(node.attributes)}}`)
     if (node.type === 'link') out.push(`link ${node.url}`)
