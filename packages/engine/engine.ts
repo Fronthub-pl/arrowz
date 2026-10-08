@@ -2343,7 +2343,7 @@ const PARAM_TABLE = [
     max: 1000,
     step: 1,
     def: 50,
-    help: 'Number of rows. A tall board is harder than a square one with the same number of cells.',
+    help: 'Number of rows.',
   },
   {
     key: 'seed',
@@ -2718,9 +2718,7 @@ export function defaultParams(): Params {
  * The size is the EQUIVALENT SQUARE, the geometric mean of the two sides:
  * 250x1000 closes at 0.6 like the 500x500 of the same area, and equal-area
  * pairs land where the mean says they land
- * (docs/superpowers/measurements/2026-09-13-straight-floor-shape.md). A tall
- * board is harder for the PLAYER (shorter corridors, fewer arrows free at
- * once), not for the carver.
+ * (docs/superpowers/measurements/2026-09-13-straight-floor-shape.md).
  */
 export function straightFloor(p: Params): number {
   const nooks = p.warns <= 2 ? 1.5 : p.warns === 3 ? 1.2 : p.warns >= 6 ? 0.85 : 1
