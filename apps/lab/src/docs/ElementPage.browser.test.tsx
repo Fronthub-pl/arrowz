@@ -233,6 +233,19 @@ test('the machine columns wear the colour of what they hold', async () => {
   expect(at('pad')?.cells[4]?.querySelector('[class^="tk-"]')).toBeNull()
 })
 
+// The page is set wholly in mono, so the font cannot tell code from prose: its colour must.
+test('code in prose wears the property colour, readable on its own ground', async () => {
+  const screen = await mount()
+  const code = screen.container.querySelector('.fw-docs-body p code')
+  if (code === null) throw new Error('no code in prose')
+  const probe = document.createElement('span')
+  probe.style.color = 'var(--code-prop)'
+  screen.container.append(probe)
+  const color = parse(getComputedStyle(code).color).rgb
+  expect(color).toEqual(parse(getComputedStyle(probe).color).rgb)
+  expect(contrast(color, parse(getComputedStyle(code).backgroundColor).rgb)).toBeGreaterThanOrEqual(4.5)
+})
+
 test('every code colour clears 4.5:1 on --graphite and --void', async () => {
   const screen = await render(<div className="fw" />)
   const probe = document.createElement('span')
