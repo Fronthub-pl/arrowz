@@ -50,9 +50,23 @@ offset. When the bar lies clear of the board, nothing changes, to the pixel.
   `Viewport` is the margin kept.
 
 What it costs where it applies: at 375×812 the cell goes from 7.6 px to about
-7.1 px. Reserving the bottom only and moving the board up would keep about
-7.35 px, but it splits the one margin into two and changes the pan bounds; not
-worth 0.25 px.
+7.2 px. Reserving the bottom only and moving the board up would keep about
+7.4 px, but it splits the one margin into two and changes the pan bounds; not
+worth 0.2 px.
+
+It applies to more than tall boards: whenever the margin under a fitted board
+is shorter than the bar. A sketch of this design run before the plan showed:
+
+- the element's own test fixture, a 30×30 board in a 300×300 host with the
+  default `pad`, collides (a 31.6 px margin under a 40 px bar): its fit goes
+  from 7.89 to 7.33 px a cell;
+- the lab's Docs at 1440×900 change no board; at 375×812 the three 8×6 rule
+  boards on the Arrowz page shrink, by about 6% under a finger (one row of
+  buttons) and by 41% with a mouse, where the play hint wraps the bar to
+  several rows;
+- with `board-cover` extended to the bar, 45 cases of the lab's layout matrix
+  are red today (among them `violations` at 1440×900 and 1280×800), and all
+  are green with the fit reserving room.
 
 ## 2. The viewport (`viewport.ts`)
 
