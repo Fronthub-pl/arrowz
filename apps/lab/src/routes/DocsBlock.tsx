@@ -13,7 +13,8 @@ import { useCopy } from '../run/useCopy'
  * The name says what is copied — `Copy: Using it`, `Copy: Board.tsx` —
  * because a page has many of these buttons and "Copy" alone tells a screen
  * reader user nothing. It starts with the visible label, so speech input that
- * says "Copy" still reaches it. A block with a `file` shows the name over it.
+ * says "Copy" still reaches it. A block with a `file` is a figure captioned
+ * by the name, so assistive tech reads the name with the code it belongs to.
  */
 export function DocsBlock({
   kind,
@@ -32,15 +33,19 @@ export function DocsBlock({
   const dict = useDictionary()
   const { copied, copy } = useCopy()
   const label = copied ? dict.t('copied') : dict.t('copy')
+  const block = (
+    <div className="fw-docs-block">
+      <pre className={`fw-docs-pre fw-docs-${kind}`}>{children}</pre>
+      <button type="button" className="fw-docs-copy" aria-label={`${label}: ${section}`} onClick={() => copy(text)}>
+        {label}
+      </button>
+    </div>
+  )
+  if (file === undefined) return block
   return (
-    <>
-      {file === undefined ? null : <p className="fw-docs-file">{file}</p>}
-      <div className="fw-docs-block">
-        <pre className={`fw-docs-pre fw-docs-${kind}`}>{children}</pre>
-        <button type="button" className="fw-docs-copy" aria-label={`${label}: ${section}`} onClick={() => copy(text)}>
-          {label}
-        </button>
-      </div>
-    </>
+    <figure className="fw-docs-figure">
+      <figcaption className="fw-docs-file">{file}</figcaption>
+      {block}
+    </figure>
   )
 }

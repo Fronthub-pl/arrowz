@@ -228,7 +228,7 @@ The same steps in each framework, with the reason shown when the file cannot be 
 
 ```ts stored-board.component.ts
 import { afterNextRender, Component, CUSTOM_ELEMENTS_SCHEMA, input, signal } from '@angular/core'
-import type { BoardData } from '@arrowz/board-element'
+import type { BoardData } from '@arrowz/engine'
 import { loadBoard } from './load-board'
 
 @Component({

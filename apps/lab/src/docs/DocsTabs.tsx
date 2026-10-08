@@ -7,7 +7,7 @@
  * import the renderer that imports it.
  */
 import type { ContainerDirective } from 'mdast-util-directive'
-import { type KeyboardEvent, type ReactElement, type ReactNode, useId } from 'react'
+import { type KeyboardEvent, type ReactElement, type ReactNode, useId, useLayoutEffect, useRef } from 'react'
 import { nextIndex, useFocusFollowsSelection } from '../shell/roving'
 import { useStore } from '../state/store'
 import { isTabGroup, TAB_GROUPS } from './tabs'
@@ -26,6 +26,18 @@ export function DocsTabs({
   const chosen = useStore((state) => (isTabGroup(group) ? state.ui.docsTabs[group] : null))
   const setDocsTab = useStore((state) => state.ui.setDocsTab)
   const focusRef = useFocusFollowsSelection(chosen)
+  const stripRef = useRef<HTMLDivElement>(null)
+  // Remembered or chosen in another group, the tab may sit past the edge of a strip that scrolls.
+  // Not `scrollIntoView`: it would scroll the page to the strip as well.
+  useLayoutEffect(() => {
+    const strip = stripRef.current
+    const tab = strip?.querySelector('[aria-selected="true"]')
+    if (strip === null || tab === null || tab === undefined) return
+    const box = strip.getBoundingClientRect()
+    const at = tab.getBoundingClientRect()
+    if (at.left < box.left) strip.scrollBy({ left: at.left - box.left })
+    else if (at.right > box.right) strip.scrollBy({ left: at.right - box.right })
+  }, [chosen])
   if (!isTabGroup(group)) return null
   const tabs = TAB_GROUPS[group]
   const current = Math.max(
@@ -48,7 +60,7 @@ export function DocsTabs({
 
   return (
     <div className="fw-docs-tabs">
-      <div className="fw-docs-tablist" role="tablist" aria-label={docs.frameworkLabel}>
+      <div className="fw-docs-tablist" role="tablist" aria-label={docs.frameworkLabel} ref={stripRef}>
         {tabs.map((tab, i) => (
           <button
             key={tab.id}
