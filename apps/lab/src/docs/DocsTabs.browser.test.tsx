@@ -122,6 +122,17 @@ test('the arrows move the choice and the focus and wrap, Home and End jump', asy
   )
 })
 
+// The strip scrolls and so clips whatever leaves it: a ring drawn outside the tab would be cut off.
+test('a tab focused from the keyboard draws its ring inside the strip', async () => {
+  const screen = await mount()
+  await screen.getByRole('tab', { name: 'HTML' }).first().click()
+  await userEvent.keyboard('{ArrowRight}')
+  const tab = screen.container.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+  if (tab === null) throw new Error('no chosen tab')
+  await expect.element(tab).toHaveFocus()
+  expect(getComputedStyle(tab).outlineOffset).toBe('-2px')
+})
+
 test('only the chosen tab is in the tab order', async () => {
   const screen = await mount()
   const list = screen.container.querySelector('[role="tablist"]')
