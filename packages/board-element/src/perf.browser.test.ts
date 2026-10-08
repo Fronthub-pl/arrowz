@@ -223,7 +223,7 @@ async function runInsane(
 }
 
 test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
-  'measures Insane with and without the point grid, at the same zoom',
+  'measures Insane with and without the dot grid, at the same zoom',
   async () => {
     const board: Board = generate({ ...defaultParams(), W: 1000, H: 1000, seed: 7 }).board
     const off = await runInsane(board, false)

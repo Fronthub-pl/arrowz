@@ -249,7 +249,7 @@ export function drawPieces(
 
 /**
  * The pieces part way down their own track, over the resting ones and
- * clipped to the paper: each rider's triangles, then its discs. Only a
+ * clipped to the margin's outer edge: each rider's triangles, then its discs. Only a
  * riding piece is clipped: a scissor over the whole board would cost nothing
  * here, but the rule is the SVG's — a piece leaves at the margin's outer
  * edge, and nothing else ever reaches it.
