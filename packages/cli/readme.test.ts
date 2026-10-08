@@ -81,6 +81,26 @@ for (const file of READMES) {
     })
   })
 
+  // The page says its table is grouped the way the help groups it, so the group is read off the printed
+  // help, where a `[group]` line heads the knobs under it; the page only capitalizes it.
+  Deno.test(`${file}: every knob sits in the group --help=knobs prints it under`, () => {
+    const printed = new Map<string, string>()
+    let group = ''
+    for (const line of helpText({ knobs: true }).split('\n')) {
+      const header = /^\s*\[(\w+)\]$/.exec(line)
+      if (header?.[1]) group = header[1]
+      if (!line.trim()) group = '' // the table ends at a blank line; the legend below also opens with flags
+      const flag = /^\s*(--[a-z]+)=/.exec(line)?.[1]
+      if (flag && group) printed.set(flag, group)
+    }
+    const rows = tableAt(text, '<!-- knob-table -->', file)
+    for (const [written = '', flag = ''] of rows.map((cells) => cells.map(plain))) {
+      const want = printed.get(flag) ?? ''
+      assertEquals(written, want.charAt(0).toUpperCase() + want.slice(1), `${flag}: group`)
+    }
+    assertEquals(rows.length, printed.size, 'every knob the help groups is a row')
+  })
+
   // A knob lands in the hand-written unbundled list by default, so the sentence goes stale by doing
   // nothing. The list is read off the page and compared with the one BUNDLES implies; the board knobs
   // and `mix` are left out (`--width`, `--height` and `--seed` are nobody's bundle, `--start` writes `mix`).
@@ -212,6 +232,31 @@ Deno.test('every documented picture is still a command the CLI accepts', () => {
     assertEquals(errors, [], `${entry.out}: ${entry.flags.join(' ')}`)
     assertEquals(validateParams(params).map(formatViolation), [], entry.out)
   }
+})
+
+// A caption is measured once and the picture redrawn later, so the two can part; the SVG draws
+// one polyline per arrow. The pictures kept only as PNG are too big to count this way.
+Deno.test('every arrow count a picture caption gives is the number of arrows the picture draws', () => {
+  const manifest = JSON.parse(Deno.readTextFileSync(join(root, 'docs', 'images', 'manifest.json'))) as {
+    images: { out: string; keepSvg?: boolean }[]
+  }
+  const pngOnly = new Set(manifest.images.filter((e) => e.keepSvg === false).map((e) => e.out))
+  const lines = cliReadme.split('\n')
+  let checked = 0
+  lines.forEach((line, i) => {
+    const pictures = [...line.matchAll(/docs\/images\/([\w-]+)\.png/g)].map((m) => m[1] ?? '')
+    const next = lines[i + 1] ?? ''
+    if (!pictures.length || !line.startsWith('|') || !next.startsWith('|')) return
+    cellsOf(next).forEach((caption, column) => {
+      const said = /^\**([\d,]+) arrows/.exec(caption)
+      const picture = pictures[column] ?? ''
+      if (!said?.[1] || pngOnly.has(picture)) return
+      const drawn = Deno.readTextFileSync(join(root, 'docs', 'images', `${picture}.svg`)).split('<polyline').length - 1
+      assertEquals(drawn, Number(said[1].replaceAll(',', '')), `${picture}: ${caption}`)
+      checked++
+    })
+  })
+  assert(checked >= 15, `only ${checked} captions checked`)
 })
 
 // The CLI README against the CLI itself, both ways: every flag `carve` and
