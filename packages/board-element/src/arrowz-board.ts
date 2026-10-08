@@ -14,7 +14,18 @@ import { type BoardLabels, labelsFor } from './i18n.ts'
 import { drawableColor, drawablePad, drawablePointRadius, drawableView } from './sanitize.ts'
 import { resolveColours } from './themes.ts'
 import { type BoardView, DEFAULT_VIEW } from './view.ts'
-import { fit, MIN_POINT_CELL_PX, panBy, resize, screenToCell, type Viewport, zoomAt, zoomBy } from './viewport.ts'
+import {
+  fit,
+  MIN_POINT_CELL_PX,
+  panBy,
+  resize,
+  screenToCell,
+  type Viewport,
+  type ViewportInput,
+  withBar,
+  zoomAt,
+  zoomBy,
+} from './viewport.ts'
 import { DEFAULT_PAD, DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, DEFAULT_SHOW_POINTS } from '@arrowz/engine'
 export { DEFAULT_PAD, DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, DEFAULT_SHOW_POINTS }
 
@@ -280,6 +291,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private modifierHeld = false
   private hostWidth = 0
   private hostHeight = 0
+  /** The default bar's box from the host's bottom-right corner; see `readBar`. */
+  private bar: ViewportInput['bar'] = undefined
   private changeQueued = false
   /** The colours string `updated()` last drew, to tell a colour-only change from a repeat. */
   private lastColors = ''
@@ -355,11 +368,15 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       this.hasWebgl = this.layer.supported
     }
     if (!this.hasAttribute('tabindex')) this.tabIndex = 0
+    // The host and the default bar: a bar that changes size moves the fit.
     this.observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (entry) this.onResize(entry.contentRect.width, entry.contentRect.height)
+      for (const entry of entries) {
+        if (entry.target === this) this.onResize(entry.contentRect.width, entry.contentRect.height)
+        else this.syncBar()
+      }
     })
     this.observer.observe(this)
+    this.observeBar()
     // Not `aria-pressed` or `hidden`: those are what `syncActions` writes.
     this.actionObserver.observe(this, {
       childList: true,
@@ -428,7 +445,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     const l = labelsFor(this.lang)
     return html`
       ${this.hasWebgl ? this.layer.canvas : html`<p class="unsupported">${l.noWebgl}</p>`}
-      <slot name="controls" @click=${this.onAction}>
+      <slot name="controls" @click=${this.onAction} @slotchange=${this.onControlsChange}>
         <div class="chrome">
           <slot name="hint"><span class="hint">${this.hint(l)}</span></slot>
           <slot name="zoom-in">
@@ -575,6 +592,11 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   }
 
   // `PropertyValues<this>` keys on `keyof this`, which leaves out the two private state fields.
+  override firstUpdated(): void {
+    // `.chrome` exists from the first render, which comes after connectedCallback.
+    this.observeBar()
+  }
+
   override updated(changed: Map<keyof this | 'coloredOverride' | 'chosenMode', unknown>): void {
     // Applies from the next press (see GestureMachine.mode), so a change mid-drag is safe.
     this.gestures.mode = this.gestureMode
@@ -764,8 +786,39 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private onResize(width: number, height: number): void {
     this.hostWidth = width
     this.hostHeight = height
+    this.bar = this.readBar()
     this.syncViewport()
   }
+
+  private observeBar(): void {
+    const chrome = this.renderRoot.querySelector('.chrome')
+    if (chrome && this.observer) this.observer.observe(chrome)
+  }
+
+  /**
+   * The default bar's box from the host's bottom-right corner, offset included;
+   * undefined when the host's own `controls` replaced it, since the element
+   * cannot know where a custom bar sits, or when it is not shown.
+   */
+  private readBar(): ViewportInput['bar'] {
+    const slot = this.renderRoot.querySelector<HTMLSlotElement>('slot[name="controls"]')
+    const chrome = this.renderRoot.querySelector<HTMLElement>('.chrome')
+    if (!slot || !chrome || slot.assignedElements().length > 0) return undefined
+    const box = chrome.getBoundingClientRect()
+    if (box.width === 0 || box.height === 0) return undefined
+    const host = this.getBoundingClientRect()
+    return { width: host.right - box.left, height: host.bottom - box.top }
+  }
+
+  /** Follows the bar's box; see `withBar` for what a fitted and a zoomed board do. */
+  private syncBar(): void {
+    const bar = this.readBar()
+    if (bar?.width === this.bar?.width && bar?.height === this.bar?.height) return
+    this.bar = bar
+    if (this.vp) this.setViewport(withBar(this.vp, bar))
+  }
+
+  private readonly onControlsChange = (): void => this.syncBar()
 
   /** Creates or adapts the viewport once both a board and a host size exist. */
   private syncViewport(): void {
@@ -777,8 +830,9 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       this.updatePoints()
       return
     }
-    const input = { W: board.W, H: board.H, hostWidth: this.hostWidth, hostHeight: this.hostHeight, pad }
-    this.setViewport(this.vp ? resize(this.vp, input.hostWidth, input.hostHeight) : fit(input))
+    const input = { W: board.W, H: board.H, hostWidth: this.hostWidth, hostHeight: this.hostHeight, pad, bar: this.bar }
+    // The bar as measured now: `resize` alone keeps the one the viewport was made with.
+    this.setViewport(this.vp ? resize({ ...this.vp, bar: this.bar }, input.hostWidth, input.hostHeight) : fit(input))
   }
 
   private setViewport(v: Viewport): void {

@@ -21,15 +21,23 @@ function makeBoard(seed = 7): Board {
 
 const raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
 
+/** The default bar's height over the host's bottom edge: 32 px buttons and the 8 px offset. */
+const BAR_HEIGHT = 32 + 8
+/** The bar as `fit` takes it: any width past the board's right edge collides, so only the height counts. */
+const BAR = { width: 300, height: BAR_HEIGHT }
+/** The margin the fit keeps so the default bar lies under the 30x30 board in 300 px, not over it. */
+const BAR_MARGIN = (BAR_HEIGHT * 30) / (300 - 2 * BAR_HEIGHT)
 /** Cell size of a 30x30 board fitted into the 300 px host of `mount`, margin included. */
-const FIT = 300 / (30 + 2 * DEFAULT_PAD)
+const FIT = 300 / (30 + 2 * BAR_MARGIN)
 
 let el: ArrowzBoard
-async function mount(attrs: Record<string, string> = {}): Promise<ArrowzBoard> {
+async function mount(attrs: Record<string, string> = {}, { bar = true } = {}): Promise<ArrowzBoard> {
   el = document.createElement('arrowz-board')
   el.style.width = '300px'
   el.style.height = '300px'
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v)
+  // An empty custom bar: no default bar, so the fit reserves nothing for one.
+  if (!bar) el.innerHTML = '<span slot="controls"></span>'
   document.body.append(el)
   el.board = makeBoard()
   await el.updateComplete
@@ -145,7 +153,7 @@ describe('mount and viewport', () => {
   test('is registered and draws the board fitted to the host', async () => {
     expect(customElements.get('arrowz-board')).toBe(ArrowzBoard)
     await mount()
-    const expected = fit({ W: 30, H: 30, hostWidth: 300, hostHeight: 300, pad: DEFAULT_PAD })
+    const expected = fit({ W: 30, H: 30, hostWidth: 300, hostHeight: 300, pad: DEFAULT_PAD, bar: BAR })
     expect(el.viewport).toEqual(reported(expected))
     expect(el.viewport?.cellPx).toBeCloseTo(FIT, 6)
     expect(el.viewport?.fitted).toBe(true)
@@ -159,9 +167,9 @@ describe('mount and viewport', () => {
     document.addEventListener('viewport-change', (e) => seen.push(e as ViewportChangeEvent))
     el.zoomBy(2)
     await raf()
-    const expected = zoomBy(fit({ W: 30, H: 30, hostWidth: 300, hostHeight: 300, pad: DEFAULT_PAD }), 2)
+    const expected = zoomBy(fit({ W: 30, H: 30, hostWidth: 300, hostHeight: 300, pad: DEFAULT_PAD, bar: BAR }), 2)
     expect(el.viewport).toEqual(reported(expected))
-    expect(seen.at(-1)?.detail.cellPx).toBeCloseTo(300 / (30 + 2 * DEFAULT_PAD) * 2, 6)
+    expect(seen.at(-1)?.detail.cellPx).toBeCloseTo(FIT * 2, 6)
     expect(seen.at(-1)?.detail.fitted).toBe(false)
     const buttons = el.shadowRoot?.querySelectorAll('button')
     expect(buttons?.length).toBe(3)
@@ -188,7 +196,7 @@ describe('mount and viewport', () => {
     expect(ev.defaultPrevented).toBe(true)
     expect(el.viewport?.cellPx).toBeGreaterThan(FIT)
     // The top-left corner stayed put, and with a margin that corner is the margin.
-    expect(el.viewport?.originX).toBeCloseTo(-DEFAULT_PAD, 6)
+    expect(el.viewport?.originX).toBeCloseTo(-BAR_MARGIN, 6)
   })
 
   test('keys work when the host is focused', async () => {
@@ -470,7 +478,7 @@ describe('clicks', () => {
   })
 
   test('a double click leaves the viewport alone and fires one piece-click', async () => {
-    const el = await mount({ play: '' })
+    const el = await mount({ play: '' }, { bar: false })
     const canvas = canvasOf(el)
     el.zoomBy(ZOOM_STEP)
     await raf()
@@ -797,14 +805,14 @@ describe('margin', () => {
   // board shows it in the origin it starts at and the width it spans. The
   // paper drawn to that margin is the layer's, in `gl-layer.browser.test.ts`.
   test('the board keeps a margin of four cells around the cells by default', async () => {
-    await mount()
+    await mount({}, { bar: false })
     expect(DEFAULT_PAD).toBe(4)
     expect(el.viewport?.originX).toBeCloseTo(-4, 6)
     expect(viewCells(el)).toBeCloseTo(38, 6)
   })
 
   test('the pad attribute sets the margin', async () => {
-    await mount({ pad: '2' })
+    await mount({ pad: '2' }, { bar: false })
     expect(el.pad).toBe(2)
     expect(el.viewport?.originX).toBeCloseTo(-2, 6)
     expect(viewCells(el)).toBeCloseTo(34, 6)
@@ -835,7 +843,7 @@ describe('margin', () => {
   })
 
   test('removing the pad attribute restores the default margin', async () => {
-    await mount({ pad: '2' })
+    await mount({ pad: '2' }, { bar: false })
     el.removeAttribute('pad')
     await el.updateComplete
     expect(el.pad).toBe(DEFAULT_PAD)
@@ -995,7 +1003,7 @@ describe('nonsense in, a drawable board out', () => {
     const details: BoardViewport[] = []
     const onChange = (e: Event) => details.push((e as ViewportChangeEvent).detail)
     document.addEventListener('viewport-change', onChange)
-    await mount({ pad: 'abc' })
+    await mount({ pad: 'abc' }, { bar: false })
     expect(el.getAttribute('pad')).toBe('abc')
     expect(allFinite(el.viewport)).toBe(true)
     expect(el.viewport?.originX).toBeCloseTo(-DEFAULT_PAD, 6)
@@ -1054,5 +1062,127 @@ describe('nonsense in, a drawable board out', () => {
     el.zoomBy(-2)
     expect(el.viewport).toEqual(before)
     expect(allFinite(el.viewport)).toBe(true)
+  })
+})
+
+describe('the default bar and the fit', () => {
+  /** A board in a host of the given size; `children` is light DOM parsed before connecting. */
+  async function sized(
+    width: number,
+    height: number,
+    W: number,
+    H: number,
+    { children = '', attrs = {} }: { children?: string; attrs?: Record<string, string> } = {},
+  ): Promise<ArrowzBoard> {
+    el = document.createElement('arrowz-board')
+    el.style.width = `${width}px`
+    el.style.height = `${height}px`
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v)
+    el.innerHTML = children
+    document.body.append(el)
+    el.board = generate({ ...defaultParams(), W, H, seed: 7 }).board
+    await el.updateComplete
+    await raf()
+    await raf()
+    return el
+  }
+
+  /** Whether a default button or the hint lies over the drawn board by more than half a pixel. */
+  function barOverBoard(e: ArrowzBoard): boolean {
+    const vp = e.viewport
+    const board = e.board
+    if (!vp || !board) throw new Error('no viewport')
+    const host = e.getBoundingClientRect()
+    const box = {
+      left: host.left - vp.originX * vp.cellPx,
+      top: host.top - vp.originY * vp.cellPx,
+      right: host.left + (board.W - vp.originX) * vp.cellPx,
+      bottom: host.top + (board.H - vp.originY) * vp.cellPx,
+    }
+    const parts = [...(e.shadowRoot?.querySelectorAll('.chrome button, .chrome .hint') ?? [])]
+    return parts.some((node) => {
+      const r = node.getBoundingClientRect()
+      const x = Math.min(r.right, box.right) - Math.max(r.left, box.left)
+      const y = Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top)
+      return r.width > 0 && x > 0.5 && y > 0.5
+    })
+  }
+
+  // The lab's board host at 375×812, where the bar covered the bottom row.
+  test('a tall board in a narrow host is fitted clear of the default bar', async () => {
+    await sized(375, 441, 25, 50)
+    expect(barOverBoard(el)).toBe(false)
+    expect(el.viewport?.cellPx).toBeLessThan(
+      fit({ W: 25, H: 50, hostWidth: 375, hostHeight: 441, pad: DEFAULT_PAD }).cellPx,
+    )
+  })
+
+  test('a board with room under it fits as if there were no bar', async () => {
+    await sized(832, 282, 25, 50)
+    expect(el.viewport).toEqual(reported(fit({ W: 25, H: 50, hostWidth: 832, hostHeight: 282, pad: DEFAULT_PAD })))
+  })
+
+  test('a custom controls bar gets no room', async () => {
+    await sized(375, 441, 25, 50, { children: '<div slot="controls"><button>x</button></div>' })
+    expect(el.viewport).toEqual(reported(fit({ W: 25, H: 50, hostWidth: 375, hostHeight: 441, pad: DEFAULT_PAD })))
+  })
+
+  // At 300 px the play hint and four buttons wrap the bar to two rows, 68 px.
+  test('a bar wrapped to two rows is kept off the board too', async () => {
+    await sized(300, 441, 25, 50, { attrs: { play: '' } })
+    expect(barOverBoard(el)).toBe(false)
+  })
+
+  test('a host shorter than two bars still draws a finite board', async () => {
+    await sized(375, 70, 25, 50)
+    const vp = el.viewport
+    expect(vp !== null && [vp.cellPx, vp.originX, vp.originY].every(Number.isFinite)).toBe(true)
+  })
+
+  // At 300 px `play`'s ☝ and longer hint wrap the bar to a second row: it grows
+  // taller, not only wider, so the margin under the board has to grow too.
+  test('a bar that grows on a fitted board refits it clear of the bar', async () => {
+    await sized(300, 441, 25, 50)
+    const before = el.viewport?.cellPx ?? 0
+    el.play = true
+    await el.updateComplete
+    await raf()
+    await raf()
+    expect(el.viewport?.fitted).toBe(true)
+    expect(el.viewport?.cellPx).toBeLessThan(before)
+    expect(barOverBoard(el)).toBe(false)
+  })
+
+  test('a bar that changes on a zoomed board leaves its scale alone', async () => {
+    await sized(300, 441, 25, 50)
+    el.play = true
+    await el.updateComplete
+    await raf()
+    await raf()
+    el.zoomBy(2)
+    await raf()
+    const zoomed = el.viewport?.cellPx
+    el.play = false
+    await el.updateComplete
+    await raf()
+    await raf()
+    expect(el.viewport?.cellPx).toBe(zoomed)
+  })
+
+  test('a board moved to another parent keeps following its bar', async () => {
+    await sized(300, 441, 25, 50)
+    const box = document.createElement('div')
+    document.body.append(box)
+    box.append(el)
+    await raf()
+    await raf()
+    const before = el.viewport?.cellPx ?? 0
+    el.play = true
+    await el.updateComplete
+    await raf()
+    await raf()
+    expect(el.viewport?.cellPx).toBeLessThan(before)
+    expect(barOverBoard(el)).toBe(false)
+    box.remove()
   })
 })
