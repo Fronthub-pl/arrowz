@@ -87,7 +87,7 @@ for (const file of READMES) {
     const printed = new Map<string, string>()
     let group = ''
     for (const line of helpText({ knobs: true }).split('\n')) {
-      const header = /^\s*\[(\w+)\]$/.exec(line)
+      const header = /^\s*\[([\w ]+)\]$/.exec(line)
       if (header?.[1]) group = header[1]
       if (!line.trim()) group = '' // the table ends at a blank line; the legend below also opens with flags
       const flag = /^\s*(--[a-z]+)=/.exec(line)?.[1]

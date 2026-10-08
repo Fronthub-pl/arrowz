@@ -33,6 +33,7 @@ import {
   validateParams,
 } from './engine.ts'
 import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from './geometry.ts'
+import { EN } from './lab-i18n.ts'
 import { defaultChoice, drawParams, exportCell, type Move, simpleParams } from './lab-simple.ts'
 import {
   DEFAULT_COLOURS,
@@ -620,7 +621,8 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
   KNOB_ROWS.forEach((knob, i) => {
     if (knob.group !== group) {
       group = knob.group
-      out.push(`  [${group}]`)
+      // The lab's name for the group, so the help and the lab's rail agree.
+      out.push(`  [${EN.groups[group]}]`)
     }
     const r = rows[i]
     if (r) out.push(line(r))

@@ -584,10 +584,10 @@ knob that moves has to move here too.
 | Skeleton | `--giantstraight` | 0.5–1 | 0.01 | `0.94` | How straight a skeleton arrow runs where it has free space. **Careful:** 0.5 is no preference at all; below it the knob would weigh a straight move down, which is not what its name says. |
 | Skeleton | `--giantanticoil` | 1–20 | 1 | `6` | The coil penalty, for skeleton arrows only. Whichever is higher, this or the general `--anticoil`, wins. |
 | Skeleton | `--giantspacing` | `off`\|2\|3 | 1 | `2` | How many cells a skeleton arrow keeps between its own parallel runs. `off` turns the rule off. The flag takes these three values and nothing else: a wider radius only cost time, so it is not offered. |
-| Closing | `--headtries` | 2–16 | 1 | `4` | How many starting spots to try before giving up on a direction. **Careful:** at 2 the search is shallow for hard settings. At 8 and above you usually get the same board as at 4. |
-| Closing | `--absorblimit` | 12–64 | 1 | `24` | An empty patch up to this many cells that no arrow fits into gets glued onto a neighbouring arrow. **Careful:** near the bottom of the range, leftovers pile up and boards get stuck far more often. |
-| Closing | `--maxback` | `auto`\|50–1000 | 50 | `auto` | How many placed arrows may be taken back in one attempt before starting over. `auto` means 200, which is enough; more rarely rescues anything — it just delays the bad news. |
-| Closing | `--restarts` | 0–5 | 1 | `3` | How many fresh attempts, each with a nudged seed, after a failure. 0 shows you the raw success rate of your settings. |
+| When stuck | `--headtries` | 2–16 | 1 | `4` | How many starting spots to try before giving up on a direction. **Careful:** at 2 the search is shallow for hard settings. At 8 and above you usually get the same board as at 4. |
+| When stuck | `--absorblimit` | 12–64 | 1 | `24` | An empty patch up to this many cells that no arrow fits into gets glued onto a neighbouring arrow. **Careful:** near the bottom of the range, leftovers pile up and boards get stuck far more often. |
+| When stuck | `--maxback` | `auto`\|50–1000 | 50 | `auto` | How many placed arrows may be taken back in one attempt before starting over. `auto` means 200, which is enough; more rarely rescues anything — it just delays the bad news. |
+| When stuck | `--restarts` | 0–5 | 1 | `3` | How many fresh attempts, each with a nudged seed, after a failure. 0 shows you the raw success rate of your settings. |
 
 Five knobs from an earlier version of this tool — `hug`, `edgehug`,
 `strandlimit`, `giantwarns` and `giantspacepenalty` — are gone. Each did
