@@ -39,6 +39,7 @@ export const DIRECTIVES: Readonly<Record<string, DirectiveRule>> = {
         'element-members',
         'element-events',
         'element-slots',
+        'board-file',
         ...EXPORT_TABLES,
         'themes',
         'keys',

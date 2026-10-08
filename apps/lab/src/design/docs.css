@@ -277,6 +277,51 @@
   color: var(--ink);
   border-color: var(--ash);
 }
+/* A tab group over its panel. The strip scrolls sideways by itself, so five
+   names on a phone never widen the page; the selected tab's bar is drawn
+   inside the button, since a negative margin would make the strip scroll
+   vertically too. */
+.fw-docs-tabs {
+  margin: 8px 0 24px;
+}
+.fw-docs-tablist {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+.fw-docs-tablist button {
+  flex: none;
+  padding: 8px 0 6px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ash);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.fw-docs-tablist button:hover {
+  color: var(--ink);
+}
+.fw-docs-tablist button[aria-selected='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--signal);
+}
+/* `p.` because `.fw-docs p` sets every paragraph's margin and size. */
+.fw-docs p.fw-docs-file {
+  margin: 0 0 6px;
+  color: var(--ash);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+/* The design system asks for 44px targets where there is no hover. */
+@media (pointer: coarse), (max-width: 767px) {
+  .fw-docs-tablist button {
+    min-height: var(--touch);
+  }
+}
 @media (max-width: 1023px) {
   .fw-docs {
     padding: 28px;

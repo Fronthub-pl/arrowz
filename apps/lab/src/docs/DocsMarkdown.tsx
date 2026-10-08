@@ -2,7 +2,7 @@
  * A parsed documentation page as React elements, block by block: no HTML
  * string reaches the DOM. The node types handled here are the ones
  * `problemsOf` (shape.ts) lets a page use, the `::table`, `::play`, `::help`
- * and `::board` leaf directives and the `:::compare` container included;
+ * and `::board` leaf directives and the `:::compare` and `::::tabs` containers included;
  * anything else renders nothing, and the content guard fails before such a
  * page ships. Headings move one level down, because the shell owns `h1`.
  */
@@ -12,8 +12,9 @@ import type { LeafDirective } from 'mdast-util-directive'
 import type { ReactElement } from 'react'
 import { DocsBlock } from '../routes/DocsBlock'
 import { aboutOf, statKeysOf } from './boards'
-import { type CodeToken, highlightHtml, highlightJson, highlightSh } from './codeTokens'
+import { highlight } from './codeTokens'
 import { DocsBoard, DocsCompare } from './DocsBoard'
+import { DocsTabs } from './DocsTabs'
 import { DocsTable } from './DocsTable'
 import { Inline } from './Inline'
 import { type DocsSection, plainText, sectionIdOf } from './markdown'
@@ -29,6 +30,8 @@ interface Placed {
   readonly section: DocsSection | null
   /** The nearest heading above the block, `##` or `###`: Copy is named after it. */
   readonly title: string
+  /** The tab the block is drawn in, by its label. */
+  readonly tab?: string | undefined
 }
 
 function placed(root: Root): Placed[] {
@@ -57,7 +60,7 @@ export function DocsMarkdown({ root }: { root: Root }): ReactElement {
   )
 }
 
-function Block({ node, section, title }: Placed): ReactElement | null {
+function Block({ node, section, title, tab }: Placed): ReactElement | null {
   switch (node.type) {
     case 'heading':
       return <HeadingView node={node} />
@@ -68,7 +71,7 @@ function Block({ node, section, title }: Placed): ReactElement | null {
         </p>
       )
     case 'code':
-      return <CodeView node={node} title={title} />
+      return <CodeView node={node} title={title} tab={tab} />
     case 'list':
       return <ListView node={node} />
     case 'table':
@@ -78,7 +81,16 @@ function Block({ node, section, title }: Placed): ReactElement | null {
     case 'leafDirective':
       return <Directive node={node} section={section} title={title} />
     case 'containerDirective':
-      return node.name === 'compare' ? <DocsCompare node={node} /> : null
+      if (node.name === 'compare') return <DocsCompare node={node} />
+      if (node.name !== 'tabs') return null
+      return (
+        <DocsTabs
+          node={node}
+          panel={(panel, label) =>
+            panel.children.map((child, i) => <Block key={i} node={child} section={section} title={title} tab={label} />)
+          }
+        />
+      )
     default:
       return null
   }
@@ -92,23 +104,19 @@ function HeadingView({ node }: { node: Heading }): ReactElement {
   return <h4>{text}</h4>
 }
 
-function tokensOf(lang: string | null | undefined, code: string): CodeToken[] | null {
-  if (lang === 'html') return highlightHtml(code)
-  if (lang === 'sh') return highlightSh(code)
-  if (lang === 'json') return highlightJson(code)
-  return null
-}
-
-function CodeView({ node, title }: { node: Code; title: string }): ReactElement {
-  const tokens = tokensOf(node.lang, node.value)
+/** A block's Copy is named after its file, or after its section and, in a tab, the tab. */
+function CodeView({ node, title, tab }: { node: Code; title: string; tab?: string | undefined }): ReactElement {
+  const tokens = highlight(node.lang, node.value)
+  const file = node.meta ?? undefined
+  const name = file ?? (tab === undefined ? title : `${title}, ${tab}`)
   if (tokens === null)
     return (
-      <DocsBlock kind="term" section={title} text={node.value}>
+      <DocsBlock kind="term" section={name} text={node.value} file={file}>
         {node.value}
       </DocsBlock>
     )
   return (
-    <DocsBlock kind="code" section={title} text={node.value}>
+    <DocsBlock kind="code" section={name} text={node.value} file={file}>
       <code>
         <TokenSpans tokens={tokens} />
       </code>
