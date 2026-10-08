@@ -11,13 +11,15 @@ import {
   COMMAND_PREFIX,
   ENV_VARS,
   flagViolation,
+  helpText,
   KNOB_ROWS,
   parseArgs,
   RETIRED_FLAGS,
   RULE_ROWS,
+  VIEW_RANGE,
 } from '@arrowz/engine/command'
 import { REPORT_FLAGS } from './report-flags.ts'
-import { BUNDLES, defaultChoice, simpleParams } from '@arrowz/engine/simple'
+import { BUNDLES, defaultChoice, exportCell, simpleParams } from '@arrowz/engine/simple'
 
 const root = join(dirname(fromFileUrl(import.meta.url)), '..', '..')
 const READMES = ['packages/cli/README.md'] as const
@@ -275,4 +277,130 @@ Deno.test('ENV_VARS is exactly what the tasks may read', () => {
 Deno.test('every task the CLI README runs exists', () => {
   const written = new Set([...cliReadme.matchAll(/deno task ([\w:-]+)/g)].map((m) => m[1] ?? ''))
   assertEquals([...written].filter((task) => !(task in rootTasks)), [])
+})
+
+/** The paragraph right under an anchor comment, as one line. */
+function paragraphAt(text: string, anchor: string): string {
+  const lines = text.split('\n')
+  const start = lines.findIndex((l) => l.trim() === anchor)
+  assert(start >= 0, `the CLI README has no ${anchor} anchor`)
+  const para: string[] = []
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = (lines[i] ?? '').trim()
+    if (!line && para.length) break
+    if (line) para.push(line)
+  }
+  assert(para.length, `nothing under ${anchor}`)
+  return para.join(' ')
+}
+
+/** Every fenced block that is not a command, with the last `sh` command above it. */
+function outputsOf(text: string): { command: string; block: string[] }[] {
+  const lines = text.split('\n')
+  const out: { command: string; block: string[] }[] = []
+  let command = ''
+  for (let i = 0; i < lines.length; i++) {
+    const fence = (lines[i] ?? '').trim()
+    if (!fence.startsWith('```')) continue
+    const block: string[] = []
+    for (i++; i < lines.length && (lines[i] ?? '').trim() !== '```'; i++) block.push(lines[i] ?? '')
+    if (fence === '```sh') command = (block[0] ?? '').trim()
+    else out.push({ command, block })
+  }
+  return out
+}
+
+/** Runs one of the CLI's programs with the board store in a temporary directory, so nothing reaches the real one. */
+async function runCli(program: string, args: readonly string[]): Promise<{ stdout: string; stderr: string }> {
+  const dir = Deno.makeTempDirSync({ prefix: 'arrowz-readme-' })
+  try {
+    const r = await new Deno.Command(Deno.execPath(), {
+      args: ['run', '--allow-read', '--allow-write', '--allow-env', join(root, 'packages', 'cli', program), ...args],
+      cwd: join(root, 'packages', 'cli'),
+      env: { ARROWZ_BOARDS_DIR: dir },
+      stdin: 'null',
+    }).output()
+    const text = new TextDecoder()
+    return { stdout: text.decode(r.stdout), stderr: text.decode(r.stderr) }
+  } finally {
+    Deno.removeSync(dir, { recursive: true })
+  }
+}
+
+const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
+  .concat(['eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'])
+
+/** The flags of one section of the short `--help`, from its heading to the blank line after it. */
+function helpSection(heading: string): string[] {
+  const lines = helpText().split('\n')
+  const start = lines.findIndex((l) => l.startsWith(heading))
+  assert(start >= 0, `--help has no ${heading} section`)
+  const end = lines.findIndex((l, i) => i > start && !l.trim())
+  return lines.slice(start + 1, end).map((l) => l.trim().split(/[\s=]/)[0] ?? '')
+}
+
+Deno.test('the CLI README counts the everyday and the picture flags --help lists', () => {
+  const said = [...paragraphAt(cliReadme, '<!-- flag-counts -->').toLowerCase().matchAll(/[a-z]+/g)]
+    .map((m) => NUMBER_WORDS.indexOf(m[0]))
+    .filter((n) => n >= 0)
+  const everyday = helpSection('Everyday:')
+  const size = everyday.filter((f) => f === '--width' || f === '--height').length
+  const luck = everyday.filter((f) => f === '--seed').length
+  assertEquals(said, [everyday.length, size, luck, everyday.length - size - luck, helpSection('Picture').length])
+})
+
+// The paragraph states the rule in words; the rule is held against exportCell at
+// every side, square and with the height as the longer side.
+Deno.test('the CLI README states the --cell default exportCell computes, and the ranges', () => {
+  const said = [...paragraphAt(cliReadme, '<!-- cell-top -->').matchAll(/\d+/g)].map((m) => Number(m[0]))
+  assertEquals(said.length, 5, 'the numbers of the --cell and --top paragraph')
+  const [min = NaN, max = NaN, long = NaN, cap = NaN, top = NaN] = said
+  assertEquals([min, max, top], [VIEW_RANGE.cell.min, VIEW_RANGE.cell.max, VIEW_RANGE.top.max], 'the ranges')
+  for (let side = 4; side <= 1000; side++) {
+    const want = Math.max(min, Math.min(cap, Math.round(long / side)))
+    assertEquals(exportCell(side, side), want, `${side}x${side}`)
+    assertEquals(exportCell(4, side), want, `4x${side}`)
+  }
+})
+
+Deno.test('the CLI README names every retired flag, and quotes the message one gets', () => {
+  const para = paragraphAt(cliReadme, '<!-- retired-flags -->')
+  const written = new Set([...para.matchAll(/(?<![\w-])--[a-z][\w-]*/g)].map((m) => m[0]))
+  assertEquals(RETIRED_FLAGS.filter((flag) => !written.has(flag)), [])
+  const quoted = /^\*\*`(--[a-z]+) (.*?) …`\*\*/.exec(para)
+  assert(quoted, 'the paragraph opens with a quoted message')
+  const { problems, errors } = parseArgs(['--width=10', '--height=10', `${quoted[1]}=0.5`])
+  assertEquals(problems.map((p) => p.kind), ['retired'], quoted[1])
+  assert(errors[0]?.startsWith(`${quoted[1]} ${quoted[2]}`), `${errors[0]} is not what the README quotes`)
+})
+
+// The notes are printed by the top level of carve.ts, so the program is run.
+Deno.test('every note the CLI README shows is what carve prints for the command above it', async () => {
+  const shown = outputsOf(cliReadme).filter(({ block }) => block[0]?.startsWith('note:'))
+  assert(shown.length >= 3, `only ${shown.length} note blocks`)
+  for (const { command, block } of shown) {
+    assert(command.startsWith(COMMAND_PREFIX) && command.includes('--dry-run'), command)
+    const { stderr } = await runCli('carve.ts', command.slice(COMMAND_PREFIX.length).trim().split(/\s+/))
+    assertEquals(stderr.split('\n').filter((l) => l.startsWith('note:')), block, command)
+  }
+})
+
+// The report's seeds are fixed, so its numbers are too; only the elided lines and the time are skipped.
+Deno.test('the report output in the CLI README is what the report prints', async () => {
+  const at = cliReadme.indexOf('<!-- report-output -->')
+  assert(at >= 0, 'the CLI README has no report-output anchor')
+  const [shown] = outputsOf(cliReadme.slice(at))
+  const before = cliReadme.slice(0, at).split('\n')
+  const command = (before[before.findLastIndex((l) => l.trim() === '```sh') + 1] ?? '').trim()
+  const prefix = 'deno task report'
+  assert(shown && command.startsWith(prefix), `no report command above the anchor: ${command}`)
+  const printed = (await runCli('report.ts', command.slice(prefix.length).trim().split(/\s+/))).stdout.split('\n')
+  assertEquals(shown.block[0], printed[0], 'the first line')
+  let from = 0
+  for (const line of shown.block) {
+    if (line.trim() === '...' || line.trimStart().startsWith('time ')) continue
+    const found = printed.indexOf(line, from)
+    assert(found >= 0, `the report does not print, in this order: ${line}`)
+    from = found + 1
+  }
 })
