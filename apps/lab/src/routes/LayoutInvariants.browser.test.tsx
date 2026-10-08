@@ -450,6 +450,15 @@ test('the board state at 375×540 keeps every layout invariant', async () => {
   expectKnownRed('board@375x540', audit(screen.container, { board: true }))
 }, 40_000)
 
+// The phone height where the default bar lies furthest over the default 25×50
+// board when the fit keeps no room for it (24×20 px under a finger).
+test('the board state at 375×667 keeps every layout invariant', async () => {
+  await page.viewport(375, 667)
+  const screen = await arrange('board')
+  await settle()
+  expectKnownRed('board@375x667', audit(screen.container, { board: true }))
+}, 40_000)
+
 // The matrix above runs only in English, where the bar fits by 1px at 420 wide;
 // the language chip's Polish "Zaawansowany" pushes past `.fw-top`'s
 // `overflow: hidden`. Two sizes, not the whole matrix crossed with `lang`, for
