@@ -248,9 +248,8 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       section: 'run',
       name: dict.t('reseed'),
       note: dict.t('cmdSecRun'),
-      // The hotkey while the row can be used, the reason while it cannot: one
-      // column, and the reason wins.
-      value: running ? dict.t('cmdRunning') : '[ ]',
+      // No key draws a random seed: `[` and `]` step it (`stepSeed`).
+      value: running ? dict.t('cmdRunning') : '',
       hay: 'seed',
       disabled: running,
       run: onLab(deps, state, () => reseed(deps.control)),

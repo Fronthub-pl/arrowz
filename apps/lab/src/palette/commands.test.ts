@@ -145,6 +145,12 @@ describe('the catalogue', () => {
     expect(useStore.getState().ui.palette).toBe(false)
   })
 
+  // `[` and `]` step the seed (see `HOTKEYS`); no key draws a random one.
+  it('gives New seed no key, since [ and ] step the seed rather than draw one', () => {
+    const rows = buildCommands(deps(), useStore.getState())
+    expect(rows.find((row) => row.id === 'run-reseed')?.value).toBe('')
+  })
+
   it('shows each row’s key in capitals', () => {
     const rows = buildCommands(deps(), useStore.getState())
     const value = (id: string) => rows.find((row) => row.id === id)?.value
