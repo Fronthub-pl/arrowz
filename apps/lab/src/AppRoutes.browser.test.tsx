@@ -2,6 +2,7 @@ import { MemoryRouter, useLocation } from 'react-router'
 import { expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { AppRoutes } from './AppRoutes'
+import { docsChunk } from './harness/docsChunk'
 import { TabRow } from './shell/TabRow'
 
 const at = (path: string) =>
@@ -46,6 +47,7 @@ test('/docs/element renders the docs panel, wired to its tab', async () => {
   await expect.element(screen.getByRole('tabpanel').first()).toBeVisible()
   const panel = screen.container.querySelector('[role="tabpanel"]')
   expect(panel?.getAttribute('aria-labelledby')).toBe('tab-docs-panel')
+  await docsChunk()
   // Named, though it is the only navigation landmark today: a second one would
   // turn an unnamed locator into a strict-mode throw.
   await expect.element(screen.getByRole('navigation', { name: 'Documentation pages' })).toBeVisible()
@@ -55,6 +57,7 @@ test('/docs/cli is the same panel, on its own page', async () => {
   const screen = await at('/docs/cli')
   const panel = screen.container.querySelector('[role="tabpanel"]')
   expect(panel?.getAttribute('aria-labelledby')).toBe('tab-docs-panel')
+  await docsChunk()
   await expect.element(screen.getByRole('link', { name: 'Command line' })).toHaveAttribute('aria-current', 'page')
 })
 

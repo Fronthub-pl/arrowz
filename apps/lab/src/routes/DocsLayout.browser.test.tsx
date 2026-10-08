@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import { page } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
+import { docsChunk } from '../harness/docsChunk'
 import { loadRunDone, mountApp, resetApp } from '../harness/mountApp'
 import { useStore } from '../state/store'
 import '../design/index.css'
@@ -53,6 +54,7 @@ async function openDocs(which: 'arrowz' | 'lab' | 'element' | 'cli') {
       element: ['pre.fw-docs-code', 4],
     } as const
   )[which]
+  await docsChunk()
   await expect.poll(() => screen.container.querySelectorAll(marker).length).toBe(count)
   return screen
 }
@@ -121,6 +123,7 @@ async function openAt(path: string) {
   history.replaceState(null, '', path)
   const screen = await render(<App />)
   await expect.element(screen.getByRole('tabpanel').first()).toBeVisible()
+  await docsChunk()
   await expect.poll(() => screen.container.querySelector('.fw-docs-toc')).not.toBeNull()
   return screen
 }

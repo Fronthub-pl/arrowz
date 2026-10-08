@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import { page } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
+import { docsChunk } from '../harness/docsChunk'
 import { resetApp } from '../harness/mountApp'
 import '../design/index.css'
 
@@ -11,9 +12,8 @@ async function openAt(path: string) {
   resetApp('advanced')
   history.replaceState(null, '', path)
   const screen = await render(<App />)
-  await expect
-    .poll(() => screen.container.querySelectorAll('.fw-docs-compare figure').length, { timeout: 20_000 })
-    .toBeGreaterThan(0)
+  await docsChunk()
+  await expect.poll(() => screen.container.querySelectorAll('.fw-docs-compare figure').length).toBeGreaterThan(0)
   await document.fonts.ready
   return screen
 }
