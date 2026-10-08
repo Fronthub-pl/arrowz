@@ -591,12 +591,12 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.coloredOverride = this.dispatchEvent(event) ? colored : null
   }
 
-  // `PropertyValues<this>` keys on `keyof this`, which leaves out the two private state fields.
   override firstUpdated(): void {
     // `.chrome` exists from the first render, which comes after connectedCallback.
     this.observeBar()
   }
 
+  // `PropertyValues<this>` keys on `keyof this`, which leaves out the two private state fields.
   override updated(changed: Map<keyof this | 'coloredOverride' | 'chosenMode', unknown>): void {
     // Applies from the next press (see GestureMachine.mode), so a change mid-drag is safe.
     this.gestures.mode = this.gestureMode

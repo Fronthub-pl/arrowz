@@ -62,7 +62,10 @@ function marginOf(v: ViewportInput): number {
  */
 function byBar(v: ViewportInput, m: number): number {
   const bar = v.bar
-  if (bar === undefined || v.hostHeight <= 2 * bar.height) return 0
+  // The reserved board is `hostHeight - 2 * bar.height` tall: under four bars
+  // that is under half the host, and a host a pixel taller would draw a board
+  // many times smaller. There the bar keeps its place over the board instead.
+  if (bar === undefined || v.hostHeight < 4 * bar.height) return 0
   const s = Math.min(v.hostWidth / (v.W + 2 * m), v.hostHeight / (v.H + 2 * m))
   // Half a pixel or less is rounding, not a covered cell.
   const across = (v.hostWidth + v.W * s) / 2 - (v.hostWidth - bar.width) > 0.5

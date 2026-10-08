@@ -92,8 +92,11 @@ collision:
 3. If `right > hostWidth − bar.width` and `bottom > hostHeight − bar.height`
    (each by more than half a pixel, so rounding never triggers it), add `byBar = R·H / (hostHeight − 2R)` with
    `R = bar.height`, the same closed form `MIN_PAD_PX` uses, so nothing is
-   searched and the result cannot oscillate. If `hostHeight ≤ 2R` the host is
-   too short for any reservation and there is none.
+   searched and the result cannot oscillate. If `hostHeight < 4R` there is no
+   reservation: the reserved board is `hostHeight − 2R` tall, under half the
+   host there, and a host a pixel taller than `2R` would draw a board many
+   times smaller than one a pixel shorter (81 px: 1 px of board). Below `4R`
+   the bar keeps its place over the board, as before this design.
 4. Otherwise the margin is `m0`.
 
 With `pad ≤ 0` the margin stays 0 and the bar is not consulted.
@@ -113,7 +116,8 @@ export function withBar(v: Viewport, bar: ViewportInput['bar']): Viewport
 ```
 
 It mirrors `resize`: a fitted view refits, a zoomed or panned one is only
-clamped, so a bar that changes under a player's zoom never moves the board.
+clamped, so a bar that changes under a player's zoom keeps the scale unless
+the zoom falls under the new fit; then it snaps to the fit, as after a resize.
 
 ## 3. The element (`arrowz-board.ts`)
 
@@ -160,7 +164,8 @@ clamped, so a bar that changes under a player's zoom never moves the board.
   field for field;
 - `bar` absent: today's results, field for field;
 - `pad = 0` with a colliding bar: margin 0;
-- `hostHeight ≤ 2·bar.height`: no reservation;
+- `hostHeight < 4·bar.height`: no reservation; at `4·bar.height` the reserved
+  board is half the host;
 - `withBar` on a fitted view refits; on a zoomed view it only clamps and
   keeps `cellPx`.
 

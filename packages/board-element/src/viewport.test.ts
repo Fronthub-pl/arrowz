@@ -241,6 +241,23 @@ describe('the default bar', () => {
     expect(Number.isFinite(v.cellPx) && v.cellPx > 0).toBe(true)
   })
 
+  // A reservation that left the board under half the host would make a host a
+  // pixel taller draw a board many times smaller (81 px: 1 px of board).
+  test('a host under four bars tall reserves nothing', () => {
+    const wideBar = { width: 300, height: 40 }
+    for (const hostHeight of [81, 120, 159]) {
+      const short = { ...tall, hostHeight }
+      expect(fit({ ...short, bar: wideBar }).margin).toBe(fit(short).margin)
+    }
+  })
+
+  test('from four bars tall the reserved board keeps half the host', () => {
+    const wideBar = { width: 300, height: 40 }
+    const v = fit({ ...tall, hostHeight: 160, bar: wideBar })
+    expect(v.margin).toBeGreaterThan(fit({ ...tall, hostHeight: 160 }).margin)
+    expect(v.H * v.cellPx).toBeCloseTo(80, 9)
+  })
+
   test('withBar refits a fitted view', () => {
     expect(withBar(fit(tall), bar)).toEqual(fit({ ...tall, bar }))
   })
