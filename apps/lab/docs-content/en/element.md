@@ -6,8 +6,10 @@ The boards on this page are `<arrowz-board>` itself, drawn from the command prin
 
 ## Using it {#example}
 
-Import the package once, which registers the tag. Then give the element a size and a board:
+Import the package once, which registers the tag. Then give the element a size and a board. The tabs show the same board in plain HTML and in four frameworks; the one you choose is chosen in every tab group of these pages.
 
+::::tabs{group="framework"}
+:::tab{id="html"}
 ```html
 <arrowz-board id="board" interactive lang="pl" style="width: 100%; height: 80vh"></arrowz-board>
 <script type="module">
@@ -18,8 +20,299 @@ Import the package once, which registers the tag. Then give the element a size a
   el.addEventListener('piece-click', (e) => console.log('piece', e.detail.pieceId))
 </script>
 ```
+:::
+:::tab{id="angular"}
+Any import of the package, the `import()` included, brings its event types into the program, so under `strictTemplates` the template's `$event` is a `PieceClickEvent`; the type import only names it for the method.
 
-In Angular, add `CUSTOM_ELEMENTS_SCHEMA` to the component and bind `[board]`. In React, wrap the element with `createComponent` from `@lit/react`.
+```ts board.component.ts
+import { afterNextRender, Component, CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core'
+import type { BoardData, PieceClickEvent } from '@arrowz/board-element'
+import { defaultParams, generate } from '@arrowz/engine'
+
+@Component({
+  selector: 'app-board',
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<arrowz-board [board]="board()" interactive lang="pl" style="height: 80vh"
+    (piece-click)="onPiece($event)"></arrowz-board>`,
+})
+export class BoardComponent {
+  readonly board = signal<BoardData | null>(generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board)
+
+  constructor() {
+    afterNextRender(() => void import('@arrowz/board-element'))
+  }
+
+  onPiece(e: PieceClickEvent) {
+    console.log('piece', e.detail.pieceId)
+  }
+}
+```
+:::
+:::tab{id="react"}
+React 19 binds a custom element by itself, so `@lit/react` is optional. The declaration file types the tag in JSX.
+
+```ts arrowz-board.d.ts
+import type { ArrowzBoard, PieceClickEvent } from '@arrowz/board-element'
+import type { DetailedHTMLProps, HTMLAttributes } from 'react'
+
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      'arrowz-board': DetailedHTMLProps<HTMLAttributes<ArrowzBoard>, ArrowzBoard> & {
+        board?: ArrowzBoard['board']
+        interactive?: boolean
+        'onpiece-click'?: (e: PieceClickEvent) => void
+      }
+    }
+  }
+}
+```
+
+```tsx Board.tsx
+import { defaultParams, generate } from '@arrowz/engine'
+import { useEffect, useMemo, useState } from 'react'
+
+export function Board() {
+  const [ready, setReady] = useState(false)
+  const board = useMemo(() => generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board, [])
+  useEffect(() => {
+    void import('@arrowz/board-element').then(() => setReady(true))
+  }, [])
+  if (!ready) return null
+  return (
+    <arrowz-board board={board} interactive lang="pl" style={{ height: '80vh' }}
+      onpiece-click={(e) => console.log('piece', e.detail.pieceId)} />
+  )
+}
+```
+:::
+:::tab{id="vue"}
+`shallowRef` keeps Vue from wrapping every arrow of the board in a reactive proxy.
+
+```ts vite.config.ts
+import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  plugins: [vue({ template: { compilerOptions: { isCustomElement: (tag) => tag === 'arrowz-board' } } })],
+})
+```
+
+```vue Board.vue
+<script setup lang="ts">
+import type { PieceClickEvent } from '@arrowz/board-element'
+import { defaultParams, generate } from '@arrowz/engine'
+import { onMounted, ref, shallowRef } from 'vue'
+
+const board = shallowRef(generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board)
+const ready = ref(false)
+onMounted(async () => {
+  await import('@arrowz/board-element')
+  ready.value = true
+})
+const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
+</script>
+
+<template>
+  <arrowz-board v-if="ready" :board="board" interactive lang="pl" style="height: 80vh" @piece-click="onPiece" />
+</template>
+```
+:::
+:::tab{id="svelte"}
+```svelte Board.svelte
+<script lang="ts">
+  import type { PieceClickEvent } from '@arrowz/board-element'
+  import { defaultParams, generate } from '@arrowz/engine'
+  import { onMount } from 'svelte'
+
+  const board = generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board
+  onMount(() => {
+    void import('@arrowz/board-element')
+  })
+  const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
+</script>
+
+<arrowz-board {board} interactive lang="pl" style="height: 80vh" onpiece-click={onPiece}></arrowz-board>
+```
+:::
+::::
+
+Whatever the framework, three rules hold. Define the element before the framework first sets `board`: React and Vue hand an object to a property only when the element already has that property, and otherwise write it as an attribute, which the element ignores. That is why the examples render the tag only once the import has resolved. Do not pass `false` to `interactive` or `play` before the element is defined: Vue and Svelte then write the attribute `interactive="false"`, and a boolean attribute that is present reads as on. And import the package in the browser only, never during server rendering: the element draws with WebGL.
+
+## Board files {#files}
+
+A board travels and is kept as a board file, `.board.json`: the command line writes one, the lab's board store keeps them, and `encodeBoard` makes one from any board. It is a JSON object you can read — the size, the counts and the fingerprint — around a packed `body` that only `decodeBoard` reads.
+
+::table{of="board-file"}
+
+The file is not the board. `board` takes a `BoardData`, whose `owner` is an `Int32Array`, and JSON has no such type: `JSON.stringify` would turn it into an object with numbered keys. The file is the form a board travels and is kept in; `BoardData` is the form the element draws from. So a file fetched from a server or read from a database takes four steps to reach the element:
+
+1. Have the file as an object. From a server that is `await response.json()`. A JSON or JSONB column usually arrives as an object already; a text column needs `JSON.parse`.
+2. Pass it to `decodeBoard` from `@arrowz/engine`, in the browser, where the element is. It takes any value and checks all of it, the fingerprint last, so data from outside needs no schema of its own. `decodeBoardFile` also hands back the file, typed.
+3. Catch `BoardFileError`: its `message` says what is wrong with the file.
+4. Assign the result to `board`.
+
+```ts load-board.ts
+import { type BoardData, decodeBoard } from '@arrowz/engine'
+
+export async function loadBoard(url: string): Promise<BoardData> {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`${url}: ${response.status}`)
+  return decodeBoard(await response.json())
+}
+```
+
+The same steps in each framework, with the reason shown when the file cannot be read:
+
+::::tabs{group="framework"}
+:::tab{id="html"}
+```html
+<arrowz-board id="board" style="width: 100%; height: 80vh"></arrowz-board>
+<p id="problem" hidden></p>
+<script type="module">
+  import '@arrowz/board-element'
+  import { BoardFileError, decodeBoard } from '@arrowz/engine'
+  const el = document.getElementById('board')
+  const problem = document.getElementById('problem')
+  const response = await fetch('/boards/demo.board.json')
+  try {
+    el.board = decodeBoard(await response.json())
+  } catch (e) {
+    if (!(e instanceof BoardFileError)) throw e
+    problem.textContent = e.message
+    problem.hidden = false
+  }
+</script>
+```
+:::
+:::tab{id="angular"}
+```ts stored-board.component.ts
+import { afterNextRender, Component, CUSTOM_ELEMENTS_SCHEMA, input, signal } from '@angular/core'
+import type { BoardData } from '@arrowz/board-element'
+import { loadBoard } from './load-board'
+
+@Component({
+  selector: 'app-stored-board',
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    @if (problem(); as text) {
+      <p role="alert">{{ text }}</p>
+    } @else {
+      <arrowz-board [board]="board()" style="height: 80vh"></arrowz-board>
+    }
+  `,
+})
+export class StoredBoardComponent {
+  readonly url = input.required<string>()
+  readonly board = signal<BoardData | null>(null)
+  readonly problem = signal<string | null>(null)
+
+  constructor() {
+    afterNextRender(() => {
+      void import('@arrowz/board-element')
+      loadBoard(this.url()).then(
+        (board) => this.board.set(board),
+        (e: unknown) => this.problem.set(e instanceof Error ? e.message : String(e)),
+      )
+    })
+  }
+}
+```
+:::
+:::tab{id="react"}
+```tsx StoredBoard.tsx
+import type { BoardData } from '@arrowz/engine'
+import { useEffect, useState } from 'react'
+import { loadBoard } from './load-board'
+
+export function StoredBoard({ url }: { url: string }) {
+  const [ready, setReady] = useState(false)
+  const [board, setBoard] = useState<BoardData | null>(null)
+  const [problem, setProblem] = useState<string | null>(null)
+  useEffect(() => {
+    void import('@arrowz/board-element').then(() => setReady(true))
+  }, [])
+  useEffect(() => {
+    let live = true
+    loadBoard(url).then(
+      (loaded) => {
+        if (live) setBoard(loaded)
+      },
+      (e: unknown) => {
+        if (live) setProblem(e instanceof Error ? e.message : String(e))
+      },
+    )
+    return () => {
+      live = false
+    }
+  }, [url])
+  if (problem !== null) return <p role="alert">{problem}</p>
+  if (!ready) return null
+  return <arrowz-board board={board} style={{ height: '80vh' }} />
+}
+```
+:::
+:::tab{id="vue"}
+```vue StoredBoard.vue
+<script setup lang="ts">
+import type { BoardData } from '@arrowz/engine'
+import { onMounted, ref, shallowRef } from 'vue'
+import { loadBoard } from './load-board'
+
+const props = defineProps<{ url: string }>()
+const ready = ref(false)
+const board = shallowRef<BoardData | null>(null)
+const problem = ref<string | null>(null)
+onMounted(async () => {
+  await import('@arrowz/board-element')
+  ready.value = true
+  try {
+    board.value = await loadBoard(props.url)
+  } catch (e) {
+    problem.value = e instanceof Error ? e.message : String(e)
+  }
+})
+</script>
+
+<template>
+  <p v-if="problem" role="alert">{{ problem }}</p>
+  <arrowz-board v-else-if="ready" :board="board" style="height: 80vh" />
+</template>
+```
+:::
+:::tab{id="svelte"}
+`$state.raw` keeps Svelte from wrapping the board in a reactive proxy.
+
+```svelte StoredBoard.svelte
+<script lang="ts">
+  import type { BoardData } from '@arrowz/engine'
+  import { onMount } from 'svelte'
+  import { loadBoard } from './load-board'
+
+  let { url }: { url: string } = $props()
+  let board = $state.raw<BoardData | null>(null)
+  let problem = $state<string | null>(null)
+  onMount(() => {
+    void import('@arrowz/board-element')
+    loadBoard(url).then(
+      (loaded) => (board = loaded),
+      (e: unknown) => (problem = e instanceof Error ? e.message : String(e)),
+    )
+  })
+</script>
+
+{#if problem}
+  <p role="alert">{problem}</p>
+{:else}
+  <arrowz-board {board} style="height: 80vh"></arrowz-board>
+{/if}
+```
+:::
+::::
+
+A server or a database keeps the file as it is and sends it as it is: decoding it there would only have to be undone to send the board on. The header can be read without decoding — `W`, `H` and `pieces` for a list, `fingerprint` to tell boards apart — and the command line names each file by `layoutHash`, a name that stays the same for the same arrows. To store a board you have, send `JSON.stringify(encodeBoard(board))`.
+
+A game in progress is not part of the file: `saveState()` and `loadState()` keep it apart ([playing the board](docs:element#play)).
 
 ## Properties {#props}
 

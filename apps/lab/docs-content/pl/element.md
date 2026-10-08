@@ -6,8 +6,10 @@ Plansze na tej stronie to sam `<arrowz-board>`, narysowany z polecenia wypisaneg
 
 ## Jak użyć {#example}
 
-Zaimportuj pakiet raz, a import zarejestruje znacznik. Potem nadaj komponentowi rozmiar i daj mu planszę:
+Zaimportuj pakiet raz, a import zarejestruje znacznik. Potem nadaj komponentowi rozmiar i daj mu planszę. Zakładki pokazują tę samą planszę w czystym HTML i w czterech frameworkach; wybór obowiązuje we wszystkich grupach zakładek na tych stronach.
 
+::::tabs{group="framework"}
+:::tab{id="html"}
 ```html
 <arrowz-board id="board" interactive lang="pl" style="width: 100%; height: 80vh"></arrowz-board>
 <script type="module">
@@ -18,8 +20,299 @@ Zaimportuj pakiet raz, a import zarejestruje znacznik. Potem nadaj komponentowi 
   el.addEventListener('piece-click', (e) => console.log('piece', e.detail.pieceId))
 </script>
 ```
+:::
+:::tab{id="angular"}
+Każdy import pakietu, także ten przez `import()`, wprowadza do programu jego typy zdarzeń, więc przy `strictTemplates` `$event` w szablonie ma typ `PieceClickEvent`; import typu służy tylko do nazwania go w sygnaturze metody.
 
-W Angularze dodaj `CUSTOM_ELEMENTS_SCHEMA` do swojego komponentu i powiąż `[board]`. W Reakcie opakuj `<arrowz-board>` funkcją `createComponent` z `@lit/react`.
+```ts board.component.ts
+import { afterNextRender, Component, CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core'
+import type { BoardData, PieceClickEvent } from '@arrowz/board-element'
+import { defaultParams, generate } from '@arrowz/engine'
+
+@Component({
+  selector: 'app-board',
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<arrowz-board [board]="board()" interactive lang="pl" style="height: 80vh"
+    (piece-click)="onPiece($event)"></arrowz-board>`,
+})
+export class BoardComponent {
+  readonly board = signal<BoardData | null>(generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board)
+
+  constructor() {
+    afterNextRender(() => void import('@arrowz/board-element'))
+  }
+
+  onPiece(e: PieceClickEvent) {
+    console.log('piece', e.detail.pieceId)
+  }
+}
+```
+:::
+:::tab{id="react"}
+React 19 sam wiąże komponenty webowe, więc `@lit/react` nie jest potrzebne. Plik deklaracji nadaje znacznikowi typ w JSX.
+
+```ts arrowz-board.d.ts
+import type { ArrowzBoard, PieceClickEvent } from '@arrowz/board-element'
+import type { DetailedHTMLProps, HTMLAttributes } from 'react'
+
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      'arrowz-board': DetailedHTMLProps<HTMLAttributes<ArrowzBoard>, ArrowzBoard> & {
+        board?: ArrowzBoard['board']
+        interactive?: boolean
+        'onpiece-click'?: (e: PieceClickEvent) => void
+      }
+    }
+  }
+}
+```
+
+```tsx Board.tsx
+import { defaultParams, generate } from '@arrowz/engine'
+import { useEffect, useMemo, useState } from 'react'
+
+export function Board() {
+  const [ready, setReady] = useState(false)
+  const board = useMemo(() => generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board, [])
+  useEffect(() => {
+    void import('@arrowz/board-element').then(() => setReady(true))
+  }, [])
+  if (!ready) return null
+  return (
+    <arrowz-board board={board} interactive lang="pl" style={{ height: '80vh' }}
+      onpiece-click={(e) => console.log('piece', e.detail.pieceId)} />
+  )
+}
+```
+:::
+:::tab{id="vue"}
+`shallowRef` sprawia, że Vue nie opakowuje każdej strzałki planszy w reaktywne proxy.
+
+```ts vite.config.ts
+import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  plugins: [vue({ template: { compilerOptions: { isCustomElement: (tag) => tag === 'arrowz-board' } } })],
+})
+```
+
+```vue Board.vue
+<script setup lang="ts">
+import type { PieceClickEvent } from '@arrowz/board-element'
+import { defaultParams, generate } from '@arrowz/engine'
+import { onMounted, ref, shallowRef } from 'vue'
+
+const board = shallowRef(generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board)
+const ready = ref(false)
+onMounted(async () => {
+  await import('@arrowz/board-element')
+  ready.value = true
+})
+const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
+</script>
+
+<template>
+  <arrowz-board v-if="ready" :board="board" interactive lang="pl" style="height: 80vh" @piece-click="onPiece" />
+</template>
+```
+:::
+:::tab{id="svelte"}
+```svelte Board.svelte
+<script lang="ts">
+  import type { PieceClickEvent } from '@arrowz/board-element'
+  import { defaultParams, generate } from '@arrowz/engine'
+  import { onMount } from 'svelte'
+
+  const board = generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board
+  onMount(() => {
+    void import('@arrowz/board-element')
+  })
+  const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
+</script>
+
+<arrowz-board {board} interactive lang="pl" style="height: 80vh" onpiece-click={onPiece}></arrowz-board>
+```
+:::
+::::
+
+Bez względu na framework obowiązują trzy reguły. Zdefiniuj komponent, zanim framework pierwszy raz ustawi `board`: React i Vue przekazują obiekt do właściwości tylko wtedy, gdy komponent już ją ma, a w przeciwnym razie zapisują go jako atrybut, który komponent pomija. Dlatego przykłady renderują znacznik dopiero po zakończeniu importu. Nie przekazuj `false` do `interactive` ani `play`, zanim komponent zostanie zdefiniowany: Vue i Svelte zapiszą wtedy atrybut `interactive="false"`, a obecny atrybut logiczny znaczy „włączone”. I importuj pakiet tylko w przeglądarce, nigdy przy renderowaniu na serwerze: komponent rysuje przez WebGL.
+
+## Pliki planszy {#files}
+
+Plansza podróżuje i leży w magazynie jako plik planszy, `.board.json`: zapisuje go wiersz poleceń, trzyma go magazyn plansz laboratorium, a `encodeBoard` robi go z każdej planszy. To obiekt JSON, który da się przeczytać — rozmiar, liczniki i odcisk — wokół spakowanego `body`, które czyta tylko `decodeBoard`.
+
+::table{of="board-file"}
+
+Plik to nie plansza. `board` przyjmuje `BoardData`, którego `owner` to `Int32Array`, a JSON nie ma takiego typu: `JSON.stringify` zrobiłby z niego obiekt z numerowanymi kluczami. Plik to postać, w której plansza podróżuje i leży w magazynie, a `BoardData` to postać, z której rysuje komponent. Plik pobrany z serwera albo odczytany z bazy danych potrzebuje więc czterech kroków, żeby trafić do komponentu:
+
+1. Zacznij od pliku jako obiektu. Z serwera to `await response.json()`. Kolumna JSON albo JSONB zwykle przychodzi już jako obiekt, a kolumna tekstowa wymaga `JSON.parse`.
+2. Przekaż go do `decodeBoard` z `@arrowz/engine`, w przeglądarce, tam gdzie jest komponent. Funkcja przyjmuje dowolną wartość i sprawdza ją całą, odcisk na końcu, więc dane z zewnątrz nie potrzebują własnego schematu. `decodeBoardFile` oddaje też sam plik, z typem.
+3. Złap `BoardFileError`: jego `message` mówi, co jest nie tak z plikiem.
+4. Przypisz wynik do `board`.
+
+```ts load-board.ts
+import { type BoardData, decodeBoard } from '@arrowz/engine'
+
+export async function loadBoard(url: string): Promise<BoardData> {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`${url}: ${response.status}`)
+  return decodeBoard(await response.json())
+}
+```
+
+Te same kroki w każdym frameworku, z powodem pokazanym, gdy pliku nie da się odczytać:
+
+::::tabs{group="framework"}
+:::tab{id="html"}
+```html
+<arrowz-board id="board" style="width: 100%; height: 80vh"></arrowz-board>
+<p id="problem" hidden></p>
+<script type="module">
+  import '@arrowz/board-element'
+  import { BoardFileError, decodeBoard } from '@arrowz/engine'
+  const el = document.getElementById('board')
+  const problem = document.getElementById('problem')
+  const response = await fetch('/boards/demo.board.json')
+  try {
+    el.board = decodeBoard(await response.json())
+  } catch (e) {
+    if (!(e instanceof BoardFileError)) throw e
+    problem.textContent = e.message
+    problem.hidden = false
+  }
+</script>
+```
+:::
+:::tab{id="angular"}
+```ts stored-board.component.ts
+import { afterNextRender, Component, CUSTOM_ELEMENTS_SCHEMA, input, signal } from '@angular/core'
+import type { BoardData } from '@arrowz/board-element'
+import { loadBoard } from './load-board'
+
+@Component({
+  selector: 'app-stored-board',
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    @if (problem(); as text) {
+      <p role="alert">{{ text }}</p>
+    } @else {
+      <arrowz-board [board]="board()" style="height: 80vh"></arrowz-board>
+    }
+  `,
+})
+export class StoredBoardComponent {
+  readonly url = input.required<string>()
+  readonly board = signal<BoardData | null>(null)
+  readonly problem = signal<string | null>(null)
+
+  constructor() {
+    afterNextRender(() => {
+      void import('@arrowz/board-element')
+      loadBoard(this.url()).then(
+        (board) => this.board.set(board),
+        (e: unknown) => this.problem.set(e instanceof Error ? e.message : String(e)),
+      )
+    })
+  }
+}
+```
+:::
+:::tab{id="react"}
+```tsx StoredBoard.tsx
+import type { BoardData } from '@arrowz/engine'
+import { useEffect, useState } from 'react'
+import { loadBoard } from './load-board'
+
+export function StoredBoard({ url }: { url: string }) {
+  const [ready, setReady] = useState(false)
+  const [board, setBoard] = useState<BoardData | null>(null)
+  const [problem, setProblem] = useState<string | null>(null)
+  useEffect(() => {
+    void import('@arrowz/board-element').then(() => setReady(true))
+  }, [])
+  useEffect(() => {
+    let live = true
+    loadBoard(url).then(
+      (loaded) => {
+        if (live) setBoard(loaded)
+      },
+      (e: unknown) => {
+        if (live) setProblem(e instanceof Error ? e.message : String(e))
+      },
+    )
+    return () => {
+      live = false
+    }
+  }, [url])
+  if (problem !== null) return <p role="alert">{problem}</p>
+  if (!ready) return null
+  return <arrowz-board board={board} style={{ height: '80vh' }} />
+}
+```
+:::
+:::tab{id="vue"}
+```vue StoredBoard.vue
+<script setup lang="ts">
+import type { BoardData } from '@arrowz/engine'
+import { onMounted, ref, shallowRef } from 'vue'
+import { loadBoard } from './load-board'
+
+const props = defineProps<{ url: string }>()
+const ready = ref(false)
+const board = shallowRef<BoardData | null>(null)
+const problem = ref<string | null>(null)
+onMounted(async () => {
+  await import('@arrowz/board-element')
+  ready.value = true
+  try {
+    board.value = await loadBoard(props.url)
+  } catch (e) {
+    problem.value = e instanceof Error ? e.message : String(e)
+  }
+})
+</script>
+
+<template>
+  <p v-if="problem" role="alert">{{ problem }}</p>
+  <arrowz-board v-else-if="ready" :board="board" style="height: 80vh" />
+</template>
+```
+:::
+:::tab{id="svelte"}
+`$state.raw` sprawia, że Svelte nie opakowuje planszy w reaktywne proxy.
+
+```svelte StoredBoard.svelte
+<script lang="ts">
+  import type { BoardData } from '@arrowz/engine'
+  import { onMount } from 'svelte'
+  import { loadBoard } from './load-board'
+
+  let { url }: { url: string } = $props()
+  let board = $state.raw<BoardData | null>(null)
+  let problem = $state<string | null>(null)
+  onMount(() => {
+    void import('@arrowz/board-element')
+    loadBoard(url).then(
+      (loaded) => (board = loaded),
+      (e: unknown) => (problem = e instanceof Error ? e.message : String(e)),
+    )
+  })
+</script>
+
+{#if problem}
+  <p role="alert">{problem}</p>
+{:else}
+  <arrowz-board {board} style="height: 80vh"></arrowz-board>
+{/if}
+```
+:::
+::::
+
+Serwer albo baza danych trzyma plik takim, jaki jest, i takim go wysyła: dekodowanie po ich stronie trzeba by cofnąć, żeby przesłać planszę dalej. Nagłówek da się czytać bez dekodowania — `W`, `H` i `pieces` do listy, `fingerprint`, żeby odróżnić plansze — a wiersz poleceń nadaje każdemu plikowi nazwę z `layoutHash`, która dla tych samych strzałek jest zawsze ta sama. Żeby zapisać planszę, którą masz, wyślij `JSON.stringify(encodeBoard(board))`.
+
+Gra w toku nie jest częścią pliku: trzymają ją osobno `saveState()` i `loadState()` ([rozgrywka](docs:element#play)).
 
 ## Właściwości {#props}
 
