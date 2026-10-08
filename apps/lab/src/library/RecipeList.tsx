@@ -37,7 +37,7 @@ export function RecipeList({ meta, control }: { meta: BoardMeta; control: RunCon
             `${dict.t('factSeed')} ${recipe.params.seed}`,
             recipe.source,
             date,
-            `${genSeconds(recipe, '—')} s`,
+            `${genSeconds(recipe, '—', dict)} s`,
           ]
           return (
             <li key={recipe.id} className="fw-recipe">

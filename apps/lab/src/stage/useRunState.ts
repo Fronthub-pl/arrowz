@@ -137,7 +137,7 @@ export function useRunState(): RunState {
             `${preview.meta.W}x${preview.meta.H}/${preview.meta.id}`,
             preview.meta.seed,
             preview.meta.source,
-            `${genSeconds(preview.meta, '—')} s`,
+            `${genSeconds(preview.meta, '—', dict)} s`,
           )
   }
 
@@ -265,6 +265,7 @@ export function useRunLine(): Omit<RunState, 'library'> {
       stuck?.sizes[0] ?? 0,
       heads,
       exits,
+      stuck?.remaining ?? 0,
     )
   }
 

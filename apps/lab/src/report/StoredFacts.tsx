@@ -23,7 +23,7 @@ export function StoredFacts({ meta }: { meta: BoardMeta }): ReactElement {
     [
       'avgLen',
       dict.t('stat_avgLen'),
-      meta.pieces === null || meta.pieces === 0 ? dash : (cells / meta.pieces).toFixed(1),
+      meta.pieces === null || meta.pieces === 0 ? dash : dict.dec(cells / meta.pieces, 1),
     ],
     [
       'longest',
@@ -31,7 +31,7 @@ export function StoredFacts({ meta }: { meta: BoardMeta }): ReactElement {
       meta.maxLen === null ? dash : dict.t('stat_longestVal', meta.maxLen, pct(meta.maxLen / cells)),
     ],
     ['backtracks', dict.t('stat_backtracks'), `${meta.backtracks ?? dash} / ${meta.restarts ?? dash}`],
-    ['time', dict.t('stat_time'), dict.t('stat_genVal', genSeconds(meta, dash))],
+    ['time', dict.t('stat_time'), dict.t('stat_genVal', genSeconds(meta, dash, dict))],
   ]
   return (
     <>

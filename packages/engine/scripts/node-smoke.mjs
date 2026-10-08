@@ -7,6 +7,7 @@ import process from 'node:process'
 import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate, layoutHash } from '../dist/mod.js'
 import { parseArgs } from '../dist/command.js'
 import { genSeconds } from '../dist/lab-report.js'
+import { dictionary } from '../dist/lab-i18n.js'
 import { docsFor } from '../dist/lab-docs.js'
 
 const golden = JSON.parse(readFileSync(new URL('../fingerprints.json', import.meta.url), 'utf8'))
@@ -55,7 +56,9 @@ for (const c of golden.cases) {
 // reference type-checks and only fails here, on import.
 check(docsFor('pl').props.board !== docsFor('en').props.board, 'lab-docs is translated in dist')
 check(
-  genSeconds({ genMs: 4800 }, '—') === '4.80' && genSeconds({ genMs: null }, '—') === '—',
+  genSeconds({ genMs: 4800 }, '—', dictionary('en')) === '4.80' &&
+    genSeconds({ genMs: 4800 }, '—', dictionary('pl')) === '4,80' &&
+    genSeconds({ genMs: null }, '—', dictionary('en')) === '—',
   'lab-report is emitted correctly into dist/',
 )
 // Every failure above is named on its own line, so the summary only counts;

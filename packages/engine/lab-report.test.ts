@@ -324,14 +324,14 @@ Deno.test('the Polish values follow the new words', () => {
   const value = (key: StatKey) => rows.find((row) => row.key === key)?.value
   assertEquals(value('pieces'), '20')
   assertEquals(value('f0'), '50%')
-  assertEquals(value('outDeg'), '2.4 strz.')
+  assertEquals(value('outDeg'), '2,4 strz.')
   assertEquals(value('stall'), '20% ułożonych strzałek, osiągając 90% zaplanowanej długości')
   assertEquals(value('absorbed'), '3 łatki (45 komórek)')
-  assertEquals(value('time'), 'generowanie 3.46 s, statystyki 0.12 s')
-  assertEquals(value('lengths'), '2–100 komórek · 2–6: 50% · 7–15: 30% · 16–49: 15% · 50+: 5.0%')
+  assertEquals(value('time'), 'generowanie 3,46 s, statystyki 0,12 s')
+  assertEquals(value('lengths'), '2–100 komórek · 2–6: 50% · 7–15: 30% · 16–49: 15% · 50+: 5,0%')
   assertEquals(value('rework'), '5 wykonanych, 2 porzucone')
   assertEquals(value('stuckBy'), 'ona sama 25% · inne strzałki 65% · krawędź 10%')
-  assertEquals(value('shortened'), '4% ułożonych strzałek, średnio o 2.5 komórki krótszych')
+  assertEquals(value('shortened'), '4% ułożonych strzałek, średnio o 2,5 komórki krótszych')
 })
 
 Deno.test('every row has a label and a value, and no row is empty', () => {
@@ -368,36 +368,38 @@ Deno.test('every comparable row carries the number the delta column subtracts', 
   for (const row of comparable) assert(Number.isFinite(row.num))
 })
 
+const en = dictionary('en')
+
 Deno.test('genSeconds shows two decimals under ten seconds and one above, and a dash for no timing', () => {
-  assertEquals(genSeconds({ genMs: 4800 }, '—'), '4.80')
-  assertEquals(genSeconds({ genMs: 16000 }, '—'), '16.0')
-  assertEquals(genSeconds({ genMs: null }, '—'), '—')
+  assertEquals(genSeconds({ genMs: 4800 }, '—', en), '4.80')
+  assertEquals(genSeconds({ genMs: 16000 }, '—', en), '16.0')
+  assertEquals(genSeconds({ genMs: null }, '—', en), '—')
 })
 
 // The delta column's arithmetic. The numbers are chosen to be exact in binary,
 // so no case depends on how `toFixed` rounds a tie.
 Deno.test('reportDelta is null when either number is missing or the two are equal', () => {
-  assertEquals(reportDelta(undefined, 3), null)
-  assertEquals(reportDelta(3, undefined), null)
-  assertEquals(reportDelta(3, 3), null)
+  assertEquals(reportDelta(undefined, 3, en), null)
+  assertEquals(reportDelta(3, undefined, en), null)
+  assertEquals(reportDelta(3, 3, en), null)
   // The tolerance: a float that moved by less than 1e-9 did not move.
-  assertEquals(reportDelta(3 + 1e-10, 3), null)
+  assertEquals(reportDelta(3 + 1e-10, 3, en), null)
 })
 
 Deno.test('reportDelta prints a plus or a true minus, at the precision of the size of the change', () => {
-  assertEquals(reportDelta(250, 100)?.text, '+150')
-  assertEquals(reportDelta(100, 0)?.text, '+100')
-  assertEquals(reportDelta(3.5, 1)?.text, '+2.5')
-  assertEquals(reportDelta(2, 1)?.text, '+1.0')
-  assertEquals(reportDelta(0.75, 0.5)?.text, '+0.25')
+  assertEquals(reportDelta(250, 100, en)?.text, '+150')
+  assertEquals(reportDelta(100, 0, en)?.text, '+100')
+  assertEquals(reportDelta(3.5, 1, en)?.text, '+2.5')
+  assertEquals(reportDelta(2, 1, en)?.text, '+1.0')
+  assertEquals(reportDelta(0.75, 0.5, en)?.text, '+0.25')
   // U+2212, not a hyphen: the glyph a screen reader says "minus" for.
-  assertEquals(reportDelta(1, 3.5)?.text, '−2.5')
+  assertEquals(reportDelta(1, 3.5, en)?.text, '−2.5')
 })
 
 Deno.test('reportDelta says only which way the number moved', () => {
-  assertEquals(reportDelta(2, 1)?.trend, 'up')
-  assertEquals(reportDelta(1, 2)?.trend, 'down')
-  assertEquals(reportDelta(0.5, 0.25)?.trend, 'up')
+  assertEquals(reportDelta(2, 1, en)?.trend, 'up')
+  assertEquals(reportDelta(1, 2, en)?.trend, 'down')
+  assertEquals(reportDelta(0.5, 0.25, en)?.trend, 'up')
 })
 
 Deno.test('seedRunOf: a complete board is complete, with its arrows and longest', () => {
@@ -462,4 +464,49 @@ Deno.test('summariseSeries: with no complete run the means are null', () => {
   const s = summariseSeries([{ seed: 1, outcome: 'incomplete', pieces: 3, maxLen: 4, genMs: 5, remaining: 6 }])
   assertEquals([s.meanPieces, s.meanMaxLen, s.meanGenMs], [null, null, null])
   assertEquals(summariseSeries([]).total, 0)
+})
+
+Deno.test('Polish report numbers use a decimal comma and English ones keep the point', () => {
+  const pl = dictionary('pl')
+  assertEquals(pl.dec(1.5, 1), '1,5')
+  assertEquals(pl.dec(1234.5, 2), '1234,50')
+  assertEquals(en.dec(1.5, 1), '1.5')
+  assertEquals(en.dec(1.005, 2), (1.005).toFixed(2))
+  assertEquals(genSeconds({ genMs: 4800 }, '—', pl), '4,80')
+  assertEquals(reportDelta(3.5, 1, pl)?.text, '+2,5')
+  assertEquals(reportDelta(1, 3.5, pl)?.text, '−2,5')
+  assertEquals(reportDelta(250, 100, pl)?.text, '+150')
+})
+
+Deno.test('no Polish report row of a real run shows a decimal point', () => {
+  const params = { ...defaultParams(), W: 40, H: 30, seed: 7 }
+  const rows = reportRows(run(40, 30, 7), params, dictionary('pl'))
+  assert(rows.some((row) => /\d,\d/.test(row.value)), 'the fixture must show at least one decimal')
+  for (const row of rows) assert(!/\d\.\d/.test(row.value), `${row.key}: ${row.value}`)
+})
+
+Deno.test('the Polish cell count in the report takes the plural of its number', () => {
+  const pl = dictionary('pl')
+  const longest = (n: number) => pl.t('stat_longestVal', n, '1%')
+  assertEquals(longest(1), '1 komórka (1% planszy)')
+  assertEquals(longest(3), '3 komórki (1% planszy)')
+  assertEquals(longest(5), '5 komórek (1% planszy)')
+  assertEquals(longest(22), '22 komórki (1% planszy)')
+  assertEquals(longest(354), '354 komórki (1% planszy)')
+  assertEquals(longest(12), '12 komórek (1% planszy)')
+  const board = (W: number, H: number) => pl.t('stat_boardVal', W, H, pl.fmt(W * H), 7)
+  assertEquals(board(1, 1), '1 × 1 = 1 komórka, ziarno 7')
+  assertEquals(board(1, 3), '1 × 3 = 3 komórki, ziarno 7')
+  assertEquals(board(5, 5), '5 × 5 = 25 komórek, ziarno 7')
+  assertEquals(board(11, 2), '11 × 2 = 22 komórki, ziarno 7')
+  assertEquals(pl.t('generatingBig', 1, 22, '22'), 'Generuję 1×22 (22 komórki) — to potrwa…')
+  assertEquals(
+    pl.t('generatingBig', 100, 100, pl.fmt(10000)),
+    `Generuję 100×100 (${pl.fmt(10000)} komórek) — to potrwa…`,
+  )
+  const left = (n: number) => pl.t('notClosedStatus', String(n), 1, 1, null, 4, n)
+  assert(left(1).includes('1 komórka została pusta'))
+  assert(left(3).includes('3 komórki zostały puste'))
+  assert(left(5).includes('5 komórek zostało pustych'))
+  assert(left(22).includes('22 komórki zostały puste'))
 })

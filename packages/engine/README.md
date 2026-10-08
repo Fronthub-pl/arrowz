@@ -305,7 +305,7 @@ out when it fits in a line and described when it does not.
 
 | Type | Shape | Meaning |
 |---|---|---|
-| `Dict` | `{ readonly lang: Lang; readonly locale: 'pl' \| 'en-GB'; readonly d: Dictionary; t<K extends UiKey>(key: K, ...args: UiArgs<K>): string; paramText(spec: ParamSpec): { label: string; help: string }; choiceText(key: ParamKey, word: string): string; reason(key: InactiveKey \| RuleKey): string; fmt(n: number): string; short(n: number): string; violation(v: Violation): string }` | One language's text and helpers: `t` a UI string, `paramText` a knob's label and help, `reason` a rule or inactive text, `fmt` and `short` numbers in the locale, `violation` a violation. |
+| `Dict` | `{ readonly lang: Lang; readonly locale: 'pl' \| 'en-GB'; readonly d: Dictionary; t<K extends UiKey>(key: K, ...args: UiArgs<K>): string; paramText(spec: ParamSpec): { label: string; help: string }; choiceText(key: ParamKey, word: string): string; reason(key: InactiveKey \| RuleKey): string; fmt(n: number): string; dec(n: number, digits: number): string; short(n: number): string; violation(v: Violation): string }` | One language's text and helpers: `t` a UI string, `paramText` a knob's label and help, `reason` a rule or inactive text, `fmt` and `short` numbers in the locale, `dec` a number with a fixed count of decimals and the locale's separator, `violation` a violation. |
 | `Dictionary` | `Widen<typeof EN>` | The shape every language must have: `EN`'s keys, with its strings widened. |
 | `Lang` | `'en' \| 'pl'` | The languages of the lab. |
 | `Translation` | `Dictionary & { reasons: Record<InactiveKey \| RuleKey, string>; params: Record<ParamKey, { label: string; help: string }>; choices: Partial<Record<ParamKey, Record<string, string>>> }` | A translation: the dictionary plus the knob, choice and reason texts English keeps in the engine's tables. |
@@ -317,9 +317,9 @@ out when it fits in a line and described when it does not.
 
 | Function | Signature | Behaviour |
 |---|---|---|
-| `genSeconds` | `(meta: Pick<BoardMeta, 'genMs'>, dash: string) => string` | How long a stored board took to generate, in seconds, or `dash` when it was saved before timing existed. |
+| `genSeconds` | `(meta: Pick<BoardMeta, 'genMs'>, dash: string, dict: Dict) => string` | How long a stored board took to generate, in seconds, or `dash` when it was saved before timing existed. |
 | `pct` | `(v: number) => string` | A fraction as a whole percent. |
-| `reportDelta` | `(num: number \| undefined, prev: number \| undefined) => ReportDelta \| null` | A row's change against the previous run, or `null` when either is missing or they agree. |
+| `reportDelta` | `(num: number \| undefined, prev: number \| undefined, dict: Dict) => ReportDelta \| null` | A row's change against the previous run, or `null` when either is missing or they agree. |
 | `reportRows` | `(run: ReportInput, params: Params, dict: Dict) => StatRow[]` | Every row of the statistics table for a finished run, in order, in the dictionary's language; a run without metrics reports nothing. |
 | `seedRunOf` | `(seed: number, result: GenerateResult) => SeedRun` | One seed's result as a series reports it. |
 | `summariseSeries` | `(runs: readonly SeedRun[]) => SeriesSummary` | The outcome counts of a series, and the means over its complete boards. |

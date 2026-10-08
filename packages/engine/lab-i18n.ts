@@ -377,7 +377,14 @@ export const EN = {
     closed: 'Board complete: every cell filled.',
     solvable: 'Solvable.',
     unsolvable: 'UNSOLVABLE — a generator bug.',
-    notClosedStatus: (remaining: string, fragments: number, largest: number, heads: number | null, exits: number) =>
+    notClosedStatus: (
+      remaining: string,
+      fragments: number,
+      largest: number,
+      heads: number | null,
+      exits: number,
+      _remainingCount: number,
+    ) =>
       `The board could not be filled: at best ${remaining} cells stayed empty, in ${fragments} patches (largest ${largest}).${
         heads === null ? '' : ` At that moment a new arrow could still start in ${heads} of ${exits} places.`
       } Try another seed or more straightness.`,
@@ -1208,7 +1215,7 @@ export const PL: Translation = {
     fullView: 'Pełny podgląd (klawisz F)',
     pressGenerate: 'Naciśnij „Generuj”.',
     generating: 'Generuję…',
-    generatingBig: (W, H, cells) => `Generuję ${W}×${H} (${cells} komórek) — to potrwa…`,
+    generatingBig: (W, H, cells) => `Generuję ${W}×${H} (${cells} ${plCells(W * H)}) — to potrwa…`,
     progress: (pct, pieces, remaining, backtracks, s) =>
       `<b>${pct}%</b> · ${pieces} strz. · zostało ${remaining} · nawroty ${backtracks} · ${s} s`,
     generatingPct: (pct) => `Generuję ${pct}%`,
@@ -1223,8 +1230,10 @@ export const PL: Translation = {
     closed: 'Plansza pełna: wszystkie komórki wypełnione.',
     solvable: 'Rozwiązywalna.',
     unsolvable: 'NIEROZWIĄZYWALNA — to błąd generatora.',
-    notClosedStatus: (remaining, fragments, largest, heads, exits) =>
-      `Nie udało się wypełnić planszy: w najlepszym razie ${remaining} komórek zostało pustych, w ${fragments} łatkach (największa ${largest}).${
+    notClosedStatus: (remaining, fragments, largest, heads, exits, remainingCount) =>
+      `Nie udało się wypełnić planszy: w najlepszym razie ${remaining} ${
+        plCount(remainingCount, 'komórka została pusta', 'komórki zostały puste', 'komórek zostało pustych')
+      }, w ${fragments} łatkach (największa ${largest}).${
         heads === null
           ? ''
           : ` Wtedy nowa strzałka mogła jeszcze zacząć się w ${heads} ${
@@ -1232,11 +1241,11 @@ export const PL: Translation = {
           } ${exits} miejsc.`
       } Spróbuj innego ziarna albo większej prostości.`,
     stat_board: 'plansza',
-    stat_boardVal: (W, H, cells, seed) => `${W} × ${H} = ${cells} komórek, ziarno ${seed}`,
+    stat_boardVal: (W, H, cells, seed) => `${W} × ${H} = ${cells} ${plCells(W * H)}, ziarno ${seed}`,
     stat_pieces: 'strzałki',
     stat_avgLen: 'średnia długość',
     stat_longest: 'najdłuższa',
-    stat_longestVal: (n, pct) => `${n} komórek (${pct} planszy)`,
+    stat_longestVal: (n, pct) => `${n} ${plCells(n)} (${pct} planszy)`,
     stat_lengths: 'długości',
     stat_f0: 'wolne na starcie',
     stat_almost: 'pułapki',
@@ -1521,6 +1530,8 @@ export interface Dict {
   choiceText(key: ParamKey, word: string): string
   reason(key: InactiveKey | RuleKey): string
   fmt(n: number): string
+  /** `n` with exactly `digits` decimals and the language's decimal separator: 1,50 in Polish, 1.50 in English. */
+  dec(n: number, digits: number): string
   short(n: number): string
   violation(v: Violation): string
 }
@@ -1541,6 +1552,9 @@ export function dictionary(lang: Lang): Dict {
   const specByKey = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))
   const locale = lang === 'pl' ? 'pl' : 'en-GB'
   const fmt = (n: number) => n.toLocaleString(locale)
+  // toFixed keeps English byte-identical (Intl rounds 1.005 up, toFixed does not) and adds no thousands separator.
+  const point = (1.5).toLocaleString(locale).charAt(1)
+  const dec = (n: number, digits: number) => n.toFixed(digits).replace('.', point)
   // English is the source language: PARAM_SPEC, INACTIVE_REASONS/RULE_REASONS
   // and EN.ui. PL.ui is checked against EN.ui's keys by lab-i18n.test.ts, but
   // `t` still falls back to EN.ui[key] for a key a stale PL table is missing.
@@ -1576,6 +1590,7 @@ export function dictionary(lang: Lang): Dict {
     choiceText: (key, word) => stringAt((lang === 'pl' ? PL.choices : EN_CHOICES)[key] ?? {}, word) ?? word,
     reason,
     fmt,
+    dec,
     // The progress line counts pieces on boards of up to 10^6 cells; past ten
     // thousand the exact figure changes faster than it can be read.
     short: (n) => (n >= 10000 ? `${Math.round(n / 1000)}k` : fmt(n)),

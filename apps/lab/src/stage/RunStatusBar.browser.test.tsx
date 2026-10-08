@@ -148,7 +148,7 @@ describe('RunStatusBar', () => {
     const stuck = { remaining: 5, sizes: [3, 2], heads: 4 }
     state.completeRun({ board: RESULT.board, file: CLOSED.board, report: { ...CLOSED, ok: false, stuck } })
     const screen = await mountBar()
-    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('notClosedStatus', '5', 2, 3, 4, 32))
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('notClosedStatus', '5', 2, 3, 4, 32, 5))
   })
 
   // With the store's answer in it: `saved` survives a knob dragged into a
@@ -317,7 +317,7 @@ describe('RunStatusBar', () => {
     state.result.stored(CLOSED.board, { ok: false, error: 'no store server' })
     state.result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta })
     const screen = await mountBar(`/boards/8x8/${meta.id}`)
-    const line = EN.t('savedBoard', `8x8/${meta.id}`, meta.seed, meta.source, `${genSeconds(meta, '—')} s`)
+    const line = EN.t('savedBoard', `8x8/${meta.id}`, meta.seed, meta.source, `${genSeconds(meta, '—', EN)} s`)
     await expect.poll(() => screen.getByRole('status').element().textContent).toBe(line)
   })
 

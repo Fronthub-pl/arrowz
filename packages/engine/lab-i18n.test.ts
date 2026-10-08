@@ -573,15 +573,15 @@ Deno.test('a board is complete or incomplete, and the saved list counts arrows',
 
 Deno.test('the not-filled line names the open starts only when the run counted them', () => {
   assertEquals(
-    EN.ui.notClosedStatus('12', 3, 7, null, 150),
+    EN.ui.notClosedStatus('12', 3, 7, null, 150, 12),
     'The board could not be filled: at best 12 cells stayed empty, in 3 patches (largest 7). Try another seed or more straightness.',
   )
   assertEquals(
-    EN.ui.notClosedStatus('12', 3, 7, 4, 150),
+    EN.ui.notClosedStatus('12', 3, 7, 4, 150, 12),
     'The board could not be filled: at best 12 cells stayed empty, in 3 patches (largest 7). At that moment a new arrow could still start in 4 of 150 places. Try another seed or more straightness.',
   )
   assertEquals(
-    PL.ui.notClosedStatus('12', 3, 7, 4, 150),
+    PL.ui.notClosedStatus('12', 3, 7, 4, 150, 12),
     'Nie udało się wypełnić planszy: w najlepszym razie 12 komórek zostało pustych, w 3 łatkach (największa 7). Wtedy nowa strzałka mogła jeszcze zacząć się w 4 ze 150 miejsc. Spróbuj innego ziarna albo większej prostości.',
   )
 })
