@@ -1,11 +1,27 @@
 import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS } from '@arrowz/engine/docs'
 import { describe, expect, test } from 'vitest'
-import { cellTokens, type CodeToken, highlightHtml, highlightJson, highlightSh, type TokenClass } from './codeTokens'
+import type { Code, Nodes } from 'mdast'
+import {
+  cellTokens,
+  type CodeToken,
+  highlight,
+  highlightHtml,
+  highlightJson,
+  highlightSh,
+  type TokenClass,
+} from './codeTokens'
 import { docsPage } from './content'
+import { DOCS_PAGES } from './pages'
 
-const firstCode = docsPage('en', 'element').root.children.find((node) => node.type === 'code')
-/** The element page's example, as its Markdown writes it. */
-const ELEMENT_EXAMPLE = firstCode?.type === 'code' ? firstCode.value : ''
+/** Every fenced block of a page, the ones inside tabs included. */
+function codeBlocks(node: Nodes, out: Code[] = []): Code[] {
+  if (node.type === 'code') out.push(node)
+  if ('children' in node) for (const child of node.children) codeBlocks(child, out)
+  return out
+}
+
+/** The element page's example, as its Markdown writes it: its first `html` block. */
+const ELEMENT_EXAMPLE = codeBlocks(docsPage('en', 'element').root).find((block) => block.lang === 'html')?.value ?? ''
 
 const joined = (tokens: readonly CodeToken[]) => tokens.map((t) => t.text).join('')
 /** Every token of one colour, as text: what a reader sees in that colour. */
@@ -144,4 +160,152 @@ describe('a JSON block', () => {
     expect(inColour(tokens, 'num')).toEqual(['30', 'true'])
     expect(inColour(tokens, 'str')).toEqual(['"deno task carve --width=30"'])
   })
+})
+
+// The promise Copy rests on, for every block a reader can copy.
+describe.each(DOCS_PAGES)('every block of the %s page', (page) => {
+  test.each(['en', 'pl'] as const)('in %s reads back exactly as written', (lang) => {
+    for (const block of codeBlocks(docsPage(lang, page).root)) {
+      const tokens = highlight(block.lang, block.value)
+      if (tokens !== null) expect(joined(tokens), `${block.lang ?? ''} ${block.meta ?? ''}`).toBe(block.value)
+    }
+  })
+})
+
+describe('a TypeScript block', () => {
+  const TS = [
+    "import type { BoardData } from '@arrowz/engine'",
+    "declare module 'react' {",
+    '  interface X { board?: BoardData | null }',
+    '}',
+    'export const ok = true',
+  ].join('\n')
+  const tokens = highlight('ts', TS) ?? []
+
+  test('reads back exactly as written', () => {
+    expect(joined(tokens)).toBe(TS)
+  })
+
+  test('colours the words TypeScript adds, its types and its constants', () => {
+    expect(inColour(tokens, 'kw')).toEqual([
+      'import',
+      'type',
+      'from',
+      'declare',
+      'module',
+      'interface',
+      'export',
+      'const',
+    ])
+    expect(inColour(tokens, 'type')).toEqual(['BoardData', 'X', 'BoardData'])
+    expect(inColour(tokens, 'num')).toEqual(['null', 'true'])
+    expect(inColour(tokens, 'str')).toEqual(["'@arrowz/engine'", "'react'"])
+  })
+})
+
+describe('a TSX block', () => {
+  const TSX = [
+    'export function Board() {',
+    '  if (!ready) return null',
+    "  return <arrowz-board board={board} style={{ height: '80vh' }} onpiece-click={(e) => log(e.detail.pieceId)} />",
+    '}',
+  ].join('\n')
+  const tokens = highlight('tsx', TSX) ?? []
+
+  test('reads back exactly as written', () => {
+    expect(joined(tokens)).toBe(TSX)
+  })
+
+  test('colours the element as markup and its braces as script', () => {
+    expect(inColour(tokens, 'tag')).toEqual(['arrowz-board'])
+    expect(inColour(tokens, 'attr')).toEqual(['board', 'style', 'onpiece-click'])
+    expect(inColour(tokens, 'kw')).toEqual(['export', 'function', 'if', 'return', 'return'])
+    expect(inColour(tokens, 'fn')).toEqual(['Board', 'log'])
+    expect(inColour(tokens, 'prop')).toEqual(['height', 'detail', 'pieceId'])
+    expect(inColour(tokens, 'str')).toEqual(["'80vh'"])
+  })
+
+  // A self-closing element ends at its `/>`: the script after it is script again.
+  test('a self-closing element ends at its slash', () => {
+    const tokens = highlight('tsx', 'const a = <b />\nconst c = 1') ?? []
+    expect(inColour(tokens, 'kw')).toEqual(['const', 'const'])
+    expect(inColour(tokens, 'num')).toEqual(['1'])
+  })
+
+  // A `<` after a name is a type argument, not an element.
+  test('a type argument is not an element', () => {
+    const generic = highlight('tsx', 'const [a, b] = useState<string | null>(null)') ?? []
+    expect(inColour(generic, 'tag')).toEqual([])
+    expect(joined(generic)).toBe('const [a, b] = useState<string | null>(null)')
+  })
+})
+
+describe('a Vue block', () => {
+  const VUE = [
+    '<script setup lang="ts">',
+    "import { ref } from 'vue'",
+    'const ready = ref(false)',
+    '</script>',
+    '',
+    '<template>',
+    '  <arrowz-board v-if="ready" :board="board" interactive @piece-click="onPiece" />',
+    '</template>',
+  ].join('\n')
+  const tokens = highlight('vue', VUE) ?? []
+
+  test('reads back exactly as written', () => {
+    expect(joined(tokens)).toBe(VUE)
+  })
+
+  test('colours the script, the markup, and the bound values as script', () => {
+    expect(inColour(tokens, 'tag')).toEqual(['script', 'script', 'template', 'arrowz-board', 'template'])
+    expect(inColour(tokens, 'attr')).toEqual(['setup', 'lang', 'v-if', ':board', 'interactive', '@piece-click'])
+    expect(inColour(tokens, 'kw')).toEqual(['import', 'from', 'const'])
+    expect(inColour(tokens, 'fn')).toEqual(['ref'])
+    expect(inColour(tokens, 'num')).toEqual(['false'])
+    expect(inColour(tokens, 'str')).toEqual(['"ts"', "'vue'"])
+  })
+})
+
+describe('a Svelte block', () => {
+  const SVELTE = [
+    '<script lang="ts">',
+    "  import { onMount } from 'svelte'",
+    '  let { url }: { url: string } = $props()',
+    '</script>',
+    '',
+    '{#if problem}',
+    '  <p role="alert">{problem}</p>',
+    '{:else}',
+    '  <arrowz-board {board} onpiece-click={onPiece}></arrowz-board>',
+    '{/if}',
+  ].join('\n')
+  const tokens = highlight('svelte', SVELTE) ?? []
+
+  test('reads back exactly as written', () => {
+    expect(joined(tokens)).toBe(SVELTE)
+  })
+
+  test('colours the script, the markup and every brace as script', () => {
+    expect(inColour(tokens, 'tag')).toEqual(['script', 'script', 'p', 'p', 'arrowz-board', 'arrowz-board'])
+    expect(inColour(tokens, 'attr')).toEqual(['lang', 'role', 'onpiece-click'])
+    expect(inColour(tokens, 'kw')).toEqual(['import', 'from', 'let', 'if', 'else', 'if'])
+    expect(inColour(tokens, 'fn')).toEqual(['$props'])
+    expect(inColour(tokens, 'str')).toEqual(['"ts"', "'svelte'", '"alert"'])
+  })
+})
+
+// A module script uses TypeScript's word list too: `if` and `catch` are words, not calls.
+test("an HTML script's try, catch, if, instanceof and throw are keywords", () => {
+  const script =
+    highlight(
+      'html',
+      '<script type="module">\ntry { go() } catch (e) { if (!(e instanceof Err)) throw e }\n</script>',
+    ) ?? []
+  expect(inColour(script, 'kw')).toEqual(['try', 'catch', 'if', 'instanceof', 'throw'])
+})
+
+test('a language the page shows plain has no colours', () => {
+  expect(highlight('text', 'x')).toBeNull()
+  expect(highlight(undefined, 'x')).toBeNull()
 })
