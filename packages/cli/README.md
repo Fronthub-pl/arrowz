@@ -88,7 +88,9 @@ deno task carve --width=40 --height=40 --svg=my-board.svg
 ```
 
 `--svg` adds `sha256-e5f707067ec077e5558a8e91473371bf725b8e94467c61b4ce1436086eb2cdb4.svg` next to the board. `--svg=my-board.svg` does
-the same and also drops a copy at `my-board.svg`.
+the same and also drops a copy at `my-board.svg`. The task runs inside
+`packages/cli/`, so a relative path starts there: this copy lands at
+`packages/cli/my-board.svg`.
 
 ### Five things to try
 
@@ -122,11 +124,13 @@ deno task carve --width=100 --height=200 --seed=1 --count=50
 
 Makes 50 different boards on the seeds 1, 2, 3 and so on. A seed whose board
 is not complete is skipped (and not saved), and so is a seed that lays a board
-already in the store — its command is added to that board's file — and the next
-seed is tried, until there are 50. After twice as many seeds as boards it gives
-up; `--max-seeds=200` moves that limit. The last line says how many boards were
-written and which seeds were skipped, and why. The same command always makes the
-same boards.
+already in the store — its command is added to that board's `.json` file — and
+the next seed is tried, until there are 50. After twice as many seeds as boards
+it gives up; `--max-seeds=200` moves that limit. The last line says how many
+boards were written and which seeds were skipped, and why. Without
+`--randomized`, each seed always lays the same board, so the same command run on
+an empty store makes the same boards. Run it again on the same store and it
+skips the seeds it laid before and writes boards from the seeds after them.
 
 ### Describing a board without saving it
 
@@ -187,7 +191,11 @@ A separate command, `deno task report`, builds boards at a chosen size and
 prints a page of measurements about them. This one is a diagnostic tool for
 people tuning the generator, not something you need to read. Real output:
 
+<!-- report-output -->
+
 ```
+PROTOTYPE — carving from a full board, minimum length 2
+
 --- Easy 25x25 (1 runs) ---
   coverage      100.00%   solvable: YES
   pieces        72   length 2..42
@@ -237,16 +245,16 @@ something out of range.
 
 ## The everyday settings
 
-Twelve flags in four groups: two for size, one for luck, four that change the
-puzzle, and five that change only how the picture is drawn.
+<!-- flag-counts -->
+Seven flags: two for size, one for luck and four that change the puzzle.
+Sixteen more change only how the picture is drawn, and come last.
 
 ### Size — `--width` and `--height`
 
 How many cells across and down. Both are required. Anything from 4 to 1000.
 
 A 400×400 board is ready in under two seconds; 1000×1000 takes about ten. A
-tall board is harder to play than a square one with the same number of cells,
-because arrows have further to travel.
+tall board is harder to play than a square one with the same number of cells.
 
 | `--width=20 --height=40` | `--width=100 --height=100` |
 |---|---|
@@ -359,7 +367,7 @@ The practical effect: with this switch on, the same seed gives you a different
 board every time. That extra roll of the dice is not controlled by the seed.
 
 Nothing is lost. The settings that were actually drawn are written into the
-board's text file as a full command, so any board you like can be reproduced
+board's `.json` file as a full command, so any board you like can be reproduced
 exactly.
 
 ```sh
@@ -372,7 +380,7 @@ knob and leaves the rest still being drawn — see
 
 ### How the picture is drawn
 
-These sixteen change nothing about the puzzle — only how it looks on screen.
+These change nothing about the puzzle — only how it looks on screen.
 
 **`--colored`** gives every arrow its own colour. Useless for playing,
 excellent for understanding. Every comparison picture on this page uses it.
@@ -418,10 +426,13 @@ the lab draws it). **`--points`** puts a dot in the centre of every cell, the
 lab's dot grid; **`--point-color`** and **`--point-radius`** (in cells, up to
 0.5) change the dot.
 
+<!-- cell-top -->
 **`--cell`** is the size of one cell in the picture, in pixels, 1 to 200; left
-out, it is worked out so that the longer side comes to about 1600 px.
+out, it is 1600 divided by the longer side, rounded, but never more than 18.
 **`--top`** highlights the N longest arrows (up to 1000) in the
-`--highlight-color` and prints their measurements under the summary.
+`--highlight-color` and, when it saves one complete board, prints their
+measurements above the summary line; a `--dry-run` or a `--count` batch prints
+no such list.
 
 The lab's live command carries all of these, so copying it reproduces the
 picture the lab exports.
@@ -430,11 +441,11 @@ picture the lab exports.
 
 ## The full set of settings
 
-The twelve everyday flags are shortcuts. Behind each of them sit several
-internal knobs, and you can reach any of them directly, on the same command
-line as the everyday flags — there is no separate mode to switch into. Turning
-`--length` down, for instance, really means "raise the share of short arrows
-and lower the share of medium ones" — two knobs at once.
+The everyday flags are shortcuts. Behind each of them sit several internal
+knobs, and you can reach any of them directly, on the same command line as the
+everyday flags — there is no separate mode to switch into. Turning `--length`
+down from its default, for instance, really means "raise the share of short
+arrows, and the share of medium ones with it" — two knobs at once.
 
 You do not need this section to use the tool. It is here because the question
 "what does this knob actually do" deserves an answer. The everyday ones are
@@ -482,12 +493,15 @@ same fact to the `--dry-run` JSON so a script can see it without parsing
 stderr:
 
 ```sh
-deno task carve --width=30 --height=30 --randomized --pstraight=0.9 --dry-run
+deno task carve --width=30 --height=30 --randomized --winding=0.5 --pstraight=0.9 --dry-run
 ```
 
 ```
 note: --pstraight=0.9 is pinned; --winding still sets wLateral, anticoil, warns
 ```
+
+The part after the semicolon names an everyday flag only when it is on the
+command line: leave `--winding=0.5` out and the line ends at "is pinned".
 
 ```json
 { "...": "...", "pinned": ["pStraight"], "...": "..." }
@@ -504,7 +518,7 @@ deno task carve --width=30 --height=30 --probelen=30 --dry-run
 
 ```
 note: --probelen=30 is pinned; the difficulty baseline still sets headBias, probe
-note: --probelen=30 has no effect here: needs target share > 0
+note: --probelen=30 has no effect here: no arrow gets a target length while target share is 0
 ```
 
 That second line is left off a `--count` batch drawn with `--randomized`:
@@ -521,11 +535,8 @@ deno task carve --width=30 --height=30 --length=0 --wmid=0.5 --dry-run
 
 ```
 note: --wmid=0.5 is pinned; --length still sets wShort
-note: --wshort moved from 0.75 to 0.4: short and medium shares together must stay at or below 0.9
+note: --wshort moved from 0.75 to 0.4: short and medium shares add up to more than 0.9 (90%); at least a tenth of the arrows must stay long
 ```
-
-The first line used to be the whole story, and the 0.4 in the board was a
-number nothing on the screen accounted for.
 
 What you give up by pinning: the safe ranges in the table below were measured as
 whole bundles, so a half-pinned bundle still stays inside the envelope, but it
@@ -608,7 +619,7 @@ change the picture; the fourth changes something you cannot see.
 | `--probe=1 --probelen=4` | `--probe=1 --probelen=200` |
 |---|---|
 | <img src="../../docs/images/adv-probe-short.png" width="300"> | <img src="../../docs/images/adv-probe-long.png" width="300"> |
-| 253 arrows, none longer than 4 cells | 61 arrows, longest 92 cells |
+| 239 arrows, none longer than 6 cells | 61 arrows, longest 92 cells |
 
 **`--start` — the knob you cannot see**
 
@@ -719,11 +730,13 @@ the `carve` task, which grants exactly what is needed.
 **`unknown flag …`** — the CLI does not recognise that flag at all. Check the
 spelling against `--help` or `--help=knobs`.
 
+<!-- retired-flags -->
 **`--straight is gone: use --winding=R …`** (or `--advanced`, `--board`,
-`--w`/`--h`, `--colorized`, `--lineweight`, `--headwidth`/`--arrowwidth`,
-`--headheight`/`--arrowheight`, `--lateral`, `--absorb`, `--headbias`,
-`--mix`) — an old spelling from before this tool had one mode. The message
-names its replacement; use that instead.
+`--w`/`--h`, `--colorized`, `--stroke`/`--lineweight`,
+`--headwidth`/`--arrowwidth`, `--headheight`/`--arrowheight`, `--lateral`,
+`--absorb`, `--giantspacepen`, `--headbias`, `--mix`) — an old spelling from
+before this tool had one mode. The message names what to write instead, or
+says the flag can simply be dropped.
 
 **`invalid arguments: --pstraight=0.2 is outside 0.6..1`** — a value is out of
 range, between two of a knob's settings, or breaks one of the rules. Every line
@@ -732,8 +745,9 @@ envelope did, and a broken rule names every flag it is about. Nothing was
 generated and nothing was written.
 
 **`failed to close board …`** — the generator tried, backed up, restarted, and
-still could not fill the board. Almost always a knob marked **Careful:** in
-[the knobs](#the-knobs). Move it back towards its default, or try another seed.
+still could not fill the board. Almost always a knob pushed far from its
+default is to blame; [the knobs](#the-knobs) say what each one does. Move it
+back towards its default, or try another seed.
 The board is in `packages/cli/boards/` all the same; add `--svg` and the
 picture shows the uncovered cells tinted pink, so you can see where it got
 stuck.
