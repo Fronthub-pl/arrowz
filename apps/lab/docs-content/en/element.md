@@ -431,6 +431,8 @@ The board is drawn with a margin of `pad` cells on every side, so an arrowhead i
 
 A margin measured in cells shrinks with them: on a large board in a small host it would come to a pixel or two. So it is widened until it is `MIN_PAD_PX` pixels on screen. A `pad` of `0` stays `0`: asking for no margin is not asking for a small one.
 
+The element's own bar in the corner counts too. When it would lie over the fitted board, the margin is widened until the part under the board is as tall as the bar; the board stays centred. A board with room under it fits as before. A bar of your own in the `controls` slot gets no such room, since the element cannot know where you put it, and a `pad` of `0` stays `0`.
+
 ## The dot grid {#dots}
 
 With `showPoints` the board draws one dot per cell under the arrows, like the ruling of a notebook page. The arrows' lines run from cell centre to cell centre, and the dots are those centres made visible. The grid covers the cells only, not the margin, which stays plain background. `pointColor` and `pointRadius` (in cells) style the dots. The grid is drawn in one pass over the whole board, so it costs the same on a 10×10 board as on a 1000×1000 one.

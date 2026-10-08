@@ -431,6 +431,8 @@ Plansza ma z każdej strony margines szerokości `pad` komórek, więc grot w ko
 
 Margines liczony w komórkach maleje razem z nimi: na dużej planszy w małym komponencie wyszedłby na piksel czy dwa. Dlatego jest poszerzany, aż na ekranie ma `MIN_PAD_PX` pikseli. `pad` równe `0` zostaje `0`: prośba o brak marginesu to nie prośba o mały margines.
 
+Liczy się też pasek przycisków w rogu komponentu. Gdy przy dopasowaniu zasłoniłby planszę, margines jest poszerzany, aż część pod planszą ma wysokość paska; plansza zostaje na środku. Plansza, pod którą jest dość miejsca, jest dopasowana tak jak dotąd. Własny pasek w slocie `controls` takiego miejsca nie dostaje, bo komponent nie wie, gdzie go umieścisz, a `pad` równe `0` zostaje `0`.
+
 ## Siatka kropek {#dots}
 
 Z `showPoints` plansza rysuje pod strzałkami po jednej kropce na komórkę, jak na stronie zeszytu w kropki. Linie strzałek biegną od środka do środka komórki, a kropki to po prostu te środki, tyle że widoczne. Siatka pokrywa same komórki, bez marginesu, który zostaje gładkim tłem. Wygląd kropek ustawiają `pointColor` i `pointRadius` (w komórkach). Siatka jest rysowana jednym przebiegiem przez całą planszę, więc kosztuje tyle samo na planszy 10×10, co na 1000×1000.

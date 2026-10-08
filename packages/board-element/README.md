@@ -202,6 +202,14 @@ small host it would come to a pixel or two. It is widened until it is worth
 asking for a small one. `pad` itself is clamped to `PAD_RANGE` before it
 reaches the viewport; the attribute and the property keep whatever was set.
 
+The default bar in the corner counts too. When it would lie over the fitted
+board, the margin is widened until the part under the board is as tall as the
+bar and its offset; the board stays centred, so the margin grows on every
+side. A board with room under it fits as before. A bar of the host's own, in
+the `controls` slot, gets no such room, since the element cannot know where it
+sits, and a `pad` of `0` stays `0`: an empty custom `controls` hides the bar
+for an unobstructed edge-to-edge board.
+
 ### The dot grid
 
 With `showPoints` the board draws a grid of one dot per cell underneath the
@@ -248,6 +256,9 @@ bounce, to no time at all.
 The hint and the buttons in the corner are slot fallback content: a host that
 projects its own content into a slot replaces the default there, and a slot
 left empty keeps it.
+
+Filling `controls` also gives up the room the fit keeps under the board for
+the default bar (see "The margin").
 
 | Slot | Default | Present when |
 |---|---|---|
