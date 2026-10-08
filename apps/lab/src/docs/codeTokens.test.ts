@@ -165,7 +165,10 @@ describe('a JSON block', () => {
 // The promise Copy rests on, for every block a reader can copy.
 describe.each(DOCS_PAGES)('every block of the %s page', (page) => {
   test.each(['en', 'pl'] as const)('in %s reads back exactly as written', (lang) => {
-    for (const block of codeBlocks(docsPage(lang, page).root)) {
+    const blocks = codeBlocks(docsPage(lang, page).root)
+    // The Arrowz page is prose only.
+    if (page !== 'arrowz') expect(blocks.length).toBeGreaterThan(0)
+    for (const block of blocks) {
       const tokens = highlight(block.lang, block.value)
       if (tokens !== null) expect(joined(tokens), `${block.lang ?? ''} ${block.meta ?? ''}`).toBe(block.value)
     }

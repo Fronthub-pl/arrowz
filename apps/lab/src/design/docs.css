@@ -286,14 +286,14 @@
 }
 .fw-docs-tablist {
   display: flex;
-  gap: 20px;
+  gap: 12px;
   margin-bottom: 16px;
   overflow-x: auto;
   box-shadow: inset 0 -1px 0 var(--border);
 }
 .fw-docs-tablist button {
   flex: none;
-  padding: 8px 0 6px;
+  padding: 8px 4px 6px;
   border: 0;
   border-bottom: 2px solid transparent;
   background: none;
@@ -319,12 +319,6 @@
   color: var(--ash);
   font-family: var(--mono);
   font-size: 12px;
-}
-/* The design system asks for 44px targets where there is no hover. */
-@media (pointer: coarse), (max-width: 767px) {
-  .fw-docs-tablist button {
-    min-height: var(--touch);
-  }
 }
 @media (max-width: 1023px) {
   .fw-docs {
@@ -359,8 +353,8 @@
     margin-top: 0;
   }
 }
-/* A finger's 44px for every link of the column: at XS, and under a coarse
-   pointer at any width, so a tablet at 768 and up gets it too. */
+/* A finger's 44px for every link of the column and every framework tab: at XS,
+   and under a coarse pointer at any width, so a tablet at 768 and up gets it too. */
 @media (pointer: coarse), (max-width: 767px) {
   .fw-docs-toc .pg > a,
   .fw-docs-toc .pg > ul a {
@@ -369,6 +363,9 @@
     min-height: var(--touch);
     padding-top: 0;
     padding-bottom: 0;
+  }
+  .fw-docs-tablist button {
+    min-height: var(--touch);
   }
 }
 /* The element page's example in GitHub Dark's syntax colours; the CLI blocks

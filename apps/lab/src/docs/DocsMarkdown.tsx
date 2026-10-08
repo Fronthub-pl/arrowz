@@ -87,7 +87,9 @@ function Block({ node, section, title, tab }: Placed): ReactElement | null {
         <DocsTabs
           node={node}
           panel={(panel, label) =>
-            panel.children.map((child, i) => <Block key={i} node={child} section={section} title={title} tab={label} />)
+            panel.children.map((child, i) => (
+              <Block key={`${label}-${i}`} node={child} section={section} title={title} tab={label} />
+            ))
           }
         />
       )

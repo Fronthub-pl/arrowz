@@ -39,8 +39,10 @@ package, the `import()` included, brings its event types into the program, so
 `$event` is a `PieceClickEvent` under `strictTemplates`; React, that `@lit/react`
 is optional, since React 19 binds custom elements itself.
 
-Under the tabs, one paragraph states the rule every framework shares (2.2):
-define the element before the framework first sets `board`; never pass
+Under the tabs, one paragraph states three rules (2.2): in React and Vue,
+define the element before the framework first sets `board` (Angular and
+Svelte set the property on an element not yet defined, which Lit picks up);
+never pass
 `interactive={false}` to an element not yet defined; import the package only
 in the browser, since the element draws with WebGL.
 
@@ -199,8 +201,8 @@ does:
   `aria-labelledby` its tab. The panel's blocks render through the same
   `Block` as the page's, so a code block keeps its colours and its Copy.
 
-Ids are unique per group instance: the tabs carry the index of the `tabs` on
-the page.
+Ids are unique per group instance: each group takes its prefix from React's
+`useId`.
 
 ### 3.3 State
 

@@ -10,6 +10,7 @@ Import the package once, which registers the tag. Then give the element a size a
 
 ::::tabs{group="framework"}
 :::tab{id="html"}
+
 ```html
 <arrowz-board id="board" interactive lang="pl" style="width: 100%; height: 80vh"></arrowz-board>
 <script type="module">
@@ -20,6 +21,7 @@ Import the package once, which registers the tag. Then give the element a size a
   el.addEventListener('piece-click', (e) => console.log('piece', e.detail.pieceId))
 </script>
 ```
+
 :::
 :::tab{id="angular"}
 Any import of the package, the `import()` included, brings its event types into the program, so under `strictTemplates` the template's `$event` is a `PieceClickEvent`; the type import only names it for the method.
@@ -32,8 +34,13 @@ import { defaultParams, generate } from '@arrowz/engine'
 @Component({
   selector: 'app-board',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<arrowz-board [board]="board()" interactive lang="pl" style="height: 80vh"
-    (piece-click)="onPiece($event)"></arrowz-board>`,
+  template: `<arrowz-board
+    [board]="board()"
+    interactive
+    lang="pl"
+    style="height: 80vh"
+    (piece-click)="onPiece($event)"
+  ></arrowz-board>`,
 })
 export class BoardComponent {
   readonly board = signal<BoardData | null>(generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board)
@@ -47,6 +54,7 @@ export class BoardComponent {
   }
 }
 ```
+
 :::
 :::tab{id="react"}
 React 19 binds a custom element by itself, so `@lit/react` is optional. The declaration file types the tag in JSX.
@@ -80,11 +88,17 @@ export function Board() {
   }, [])
   if (!ready) return null
   return (
-    <arrowz-board board={board} interactive lang="pl" style={{ height: '80vh' }}
-      onpiece-click={(e) => console.log('piece', e.detail.pieceId)} />
+    <arrowz-board
+      board={board}
+      interactive
+      lang="pl"
+      style={{ height: '80vh' }}
+      onpiece-click={(e) => console.log('piece', e.detail.pieceId)}
+    />
   )
 }
 ```
+
 :::
 :::tab{id="vue"}
 `shallowRef` keeps Vue from wrapping every arrow of the board in a reactive proxy.
@@ -117,8 +131,10 @@ const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
   <arrowz-board v-if="ready" :board="board" interactive lang="pl" style="height: 80vh" @piece-click="onPiece" />
 </template>
 ```
+
 :::
 :::tab{id="svelte"}
+
 ```svelte Board.svelte
 <script lang="ts">
   import type { PieceClickEvent } from '@arrowz/board-element'
@@ -134,10 +150,11 @@ const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
 
 <arrowz-board {board} interactive lang="pl" style="height: 80vh" onpiece-click={onPiece}></arrowz-board>
 ```
+
 :::
 ::::
 
-Whatever the framework, three rules hold. Define the element before the framework first sets `board`: React and Vue hand an object to a property only when the element already has that property, and otherwise write it as an attribute, which the element ignores. That is why the examples render the tag only once the import has resolved. Do not pass `false` to `interactive` or `play` before the element is defined: Vue and Svelte then write the attribute `interactive="false"`, and a boolean attribute that is present reads as on. And import the package in the browser only, never during server rendering: the element draws with WebGL.
+Three rules keep the board on screen. In React and Vue, define the element before the framework first sets `board`: they hand an object to a property only when the element already has that property, and otherwise write it as an attribute, which the element ignores. That is why the React and Vue examples render the tag only once the import has resolved; Angular and Svelte set the property even on an element not yet defined, and the element picks it up when it is. Do not pass `false` to `interactive` or `play` before the element is defined: Vue and Svelte then write the attribute `interactive="false"`, and a boolean attribute that is present reads as on. And import the package in the browser only, never during server rendering: the element draws with WebGL.
 
 ## Board files {#files}
 
@@ -166,6 +183,7 @@ The same steps in each framework, with the reason shown when the file cannot be 
 
 ::::tabs{group="framework"}
 :::tab{id="html"}
+
 ```html
 <arrowz-board id="board" style="width: 100%; height: 80vh"></arrowz-board>
 <p id="problem" hidden></p>
@@ -184,8 +202,10 @@ The same steps in each framework, with the reason shown when the file cannot be 
   }
 </script>
 ```
+
 :::
 :::tab{id="angular"}
+
 ```ts stored-board.component.ts
 import { afterNextRender, Component, CUSTOM_ELEMENTS_SCHEMA, input, signal } from '@angular/core'
 import type { BoardData } from '@arrowz/board-element'
@@ -218,8 +238,10 @@ export class StoredBoardComponent {
   }
 }
 ```
+
 :::
 :::tab{id="react"}
+
 ```tsx StoredBoard.tsx
 import type { BoardData } from '@arrowz/engine'
 import { useEffect, useState } from 'react'
@@ -251,8 +273,10 @@ export function StoredBoard({ url }: { url: string }) {
   return <arrowz-board board={board} style={{ height: '80vh' }} />
 }
 ```
+
 :::
 :::tab{id="vue"}
+
 ```vue StoredBoard.vue
 <script setup lang="ts">
 import type { BoardData } from '@arrowz/engine'
@@ -279,6 +303,7 @@ onMounted(async () => {
   <arrowz-board v-else-if="ready" :board="board" style="height: 80vh" />
 </template>
 ```
+
 :::
 :::tab{id="svelte"}
 `$state.raw` keeps Svelte from wrapping the board in a reactive proxy.
@@ -307,6 +332,7 @@ onMounted(async () => {
   <arrowz-board {board} style="height: 80vh"></arrowz-board>
 {/if}
 ```
+
 :::
 ::::
 

@@ -41,16 +41,16 @@ async function openDocs(which: 'arrowz' | 'lab' | 'element' | 'cli') {
   if (which === 'element') await column.getByRole('link', { name: 'Board element' }).click()
   if (which === 'cli') await column.getByRole('link', { name: 'Command line' }).click()
   if (which === 'lab') await column.getByRole('link', { name: 'Lab', exact: true }).click()
-  await expect.element(screen.getByRole('tabpanel')).toBeVisible()
+  await expect.element(screen.getByRole('tabpanel').first()).toBeVisible()
   // Each page's own marker: the Arrowz page has its three rule boards (the
   // hidden workspace has a board of its own, hence the `.fw-docs-body` scope),
-  // the CLI page its help section, the element page its two code examples, the Lab page its key table.
+  // the CLI page its help section, the element page its four code blocks shown at first, the Lab page its key table.
   const [marker, count] = (
     {
       arrowz: ['.fw-docs-body arrowz-board[play]', 3],
       lab: ['.fw-docs-body table[aria-labelledby="docs-keys"]', 1],
       cli: ['#docs-help', 1],
-      element: ['pre.fw-docs-code', 2],
+      element: ['pre.fw-docs-code', 4],
     } as const
   )[which]
   await expect.poll(() => screen.container.querySelectorAll(marker).length).toBe(count)
@@ -120,7 +120,7 @@ async function openAt(path: string) {
   resetApp('advanced')
   history.replaceState(null, '', path)
   const screen = await render(<App />)
-  await expect.element(screen.getByRole('tabpanel')).toBeVisible()
+  await expect.element(screen.getByRole('tabpanel').first()).toBeVisible()
   await expect.poll(() => screen.container.querySelector('.fw-docs-toc')).not.toBeNull()
   return screen
 }
@@ -333,7 +333,7 @@ test.each(['en', 'pl'] as const)(
     expect(body.width).toBeCloseTo(panel.clientWidth - pad, 0)
     expect(body.width).toBeGreaterThanOrEqual(332)
     const shown = [...screen.container.querySelectorAll('.fw-docs-toc a')].filter((a) => a.getClientRects().length > 0)
-    expect(shown).toHaveLength(4 + 15)
+    expect(shown).toHaveLength(4 + 16)
     for (const a of shown) expect(a.getBoundingClientRect().height, a.textContent ?? '').toBe(44)
     const toc = box(screen.container, '.fw-docs-toc')
     expect(getComputedStyle(toc).position).toBe('static')

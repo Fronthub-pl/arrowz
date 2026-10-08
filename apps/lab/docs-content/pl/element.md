@@ -10,6 +10,7 @@ Zaimportuj pakiet raz, a import zarejestruje znacznik. Potem nadaj komponentowi 
 
 ::::tabs{group="framework"}
 :::tab{id="html"}
+
 ```html
 <arrowz-board id="board" interactive lang="pl" style="width: 100%; height: 80vh"></arrowz-board>
 <script type="module">
@@ -20,6 +21,7 @@ Zaimportuj pakiet raz, a import zarejestruje znacznik. Potem nadaj komponentowi 
   el.addEventListener('piece-click', (e) => console.log('piece', e.detail.pieceId))
 </script>
 ```
+
 :::
 :::tab{id="angular"}
 Każdy import pakietu, także ten przez `import()`, wprowadza do programu jego typy zdarzeń, więc przy `strictTemplates` `$event` w szablonie ma typ `PieceClickEvent`; import typu służy tylko do nazwania go w sygnaturze metody.
@@ -32,8 +34,13 @@ import { defaultParams, generate } from '@arrowz/engine'
 @Component({
   selector: 'app-board',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<arrowz-board [board]="board()" interactive lang="pl" style="height: 80vh"
-    (piece-click)="onPiece($event)"></arrowz-board>`,
+  template: `<arrowz-board
+    [board]="board()"
+    interactive
+    lang="pl"
+    style="height: 80vh"
+    (piece-click)="onPiece($event)"
+  ></arrowz-board>`,
 })
 export class BoardComponent {
   readonly board = signal<BoardData | null>(generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board)
@@ -47,6 +54,7 @@ export class BoardComponent {
   }
 }
 ```
+
 :::
 :::tab{id="react"}
 React 19 sam wiąże komponenty webowe, więc `@lit/react` nie jest potrzebne. Plik deklaracji nadaje znacznikowi typ w JSX.
@@ -80,11 +88,17 @@ export function Board() {
   }, [])
   if (!ready) return null
   return (
-    <arrowz-board board={board} interactive lang="pl" style={{ height: '80vh' }}
-      onpiece-click={(e) => console.log('piece', e.detail.pieceId)} />
+    <arrowz-board
+      board={board}
+      interactive
+      lang="pl"
+      style={{ height: '80vh' }}
+      onpiece-click={(e) => console.log('piece', e.detail.pieceId)}
+    />
   )
 }
 ```
+
 :::
 :::tab{id="vue"}
 `shallowRef` sprawia, że Vue nie opakowuje każdej strzałki planszy w reaktywne proxy.
@@ -117,8 +131,10 @@ const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
   <arrowz-board v-if="ready" :board="board" interactive lang="pl" style="height: 80vh" @piece-click="onPiece" />
 </template>
 ```
+
 :::
 :::tab{id="svelte"}
+
 ```svelte Board.svelte
 <script lang="ts">
   import type { PieceClickEvent } from '@arrowz/board-element'
@@ -134,10 +150,11 @@ const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
 
 <arrowz-board {board} interactive lang="pl" style="height: 80vh" onpiece-click={onPiece}></arrowz-board>
 ```
+
 :::
 ::::
 
-Bez względu na framework obowiązują trzy reguły. Zdefiniuj komponent, zanim framework pierwszy raz ustawi `board`: React i Vue przekazują obiekt do właściwości tylko wtedy, gdy komponent już ją ma, a w przeciwnym razie zapisują go jako atrybut, który komponent pomija. Dlatego przykłady renderują znacznik dopiero po zakończeniu importu. Nie przekazuj `false` do `interactive` ani `play`, zanim komponent zostanie zdefiniowany: Vue i Svelte zapiszą wtedy atrybut `interactive="false"`, a obecny atrybut logiczny znaczy „włączone”. I importuj pakiet tylko w przeglądarce, nigdy przy renderowaniu na serwerze: komponent rysuje przez WebGL.
+Trzy reguły utrzymują planszę na ekranie. W Reakcie i Vue zdefiniuj komponent, zanim framework pierwszy raz ustawi `board`: przekazują obiekt do właściwości tylko wtedy, gdy komponent już ją ma, a w przeciwnym razie zapisują go jako atrybut, który komponent pomija. Dlatego przykłady dla Reacta i Vue renderują znacznik dopiero po zakończeniu importu; Angular i Svelte ustawiają właściwość także na komponencie jeszcze niezdefiniowanym, a komponent przejmuje ją, gdy zostanie zdefiniowany. Nie przekazuj `false` do `interactive` ani `play`, zanim komponent zostanie zdefiniowany: Vue i Svelte zapiszą wtedy atrybut `interactive="false"`, a obecny atrybut logiczny znaczy „włączone”. I importuj pakiet tylko w przeglądarce, nigdy przy renderowaniu na serwerze: komponent rysuje przez WebGL.
 
 ## Pliki planszy {#files}
 
@@ -166,6 +183,7 @@ Te same kroki w każdym frameworku, z powodem pokazanym, gdy pliku nie da się o
 
 ::::tabs{group="framework"}
 :::tab{id="html"}
+
 ```html
 <arrowz-board id="board" style="width: 100%; height: 80vh"></arrowz-board>
 <p id="problem" hidden></p>
@@ -184,8 +202,10 @@ Te same kroki w każdym frameworku, z powodem pokazanym, gdy pliku nie da się o
   }
 </script>
 ```
+
 :::
 :::tab{id="angular"}
+
 ```ts stored-board.component.ts
 import { afterNextRender, Component, CUSTOM_ELEMENTS_SCHEMA, input, signal } from '@angular/core'
 import type { BoardData } from '@arrowz/board-element'
@@ -218,8 +238,10 @@ export class StoredBoardComponent {
   }
 }
 ```
+
 :::
 :::tab{id="react"}
+
 ```tsx StoredBoard.tsx
 import type { BoardData } from '@arrowz/engine'
 import { useEffect, useState } from 'react'
@@ -251,8 +273,10 @@ export function StoredBoard({ url }: { url: string }) {
   return <arrowz-board board={board} style={{ height: '80vh' }} />
 }
 ```
+
 :::
 :::tab{id="vue"}
+
 ```vue StoredBoard.vue
 <script setup lang="ts">
 import type { BoardData } from '@arrowz/engine'
@@ -279,6 +303,7 @@ onMounted(async () => {
   <arrowz-board v-else-if="ready" :board="board" style="height: 80vh" />
 </template>
 ```
+
 :::
 :::tab{id="svelte"}
 `$state.raw` sprawia, że Svelte nie opakowuje planszy w reaktywne proxy.
@@ -307,6 +332,7 @@ onMounted(async () => {
   <arrowz-board {board} style="height: 80vh"></arrowz-board>
 {/if}
 ```
+
 :::
 ::::
 

@@ -135,7 +135,6 @@ describe('board directives', () => {
 })
 
 describe('tab directives', () => {
-  // `DOCS_PAGES` is already imported at the top of this file.
   const inPage = (md: string) => problemsOf(parseDocs(`# T\n\n## A {#a}\n\n${md}`), DOCS_PAGES)
   const tab = (id: string, body = 'Prose.') => `:::tab{id="${id}"}\n${body}\n:::`
   const group = (...tabs: string[]) => `::::tabs{group="framework"}\n${tabs.join('\n')}\n::::`
