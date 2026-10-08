@@ -18,10 +18,13 @@ assertEquals(straightFloor({ W: 4, H: 1000 }), straightFloor({ W: 1000, H: 1000 
 ```
 
 That claim came from a README line — "a tall board is harder to play than a square one
-with the same number of squares" — which is true, and is about the **player**: a tall
-board has shorter corridors, so fewer arrows are free at once (`f0` drops; see
-`slice-04-benchmark-presets.md`). The floor is not about the player. It is about whether
-the carver can close the board at all.
+with the same number of squares" — which is about the **player**, and which a later
+measurement did not confirm
+(see [A tall board and the player](#a-tall-board-and-the-player)): at the same number of
+cells a tall board has the same or more arrows free at the start (`f0`) and *longer*
+corridors, not shorter ones. Only the depth `D` grows, and only on large boards. So the
+claim has no footing on the player's side either, and the floor is not about the player
+anyway. It is about whether the carver can close the board at all.
 
 ## The method
 
@@ -89,3 +92,30 @@ differently on a rectangle.
 
 What it buys, in one line: `--width=4 --height=1000 --pstraight=0.65` was refused and is
 now allowed, and it closes.
+
+## A tall board and the player
+
+Measured in PR #185, with the metrics the lab reports for difficulty: every knob at its
+default except `W`, `H` and `seed`, seeds `1001 + 7919·i`, every run closed. Each value
+is the mean ± standard error.
+
+| cells | shape | seeds | `f0` (free at start) | `D` (depth) | `almost` / N | corridor | `outDeg` |
+|---|---|---|---|---|---|---|---|
+| ~800 | 28×28 | 64 | 0.202 ± 0.008 | 7.84 ± 0.15 | 0.210 | 6.43 | 2.74 |
+| | 20×40 | 64 | 0.212 ± 0.007 | 7.77 ± 0.19 | 0.203 | 6.98 | 2.80 |
+| | 14×56 | 16 | 0.201 ± 0.012 | 7.88 ± 0.41 | 0.222 | 7.81 | 2.91 |
+| ~3,200 | 57×57 | 64 | 0.104 ± 0.003 | 14.53 ± 0.22 | 0.122 | 13.11 | 5.26 |
+| | 40×80 | 64 | 0.110 ± 0.003 | 14.89 ± 0.26 | 0.131 | 13.74 | 5.37 |
+| | 28×112 | 16 | 0.104 ± 0.008 | 16.81 ± 0.79 | 0.139 | 15.65 | 5.80 |
+| ~20,000 | 141×141 | 16 | 0.043 ± 0.003 | 34.9 ± 0.5 | 0.057 | 30.9 | 12.45 |
+| | 100×200 | 16 | 0.041 ± 0.002 | 38.6 ± 1.3 | 0.060 | 32.5 | 12.81 |
+| | 70×280 | 16 | 0.047 ± 0.003 | 53.1 ± 1.5 | 0.065 | 38.5 | 14.44 |
+| ~80,000 | 283×283 | 16 | 0.0207 ± 0.0009 | 69.3 ± 1.8 | 0.029 | 60.6 | 24.2 |
+| | 200×400 | 16 | 0.0214 ± 0.0008 | 94.9 ± 2.9 | 0.030 | 65.4 | 25.6 |
+
+Far blocks (`T2`) were 0 on every board, so that column is left out. The free arrows at
+the start are the same or slightly higher on the tall board, and the corridors are
+longer on it at every size. `almost` and `outDeg` differ by a few percent either way.
+Only the depth separates the shapes: on 1:2 it is the same at 800 cells, within noise at
+3,200, +11% at 20,000 and +37% at 80,000; on 1:4 it is deeper from 3,200 cells up. A tall
+board is therefore not harder in general, only deeper once it is large.
