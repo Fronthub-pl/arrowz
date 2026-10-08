@@ -379,7 +379,8 @@ export interface Docs {
 
 const EN = {
   props: {
-    board: 'The board to draw. Assigning it always starts a fresh game and redraws in full.',
+    board:
+      'The board to draw. Assigning a different board starts a new game and redraws in full; assigning the same object again does nothing.',
     view:
       'Drawing options merged over the CLI defaults: stroke, arrowhead size, rounding, colour, highlight and background.',
     interactive: 'Reports clicks on arrows without playing them.',
@@ -615,7 +616,8 @@ const EN = {
 
 const PL = {
   props: {
-    board: 'Plansza do narysowania. Przypisanie zawsze zaczyna nową grę i przerysowuje całość.',
+    board:
+      'Plansza do narysowania. Przypisanie innej planszy zaczyna nową grę i przerysowuje całość; ponowne przypisanie tego samego obiektu nic nie robi.',
     view: 'Opcje rysowania nałożone na domyślne z CLI: grubość, rozmiar grotu, zaokrąglenie, kolor, wyróżnienie i tło.',
     interactive: 'Zgłasza kliknięcia w strzałki, ale ich nie rozgrywa.',
     play: 'Uruchamia reduktor: wolna strzałka wyjeżdża, zablokowana się odbija. Włącza też interaktywność.',

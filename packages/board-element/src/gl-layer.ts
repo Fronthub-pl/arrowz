@@ -345,7 +345,7 @@ export class GlLayer {
   }
 
   /**
-   * Shows or hides the point grid and sets its colour and radius (in cells).
+   * Shows or hides the dot grid and sets its colour and radius (in cells).
    * Touches no piece geometry: the grid is a shader over one quad, so toggling
    * it never rebuilds anything (these three are deliberately not in BoardView).
    * The colour is resolved here, once, rather than in the draw loop — the
