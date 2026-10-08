@@ -45,14 +45,14 @@ export function ReportSummary({
         {SUMMARY_KEYS.map((key) => {
           const row = byKey(rows, key)
           if (row === undefined || row.num === undefined) return null
-          const change = key === 'time' ? null : reportDelta(row.num, byKey(before, key)?.num)
+          const change = key === 'time' ? null : reportDelta(row.num, byKey(before, key)?.num, dict)
           return (
             <div key={key}>
               <dt>{row.label}</dt>
               <dd>
                 <span className="v" title={key === 'longest' || key === 'time' ? row.value : undefined}>
                   {key === 'time'
-                    ? dict.t('statSumSeconds', (row.num / 1000).toFixed(2))
+                    ? dict.t('statSumSeconds', dict.dec(row.num / 1000, 2))
                     : key === 'pieces' || key === 'D'
                       ? row.value
                       : dict.fmt(row.num)}

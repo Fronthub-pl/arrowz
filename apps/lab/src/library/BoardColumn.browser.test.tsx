@@ -461,7 +461,7 @@ function wordsStayWhole(dd: Element): boolean {
 // deterministic fixture fields the width cases read.
 function generatedText(): string {
   const created = stored.meta.createdAt ? new Date(stored.meta.createdAt).toLocaleString('en-GB') : ''
-  return [`${genSeconds(stored.meta, '—')} s`, created].filter((part) => part !== '').join(' · ')
+  return [`${genSeconds(stored.meta, '—', dictionary('en'))} s`, created].filter((part) => part !== '').join(' · ')
 }
 
 /** The store's list and file endpoints for the one fixture board, so `useStoredBoard` finds it the way a person's click would. */

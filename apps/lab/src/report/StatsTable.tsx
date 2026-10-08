@@ -85,7 +85,7 @@ export function StatsTable({
               </tr>
             )}
             {group.map(({ row, at }) => {
-              const change = reportDelta(row.num, before[at]?.num)
+              const change = reportDelta(row.num, before[at]?.num, dict)
               return (
                 <StatRowView
                   key={at}

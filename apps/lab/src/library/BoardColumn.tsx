@@ -115,7 +115,7 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
     [dict.t('factSource'), meta.source],
     [
       dict.t('factGenerated'),
-      [`${genSeconds(meta, '—')} s`, created].filter((part) => part !== '').join(' · '),
+      [`${genSeconds(meta, '—', dict)} s`, created].filter((part) => part !== '').join(' · '),
       'text',
     ],
   ]

@@ -193,7 +193,7 @@ function Stats({ keys, run }: { keys: readonly StatKey[]; run: DocsRun | null })
           row === undefined
             ? '—'
             : key === 'time'
-              ? dict.t('statSumSeconds', ((row.num ?? 0) / 1000).toFixed(2))
+              ? dict.t('statSumSeconds', dict.dec((row.num ?? 0) / 1000, 2))
               : row.value
         return (
           <div key={key}>

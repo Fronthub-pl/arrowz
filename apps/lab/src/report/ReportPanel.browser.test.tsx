@@ -189,8 +189,8 @@ test('a language switch keeps every delta', async () => {
   await act(async () => finish(TWO))
   await act(async () => useStore.getState().lang.setLang('pl'))
   expect(labelOf(row(screen.container, 1))).toBe('strzałki')
-  expect(row(screen.container, 1).cells[2]?.textContent).toBe('+5.0 wzrost')
-  expect(row(screen.container, 3).cells[2]?.textContent).toBe('−1.0 spadek')
+  expect(row(screen.container, 1).cells[2]?.textContent).toBe('+5,0 wzrost')
+  expect(row(screen.container, 3).cells[2]?.textContent).toBe('−1,0 spadek')
 })
 
 // f0 is row 5, on screen and not repeated by the summary.

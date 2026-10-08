@@ -9,8 +9,8 @@ import type { BoardMeta, CarverStats, GenerateResult, Metrics, Params, SeedOutco
  * it was saved before the timing existed. Two decimals under ten seconds, one
  * above: on a fast board the second decimal is the difference between runs.
  */
-export function genSeconds(meta: Pick<BoardMeta, 'genMs'>, dash: string): string {
-  return meta.genMs === null ? dash : (meta.genMs / 1000).toFixed(meta.genMs < 10000 ? 2 : 1)
+export function genSeconds(meta: Pick<BoardMeta, 'genMs'>, dash: string, dict: Dict): string {
+  return meta.genMs === null ? dash : dict.dec(meta.genMs / 1000, meta.genMs < 10000 ? 2 : 1)
 }
 
 /** A fraction as whole percent, shared by the stats table and the longest-pieces table. */
@@ -91,11 +91,11 @@ export interface ReportDelta {
  * when either is missing or the two differ by no more than 1e-9, where a
  * surface prints an empty cell.
  */
-export function reportDelta(num: number | undefined, prev: number | undefined): ReportDelta | null {
+export function reportDelta(num: number | undefined, prev: number | undefined, dict: Dict): ReportDelta | null {
   if (num === undefined || prev === undefined || Math.abs(num - prev) <= 1e-9) return null
   const diff = num - prev
   const abs = Math.abs(diff)
-  const shown = abs >= 100 ? abs.toFixed(0) : abs >= 1 ? abs.toFixed(1) : abs.toFixed(2)
+  const shown = dict.dec(abs, abs >= 100 ? 0 : abs >= 1 ? 1 : 2)
   return { text: `${diff > 0 ? '+' : '−'}${shown}`, trend: diff > 0 ? 'up' : 'down' }
 }
 
@@ -152,7 +152,7 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       dict.t('stat_boardVal', params.W, params.H, dict.fmt(cells), params.seed),
     ),
     stat(dict, 'pieces', dict.t('stat_pieces'), dict.fmt(metrics.N), metrics.N),
-    stat(dict, 'avgLen', dict.t('stat_avgLen'), (cells / metrics.N).toFixed(1), cells / metrics.N),
+    stat(dict, 'avgLen', dict.t('stat_avgLen'), dict.dec(cells / metrics.N, 1), cells / metrics.N),
     stat(
       dict,
       'longest',
@@ -167,7 +167,7 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       `${dict.t('stat_lengthsRange', metrics.minLen, metrics.maxLen)} · 2–6: ${
         pct(metrics.hist['2-6'] / metrics.N)
       } · 7–15: ${pct(metrics.hist['7-15'] / metrics.N)} · 16–49: ${pct(metrics.hist['16-49'] / metrics.N)} · 50+: ${
-        (100 * metrics.hist['50+'] / metrics.N).toFixed(1)
+        dict.dec(100 * metrics.hist['50+'] / metrics.N, 1)
       }%`,
     ),
     SEP,
@@ -181,7 +181,7 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
     ),
     stat(dict, 'farBlock', dict.t('stat_farBlock'), `${metrics.T2} (${pct(metrics.T2 / metrics.N)})`, metrics.T2),
     stat(dict, 'D', dict.t('stat_D'), metrics.D, metrics.D),
-    stat(dict, 'corridor', dict.t('stat_corridor'), metrics.meanCorridorLen.toFixed(1), metrics.meanCorridorLen),
+    stat(dict, 'corridor', dict.t('stat_corridor'), dict.dec(metrics.meanCorridorLen, 1), metrics.meanCorridorLen),
     SEP,
     stat(dict, 'span', dict.t('stat_span'), pct(metrics.span), 100 * metrics.span),
     stat(dict, 'spanTop', dict.t('stat_spanTop'), pct(metrics.spanTop10), 100 * metrics.spanTop10),
@@ -190,7 +190,7 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       dict,
       'outDeg',
       dict.t('stat_outDeg'),
-      `${metrics.outDeg.toFixed(1)} ${dict.t('piecesUnit')}`,
+      `${dict.dec(metrics.outDeg, 1)} ${dict.t('piecesUnit')}`,
       metrics.outDeg,
     ),
     stat(dict, 'maxOut', dict.t('stat_maxOut'), `${metrics.maxOut} ${dict.t('piecesUnit')}`, metrics.maxOut),
@@ -202,12 +202,12 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       100 * metrics.blockDist,
     ),
     SEP,
-    stat(dict, 'bends', dict.t('stat_bends'), metrics.bends.toFixed(2), metrics.bends),
-    stat(dict, 'turnsPerCell', dict.t('stat_turnsPerCell'), metrics.bendsPerCell.toFixed(3), metrics.bendsPerCell),
+    stat(dict, 'bends', dict.t('stat_bends'), dict.dec(metrics.bends, 2), metrics.bends),
+    stat(dict, 'turnsPerCell', dict.t('stat_turnsPerCell'), dict.dec(metrics.bendsPerCell, 3), metrics.bendsPerCell),
     stat(dict, 'coil', dict.t('stat_coil'), pct(metrics.coil), 100 * metrics.coil),
-    stat(dict, 'ownSides', dict.t('stat_ownSides'), metrics.selfAdj.toFixed(2), metrics.selfAdj),
+    stat(dict, 'ownSides', dict.t('stat_ownSides'), dict.dec(metrics.selfAdj, 2), metrics.selfAdj),
     stat(dict, 'border', dict.t('stat_border'), pct(metrics.sharedBorder), 100 * metrics.sharedBorder),
-    stat(dict, 'neighbours', dict.t('stat_neighbours'), metrics.neighbours.toFixed(1), metrics.neighbours),
+    stat(dict, 'neighbours', dict.t('stat_neighbours'), dict.dec(metrics.neighbours, 1), metrics.neighbours),
     stat(dict, 'multi', dict.t('stat_multi'), pct(metrics.multiLine), 100 * metrics.multiLine),
     SEP,
     // Stalling explains short lines better than the length distribution: a
@@ -231,7 +231,7 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       dict,
       'time',
       dict.t('stat_time'),
-      dict.t('stat_timeVal', (genMs / 1000).toFixed(2), (metricsMs / 1000).toFixed(2)),
+      dict.t('stat_timeVal', dict.dec(genMs / 1000, 2), dict.dec(metricsMs / 1000, 2)),
       genMs,
     ),
     SEP,
@@ -261,7 +261,7 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       dict,
       'stuckLen',
       dict.t('stat_stuckLen'),
-      events ? ((stats.stallLen ?? 0) / events).toFixed(1) : '—',
+      events ? dict.dec((stats.stallLen ?? 0) / events, 1) : '—',
       events ? (stats.stallLen ?? 0) / events : undefined,
     ),
     stat(
@@ -279,7 +279,7 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
         ? dict.t(
           'stat_shortenedVal',
           pct(stats.strandTrunc / stats.n),
-          (stats.strandLoss / Math.max(1, stats.strandTrunc)).toFixed(1),
+          dict.dec(stats.strandLoss / Math.max(1, stats.strandTrunc), 1),
         )
         : '—',
       stats.n ? 100 * stats.strandTrunc / stats.n : undefined,
