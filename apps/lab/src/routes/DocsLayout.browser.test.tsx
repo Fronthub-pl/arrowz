@@ -137,6 +137,23 @@ function inView(container: HTMLElement): string[] {
   return [...container.querySelectorAll('.fw-docs-toc [aria-current="true"]')].map((a) => a.textContent)
 }
 
+/**
+ * Settles once the section tracking's observer has reported the panel as it
+ * stands. A fresh observer's first report comes from a rendering update that
+ * computes every observer, and the next task runs after all their callbacks.
+ * Without this a jump can land before the hook's first report, which then
+ * reads the panel after the jump and hides the defect the jump is for.
+ */
+function reported(panel: Element): Promise<void> {
+  return new Promise((done) => {
+    const probe = new IntersectionObserver(() => {
+      probe.disconnect()
+      setTimeout(done)
+    })
+    probe.observe(panel)
+  })
+}
+
 // The navigation is a 220px column beside the page, 56px from it; the page is
 // at most 1040px and its prose at most 100ch. 1440, because at 1280 the page
 // is narrower than its cap. The prose is read against the sheet's own `100ch`,
@@ -195,15 +212,19 @@ test('at 924×540 the navigation scrolls by itself and keeps the section in view
   await expect.poll(sighted).toBe(true)
   const start = toc.scrollTop
   expect(start).toBeGreaterThan(0)
-  // To the last section's heading, as the section tracking's own test does.
+  // Straight to the bottom, as End does: the last heading goes from below the
+  // panel to above it in one step, never inside the band the observer watches.
   const last = [...screen.container.querySelectorAll('.fw-docs-body h3[id]')].at(-1)
   if (last === undefined) throw new Error('the page has no sections')
-  panel.scrollTo({ top: panel.scrollTop + below(screen.container, last.id) - 20 })
+  await reported(panel)
+  const end = panel.scrollHeight - panel.clientHeight
+  panel.scrollTo({ top: end })
+  expect(below(screen.container, last.id)).toBeLessThan(0)
   await expect.poll(() => inView(screen.container)).toEqual([last.textContent])
   await expect.poll(() => toc.scrollTop).toBeGreaterThan(start)
   await expect.poll(sighted).toBe(true)
   // Only the column moved to follow: the panel is where the reader left it.
-  expect(below(screen.container, last.id)).toBeCloseTo(20, 0)
+  expect(panel.scrollTop).toBe(end)
 }, 40_000)
 
 // At 1920×2000 the whole list fits and stands at its top; made 924×540, the
@@ -285,6 +306,32 @@ test('scrolling the panel moves the section in view', async () => {
   await expect.poll(() => inView(screen.container)).toEqual(['Methods and getters'])
   panel.scrollTo({ top: 0 })
   await expect.poll(() => inView(screen.container)).toEqual(['Using it'])
+}, 40_000)
+
+// A scroll that carries a heading from under the line to above the panel in
+// one step, with no heading between the panel's top and the line before or
+// after, changes no intersection: the mark must follow it all the same.
+test('a scroll that jumps a heading past the line marks its section', async () => {
+  await page.viewport(1280, 800)
+  const screen = await openAt('/docs/element')
+  await expect.poll(() => inView(screen.container)).toEqual(['Using it'])
+  const panel = box(screen.container, '#docs-panel')
+  const line = panel.clientHeight * 0.2
+  // The whole heading, 10px clear: one whose lower edge is under the top is still in the band.
+  const over = (id: string) =>
+    panel.scrollTo({
+      top: panel.scrollTop + rect(screen.container, `#${id}`).bottom - rect(screen.container, '#docs-panel').top + 10,
+    })
+  // A scroll the observer does see, so the jump starts from a reported panel with no heading in the band.
+  panel.scrollTo({ top: panel.scrollTop + below(screen.container, 'docs-files') - 20 })
+  await expect.poll(() => inView(screen.container)).toEqual(['Board files'])
+  over('docs-files')
+  await reported(panel)
+  expect(below(screen.container, 'docs-props')).toBeGreaterThan(line)
+  over('docs-props')
+  expect(rect(screen.container, '#docs-props').bottom).toBeCloseTo(rect(screen.container, '#docs-panel').top - 10, 0)
+  expect(below(screen.container, 'docs-members')).toBeGreaterThan(line)
+  await expect.poll(() => inView(screen.container)).toEqual(['Properties'])
 }, 40_000)
 
 // The last section of the Arrowz page is too short to bring its heading up
