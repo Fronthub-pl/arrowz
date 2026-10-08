@@ -166,8 +166,8 @@ describe('a JSON block', () => {
 describe.each(DOCS_PAGES)('every block of the %s page', (page) => {
   test.each(['en', 'pl'] as const)('in %s reads back exactly as written', (lang) => {
     const blocks = codeBlocks(docsPage(lang, page).root)
-    // The Arrowz page is prose only.
-    if (page !== 'arrowz') expect(blocks.length).toBeGreaterThan(0)
+    // The Arrowz page is prose only; a block added to it must retire this exception.
+    expect(blocks.length > 0).toBe(page !== 'arrowz')
     for (const block of blocks) {
       const tokens = highlight(block.lang, block.value)
       if (tokens !== null) expect(joined(tokens), `${block.lang ?? ''} ${block.meta ?? ''}`).toBe(block.value)
@@ -204,6 +204,15 @@ describe('a TypeScript block', () => {
     expect(inColour(tokens, 'num')).toEqual(['null', 'true'])
     expect(inColour(tokens, 'str')).toEqual(["'@arrowz/engine'", "'react'"])
   })
+})
+
+// `type` is TypeScript's word, but after `.` or before `:` it can only be a name.
+test('a keyword used as a property name is a property', () => {
+  const tokens = highlight('ts', "if (e.type === 'x') send({ type: 'y', default: ok ? null : 1 })") ?? []
+  expect(inColour(tokens, 'kw')).toEqual(['if'])
+  expect(inColour(tokens, 'prop')).toEqual(['type', 'type', 'default'])
+  // A constant before the `:` of a conditional stays a constant.
+  expect(inColour(tokens, 'num')).toEqual(['null', '1'])
 })
 
 describe('a TSX block', () => {

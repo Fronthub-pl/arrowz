@@ -99,11 +99,12 @@ const JSX_AFTER = new Set(['', '(', ',', '=', '=>', '?', ':', '{', '[', '&', '|'
 /**
  * A name's colour. The one correction to the mock: a name before `:` is an
  * object key, so `W: 50` colours `W` as a property, not as a type for being a capital.
+ * Where it stands wins over what it is: `e.type` and `{ type: }` are properties.
  */
 function nameClass(code: string, at: number, id: string, keywords: ReadonlySet<string>): TokenClass | null {
-  if (keywords.has(id)) return 'kw'
   if (TS_CONSTANT.has(id)) return 'num'
   if (code.charAt(at - 1) === '.' || nextVisible(code, at + id.length) === ':') return 'prop'
+  if (keywords.has(id)) return 'kw'
   return /^[A-Z]/.test(id) ? 'type' : null
 }
 
