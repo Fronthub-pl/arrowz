@@ -71,7 +71,7 @@ deno task carve --width=40 --height=40 --length=1 --winding=0 --colored
 # a skeleton of very long arrows crossing the whole board
 deno task carve --width=80 --height=80 --skeleton --colored
 
-# a tall board, which is harder to play than a square one
+# a tall board
 deno task carve --width=40 --height=80
 ```
 
@@ -176,7 +176,7 @@ The everyday flags are the ones you reach for first: the size, the seed, and fou
 
 ### Size — `--width` and `--height`
 
-How many cells across and down. Both are required, each anything from 4 to 1000. A 400×400 board is ready in under two seconds; 1000×1000 takes about ten. A tall board is harder to play than a square one with the same number of cells: fewer of its arrows are free at once.
+How many cells across and down. Both are required, each anything from 4 to 1000. A 400×400 board is ready in under two seconds; 1000×1000 takes about ten.
 
 :::compare
 ::board[`--width=20 --height=40`]{cmd="--width=20 --height=40 --seed=7"}

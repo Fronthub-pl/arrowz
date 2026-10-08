@@ -112,7 +112,7 @@ deno task carve --width=40 --height=40 --length=1 --winding=0 --colored
 # a skeleton of very long arrows crossing the whole board
 deno task carve --width=80 --height=80 --skeleton --colored
 
-# a tall board, which is harder to play than a square one
+# a tall board
 deno task carve --width=40 --height=80
 ```
 
@@ -253,8 +253,7 @@ Sixteen more change only how the picture is drawn, and come last.
 
 How many cells across and down. Both are required. Anything from 4 to 1000.
 
-A 400×400 board is ready in under two seconds; 1000×1000 takes about ten. A
-tall board is harder to play than a square one with the same number of cells.
+A 400×400 board is ready in under two seconds; 1000×1000 takes about ten.
 
 | `--width=20 --height=40` | `--width=100 --height=100` |
 |---|---|
@@ -563,7 +562,7 @@ knob that moves has to move here too.
 | Group | Flag | Range | Step | Default | What it does |
 |---|---|---|---|---|---|
 | Board | `--width` | 4–1000 | 1 | `25` | Columns. Under two seconds up to 400×400; about ten seconds at 1000×1000. |
-| Board | `--height` | 4–1000 | 1 | `50` | Rows. A tall board is harder to play than a square one with the same number of cells. |
+| Board | `--height` | 4–1000 | 1 | `50` | Rows. |
 | Board | `--seed` | 0–4294967295 | 1 | `7` | Picks the board. Same seed and same knobs, same board. |
 | Lengths | `--wshort` | 0–0.9 | 0.01 | `0.2` | Share of short arrows (2–6 cells). Higher means more arrows and more arrowheads, but the board turns into a mess of little hooks. Short plus medium together may not exceed 0.9. |
 | Lengths | `--wmid` | 0–0.9 | 0.01 | `0.08` | Share of medium arrows (7–15 cells). Whatever is left over goes to long arrows. Short plus medium together may not exceed 0.9. |

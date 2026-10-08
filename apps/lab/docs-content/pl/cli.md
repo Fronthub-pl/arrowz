@@ -71,7 +71,7 @@ deno task carve --width=40 --height=40 --length=1 --winding=0 --colored
 # szkielet bardzo długich strzałek przez całą planszę
 deno task carve --width=80 --height=80 --skeleton --colored
 
-# wysoka plansza, trudniejsza w grze niż kwadratowa
+# wysoka plansza
 deno task carve --width=40 --height=80
 ```
 
@@ -176,7 +176,7 @@ Flagi na co dzień to te, po które sięgasz najpierw: rozmiar, ziarno i cztery,
 
 ### Rozmiar — `--width` i `--height`
 
-Ile komórek w poziomie i w pionie. Obie flagi są wymagane, każda od 4 do 1000. Plansza 400×400 jest gotowa w niecałe dwie sekundy, a 1000×1000 w około dziesięć. Wysoka plansza jest trudniejsza w grze niż kwadratowa o tej samej liczbie komórek: mniej jej strzałek jest naraz wolnych.
+Ile komórek w poziomie i w pionie. Obie flagi są wymagane, każda od 4 do 1000. Plansza 400×400 jest gotowa w niecałe dwie sekundy, a 1000×1000 w około dziesięć.
 
 :::compare
 ::board[`--width=20 --height=40`]{cmd="--width=20 --height=40 --seed=7"}

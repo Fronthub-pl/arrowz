@@ -785,7 +785,7 @@ export const PL: Translation = {
     },
     H: {
       label: 'wysokość',
-      help: 'Liczba wierszy. Plansza pionowa jest trudniejsza od kwadratowej o tej samej liczbie komórek.',
+      help: 'Liczba wierszy.',
     },
     seed: {
       label: 'ziarno',
