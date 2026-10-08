@@ -34,6 +34,7 @@ import {
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
 import { defaultParams, MIX_SHARE, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
 import { PALETTE_CAP, THEMES } from './look.ts'
+import { EN } from './lab-i18n.ts'
 import type { ParamKey, Params, ViewNumber, Violation } from './types.ts'
 
 /** The prefix as a regular expression source: the spaces of "deno task carve" are literal. */
@@ -516,6 +517,11 @@ Deno.test('--help: "and N more" counts the rows --help=knobs prints', () => {
   const more = /and (\d+) more/.exec(short)
   assert(more, short)
   assertEquals(Number(more[1]), rows.length - named.length, 'the short help promises the table it points at')
+})
+
+Deno.test('--help=knobs heads its groups with the names the lab gives them', () => {
+  const heads = helpText({ knobs: true }).split('\n').flatMap((l) => /^\s*\[(.+)\]$/.exec(l)?.[1] ?? [])
+  assertEquals(heads, Object.values(EN.groups))
 })
 
 // The line states the rule in two numbers; the rule is held against exportCell
