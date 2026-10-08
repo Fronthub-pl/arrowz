@@ -269,3 +269,23 @@ describe('the board mode', () => {
     expect(written).toEqual([])
   })
 })
+
+describe('the docs tabs', () => {
+  function slice() {
+    const store: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(store, fn(store))) }
+    return store
+  }
+
+  it('a choice reaches every group of its name', () => {
+    const store = slice()
+    store.ui.setDocsTab('framework', 'vue')
+    expect(store.ui.docsTabs).toEqual({ framework: 'vue' })
+  })
+
+  it('two choices before a render keep the last', () => {
+    const store = slice()
+    store.ui.setDocsTab('framework', 'vue')
+    store.ui.setDocsTab('framework', 'react')
+    expect(store.ui.docsTabs.framework).toBe('react')
+  })
+})
