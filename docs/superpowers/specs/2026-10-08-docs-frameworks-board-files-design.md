@@ -34,17 +34,14 @@ tab holds more than one file:
 | Vue | `vite.config.ts` (`ts`), `Board.vue` (`vue`) | `isCustomElement` in the Vue plugin's compiler options; `v-if="ready"`, `:board`, `@piece-click` |
 | Svelte | `Board.svelte` (`svelte`) | `onMount` with `import()`, `{board}`, `onpiece-click` |
 
-Each tab adds at most two sentences of prose: Angular, that any import of the
-package, the `import()` included, brings its event types into the program, so
-`$event` is a `PieceClickEvent` under `strictTemplates`; React, that `@lit/react`
-is optional, since React 19 binds custom elements itself.
-
-Under the tabs, one paragraph states three rules (2.2): in React and Vue,
-define the element before the framework first sets `board` (Angular and
-Svelte set the property on an element not yet defined, which Lit picks up);
-never pass
-`interactive={false}` to an element not yet defined; import the package only
-in the browser, since the element draws with WebGL.
+Each tab ends with a list of notes for its framework alone, under the code:
+how the tag is registered (Angular `CUSTOM_ELEMENTS_SCHEMA`, Vue
+`isCustomElement`), how `board` reaches the element (2.2: React and Vue only
+on a defined element, so their examples render the tag after the import;
+Angular and Svelte set the property on an element not yet defined, which Lit
+picks up), how events are bound, the boolean trap where it applies (Vue,
+Svelte), and where the package is imported (the browser only, since the
+element draws with WebGL). No paragraph under the tabs repeats them.
 
 The current sentence "In Angular, add `CUSTOM_ELEMENTS_SCHEMA`… In React, wrap
 the element with `createComponent` from `@lit/react`." goes: the tabs replace

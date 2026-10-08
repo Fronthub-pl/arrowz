@@ -22,9 +22,12 @@ Import the package once, which registers the tag. Then give the element a size a
 </script>
 ```
 
+- Importing `@arrowz/board-element` loads the element; `el.board` works whether you set it before or after that.
+- `board` has no attribute: set it from script, as `el.board = …`, never as `board="…"` in the markup.
+- `interactive` and `play` are boolean attributes: present means on, so turn one off by removing it (`el.interactive = false` does the same).
+
 :::
 :::tab{id="angular"}
-Any import of the package, the `import()` included, brings its event types into the program, so under `strictTemplates` the template's `$event` is a `PieceClickEvent`; the type import only names it for the method.
 
 ```ts board.component.ts
 import { afterNextRender, Component, CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core'
@@ -55,9 +58,13 @@ export class BoardComponent {
 }
 ```
 
+- `schemas: [CUSTOM_ELEMENTS_SCHEMA]` lets the template use `<arrowz-board>`; without it Angular refuses the unknown tag and the `[board]` binding.
+- The tag can stand in the template before the package has loaded: Angular hands `board` straight to the element, and the element reads it once the package loads.
+- Any import of the package, `import()` included, gives `$event` in `(piece-click)` the type `PieceClickEvent` under `strictTemplates`.
+- `afterNextRender` runs only in the browser, never during server rendering: the element draws with WebGL.
+
 :::
 :::tab{id="react"}
-React 19 binds a custom element by itself, so `@lit/react` is optional. The declaration file types the tag in JSX.
 
 ```ts arrowz-board.d.ts
 import type { ArrowzBoard, PieceClickEvent } from '@arrowz/board-element'
@@ -99,9 +106,13 @@ export function Board() {
 }
 ```
 
+- React passes `board` to the element only once the package has loaded; before that it turns it into the text `board="[object Object]"` and the board is lost. So `Board.tsx` shows the tag only after `import()` has finished.
+- An event prop is `on` plus the exact event name: `onpiece-click`. `onPieceClick` would listen for an event called `PieceClick`.
+- `arrowz-board.d.ts` types the tag in JSX. React 19 binds the element by itself, so `@lit/react` is optional.
+- `useEffect` runs only in the browser, never during server rendering: the element draws with WebGL.
+
 :::
 :::tab{id="vue"}
-`shallowRef` keeps Vue from wrapping every arrow of the board in a reactive proxy.
 
 ```ts vite.config.ts
 import vue from '@vitejs/plugin-vue'
@@ -132,6 +143,12 @@ const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
 </template>
 ```
 
+- `isCustomElement` in `vite.config.ts` tells Vue that `arrowz-board` is not a Vue component; without it Vue warns that it cannot resolve the component.
+- Vue, too, passes `:board` to the element only once the package has loaded; before that the board is lost as the text `board="[object Object]"`. So `Board.vue` shows the tag under `v-if="ready"`; `:board.prop` would pass it either way.
+- Before the package has loaded, `:interactive="false"` becomes the text `interactive="false"`, and an `interactive` attribute turns interactivity on whatever its text.
+- `shallowRef` keeps Vue from wrapping every arrow of the board in a reactive proxy.
+- `onMounted` runs only in the browser, never during server rendering: the element draws with WebGL.
+
 :::
 :::tab{id="svelte"}
 
@@ -151,10 +168,13 @@ const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
 <arrowz-board {board} interactive lang="pl" style="height: 80vh" onpiece-click={onPiece}></arrowz-board>
 ```
 
+- `{board}` can stand on the tag before the package has loaded: Svelte hands an object straight to the element, and the element reads it once the package loads.
+- Event attributes keep their case and dashes: `onpiece-click` listens for `piece-click`.
+- Before the package has loaded, `interactive={false}` becomes the text `interactive="false"`, which turns interactivity on: leave the attribute out instead.
+- `onMount` runs only in the browser, never during server rendering: the element draws with WebGL.
+
 :::
 ::::
-
-Three rules keep the board on screen. In React and Vue, define the element before the framework first sets `board`: they hand an object to a property only when the element already has that property, and otherwise write it as an attribute, which the element ignores. That is why the React and Vue examples render the tag only once the import has resolved; Angular and Svelte set the property even on an element not yet defined, and the element picks it up when it is. Do not pass `false` to `interactive` or `play` before the element is defined: Vue and Svelte then write the attribute `interactive="false"`, and a boolean attribute that is present reads as on. And import the package in the browser only, never during server rendering: the element draws with WebGL.
 
 ## Board files {#files}
 

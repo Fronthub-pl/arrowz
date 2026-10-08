@@ -22,9 +22,12 @@ Zaimportuj pakiet raz, a import zarejestruje znacznik. Potem nadaj komponentowi 
 </script>
 ```
 
+- Import `@arrowz/board-element` ładuje komponent; `el.board` zadziała, czy ustawisz go przed importem, czy po nim.
+- `board` nie ma atrybutu: ustaw go w skrypcie, jako `el.board = …`, nigdy jako `board="…"` w znacznikach.
+- `interactive` i `play` to atrybuty logiczne: obecny znaczy „włączone”, więc wyłączasz go, usuwając atrybut (`el.interactive = false` robi to samo).
+
 :::
 :::tab{id="angular"}
-Każdy import pakietu, także ten przez `import()`, wprowadza do programu jego typy zdarzeń, więc przy `strictTemplates` `$event` w szablonie ma typ `PieceClickEvent`; import typu służy tylko do nazwania go w sygnaturze metody.
 
 ```ts board.component.ts
 import { afterNextRender, Component, CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core'
@@ -55,9 +58,13 @@ export class BoardComponent {
 }
 ```
 
+- `schemas: [CUSTOM_ELEMENTS_SCHEMA]` pozwala użyć `<arrowz-board>` w szablonie; bez tego Angular odrzuci nieznany znacznik i wiązanie `[board]`.
+- Znacznik może stać w szablonie, zanim pakiet się załaduje: Angular przekazuje `board` wprost do komponentu, a komponent odczyta planszę, gdy pakiet się załaduje.
+- Każdy import pakietu, także `import()`, nadaje `$event` w `(piece-click)` typ `PieceClickEvent` przy `strictTemplates`.
+- `afterNextRender` działa tylko w przeglądarce, nigdy przy renderowaniu na serwerze: komponent rysuje przez WebGL.
+
 :::
 :::tab{id="react"}
-React 19 sam wiąże komponenty webowe, więc `@lit/react` nie jest potrzebne. Plik deklaracji nadaje znacznikowi typ w JSX.
 
 ```ts arrowz-board.d.ts
 import type { ArrowzBoard, PieceClickEvent } from '@arrowz/board-element'
@@ -99,9 +106,13 @@ export function Board() {
 }
 ```
 
+- React przekaże `board` komponentowi dopiero, gdy pakiet się załaduje; wcześniej zamienia go w tekst `board="[object Object]"` i plansza ginie. Dlatego `Board.tsx` pokazuje znacznik dopiero po zakończeniu `import()`.
+- Właściwość zdarzenia to `on` plus dokładna nazwa zdarzenia: `onpiece-click`. `onPieceClick` nasłuchiwałoby zdarzenia o nazwie `PieceClick`.
+- `arrowz-board.d.ts` nadaje znacznikowi typ w JSX. React 19 sam wiąże komponenty webowe, więc `@lit/react` nie jest potrzebne.
+- `useEffect` działa tylko w przeglądarce, nigdy przy renderowaniu na serwerze: komponent rysuje przez WebGL.
+
 :::
 :::tab{id="vue"}
-`shallowRef` sprawia, że Vue nie opakowuje każdej strzałki planszy w reaktywne proxy.
 
 ```ts vite.config.ts
 import vue from '@vitejs/plugin-vue'
@@ -132,6 +143,12 @@ const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
 </template>
 ```
 
+- `isCustomElement` w `vite.config.ts` mówi Vue, że `arrowz-board` nie jest komponentem Vue; bez tego Vue ostrzeże, że nie może go znaleźć.
+- Vue również przekaże `:board` komponentowi dopiero, gdy pakiet się załaduje; wcześniej plansza ginie jako tekst `board="[object Object]"`. Dlatego `Board.vue` pokazuje znacznik pod `v-if="ready"`; `:board.prop` przekazałoby ją w obu przypadkach.
+- Zanim pakiet się załaduje, `:interactive="false"` staje się tekstem `interactive="false"`, a atrybut `interactive` włącza interaktywność bez względu na swój tekst.
+- `shallowRef` sprawia, że Vue nie opakowuje każdej strzałki planszy w reaktywne proxy.
+- `onMounted` działa tylko w przeglądarce, nigdy przy renderowaniu na serwerze: komponent rysuje przez WebGL.
+
 :::
 :::tab{id="svelte"}
 
@@ -151,10 +168,13 @@ const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
 <arrowz-board {board} interactive lang="pl" style="height: 80vh" onpiece-click={onPiece}></arrowz-board>
 ```
 
+- `{board}` może stać na znaczniku, zanim pakiet się załaduje: Svelte przekazuje obiekt wprost do komponentu, a komponent odczyta planszę, gdy pakiet się załaduje.
+- Atrybuty zdarzeń zachowują wielkość liter i myślniki: `onpiece-click` nasłuchuje `piece-click`.
+- Zanim pakiet się załaduje, `interactive={false}` staje się tekstem `interactive="false"`, a to włącza interaktywność: zamiast tego pomiń atrybut.
+- `onMount` działa tylko w przeglądarce, nigdy przy renderowaniu na serwerze: komponent rysuje przez WebGL.
+
 :::
 ::::
-
-Trzy reguły utrzymują planszę na ekranie. W Reakcie i Vue zdefiniuj komponent, zanim framework pierwszy raz ustawi `board`: przekazują obiekt do właściwości tylko wtedy, gdy komponent już ją ma, a w przeciwnym razie zapisują go jako atrybut, który komponent pomija. Dlatego przykłady dla Reacta i Vue renderują znacznik dopiero po zakończeniu importu; Angular i Svelte ustawiają właściwość także na komponencie jeszcze niezdefiniowanym, a komponent przejmuje ją, gdy zostanie zdefiniowany. Nie przekazuj `false` do `interactive` ani `play`, zanim komponent zostanie zdefiniowany: Vue i Svelte zapiszą wtedy atrybut `interactive="false"`, a obecny atrybut logiczny znaczy „włączone”. I importuj pakiet tylko w przeglądarce, nigdy przy renderowaniu na serwerze: komponent rysuje przez WebGL.
 
 ## Pliki planszy {#files}
 
