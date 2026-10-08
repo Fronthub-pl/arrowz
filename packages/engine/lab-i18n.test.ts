@@ -586,6 +586,30 @@ Deno.test('the not-filled line names the open starts only when the run counted t
   )
 })
 
+Deno.test('the not-filled line and the value rows use the singular for one', () => {
+  const en = (remaining: number, fragments: number) =>
+    EN.ui.notClosedStatus(String(remaining), fragments, 1, null, 150, remaining)
+  assert(en(1, 1).includes('at best 1 cell stayed empty, in 1 patch (largest'))
+  assert(en(2, 2).includes('at best 2 cells stayed empty, in 2 patches (largest'))
+  const pl = (fragments: number) => PL.ui.notClosedStatus('9', fragments, 1, null, 150, 9)
+  for (const [n, form] of [[1, 'w 1 łatce'], [3, 'w 3 łatkach'], [5, 'w 5 łatkach'], [22, 'w 22 łatkach']] as const) {
+    assert(pl(n).includes(`${form} (największa`), `${n}: ${pl(n)}`)
+  }
+  assertEquals([EN.ui.stat_boardVal(1, 1, '1', 7), EN.ui.stat_boardVal(2, 2, '4', 7)], [
+    '1 × 1 = 1 cell, seed 7',
+    '2 × 2 = 4 cells, seed 7',
+  ])
+  assertEquals([EN.ui.stat_longestVal(1, '1%'), EN.ui.stat_longestVal(2, '2%')], [
+    '1 cell (1% of the board)',
+    '2 cells (2% of the board)',
+  ])
+  assertEquals([EN.ui.piecesShort(1), EN.ui.piecesShort(2), EN.ui.piecesShort('?')], [
+    '1 arrow',
+    '2 arrows',
+    '? arrows',
+  ])
+})
+
 Deno.test('the command row and every parser problem have words in both languages', () => {
   assertEquals(EN.ui.argOutside('--width=2000', 4, 1000), '--width=2000 is outside 4..1000')
   assertEquals(PL.ui.argOutside('--width=2000', 4, 1000), '--width=2000 jest poza zakresem 4..1000')

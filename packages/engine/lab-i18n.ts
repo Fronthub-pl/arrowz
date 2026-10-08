@@ -383,17 +383,20 @@ export const EN = {
       largest: number,
       heads: number | null,
       exits: number,
-      _remainingCount: number,
+      remainingCount: number,
     ) =>
-      `The board could not be filled: at best ${remaining} cells stayed empty, in ${fragments} patches (largest ${largest}).${
+      `The board could not be filled: at best ${remaining} ${
+        remainingCount === 1 ? 'cell' : 'cells'
+      } stayed empty, in ${fragments} ${fragments === 1 ? 'patch' : 'patches'} (largest ${largest}).${
         heads === null ? '' : ` At that moment a new arrow could still start in ${heads} of ${exits} places.`
       } Try another seed or more straightness.`,
     stat_board: 'board',
-    stat_boardVal: (W: number, H: number, cells: string, seed: number) => `${W} × ${H} = ${cells} cells, seed ${seed}`,
+    stat_boardVal: (W: number, H: number, cells: string, seed: number) =>
+      `${W} × ${H} = ${cells} ${W * H === 1 ? 'cell' : 'cells'}, seed ${seed}`,
     stat_pieces: 'arrows',
     stat_avgLen: 'average length',
     stat_longest: 'longest',
-    stat_longestVal: (n: number, pct: string) => `${n} cells (${pct} of the board)`,
+    stat_longestVal: (n: number, pct: string) => `${n} ${n === 1 ? 'cell' : 'cells'} (${pct} of the board)`,
     stat_lengths: 'lengths',
     stat_f0: 'free at start',
     stat_almost: 'traps',
@@ -419,7 +422,7 @@ export const EN = {
     stat_backtracks: 'backtracks / restarts',
     stat_time: 'time',
     stat_timeVal: (g: string, m: string) => `generation ${g} s, metrics ${m} s`,
-    stat_lengthsRange: (min: number, max: number) => `${min}–${max} cells`,
+    stat_lengthsRange: (min: number, max: number) => `${min}–${max} ${max === 1 ? 'cell' : 'cells'}`,
     stat_farBlock: 'blocked from afar',
     stat_turnsPerCell: 'turns per cell',
     stat_ownSides: 'touching itself',
@@ -522,7 +525,7 @@ export const EN = {
     noStoreServer: 'No store server: pnpm nx serve lab starts one, or run deno task store.',
     storeEmpty: 'The store is empty. Save a board in the lab (the Save board button or ⌘G) or run deno task carve.',
     notClosed: 'incomplete',
-    piecesShort: (n: number | string) => `${n} arrows`,
+    piecesShort: (n: number | string) => `${n} ${n === 1 ? 'arrow' : 'arrows'}`,
     longestShort: (n: number | string) => `longest ${n}`,
     loadingBoard: (id: string) => `Loading ${id}…`,
     boardFileError: (id: string, reason: string) => `Board ${id} cannot be read: ${reason}`,
@@ -1233,7 +1236,7 @@ export const PL: Translation = {
     notClosedStatus: (remaining, fragments, largest, heads, exits, remainingCount) =>
       `Nie udało się wypełnić planszy: w najlepszym razie ${remaining} ${
         plCount(remainingCount, 'komórka została pusta', 'komórki zostały puste', 'komórek zostało pustych')
-      }, w ${fragments} łatkach (największa ${largest}).${
+      }, ${fragments === 1 ? 'w 1 łatce' : `w ${fragments} łatkach`} (największa ${largest}).${
         heads === null
           ? ''
           : ` Wtedy nowa strzałka mogła jeszcze zacząć się w ${heads} ${
