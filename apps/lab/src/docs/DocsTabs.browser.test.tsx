@@ -188,3 +188,56 @@ test('at a narrow width the strip scrolls by itself and the page does not', asyn
   expect(strip.scrollWidth).toBeGreaterThan(strip.clientWidth)
   expect(body.scrollWidth).toBeLessThanOrEqual(body.clientWidth)
 })
+
+/** Whether a strip shows its chosen tab whole; a tab may overhang the end by a fraction of a pixel. */
+const chosenInView = (strip: Element) => {
+  const tab = strip.querySelector('[aria-selected="true"]')
+  if (tab === null) throw new Error('no chosen tab')
+  const box = strip.getBoundingClientRect()
+  const at = tab.getBoundingClientRect()
+  return at.left >= box.left - 1 && at.right <= box.right + 1
+}
+
+test('at a narrow width every strip scrolls its chosen tab into view, remembered or chosen elsewhere', async () => {
+  await act(async () => useStore.getState().ui.setDocsTab('framework', 'svelte'))
+  const screen = await mount(200)
+  const strips = [...screen.container.querySelectorAll('[role="tablist"]')]
+  expect(strips.map(chosenInView)).toEqual([true, true])
+  await act(async () => useStore.getState().ui.setDocsTab('framework', 'html'))
+  expect(strips.map(chosenInView)).toEqual([true, true])
+})
+
+test('a named block is a figure named by its caption, holding the code and its Copy', async () => {
+  const screen = await mount()
+  await act(async () => useStore.getState().ui.setDocsTab('framework', 'react'))
+  const figure = screen.getByRole('figure', { name: 'a.d.ts' }).first()
+  expect(figure.element().querySelector('pre')?.textContent).toBe('const a = 1')
+  await expect.element(figure.getByRole('button', { name: 'Copy: a.d.ts' })).toBeVisible()
+  // The unnamed block stays a bare block.
+  expect(screen.container.querySelectorAll('figure')).toHaveLength(2)
+})
+
+// The React tab ends with a code block, the case where the block's margin and the group's added up.
+test('a tab group ends with the space a lone code block leaves', async () => {
+  const page = parseDocs(
+    ['# T', '## Part {#part}', '```ts\nconst a = 1\n```', 'After the block.', group('one'), 'After the group.'].join(
+      '\n\n',
+    ),
+  )
+  const screen = await renderAt(
+    <section className="fw-docs">
+      <div className="fw-docs-body">
+        <DocsMarkdown root={page} />
+      </div>
+    </section>,
+  )
+  await act(async () => useStore.getState().ui.setDocsTab('framework', 'react'))
+  const paragraph = (text: string) => {
+    const p = [...screen.container.querySelectorAll('p')].find((el) => el.textContent === text)
+    if (p === undefined) throw new Error(`no paragraph ${text}`)
+    return p.getBoundingClientRect().top
+  }
+  const pres = [...screen.container.querySelectorAll('pre')]
+  const bottom = (i: number) => pres.at(i)?.getBoundingClientRect().bottom ?? Number.NaN
+  expect(paragraph('After the group.') - bottom(-1)).toBe(paragraph('After the block.') - bottom(0))
+})

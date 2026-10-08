@@ -312,8 +312,16 @@
 .fw-docs-tablist button:focus-visible {
   outline-offset: -2px;
 }
-/* `p.` because `.fw-docs p` sets every paragraph's margin and size. */
-.fw-docs p.fw-docs-file {
+/* The pre's margin sits inside the block's grid and cannot collapse with the
+   group's, so the panel's last block gives its margin up to the group. */
+.fw-docs-tabpanel > :last-child,
+.fw-docs-tabpanel > :last-child .fw-docs-pre {
+  margin-bottom: 0;
+}
+.fw-docs-figure {
+  margin: 0;
+}
+.fw-docs-file {
   margin: 0 0 6px;
   color: var(--ash);
   font-family: var(--mono);
