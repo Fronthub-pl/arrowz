@@ -67,13 +67,28 @@ describe('zoomAt', () => {
     expect((anchorY - z.originY) * z.cellPx).toBeCloseTo(py, 6)
   })
 
-  test('the exact point survives a zoom out as well', () => {
+  test('a zoom out keeps the exact point while the view’s centre stays clear of the margin bound', () => {
     const wide = fit({ W: 100, H: 100, hostWidth: 900, hostHeight: 500, pad: 4 })
     const zoomed = zoomAt(wide, 6, 700, 400)
     const px = 120, py = 90
     const anchorX = zoomed.originX + px / zoomed.cellPx, anchorY = zoomed.originY + py / zoomed.cellPx
     const out = zoomAt(zoomed, 1 / 1.35, px, py)
     expect((anchorX - out.originX) * out.cellPx).toBeCloseTo(px, 6)
+    expect((anchorY - out.originY) * out.cellPx).toBeCloseTo(py, 6)
+  })
+
+  test('a zoom out with the centre on the margin’s outer edge stops it there, and the point slides', () => {
+    const v = zoomAt(fit({ W: 100, H: 100, hostWidth: 900, hostHeight: 500, pad: 4 }), 6, 450, 250)
+    const atEdge = panBy(v, 100000, 0)
+    const centreX = (vp: typeof v) => vp.originX + vp.hostWidth / vp.cellPx / 2
+    expect(centreX(atEdge)).toBeCloseTo(-atEdge.margin, 9)
+    // Right of the view's centre is the board side: zooming out there pushes the centre off the margin.
+    const px = 700, py = 250
+    const anchorX = atEdge.originX + px / atEdge.cellPx, anchorY = atEdge.originY + py / atEdge.cellPx
+    const out = zoomAt(atEdge, 1 / 1.35, px, py)
+    expect(out.cellPx).toBeLessThan(atEdge.cellPx)
+    expect(centreX(out)).toBeCloseTo(-out.margin, 9)
+    expect(Math.abs((anchorX - out.originX) * out.cellPx - px)).toBeGreaterThan(10)
     expect((anchorY - out.originY) * out.cellPx).toBeCloseTo(py, 6)
   })
 })
