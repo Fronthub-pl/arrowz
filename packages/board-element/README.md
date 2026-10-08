@@ -49,7 +49,7 @@ and assign the result to `board`.
 | `lang` | `string` (the standard global `lang` attribute) | `''`; `pl` (or any `pl-…` tag) selects Polish labels, anything else English |
 | `play` | `boolean` (attribute, reflected) | `false` |
 | `enableColors` | `boolean` (attribute `enable-colors`, reflected) | `false` |
-| `showPoints` | `boolean` (attribute `show-points`, reflected): draws the point grid | `false` |
+| `showPoints` | `boolean` (attribute `show-points`, reflected): draws the dot grid | `false` |
 | `pointColor` | `string` (attribute `point-color`, reflected): colour of the grid's dots | `'#c9c9d6'` |
 | `pointRadius` | `number` (attribute `point-radius`, reflected, default not shown until set — removing the attribute restores it): radius of the grid's dots, in cells | `0.06` |
 
@@ -58,11 +58,11 @@ and assign the result to `board`.
 | `animateExit(pieceId, dir)` | rides the piece off the board along `dir` (0 up, 1 right, 2 down, 3 left) and removes it; resolves when done |
 | `shake(pieceId, distance)` | nudges the piece `distance` cells down its track and back |
 | `fit()` | fits the board into the host |
-| `zoomBy(factor)` | zooms around the centre, clamped to `[fit, 48 px per cell]` |
+| `zoomBy(factor)` | zooms around the centre, clamped between the fit and `MAX_CELL_PX` pixels per cell, unless the fit is already closer |
 | `toggleColors()` | what the ◑ button does, `colored-change` included; does nothing without `enableColors` |
 | `toggleGestures()` | what the ☝ button does, the stored choice included; fires `gestures-change`; does nothing on a board that is neither `interactive` nor `play` |
 | `saveState()` | the game in progress as a value the host can store, or `null` before a board is set |
-| `loadState(snap)` | restores a game; throws when the snapshot is not this board's |
+| `loadState(snap)` | restores a game; throws before a board is set, and when the snapshot is not this board's |
 | `restart()` | drops the game and puts every piece back |
 | `emit(event)` | dispatches a `GameEvent` as the element's DOM event; it implements `GameTarget`, the seam the internal game host drives the element through, and is public only because a Lit element cannot narrow an interface member to `private` — a host that only renders a board has no reason to call it |
 
@@ -132,21 +132,26 @@ connects, passed at once to every other connected board, in the origin's other
 tabs too, and readable as the `gestureMode` property. There is no attribute for
 it. A board that only pans has no switch and always pans with a plain drag.
 Touch is the same in both modes: one finger pans, two pinch, a tap plays. The
-wheel zooms towards the cursor; `+`, `−`, `0` and the corner buttons zoom and
-fit, and with ⌘, Ctrl or Alt held those keys are left to the browser's own page
-zoom. A repeated press — a double click, a double tap — does nothing at all:
-the second one is read as a slipped finger, not as an instruction.
+wheel zooms towards the cursor; `+` (or `=`), `-` and `0` zoom and fit, as do
+the corner buttons. With ⌘, Ctrl or Alt held the board leaves those keys to the
+browser: with ⌘ or Ctrl they are its own page zoom. A repeated press — a
+double click, a double tap — does nothing at all: the second one is read as a
+slipped finger, not as an instruction.
 
 ### Zoom and pan
 
-The wheel zoom holds the point under the cursor exactly: whatever is under the
-pointer when the wheel turns is still under it afterwards, at every step and
-anywhere on the board. What bounds the view is the centre of it staying between
-the board's two margins, rather than the stricter "the board fills the view" —
-that one has to overrule the anchor as soon as the cursor is near an edge,
-because holding the point there means showing blank beside the board. Measured
-on a 100x100 board, eight wheel steps into a corner under the strict rule
-dragged the point 583 px away from the cursor.
+Zooming in, the wheel holds the point under the cursor exactly: whatever is
+under the pointer when the wheel turns is still under it afterwards, at every
+step and anywhere on the board or its margin. What bounds the view is the
+centre of it staying on the board or its margin, rather than the stricter "the
+board fills the view" — that one has to overrule the anchor as soon as the
+cursor is near an edge, because holding the point there means showing blank
+beside the board. Measured on a 100x100 board, eight wheel steps into a corner
+under the strict rule dragged the point 583 px away from the cursor.
+
+Zooming out pushes the view's centre away from the cursor, so it holds the
+point too until the centre reaches the margin's outer edge: from there the view
+stops at the margin, and the point slides away from the cursor.
 
 So blank paper beside the board is the price of the anchor, as is a board
 smaller than the host no longer being pinned to the middle. `fit()`, the `0`
@@ -158,8 +163,10 @@ The cursor tells what the next click will do before it is made. In the default
 mode the board shows the grab cursor, and a piece shows the pointer cursor only
 while ⌘ or Ctrl is held, since only then does a click play. In the switched
 mode it is the other way round: the modifier turns the board to grab and takes
-the piece cursor away. On macOS a Ctrl click is a secondary click. Where it
-plays, the board keeps the context menu shut.
+the piece cursor away. On macOS a Ctrl click is a secondary click: on a board
+that takes clicks (`play` or `interactive`), in the default mode, the board
+keeps the context menu shut. In the switched mode, and on a board that only
+pans, the menu is the page's.
 
 ### Size, and values the board cannot draw
 
@@ -169,23 +176,25 @@ in its layout.
 
 Numbers and colours the board cannot draw are replaced, silently and only in
 the drawing; this covers both attributes and `view`, and the properties and
-attributes keep what was set. The zoom methods separately ignore a factor that
-is not a finite positive number, leaving the viewport as it was.
+attributes keep what was set. `zoomBy()` separately ignores a factor that is
+not a finite positive number, leaving the viewport as it was.
 
 - A value that is not a finite number becomes its default.
 - `stroke` is at most one cell, and zero or less becomes the default.
 - Head sizes are never negative; `pad` stays within `PAD_RANGE` (0 to 16).
-- `top` is a whole count.
+- `top` is a whole count, never negative.
 - `point-radius` stays within `POINT_RADIUS_RANGE` (0 to 0.5): above half a cell the dots merge.
-- A colour the browser cannot parse becomes the default of its field.
+- A colour the browser cannot parse becomes the default of its field; in
+  `palette` it is left out, and the other colours stay.
 
 ### The margin
 
 The board is drawn with a margin of `pad` cells on every side, so an arrowhead
-in an edge cell does not end flush against the paper. The margin is part of
-what the board is fitted into, and it is what a leaving piece is clipped to, so
-an arrow vanishes at the paper's edge rather than floating beside it. Changing
-`pad` refits the board.
+in an edge cell does not end flush with the edge of a fitted view. The margin is
+part of what the board is fitted into, and it is what a leaving piece is
+clipped to, so an arrow vanishes at the margin's outer edge rather than riding
+on across the paper beyond it: the host is painted the paper colour all over
+(`--arrowz-paper`), so that edge is not drawn. Changing `pad` refits the board.
 
 A margin measured in cells shrinks with them, so on a large board fitted into a
 small host it would come to a pixel or two. It is widened until it is worth
@@ -193,15 +202,15 @@ small host it would come to a pixel or two. It is widened until it is worth
 asking for a small one. `pad` itself is clamped to `PAD_RANGE` before it
 reaches the viewport; the attribute and the property keep whatever was set.
 
-### The point grid
+### The dot grid
 
 With `showPoints` the board draws a grid of one dot per cell underneath the
 pieces, like the ruling of a notebook page the arrows are laid on: their lines
 run from cell centre to cell centre, and this is that same grid made visible.
 It covers the cells only (`0,0` to `W,H`), not the `pad` margin, which stays
-blank paper. `pointColor` and `pointRadius` (in cells) style the dots; the grid
-is drawn once as an SVG pattern of one cell's pitch, so it costs the same two
-nodes at 10×10 as at 1000×1000.
+blank paper. `pointColor` and `pointRadius` (in cells) style the dots. The grid
+is one WebGL pass: a single quad over the cells, whose fragment shader places a
+dot at the centre of each cell, so it costs the same at 10×10 as at 1000×1000.
 
 Below `MIN_POINT_CELL_PX` per cell the grid hides itself, `showPoints` left as
 it is: at that density the dots would moiré into grey rather than read as a
@@ -227,10 +236,12 @@ instead of moving as one rigid shape. `track.ts` holds that geometry as plain
 numbers; the layer redraws the line, the tail and the head once per frame from
 a single clock, so the three can never drift apart.
 
-Every piece leaves at one speed, `EXIT_SPEED` cells per second, bounded by
-`EXIT_MIN_MS` and `EXIT_MAX_MS`: a long arrow from the far side does not shoot
-out faster than a short one at the edge. `prefers-reduced-motion` collapses
-every ride to no time at all.
+A piece leaves at `EXIT_SPEED` cells per second, so a long arrow from the far
+side does not shoot out faster than a short one at the edge, within two bounds:
+a ride that would take less than `EXIT_MIN_MS` is slowed to it, so a piece at
+the edge is still seen to move, and one that would take more than `EXIT_MAX_MS`
+is sped up to it. `prefers-reduced-motion` collapses every ride, and every
+bounce, to no time at all.
 
 ### Slots and custom controls
 
@@ -284,7 +295,7 @@ neither `interactive` nor `play`). `hidden` hides through the user-agent
 
 The element gives projected controls no role and no name: project a
 `<button>` with its own accessible name. A control that is not a button still
-runs its action on click, and nothing more. The board keys (`+`, `−`, `0`)
+runs its action on click, and nothing more. The board keys (`+`, `=`, `-`, `0`)
 act while the board or one of its controls has focus, not while a text field
 or a nested board in its content does.
 
@@ -308,10 +319,11 @@ nothing keeps today's behaviour (the button decides), and one that calls
 earlier, by a click or by `loadState` — so `view.colored` is back in charge
 from that click on.
 
-Assigning `board` always starts a new game and redraws the board in full: a
-fresh session owns a fresh "gone" set, and the layer compares that set by
+Assigning a different `board` starts a new game and redraws the board in full:
+a fresh session owns a fresh "gone" set, and the layer compares that set by
 identity to decide what it may keep, so a board reassignment can no longer
-diff against the previous one. A host driving play therefore never filters a
+diff against the previous one. Assigning the object `board` already holds does
+nothing, and the game goes on. A host driving play therefore never filters a
 `Board` and hands it back — it lets `play` run the game and reads the result
 from the events.
 
@@ -367,9 +379,9 @@ the engine, so a consumer needs no second import for them.
 | Constant | Value | Meaning |
 |---|---|---|
 | `DEFAULT_PAD` | `4` | cells of margin when `pad` is not set |
-| `DEFAULT_SHOW_POINTS` | `false` | the point grid is off unless asked for |
-| `DEFAULT_POINT_COLOR` | `'#c9c9d6'` | the point grid's dot colour |
-| `DEFAULT_POINT_RADIUS` | `0.06` | the point grid's dot radius, in cells |
+| `DEFAULT_SHOW_POINTS` | `false` | the dot grid is off unless asked for |
+| `DEFAULT_POINT_COLOR` | `'#c9c9d6'` | the colour of the dot grid's dots |
+| `DEFAULT_POINT_RADIUS` | `0.06` | the radius of the dot grid's dots, in cells |
 | `PAD_RANGE` | `{ min: 0, max: 16 }` | the margin a board may be given, in cells |
 | `POINT_RADIUS_RANGE` | `{ min: 0, max: 0.5 }` | a dot's radius in cells; past half a cell it overlaps its neighbours |
 | `DEFAULT_VIEW` | `{ stroke: 0.5, headWidth: 0, headHeight: 1, rounded: true, colored: false, top: 0, voids: false, ink: '#232447', paper: '#f6f6fa', highlight: '#e8467c', palette: [] }` | the `BoardView` an empty `view` is merged over |
@@ -380,7 +392,7 @@ the engine, so a consumer needs no second import for them.
 | `WHEEL_RATE` | `0.0015` | the wheel's zoom rate: each event scales by `exp(-deltaY * WHEEL_RATE)` |
 | `MAX_CELL_PX` | `48` | the closest zoom, in pixels per cell |
 | `MIN_PAD_PX` | `16` | the narrowest margin on screen, in pixels (see [The margin](#the-margin)) |
-| `MIN_POINT_CELL_PX` | `6` | below this many pixels per cell the point grid hides itself |
+| `MIN_POINT_CELL_PX` | `6` | below this many pixels per cell the dot grid hides itself |
 | `EXIT_SPEED` | `32` | cells per second a leaving piece covers |
 | `EXIT_MIN_MS` | `160` | the shortest exit ride, in milliseconds |
 | `EXIT_MAX_MS` | `600` | the longest exit ride, in milliseconds |
@@ -389,7 +401,7 @@ the engine, so a consumer needs no second import for them.
 
 | Class | Constructor | Members |
 |---|---|---|
-| `ArrowzBoard` | none: create it as `<arrowz-board>` or with `document.createElement` | see [API](#api) |
+| `ArrowzBoard` | `new ArrowzBoard()`, once the package is imported; a page usually writes `<arrowz-board>` or calls `document.createElement('arrowz-board')` | see [API](#api) |
 | `GameHost` | `new GameHost(target: GameTarget)` | `goneIds`, `board`, `isGone(pieceId)`, `setBoard(board)`, `click(pieceId)`, `save(colored)`, `load(snap)` |
 
 `GameHost` runs a game on any `GameTarget` — the element is one — so the
@@ -398,7 +410,8 @@ the board of the current session (or `null`) and `goneIds` the ids that have
 left, kept as one set per session. `setBoard` starts a fresh session (or drops
 it, given `null`); `click` plays a piece and resolves once its ride or bounce
 has settled; `save` returns a `SessionSnapshot`, or `null` with no board;
-`load` restores one and throws when it belongs to a different board.
+`load` restores one and throws with no board, or when it belongs to a different
+board.
 
 ## Development
 

@@ -687,7 +687,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     return this.game.save(this.colored)
   }
 
-  /** Restores a game saved by `saveState`. Throws when the snapshot is not this board's. */
+  /** Restores a game saved by `saveState`. Throws before a board is set, and when the snapshot is not this board's. */
   loadState(snap: SessionSnapshot): void {
     this.syncSession()
     this.game.load(snap)
