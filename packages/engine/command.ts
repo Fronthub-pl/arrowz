@@ -427,7 +427,7 @@ const OUTPUT_FLAGS: readonly FlagRow[] = [
   ['--help, -h', 'this text; --help=knobs adds the table of every knob'],
 ]
 const PICTURE_FLAGS: readonly FlagRow[] = [
-  ['--cell=N', 'cell size in px (default: about 1600 px on the longer side)'],
+  ['--cell=N', 'cell size in px (default 1600 / longer side, rounded, at most 18)'],
   ['--line=R', `line width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
   ['--arrow-width=R|auto', 'arrowhead width in cells (default auto, from the line width)'],
   ['--arrow-height=R', `arrowhead length along the arrow, in cells (default ${DEFAULT_VIEW.headHeight})`],

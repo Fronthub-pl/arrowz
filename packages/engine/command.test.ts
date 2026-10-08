@@ -518,6 +518,21 @@ Deno.test('--help: "and N more" counts the rows --help=knobs prints', () => {
   assertEquals(Number(more[1]), rows.length - named.length, 'the short help promises the table it points at')
 })
 
+// The line states the rule in two numbers; the rule is held against exportCell
+// at every side, square and with the height as the longer side.
+Deno.test('helpText: the --cell line states the default exportCell computes', () => {
+  const line = helpText().split('\n').find((l) => l.trimStart().startsWith('--cell=N'))
+  assert(line, 'the help lists --cell')
+  const said = [...line.matchAll(/\d+/g)].map((m) => Number(m[0]))
+  assertEquals(said.length, 2, line)
+  const [long = NaN, cap = NaN] = said
+  for (let side = 4; side <= 1000; side++) {
+    const want = Math.min(cap, Math.round(long / side))
+    assertEquals(exportCell(side, side), want, `${side}x${side}`)
+    assertEquals(exportCell(4, side), want, `4x${side}`)
+  }
+})
+
 // Five words, one of them the view's: --arrow-width is not a knob, so it
 // cannot live in the knob table, and the legend is where the two meet.
 Deno.test('helpText: the legend spells every word the parser takes, the view one included', () => {
