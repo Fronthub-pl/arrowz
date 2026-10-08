@@ -468,9 +468,10 @@ function frameOverlap(root: HTMLElement): Finding[] {
 }
 
 /**
- * The lab's controls around the board leave the drawn board clear at fit: a
- * piece under one is reachable only by panning. The drawn rectangle is the
- * board's W×H through the element's `viewport`, from the host's top-left.
+ * The lab's controls around the board and the element's own bar leave the
+ * drawn board clear at fit: a piece under one is reachable only by panning.
+ * The drawn rectangle is the board's W×H through the element's `viewport`,
+ * from the host's top-left.
  */
 function boardCover(root: HTMLElement): Finding[] {
   const out: Finding[] = []
@@ -492,7 +493,9 @@ function boardCover(root: HTMLElement): Finding[] {
     const top = Math.max(host.top, host.top - vp.originY * vp.cellPx)
     const right = Math.min(host.right, host.left + (board.W - vp.originX) * vp.cellPx)
     const bottom = Math.min(host.bottom, host.top + (board.H - vp.originY) * vp.cellPx)
-    for (const node of wrap.querySelectorAll('.fw-anno, .fw-mode, .fw-solo, .fw-modeline')) {
+    // The element's own bar too: its buttons and hint, in its shadow root.
+    const bar = element.shadowRoot?.querySelectorAll('.chrome button, .chrome .hint') ?? []
+    for (const node of [...wrap.querySelectorAll('.fw-anno, .fw-mode, .fw-solo, .fw-modeline'), ...bar]) {
       if (!rendered(node)) continue
       const r = node.getBoundingClientRect()
       const x = Math.min(r.right, right) - Math.max(r.left, left)

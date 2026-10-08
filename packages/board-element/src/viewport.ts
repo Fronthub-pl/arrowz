@@ -11,6 +11,11 @@ export interface ViewportInput {
   hostHeight: number
   /** Margin asked for around the board, in cells; 0 for none. */
   pad: number
+  /**
+   * The element's default bar, as a box from the host's bottom-right corner in
+   * CSS px with its offset; absent when there is none to keep clear of.
+   */
+  bar?: { width: number; height: number } | undefined
 }
 
 export interface Viewport extends ViewportInput {
@@ -18,7 +23,7 @@ export interface Viewport extends ViewportInput {
   originX: number
   originY: number
   fitted: boolean
-  /** The margin actually kept, in cells: `pad`, or wider when `pad` would go under MIN_PAD_PX. */
+  /** The margin actually kept, in cells: `pad`, or wider when it would go under MIN_PAD_PX or leave the board under the bar. */
   margin: number
 }
 
@@ -45,7 +50,27 @@ function marginOf(v: ViewportInput): number {
   const room = 2 * MIN_PAD_PX
   const byWidth = v.hostWidth > room ? MIN_PAD_PX * v.W / (v.hostWidth - room) : 0
   const byHeight = v.hostHeight > room ? MIN_PAD_PX * v.H / (v.hostHeight - room) : 0
-  return Math.max(v.pad, byWidth, byHeight)
+  const m = Math.max(v.pad, byWidth, byHeight)
+  return Math.max(m, byBar(v, m))
+}
+
+/**
+ * The margin that keeps the default bar off the board fitted at margin `m`,
+ * or 0 when the bar already lies clear of it: the closed form above with the
+ * bar's height for the floor. The collision is read at `m`; a wider margin
+ * only shrinks the board towards the centre, so it cannot cause one.
+ */
+function byBar(v: ViewportInput, m: number): number {
+  const bar = v.bar
+  // The reserved board is `hostHeight - 2 * bar.height` tall: under four bars
+  // that is under half the host, and a host a pixel taller would draw a board
+  // many times smaller. There the bar keeps its place over the board instead.
+  if (bar === undefined || v.hostHeight < 4 * bar.height) return 0
+  const s = Math.min(v.hostWidth / (v.W + 2 * m), v.hostHeight / (v.H + 2 * m))
+  // Half a pixel or less is rounding, not a covered cell.
+  const across = (v.hostWidth + v.W * s) / 2 - (v.hostWidth - bar.width) > 0.5
+  const down = (v.hostHeight + v.H * s) / 2 - (v.hostHeight - bar.height) > 0.5
+  return across && down ? (bar.height * v.H) / (v.hostHeight - 2 * bar.height) : 0
 }
 
 function fitScale(v: ViewportInput): number {
@@ -84,6 +109,7 @@ function clamp(v: ViewportInput & { cellPx: number; originX: number; originY: nu
     hostWidth: v.hostWidth,
     hostHeight: v.hostHeight,
     pad: v.pad,
+    bar: v.bar,
     cellPx,
     originX,
     originY,
@@ -121,6 +147,12 @@ export function panBy(v: Viewport, dxPx: number, dyPx: number): Viewport {
 
 export function resize(v: Viewport, hostWidth: number, hostHeight: number): Viewport {
   const next = { ...v, hostWidth, hostHeight }
+  return v.fitted ? fit(next) : clamp(next)
+}
+
+/** The same view with another bar: refitted when it was fitted, bounded otherwise, like `resize`. */
+export function withBar(v: Viewport, bar: ViewportInput['bar']): Viewport {
+  const next = { ...v, bar }
   return v.fitted ? fit(next) : clamp(next)
 }
 

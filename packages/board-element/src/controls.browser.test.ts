@@ -6,8 +6,12 @@ import './mod.ts'
 
 const raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
 
-/** Cell size of a 30x30 board fitted into the 300 px host of `mount`, margin included. */
-const FIT = 300 / (30 + 2 * DEFAULT_PAD)
+/** The default bar's height over the host's bottom edge: 32 px buttons and the 8 px offset. */
+const BAR_HEIGHT = 32 + 8
+/** Cell size of a 30x30 board fitted into the 300 px host of `mount`, with the margin that keeps the default bar off it. */
+const FIT = 300 / (30 + (2 * BAR_HEIGHT * 30) / (300 - 2 * BAR_HEIGHT))
+/** The same without a default bar: a custom `controls` gets no room. */
+const FIT_BARE = 300 / (30 + 2 * DEFAULT_PAD)
 
 let el: ArrowzBoard
 /** Mounts a 300 px board whose light DOM is `children`, parsed before the element connects. */
@@ -363,7 +367,7 @@ describe('board keys', () => {
     await userEvent.keyboard('+-0')
     await raf()
     expect(field.value).toBe('+-0')
-    expect(el.viewport?.cellPx).toBeCloseTo(FIT, 6)
+    expect(el.viewport?.cellPx).toBeCloseTo(FIT_BARE, 6)
   })
 
   test('a key on a focused nested board zooms that board only', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { fit, MAX_CELL_PX, MIN_PAD_PX, panBy, resize, screenToCell, zoomAt, zoomBy } from './viewport.ts'
+import { fit, MAX_CELL_PX, MIN_PAD_PX, panBy, resize, screenToCell, withBar, zoomAt, zoomBy } from './viewport.ts'
 
 const input = { W: 100, H: 200, hostWidth: 400, hostHeight: 800, pad: 0 }
 
@@ -186,5 +186,86 @@ describe('margin', () => {
     const v = fit(small)
     expect(screenToCell(v, 4, 4)).toBeNull()
     expect(screenToCell(v, 200, 200)).toEqual({ x: 5, y: 5 })
+  })
+})
+
+// The lab's host at 375×812 and 1024×768 with its default 25×50 board, and the
+// default bar under a finger: four 32 px buttons, gaps, and the 8 px offset.
+describe('the default bar', () => {
+  const tall = { W: 25, H: 50, hostWidth: 375, hostHeight: 441, pad: 4 }
+  const bar = { width: 148, height: 40 }
+
+  /** The fitted board's right and bottom edges, in px from the host's top-left. */
+  const edges = (v: ReturnType<typeof fit>) => ({
+    right: (v.W - v.originX) * v.cellPx,
+    bottom: (v.H - v.originY) * v.cellPx,
+  })
+
+  test('a board the bar would cover gets a margin that keeps it above the bar', () => {
+    const v = fit({ ...tall, bar })
+    expect(edges(v).bottom).toBeLessThanOrEqual(tall.hostHeight - bar.height + 1e-9)
+    expect(v.margin).toBeCloseTo((bar.height * tall.H) / (tall.hostHeight - 2 * bar.height), 9)
+    expect(v.cellPx).toBeLessThan(fit(tall).cellPx)
+  })
+
+  test('the board stays centred: the margin is the same on every side', () => {
+    const v = fit({ ...tall, bar })
+    expect(v.originY).toBeCloseTo((tall.H - tall.hostHeight / v.cellPx) / 2, 9)
+    expect(v.originX).toBeCloseTo((tall.W - tall.hostWidth / v.cellPx) / 2, 9)
+  })
+
+  test('a board with room under it fits exactly as without a bar', () => {
+    const roomy = { ...tall, hostWidth: 832, hostHeight: 282 }
+    expect(fit({ ...roomy, bar })).toEqual({ ...fit(roomy), bar })
+  })
+
+  test('a wide board whose bottom lies above the bar fits exactly as without one', () => {
+    const wide = { ...tall, W: 50, H: 10 }
+    expect(fit({ ...wide, bar })).toEqual({ ...fit(wide), bar })
+  })
+
+  test('no bar fits as before', () => {
+    expect(fit({ ...tall, bar: undefined }).cellPx).toBe(fit(tall).cellPx)
+  })
+
+  test('a pad of zero stays zero under a bar', () => {
+    const v = fit({ ...tall, pad: 0, bar })
+    expect(v.margin).toBe(0)
+    expect(v.cellPx).toBe(fit({ ...tall, pad: 0 }).cellPx)
+  })
+
+  test('a host shorter than two bars reserves nothing', () => {
+    const short = { ...tall, hostHeight: 70 }
+    const v = fit({ ...short, bar })
+    expect(v.margin).toBe(fit(short).margin)
+    expect(Number.isFinite(v.cellPx) && v.cellPx > 0).toBe(true)
+  })
+
+  // A reservation that left the board under half the host would make a host a
+  // pixel taller draw a board many times smaller (81 px: 1 px of board).
+  test('a host under four bars tall reserves nothing', () => {
+    const wideBar = { width: 300, height: 40 }
+    for (const hostHeight of [81, 120, 159]) {
+      const short = { ...tall, hostHeight }
+      expect(fit({ ...short, bar: wideBar }).margin).toBe(fit(short).margin)
+    }
+  })
+
+  test('from four bars tall the reserved board keeps half the host', () => {
+    const wideBar = { width: 300, height: 40 }
+    const v = fit({ ...tall, hostHeight: 160, bar: wideBar })
+    expect(v.margin).toBeGreaterThan(fit({ ...tall, hostHeight: 160 }).margin)
+    expect(v.H * v.cellPx).toBeCloseTo(80, 9)
+  })
+
+  test('withBar refits a fitted view', () => {
+    expect(withBar(fit(tall), bar)).toEqual(fit({ ...tall, bar }))
+  })
+
+  test('withBar keeps the scale of a zoomed view', () => {
+    const zoomed = zoomBy(fit(tall), 2)
+    const v = withBar(zoomed, bar)
+    expect(v.cellPx).toBe(zoomed.cellPx)
+    expect(v.fitted).toBe(false)
   })
 })
