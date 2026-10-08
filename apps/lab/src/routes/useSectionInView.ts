@@ -7,6 +7,8 @@ import { sectionOf } from './DocsNav'
 const LINE = 0.2
 /** The gap left above a heading the panel is scrolled to. */
 const GAP = 8
+/** How long the panel must stay still to count as a scroll that ended, where `scrollend` is missing. */
+const PAUSE = 100
 
 /**
  * The documentation panel's scrolling: it scrolls to the section an address
@@ -23,7 +25,9 @@ const GAP = 8
  * of the way down the panel, or the first when none has. An
  * `IntersectionObserver` rooted on the panel, its bottom pulled up to that
  * line, calls when a heading crosses it, and the callback reads the geometry
- * rather than the entries, so the answer never depends on one batch.
+ * rather than the entries, so the answer never depends on one batch. A scroll
+ * that carries a heading past the whole band in one step (End, a scrollbar
+ * drag) changes no intersection, so the line is read once more as it ends.
  *
  * Until the reader scrolls, the section in view is the one the navigation
  * named: otherwise jumping to the last section of a page too short to bring
@@ -65,14 +69,27 @@ export function useSectionInView(panel: RefObject<HTMLElement | null>, sections:
       const line = frame.top + box.clientHeight * LINE
       let inView = first
       for (const heading of headings) if (heading.getBoundingClientRect().top <= line) inView = heading.id
-      setReading({ key, id: inView })
+      setReading((was) => (was?.key === key && was.id === inView ? was : { key, id: inView }))
     }
     const observer = new IntersectionObserver(pick, {
       root: box,
       rootMargin: `0px 0px -${(1 - LINE) * 100}% 0px`,
     })
     for (const heading of headings) observer.observe(heading)
-    return () => observer.disconnect()
+    // `scrollend` is Chrome 114+ but Safari 26.2+, and the lab supports Safari 16: without it, a pause stands in.
+    const ends = 'onscrollend' in box
+    let pause = 0
+    const paused = () => {
+      clearTimeout(pause)
+      pause = window.setTimeout(pick, PAUSE)
+    }
+    const settled = ends ? pick : paused
+    box.addEventListener(ends ? 'scrollend' : 'scroll', settled, { passive: true })
+    return () => {
+      observer.disconnect()
+      box.removeEventListener(ends ? 'scrollend' : 'scroll', settled)
+      clearTimeout(pause)
+    }
   }, [panel, sections, first])
 
   if (reading !== null && reading.key === location.key) return reading.id
