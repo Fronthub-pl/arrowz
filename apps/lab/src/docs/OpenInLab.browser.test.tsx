@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import { page } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
+import { docsChunk } from '../harness/docsChunk'
 import { resetApp } from '../harness/mountApp'
 import { useStore } from '../state/store'
 import { decodeHash } from '../state/url'
@@ -29,5 +30,6 @@ test('Open in lab waits while a series runs, as the palette row does', async () 
   history.replaceState(null, '', '/docs/arrowz')
   const screen = await render(<App />)
   useStore.setState((state) => ({ series: { ...state.series, phase: 'running' } }))
+  await docsChunk()
   await expect.element(screen.getByRole('button', { name: LABEL })).toBeDisabled()
 }, 40_000)
