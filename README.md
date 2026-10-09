@@ -146,12 +146,7 @@ pnpm nx run-many -t verify        # everything, the lab and the board element in
 The Deno tests include reference boards that must come out identical every
 time, and each package README is compared with its code by a test, so a README
 that drifts from the code fails the checks. The repository's rules for code
-and comments are in [CLAUDE.md](CLAUDE.md).
-
-Opening the repository in Claude Code runs `jbcontext index --silent` through
-the hooks in `.claude/settings.json` (at the start and end of a session), and
-`.mcp.json` starts `jbcontext mcp`. Both run a program installed on your
-machine, so read them before you trust the folder.
+and comments are in [AGENTS.md](AGENTS.md), which coding agents read too.
 
 ## Licence
 

@@ -1,4 +1,4 @@
-// Guards the comment rule in CLAUDE.md ("Comments say why, once, in the
+// Guards the comment rule in AGENTS.md ("Comments say why, once, in the
 // fewest lines") over the lab, the board element, the engine and the CLI:
 // no history markers in comment text, no block over 6 lines, and no module or
 // API header over 24. Only comment text is scanned, so test names and
@@ -116,7 +116,7 @@ Deno.test('the comment guard walks the lab, the board element, the engine and th
       'engine/engine.ts',
       'engine/scripts/node-smoke.mjs',
       'cli/carve.ts',
-      'cli/scripts/jev-guard.ts',
+      'cli/scripts/record-doc-images.ts',
     ]
   ) {
     assert(files.some((p) => p.endsWith(f.split('/').join(SEPARATOR))), `${f} not found: the walk is wrong`)
