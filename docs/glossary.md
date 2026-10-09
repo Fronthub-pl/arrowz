@@ -21,7 +21,7 @@ fields and stored boards never change with the wording.
 | seed | ziarno | `seed` | [README](../README.md#words) |
 | cell | komórka (kom.) | – | One square of the board; also the unit of lengths and of the look's sizes. |
 | complete, filled | pełna, wypełniona | `ok` | [CLI README](../packages/cli/README.md#words) |
-| stuck | utknąć | – | [CLI README](../packages/cli/README.md#words) |
+| stuck | utknąć | `stuck` | [CLI README](../packages/cli/README.md#words) |
 | lay, place | układać | `carve` | What the generator does with each new arrow. |
 | backtrack | nawrót | `maxBack` | Taking placed arrows back after getting stuck. |
 | skeleton | szkielet | `giants` | [CLI README](../packages/cli/README.md#words) |
@@ -40,7 +40,7 @@ fields and stored boards never change with the wording.
 | empty patch, leftover | pusta łatka, resztka | `absorbLimit` | Empty cells no new arrow fits; a neighbouring arrow takes them over. |
 | safe range | bezpieczny zakres | `PARAM_SPEC` bounds, `RULES` | [CLI README](../packages/cli/README.md#words) |
 | setting | ustawienie | – | One control of the generator; the command line says *knob*. |
-| look | wygląd | `preview` | The lab's visual settings. |
+| look | wygląd | `View`, `view` | The lab's visual settings. |
 | background | tło | `paper` | The board's background colour. |
 | arrow colour | kolor strzałek | `ink` | The colour of every arrow while multicolour is off. |
 | automatic colours | automatycznie | `hueOf` | Colours spread around the colour wheel, one per arrow. |
@@ -48,8 +48,9 @@ fields and stored boards never change with the wording.
 
 ## Retired words
 
-A test refuses these words, matched as whole words and in any case. Each one
-names something the table above already has a word for.
+A test refuses these words, matched in any case: as whole words in English
+(`absorb` as the start of a word, `golden-angle` anywhere), as word stems in
+Polish. Each one names something the table above already has a word for.
 
 | Retired (English) | Use instead |
 |---|---|
@@ -77,10 +78,10 @@ names something the table above already has a word for.
 | Retired (Polish) | Use instead |
 |---|---|
 | element (for an arrow) | strzałka |
-| domknięta, domykanie | pełna, wypełniona |
+| domknięta | pełna, wypełniona |
 | zaklinować, zacinać, zacięcie | utknąć |
 | sonda | zadana długość |
-| wycięcie, wycinać | układać, nawrót |
+| wycięcie, wycinać | układać, nawrót (in the backtrack budget) |
 | prostota | prostość |
 | podziałka | komórka (kom.) |
 | papier | tło |
@@ -89,7 +90,7 @@ names something the table above already has a word for.
 | wchłanianie | doklejać, zajmować |
 | serpentyna | kręty szkielet, bieg |
 | kubeł, koszyk | rozmiar: krótkie, średnie, długie |
-| fragment | łatka, resztka |
+| fragment | pusta łatka, resztka |
 | generacja | generowanie |
 | pokrętło | ustawienie |
 | siatka punktów | siatka kropek |

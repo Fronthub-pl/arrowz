@@ -14,13 +14,13 @@ described in [the design](../design.md).
 
 For each shape, walk the straightness up from 0.6 in steps of 0.05 until all
 three seeds fill the board. That value is the shape's floor. 47 boards, three
-seeds a point, restarts off (a restart hides a jam behind a second draw),
+seeds a point, restarts off (a restart hides a stuck run behind a second draw),
 every other knob at its default, and the envelope bypassed (`unchecked`),
 because the rule under test is the one that refuses most of these boards.
 
 The decisive points are pairs of **equal area and different shape**, and
 rectangles whose equivalent square lands just under a step of the rule, where
-a jam would hide if the mean were too generous.
+a board would get stuck if the mean were too generous.
 
     mkdir -p /tmp/arrowz-measure
     deno run --allow-read --allow-write packages/engine/scripts/measure-straight-floor-shape.ts [seeds] [budgetS] [out] [labels]
@@ -51,12 +51,12 @@ longer side, `mean` the equivalent square, `min` the shorter side.
 Scored against the eleven shapes:
 
 - **The longer side**: right on 3, one step over on 2, **two to four steps
-  over on 6**. It never allows a jam, but it refuses a strip of four thousand
-  cells the straightness of a million.
+  over on 6**. It never lets a board get stuck, but it refuses a strip of four
+  thousand cells the straightness of a million.
 - **The equivalent square**: right on 9, one step over on 2 (350x1000 and
   700x700), never under.
-- **The shorter side**: allows a jam on three shapes; 480x1000, 490x1000 and
-  810x1000 all need more than it grants. Rejected.
+- **The shorter side**: lets boards get stuck on three shapes; 480x1000,
+  490x1000 and 810x1000 all need more than it grants. Rejected.
 
 `straight-floor.test.ts` holds these shapes as `SHAPES` and checks that the
 rule is never under a shape's floor and never more than one step over it.
@@ -66,8 +66,8 @@ rule is never under a shape's floor and never more than one step over it.
 **The equal-area pairs.** 490x1000 and 700x700 hold the same 490 000 cells:
 the rectangle needed 0.70, the square 0.65, one step apart, with the mean
 predicting 0.70 for both. 810x1000 and 900x900 hold 810 000 cells: both
-needed **exactly 0.75**. The longer side would put the halves of each pair
-one and two steps apart; the shorter side two steps apart the other way.
+needed **exactly 0.75**. The longer side would put the halves of the pairs
+two steps and one step apart; the shorter side would too, the other way.
 
 **The step lands where the jump is.** The rule steps at an equivalent square
 of 700. 480x1000 has a mean of 692.8 and filled at 0.65, with 0.6 failing on

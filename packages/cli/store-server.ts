@@ -2,7 +2,8 @@
 // POST save a board file, DELETE one) and the stored files themselves under
 // /store/. The files answer to /store/ and not to /boards/ because /boards is
 // the lab application's library route and /boards/<size>/<id> is a board's own
-// address there; the directory on disk is unchanged. Nothing else is served: this process has no page of its own.
+// address there; on disk the directory is still `boards/`. Nothing else is
+// served: this process has no page of its own.
 // Run: deno task store (store.sh scopes the permissions: net on 127.0.0.1,
 // read and write of the store, one env var).
 import { extname, join, normalize, resolve, SEPARATOR } from '@std/path'

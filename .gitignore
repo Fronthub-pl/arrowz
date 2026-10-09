@@ -5,10 +5,7 @@ dist/
 .vitest/
 .DS_Store
 *.local
-.basic-memory/
 packages/cli/boards/
-.claude/worktrees/
-.superpowers/
 
 # Credentials never enter the repository (the Firebase slice brings a service account).
 .env
@@ -17,9 +14,14 @@ packages/cli/boards/
 *service-account*.json
 *serviceAccount*.json
 
-# Personal tooling stays out of the repository: a maintainer keeps theirs in a
-# private checkout under .maintainer/, linked into these paths.
+# Personal tooling stays out of the repository. A maintainer keeps theirs in a
+# private checkout under .maintainer/ and links or writes it into these paths;
+# skill installers write .agents and skills-lock.json. No trailing slash where
+# the path may be a symlink: `dir/` does not match one.
 .maintainer
+.basic-memory/
+.superpowers/
+.claude/worktrees/
 .claude/settings.local.json
 .claude/agents
 .claude/skills

@@ -3,8 +3,9 @@
  * closure, at the project ceiling of 1000x1000? Result in
  * docs/measurements/r1-r2.md.
  *
- * `backbite` is a knob, and at 0 the carver makes no backbite: 0 is the
- * default engine cell for cell, which the fingerprint column checks against generate().
+ * `backbite` is a knob; at 0, its default, the carver never bites, so the board
+ * is the default engine's cell for cell, which the fingerprint column checks
+ * against generate().
  *
  * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r2-backbite.ts [side] [seeds] [budgetS] [out]
  */

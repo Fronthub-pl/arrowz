@@ -3,10 +3,9 @@
 ## Language
 
 - **Everything in the repository is in English**: code, identifiers, comments,
-  tests, documentation (specs, plans, README), branch names, commit messages,
-  pull request titles and descriptions.
-- **Conversation with the user is in Polish.** Only the chat is Polish; nothing
-  Polish goes into files, except translation dictionaries of user-facing text.
+  tests, documentation (README files and `docs/`), branch names, commit
+  messages, pull request titles and descriptions. Nothing Polish goes into
+  files, except translation dictionaries of user-facing text.
 - **User-facing tools ship bilingual UI (Polish and English).** The lab
   (`apps/lab`) has a language switch; every visible string, parameter label,
   help text and "inactive" reason lives in the dictionary
@@ -36,18 +35,16 @@
   runs the worker `vite build` emits and checks its board against the engine's,
   so what the browser loads is gated, not merely compiled.
 - `pnpm nx serve lab` and the rest of the Nx targets need
-  `corepack enable pnpm && pnpm install` once. The Deno gates no longer do:
-  the only file under `packages/` that imported the board element was the lab
-  page, so `deno task check` and `deno task lint` pass with no `node_modules`
-  at all (measured after the deletion by moving
-  `packages/board-element/node_modules` aside).
+  `corepack enable pnpm && pnpm install` once. The Deno gates do not:
+  nothing under `packages/` imports the board element, so `deno task check` and
+  `deno task lint` pass with no `node_modules`.
 - No attribution lines in commit messages or PR descriptions.
 
 ## Comments
 
 **Comments say why, once, in the fewest lines.**
 - Comment non-obvious code only: a browser quirk, an ordering constraint, a number that was measured. One line is the default and three is normal. Anything over 6 lines must be a module or API header. Put longer rationale in `docs/` and link to it.
-- No history in code. Do not write PR, round, task, review, handoff, Ruling, "harness fact" or "used to / revision 1" references in comments; that belongs in commit messages and PRs. When a spec constraint matters, state the constraint itself.
+- No history in code. Do not refer to PRs, tasks, review rounds or planning labels (handoff, Ruling, "harness fact"), nor to earlier versions ("used to", "revision 1"), in comments; that belongs in commit messages and PRs. When a spec constraint matters, state the constraint itself.
 - Cite symbols, never `file.ts:NN`.
 - Say each explanation once, next to the code that enforces it. Other places point to the symbol ("see `twoFrames`").
 - In tests, the test name carries the *what*. A comment explains only setup that looks arbitrary (this viewport, this mock, this wait) or, in one sentence, what this case catches that a similar case cannot. The story of how the test was found (mutations run, review rounds) goes in the commit.

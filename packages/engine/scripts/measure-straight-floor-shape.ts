@@ -2,13 +2,14 @@
  * What drives the straightness floor: the longer side, the area, or the
  * shorter side? Result in docs/measurements/straight-floor-shape.md.
  *
- * `straightFloor` reads `Math.max(W, H)`, a rule fitted on squares only, where
- * every candidate rule agrees. This run measures rectangles: for each shape it
- * walks the straightness up from 0.6 until every seed closes, and that value is
- * the shape's floor. The decisive points are pairs of equal area and different
- * shape (490x1000 against 700x700, 810x1000 against 900x900): the longer side
- * says the halves of a pair differ, the area says they agree, the shorter side
- * says the rectangles are easier still.
+ * The floor was fitted on squares, where every candidate rule agrees. This run
+ * measures rectangles, to decide what `straightFloor` should read: the longer
+ * side, the area or the shorter side (it now reads the area's square root).
+ * For each shape it walks the straightness up from 0.6 until every seed
+ * closes, and that value is the shape's floor. The decisive points are pairs
+ * of equal area and different shape (490x1000 against 700x700, 810x1000
+ * against 900x900): the longer side says the halves of a pair differ, the
+ * area says they agree, the shorter side says the rectangles are easier still.
  *
  * The envelope is bypassed (`unchecked`), because the rule under test is the
  * one that would refuse most of these boards.

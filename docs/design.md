@@ -21,6 +21,8 @@ the generator promises and its API, and
 
 A board is a grid of `W × H` cells covered by arrows (the code calls an arrow
 a _piece_). Every cell belongs to exactly one arrow; there are no empty cells.
+(A board file can also carry holes and unfilled cells, see [the board
+file](board-file.md); a complete generated board has neither.)
 
 An arrow is a path over the grid: it steps up, down, left or right, and never
 visits a cell twice. It may touch itself side by side, as a spiral does. One
@@ -88,8 +90,8 @@ remove them. The code calls this _carving_ (`Carver`, `carveOne` in
 
 At the start every cell is uncovered. The generator builds arrows
 `q1, q2, …, qN` one after another, where `q1` is the arrow the player removes
-first. Arrow `qj` may be built only if its path to the edge runs entirely over
-cells that are already covered, by earlier arrows, or that are its own. The
+first. Arrow `qj` may be built only if its path to the edge runs only over
+cells already covered by earlier arrows, or over its own cells. The
 generator stops when no uncovered cell is left, so the board is always full.
 
 The same test is the engine's move rule run backwards: the cells an arrow
@@ -143,12 +145,13 @@ When the body grows, each candidate cell is weighted up the fewer uncovered
 neighbours it has (the `warns` setting), so dead ends are eaten before they
 are sealed off. It improves both how often a board fills and how it looks, because
 eating dead ends makes the arrows turn. The safe range does not let it be
-switched off.
+switched off. Only skeleton arrows skip it.
 
 ### When the generator gets stuck
 
 Sometimes no legal arrow can be added while cells are still uncovered. The
-generator then tries, in order (`Carver.run`):
+generator then tries, in order (`Carver.run`, and `generate` for the last
+step):
 
 1. letting a neighbouring arrow's tail grow over a small leftover
    (`absorbLeftover`, up to `absorbLimit` cells), which changes no head and so
@@ -223,10 +226,12 @@ The engine refuses rather than repairs. `validateParams` returns one
 violation per setting out of range or off its step and one per broken rule;
 `generate` throws `InvalidParamsError` with that list before it builds a
 single cell. The command line prints the violations and exits with code 2;
-the lab marks the settings and will not generate until they are fixed. Only
-values loaded from outside (a URL, a stored board) are pulled into range,
-with `clampParam`. The defaults, the presets and every value of the everyday
-settings sit inside the safe range.
+the lab keeps every value it commits inside its range and on its step
+(`clampParam`, also for a URL or a stored board), marks broken cross-setting
+rules, and will not generate until they are fixed. The defaults, the presets
+and every value of the [everyday
+settings](../packages/cli/README.md#the-everyday-settings) sit inside the
+safe range.
 
 The measurements behind the limits are in
 [HISTORY.md](../packages/engine/HISTORY.md), rounds 11, 12 and 14.

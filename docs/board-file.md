@@ -43,7 +43,7 @@ the `id` that `--dry-run` prints. A 1000×1000 board file is about a megabyte.
 | `v` | The format version, `1` (`BOARD_FILE_VERSION`). See [Versions](#versions). |
 | `W`, `H` | Width and height in cells, each within the generator's own range for the side (`PARAM_SPEC`, 4 to 1000). |
 | `pieces` | How many arrows the board holds. |
-| `voids` | How many cells are holes left on purpose (`-2` in `owner`). |
+| `voids` | How many cells are holes left on purpose, what the code calls voids (`-2` in `owner`). Only test and measurement boards have them, through `generate`'s `voidFrac`. |
 | `unfilled` | How many cells no arrow filled (`-1` in `owner`); `0` on a complete board. |
 | `fingerprint` | The board's `fingerprint()`, checked last when the file is read. |
 | `body` | The arrows and the holes, packed, in standard base64 with padding. |
@@ -75,8 +75,8 @@ starts with `02 1e 3f`: id 0 (a difference of 1 from -1, zigzag-encoded as
 2), head cell 30 (x 0, y 5), and 15 cells pointing left (15 · 4 + 3 = 63).
 The step stream starts with `55`: four steps right.
 
-The module carries its own base64, so it needs no platform API and runs
-unchanged in Deno, Node and a browser worker.
+The codec carries its own base64 and needs no platform API; `layoutHash`
+uses Web Crypto, which Deno, Node and a browser worker all have.
 
 ## Reading a file
 
@@ -95,8 +95,9 @@ message, when:
 - the base64 is malformed, the body ends early, has bytes left over, or
   holds a number longer than five bytes;
 - an id is negative, repeats, or is not below the number of cells;
-- a head or a step leaves the board, two arrows share a cell, or an arrow
-  has no cells or more cells than the board;
+- a head or a step leaves the board, an arrow runs into a cell that is
+  already taken, by another arrow or by itself, or an arrow has no cells or
+  more cells than the board;
 - the step stream is not padded with zero bits;
 - a hole is listed twice, lies outside the board, or holds an arrow;
 - the header's `voids` or `unfilled` disagree with the body;
@@ -202,7 +203,8 @@ is set:
 
 The store server (`deno task store`) serves the files under
 `/store/<W>x<H>/<name>` and takes saves through `POST /api/boards`. The
-lab names its board-file download `sha256-<hex>.board.json`, and when it
-opens a board file with a meta beside it, it keeps the meta only if its `id`
-is the board's layout hash. The everyday view of the store is in
+lab names the board-file download of a run or a stored board
+`sha256-<hex>.board.json`, while an opened file keeps its own name. When it
+opens a board file with a meta beside it, it refuses the pair unless the
+meta's `id` is the board's layout hash. The everyday view of the store is in
 [the command line's README](../packages/cli/README.md#where-boards-are-saved).
