@@ -33,7 +33,7 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
 
 | Draft spec | Now | Why |
 |---|---|---|
-| CLI as `deno compile` binaries in 5 platform packages + a shim (8 npm packages) | CLI as one plain JS package | Binaries are 29–35 MB each (~190 MB per release) and only cover 6 OS/CPU pairs with glibc ≥ 2.27; built inside the repo they were 327 MB because `deno compile` embedded the whole `node_modules`. The JS package is ~6 kB, runs wherever Node ≥ 22 or Deno runs (incl. Alpine and Windows on ARM), and removes cross-compiling, the shim and 5 bootstraps. Porting the CLI's 48 Deno API calls to `node:fs`/`node:process`/`node:path` changed 43 lines in a test. |
+| CLI as `deno compile` binaries in 5 platform packages + a shim (8 npm packages) | CLI as one plain JS package | Binaries are 29–35 MB each (~190 MB per release) and only cover 6 OS/CPU pairs with glibc ≥ 2.27; built inside the repo they were 327 MB because `deno compile` embedded the whole `node_modules`. The JS package is ~6 kB, runs wherever Node ≥ 22 or Deno runs (incl. Alpine and Windows on ARM), and removes cross-compiling, the shim and 5 bootstraps. Porting the CLI's 48 Deno API calls to `node:fs`/`node:process`/`node:path` changed 43 lines in a trial port. |
 | One shared version (lockstep) `1.0.0-alpha.2` | Independent versions per package, starting at `0.1.0` | Goal 6. SemVer: `0.y.z` is initial development and its FAQ says start at `0.1.0`. A normal `0.1.0` becomes npm `latest` by itself; alphas need explicit dist-tags and caret ranges let breaking alphas through. |
 | Engine pinned exactly (`workspace:*`) | `workspace:^` | Measured with Changesets: with `*`, every engine patch also re-releases the board; with `^` it does not. |
 | Engine on JSR too | Deferred | Second registry, second trust setup, slow-type fixes, and JSR ignores prereleases; Deno imports `npm:` packages natively. |
@@ -74,7 +74,7 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
    `pnpm changeset version && pnpm install --lockfile-only`, commit, open a PR
    ("Version Packages"). It contains the new versions and changelog entries,
    and any changesets contributors forgot. CI runs on it like on any PR.
-3. He merges it. `release.yml` runs on a push to `main` that touches
+3. The maintainer merges it. `release.yml` runs on a push to `main` that touches
    `packages/*/CHANGELOG.md` (only version PRs do), or on "Run workflow"
    (`workflow_dispatch`); `concurrency: release` keeps one run at a time.
    A second `npm stage publish` of an already staged version is refused by npm,
@@ -95,7 +95,7 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
      `npm i -g npm` inside this job), then `npm stage publish <tgz>` for each planned
      tarball, dependencies first (engine → board → CLI). Authentication is OIDC
      trusted publishing: no token is stored anywhere. Provenance is attached.
-4. npm emails the maintainer. He opens npmjs.com → package → Staged, checks it,
+4. npm emails the maintainer, who opens npmjs.com → package → Staged, checks it,
    and approves with 2FA (one approval per package version; a typical release
    is 1–2). **Approve the engine first**, then board/CLI: npm does not enforce
    order, and a dependent approved first fails to install (ETARGET) until the
@@ -106,8 +106,8 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
 ## 4. First release (bootstrap), once per new package
 
 npm lets you add a trusted publisher only to a package that already exists, and
-an unused trusted-publisher entry expires if it is not used for a publish
-within 2 days. Order:
+a trusted-publisher entry expires if no publish uses it within 2 days of
+its creation. Order:
 
 0. Before bootstrap day: `release.yml` has run green up to `stage` (which fails
    for packages that do not exist yet), and the whole flow was rehearsed once on
@@ -123,6 +123,7 @@ within 2 days. Order:
    CI stages them; approve on npm. `0.1.0` becomes `latest`, with provenance.
 4. `npm deprecate <name>@0.0.0 "placeholder"`; check `npm dist-tag ls` shows
    `latest` = `0.1.0`.
+
 If the trusted-publisher entry expires (unused for 2 days), delete and recreate
 it; entries cannot be edited.
 
@@ -195,7 +196,7 @@ it; entries cannot be edited.
 
 Day one:
 - `main` ruleset: keep PR-required with 0 approvals (a solo author cannot
-  approve himself), add the CI check as **required**, keep force-push and
+  approve their own PR), add the CI check as **required**, keep force-push and
   deletion blocked.
 - Tag ruleset for `refs/tags/@fronthub/arrowz-*@*`: block **updates and
   deletions** (creations stay open so the workflow can tag).
@@ -237,5 +238,5 @@ bootstrap.
 - Whether a rejected staged version can be re-staged with the same number
   (docs imply yes).
 - The exact npm error text for "already staged".
-- Whether the `0.0.0-stage`/`0.0.0` placeholder keeps `latest` after 0.1.0
+- Whether the `0.0.0` placeholder keeps `latest` after 0.1.0
   (check with `npm dist-tag ls`).
