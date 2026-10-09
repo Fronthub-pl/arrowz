@@ -2924,12 +2924,13 @@ export function snapToStep(value: number, step: number, min: number): number {
 }
 
 /**
- * Pulls a value loaded from outside (URL, preset, stored board) into the
- * knob's range and onto its grid; anything that is not a finite number (an
- * emptied field) falls back to the default. The grid matters too: a value
- * between two stops is a step violation no control can fix. A cross-knob rule
- * (a straightness floor that depends on the board size) is never clamped: the
- * surface shows it and the run refuses, so no value moves unrecorded.
+ * Pulls a value into the knob's range and onto its grid. Every value the lab
+ * commits passes through it, typed or loaded from a URL, preset or stored board;
+ * anything that is not a finite number (an emptied field) falls back to the
+ * default. The grid matters too: a value between two stops is a step violation
+ * no control can fix. A cross-knob rule (a straightness floor that depends on
+ * the board size) is never clamped: the surface shows it and the run refuses,
+ * so no value moves unrecorded.
  */
 export function clampParam(spec: ParamSpec, value: number): { value: number; clamped: boolean } {
   if (!Number.isFinite(value)) return { value: spec.def, clamped: true }
