@@ -10,8 +10,8 @@ export const ISOLATION = {
   'Cross-Origin-Embedder-Policy': 'require-corp',
 }
 
-// The React Compiler, measured in `lab-review.md` (refactor 11); `LAB_REACT_COMPILER=0`
-// leaves plain `react()`, for an A/B run.
+// The React Compiler cuts renders on a knob drag by 19–47% (production builds,
+// measured) for 15% more gzip; `LAB_REACT_COMPILER=0` leaves plain `react()`, for an A/B run.
 export function reactPlugins(): PluginOption[] {
   if (process.env['LAB_REACT_COMPILER'] === '0') return [react()]
   return [react(), babel({ presets: [reactCompilerPreset()] })]

@@ -1,7 +1,7 @@
 /**
  * What does trap-lever head scoring COST at 1000x1000, and is an O(ray) read
  * affordable inside the ranking loop of carveOne? Result: O(ray) is not, the
- * O(1) table below is (see docs/superpowers/measurements/2026-09-12-r1-r2-measurements.md).
+ * O(1) table below is (see docs/measurements/r1-r2.md).
  *
  * Two numbers per cut, sampled every `stride` cuts:
  *   heads   - pairable head candidates (what carveOne ranks),

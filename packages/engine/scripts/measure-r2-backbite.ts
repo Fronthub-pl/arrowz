@@ -1,11 +1,11 @@
 /**
  * What does the tail backbite do to stalls, to the leftover test and to
  * closure, at the project ceiling of 1000x1000? Result in
- * docs/superpowers/measurements/2026-09-12-r1-r2-measurements.md (section 10.1 of
- * docs/superpowers/specs/2026-09-12-prior-art-adoption-design.md).
+ * docs/measurements/r1-r2.md.
  *
- * `backbite` is a Carver option, not a knob (see CarverOptions): 0 is the
- * default engine cell for cell, which the fingerprint column checks against generate().
+ * `backbite` is a knob; at 0, its default, the carver never bites, so the board
+ * is the default engine's cell for cell, which the fingerprint column checks
+ * against generate().
  *
  * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r2-backbite.ts [side] [seeds] [budgetS] [out]
  */

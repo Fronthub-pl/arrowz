@@ -1,7 +1,7 @@
 /**
  * What does the trap lever do to each difficulty level, on the preset options
  * as they ship? Result (the lever cannot carry a difficulty ladder) in
- * docs/superpowers/measurements/2026-09-12-r1-r2-measurements.md.
+ * docs/measurements/r1-r2.md.
  *
  * A trap count is not comparable across sizes (a 25x25 board has a few dozen
  * pieces, a 1000x1000 board ninety thousand), so both the count and the share

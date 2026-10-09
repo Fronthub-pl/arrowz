@@ -1,7 +1,6 @@
-// A board as a file: what the CLI writes, Cloud Storage keeps and the board
+// A board as a file: what the CLI writes, the store keeps and the board
 // element draws once decodeBoard has read it. A JSON envelope a person can
-// read around a packed body only this module reads (design:
-// docs/superpowers/specs/2026-09-11-board-data-model-design.md, section 2).
+// read around a packed body only this module reads (docs/board-file.md).
 //
 // The body, in order:
 //   1. per piece, in the order of board.pieces: varint zigzag(id - previous
@@ -210,7 +209,7 @@ const LAYOUT_TAG = 'arrowz-layout/1'
 /**
  * The name of a board's arrangement of arrows: `sha256-` and the 64 lowercase
  * hex digits of SHA-256 over a canonical form that leaves out piece ids and
- * carving order (design: docs/superpowers/specs/2026-09-15-layout-hash-design.md, §1).
+ * carving order (docs/board-file.md#the-layout-hash).
  * Two recipes that carve the same arrows get the same name; `fingerprint`
  * tells them apart.
  *

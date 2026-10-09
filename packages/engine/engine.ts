@@ -2718,12 +2718,12 @@ export function defaultParams(): Params {
  * The size is the EQUIVALENT SQUARE, the geometric mean of the two sides:
  * 250x1000 closes at 0.6 like the 500x500 of the same area, and equal-area
  * pairs land where the mean says they land
- * (docs/superpowers/measurements/2026-09-13-straight-floor-shape.md).
+ * (docs/measurements/straight-floor-shape.md).
  */
 export function straightFloor(p: Params): number {
   const nooks = p.warns <= 2 ? 1.5 : p.warns === 3 ? 1.2 : p.warns >= 6 ? 0.85 : 1
   // 0.9 for anticoil <= 4, not less: a floor of 0.7 at 1000x1000 failed 5 of 60
-  // runs and 0.75 closed all 60 (docs/superpowers/measurements/2026-09-27-envelope-leaks.md).
+  // runs and 0.75 closed all 60 (docs/measurements/envelope-leaks.md).
   const coiling = p.anticoil >= 7 ? 1.2 : p.anticoil <= 4 ? 0.9 : 1
   const side = Math.sqrt(p.W * p.H) * nooks * coiling
   const steps = Math.max(0, Math.floor((side - STRAIGHT_FREE) / STRAIGHT_STRIDE))
@@ -2743,7 +2743,7 @@ function inRange(p: Params, key: ParamKey): boolean {
  * skeleton arrows carved late, with no pull towards straight lines, leave a
  * board that never fills: at 1000x1000 the clean edge was 0.7 at a share of
  * 0.1, 0.75 at 0.15 and 0.8 at 0.2, and up to 0.05 any straightness closed
- * (docs/superpowers/measurements/2026-09-27-envelope-leaks.md). At or below
+ * (docs/measurements/envelope-leaks.md). At or below
  * 0.05 the bound is the knob's own minimum, so the rule says nothing.
  */
 export function giantStraightFloor(p: Params): number {
@@ -2924,12 +2924,13 @@ export function snapToStep(value: number, step: number, min: number): number {
 }
 
 /**
- * Pulls a value loaded from outside (URL, preset, stored board) into the
- * knob's range and onto its grid; anything that is not a finite number (an
- * emptied field) falls back to the default. The grid matters too: a value
- * between two stops is a step violation no control can fix. A cross-knob rule
- * (a straightness floor that depends on the board size) is never clamped: the
- * surface shows it and the run refuses, so no value moves unrecorded.
+ * Pulls a value into the knob's range and onto its grid. Every value the lab
+ * commits passes through it, typed or loaded from a URL, preset or stored board;
+ * anything that is not a finite number (an emptied field) falls back to the
+ * default. The grid matters too: a value between two stops is a step violation
+ * no control can fix. A cross-knob rule (a straightness floor that depends on
+ * the board size) is never clamped: the surface shows it and the run refuses,
+ * so no value moves unrecorded.
  */
 export function clampParam(spec: ParamSpec, value: number): { value: number; clamped: boolean } {
   if (!Number.isFinite(value)) return { value: spec.def, clamped: true }

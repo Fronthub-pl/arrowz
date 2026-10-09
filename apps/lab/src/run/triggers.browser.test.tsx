@@ -78,7 +78,7 @@ afterEach(() => {
   history.replaceState(null, '', location.pathname)
 })
 
-describe('what starts a run (spec §2.2)', () => {
+describe('what starts a run', () => {
   // Fake timers go on *after* the render and without `shouldAdvanceTime`, and
   // the assertions are plain `expect`: `expect.element` polls, and a poll
   // against a frozen clock hangs rather than fails.

@@ -112,13 +112,15 @@ pnpm nx serve lab                      # the lab on http://localhost:8779
 | [`packages/board-element/`](packages/board-element/README.md) | `<arrowz-board>`: a web component that draws a board on the GPU and plays it, usable from plain HTML or any framework. |
 | [`apps/lab/`](apps/lab/README.md) | The lab: a React application for trying settings, with the board, its measurements, the reproducing command and a library of saved boards. |
 | [`packages/engine/HISTORY.md`](packages/engine/HISTORY.md) | The engineering log: every measurement, dead end and decision behind the generator. |
-| `docs/superpowers/specs/` | The design documents, including the full rules of the game. |
+| [`docs/design.md`](docs/design.md) | How Arrowz works: the exact rules, why every board can be cleared, and the generator's safe range. |
+| [`docs/board-file.md`](docs/board-file.md) | The `.board.json` format, the fingerprint and the layout hash that names stored boards. |
+| [`docs/glossary.md`](docs/glossary.md) | The words a player reads, in English and Polish, and the retired words a test keeps out. |
+| [`docs/measurements/`](docs/measurements/) | The measurements that code comments cite for their numbers. |
 | `docs/images/` | The pictures of these READMEs; `manifest.json` holds the command behind each, and `deno task docs` draws them again. |
 
 The code under `packages/` started as a throwaway prototype written to settle
 what makes a good board. It settled that, so it became the engine the game is
-built on; the game itself is built next to it in this repository (see
-`docs/superpowers/specs/2026-09-09-monorepo-design.md`).
+built on; the game itself is built next to it in this repository.
 
 ## Words
 

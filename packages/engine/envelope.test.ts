@@ -42,8 +42,7 @@ const withKnob = (key: ParamKey, value: number): Params => {
 /** A parameter set with junk in it, for the validation tests only: the one cast of this file. */
 const withRaw = (over: Record<string, unknown>): Params => ({ ...defaultParams(), ...over } as Params)
 
-// The measured envelope ("Parameter envelope" in
-// docs/superpowers/specs/2026-09-07-arrowz-design.md), narrowed further wherever
+// The measured safe range (docs/design.md#the-safe-range), narrowed further wherever
 // a knob's own arithmetic makes its far end mean nothing. Pinned here instead of
 // read from PARAM_SPEC, so a range drifting wider fails. `old` holds the wider
 // extremes it refuses; `with` holds the companion knobs a bound needs so that
@@ -315,7 +314,7 @@ Deno.test('rule startPair: only a pair --start can spell', () => {
 })
 
 // The edges measured at 1000x1000 on ten sets that never filled a board
-// (docs/superpowers/measurements/2026-09-27-envelope-leaks.md): for each
+// (docs/measurements/envelope-leaks.md): for each
 // wGiant, the highest giantStraight that still failed and the lowest that was
 // clean on every seed.
 const WANDER_EDGES: readonly (readonly [wGiant: number, failed: number, clean: number])[] = [
