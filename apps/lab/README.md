@@ -27,9 +27,10 @@ screenshots with the code both ways.
 ## Starting it
 
 The lab draws the board with the board element, which needs Lit: run
-`corepack enable pnpm && pnpm install` once at the top of the repository before
-the first start. The lab keeps its boards in the store, which is served by a
-small Deno program, so one command starts both:
+`pnpm install` once at the top of the repository before the first start (how
+to get pnpm: [CONTRIBUTING.md](../../CONTRIBUTING.md#what-you-need)). The lab
+keeps its boards in the store, which is served by a small Deno program, so one
+command starts both:
 
 ```sh
 pnpm nx serve lab      # the lab (8779) and, alongside it, the board store (8777)

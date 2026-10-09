@@ -1,0 +1,42 @@
+name: Bug report
+description: Something in the generator, the command line, the board element or the lab does not work as described.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A board that shows the problem is the fastest way to a fix:
+        attach the `.board.json`, or give the command that makes it (the lab shows it next to every board).
+  - type: dropdown
+    id: part
+    attributes:
+      label: Where
+      options:
+        - Generator (engine)
+        - Command line
+        - Board element (<arrowz-board>)
+        - Lab
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The command, the settings or the steps, and the board file if there is one.
+      placeholder: deno task carve --width=40 --height=40 --seed=1
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, and the Deno, Node or browser version that shows it.
+      placeholder: macOS 26, Deno 2.9.7, Chrome 141
