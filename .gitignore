@@ -16,3 +16,15 @@ packages/cli/boards/
 !.env.example
 *service-account*.json
 *serviceAccount*.json
+
+# Personal tooling stays out of the repository: a maintainer keeps theirs in a
+# private checkout under .maintainer/, linked into these paths.
+.maintainer
+.claude/settings.local.json
+.claude/agents
+.claude/skills
+.mcp.json
+CLAUDE.local.md
+.agents
+skills-lock.json
+.beads/

@@ -1,9 +1,8 @@
 // Comment text of TS/TSX and CSS sources, line by line: the extractor behind the
-// comment guard (`comments.test.ts`) and the Jev comment guard.
+// comment guard (`comments.test.ts`).
 type Line = { comment: string; code: string; inComment: boolean }
 export type CommentLine = { line: number; text: string; alone: boolean }
 
-// Shared with the Jev comment guard (`jev-guard.ts`), so the two never drift apart.
 export const MAX_BLOCK = 6
 export const MAX_HEADER = 24
 

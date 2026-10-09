@@ -25,6 +25,7 @@
       "**/node_modules/",
       ".nx/",
       ".beads/",
+      ".maintainer/",
       "pnpm-lock.yaml"
     ]
   },
@@ -43,8 +44,7 @@
     "**/dist/",
     "packages/cli/boards/",
     ".claude/",
-    ".agents/",
-    ".mcp.json"
+    ".maintainer/"
   ],
   "tasks": {
     "test": "deno test --allow-read --allow-write --allow-env --allow-run --allow-net packages/",
@@ -56,11 +56,6 @@
     "report": "deno task --cwd=packages/cli report",
     "docs": "deno run --allow-read --allow-write --allow-run --allow-env packages/cli/scripts/record-doc-images.ts",
     "store": "deno task --cwd=packages/cli store",
-    "compile": "deno task --cwd=packages/cli compile",
-    "jev": "deno run --allow-net=api.typesafe.ai --allow-read --allow-env=HOME,ARROWZ_TYPESAFE_ENV packages/cli/scripts/jev-guard.ts",
-    "jev:docs": "deno run --allow-net=api.typesafe.ai --allow-read --allow-env=HOME,ARROWZ_TYPESAFE_ENV packages/cli/scripts/jev-docs.ts",
-    "jev:eval": "deno run --allow-net=api.typesafe.ai --allow-read --allow-env --allow-run=git,gh packages/cli/scripts/jev-eval.ts",
-    "memory": "deno run --allow-net=api.typesafe.ai --allow-read --allow-env=HOME,ARROWZ_TYPESAFE_ENV --allow-run=gh,git packages/cli/scripts/memory-guard.ts",
-    "memory:eval": "deno run --allow-net=api.typesafe.ai --allow-read --allow-env packages/cli/scripts/memory-eval.ts"
+    "compile": "deno task --cwd=packages/cli compile"
   }
 }

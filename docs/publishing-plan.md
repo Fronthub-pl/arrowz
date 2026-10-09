@@ -178,7 +178,8 @@ it; entries cannot be edited.
   and `docs/jev-guards.md`, `docs/bead-guard.md`, `.github/workflows/jev.yml`
   (and the `TYPESAFE_API_KEY` secret is deleted), tracked `.beads/` files.
   Rule: anything that needs a key or a binary the public does not have lives
-  in the maintainer's private repo. Tests that reference them are updated.
+  in the maintainer's private repo. That repo is cloned into the git-ignored
+  `.maintainer/` and linked into place by its own setup script. Tests that reference them are updated.
 - Internal docs: first move the public knowledge (game rules, board-file format,
   layout hash, measurements cited by code comments) from `docs/superpowers/`
   into `docs/`, rewrite ~25 references, then remove `docs/superpowers/` and

@@ -1,0 +1,3 @@
+# Git-ignored files Claude Code copies into the worktrees it creates.
+.claude/settings.local.json
+CLAUDE.local.md
