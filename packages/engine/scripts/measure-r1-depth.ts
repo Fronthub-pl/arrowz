@@ -1,7 +1,7 @@
 /**
  * Is a piece's blocking depth already known at carve time, and what does its
  * distribution look like, so that head scoring has bands to aim at? Result in
- * docs/superpowers/measurements/2026-09-12-r1-r2-measurements.md.
+ * docs/measurements/r1-r2.md.
  *
  * The engine is not touched. `Carver` is exported, so the measurement is a
  * subclass that records, after every cut, the depth of the new piece as read

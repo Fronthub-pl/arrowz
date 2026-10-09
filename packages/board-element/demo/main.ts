@@ -197,7 +197,7 @@ function paintSession(): void {
 
 /**
  * Recounts from the board's own state, for a load and a restart, where no event
- * carries the number. `saveState()` fingerprints the whole board (spec §2), so
+ * carries the number. `saveState()` fingerprints the whole board, so
  * the removal listener below reads `left` off the event instead of calling this
  * on every single move.
  */
@@ -260,7 +260,7 @@ for (const type of EVENT_TYPES) {
 }
 $<HTMLButtonElement>('clear').addEventListener('click', () => events.clear())
 
-// ── The measurement of the spec (§11) ───────────────────────────────────────
+// ── Frame-time measurement ──────────────────────────────────────────────────
 
 /**
  * Scripted pan (60 frames, dragging the way the board's current gesture mode

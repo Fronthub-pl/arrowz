@@ -1,8 +1,8 @@
 // Store of generated boards: packages/cli/boards/<W>x<H>/<id>.board.json + <id>.json,
 // plus <id>.svg when a preview was asked for. The id is the board's layout hash
 // (`sha256-<64 hex>`): one arrangement of arrows has one set of files, whatever
-// seeds and parameters carved it, and its meta lists them as recipes (design:
-// docs/superpowers/specs/2026-09-15-layout-hash-design.md). Shared by the CLI
+// seeds and parameters carved it, and its meta lists them as recipes
+// (docs/board-file.md#names-in-the-store). Shared by the CLI
 // (carve.ts) and the store server. The directory is gitignored — a 1000×1000
 // board file is about a megabyte, and the commands in the meta reproduce it.
 import { dirname, fromFileUrl, join } from '@std/path'

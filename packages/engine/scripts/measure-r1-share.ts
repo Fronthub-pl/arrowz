@@ -1,6 +1,6 @@
 /**
  * Is the share of trap-ranked cuts monotone in the magnitude of `trapBias`?
- * Result (it is not, so the knob is three-state) in docs/superpowers/measurements/2026-09-12-r1-r2-measurements.md.
+ * Result (it is not, so the knob is three-state) in docs/measurements/r1-r2.md.
  *
  * Sweeps the interior of the range at 1000x1000 and reports the trap count per
  * point, three seeds per point: seeds spread up to 2x at the low corner, so a

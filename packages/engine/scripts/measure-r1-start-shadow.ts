@@ -1,6 +1,6 @@
 /**
  * Two paths no other trap-lever run takes; result in
- * docs/superpowers/measurements/2026-09-12-r1-r2-measurements.md.
+ * docs/measurements/r1-r2.md.
  *
  * A. Does trapBias shadow `--start`? The ranking branch is a chain
  *    `if (trapBias !== 0) ... else if (freeBias !== 0) ... else if (bias !== 0)`

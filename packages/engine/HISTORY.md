@@ -247,8 +247,8 @@ their command exits with code 2.
 6. **The length distribution does not deliver what was ordered** — 28–47% of paths get stuck, the achieved
    mean is ~30% lower than the ordered one.
 
-Details and conclusions recorded in `docs/superpowers/specs/2026-09-07-arrowz-design.md`
-(§7, §9, §11, §13, §14).
+The rules and the generator as they stand today are in
+[docs/design.md](../../docs/design.md#how-the-generator-builds-a-board).
 
 ## Round 2 — board appearance
 

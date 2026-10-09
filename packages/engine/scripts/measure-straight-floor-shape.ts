@@ -1,6 +1,6 @@
 /**
  * What drives the straightness floor: the longer side, the area, or the
- * shorter side? Result in docs/superpowers/measurements/2026-09-13-straight-floor-shape.md.
+ * shorter side? Result in docs/measurements/straight-floor-shape.md.
  *
  * `straightFloor` reads `Math.max(W, H)`, a rule fitted on squares only, where
  * every candidate rule agrees. This run measures rectangles: for each shape it

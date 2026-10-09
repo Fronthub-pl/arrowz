@@ -178,7 +178,7 @@ Deno.test('straightFloor: the floor a board of each size needs at the default wi
 })
 
 // The same walk on RECTANGLES, three seeds a point, restarts off
-// (docs/superpowers/measurements/2026-09-13-straight-floor-shape.md). On a
+// (docs/measurements/straight-floor-shape.md). On a
 // square the longer side, the shorter side and the equivalent square are one
 // number; these shapes tell them apart, and the carver's floor is the
 // equivalent square's. W, H, and the lowest straightness where all three closed.
@@ -232,7 +232,7 @@ Deno.test('straightFloor: the nook rule and the coiling penalty move the floor b
 
 // At 1000x1000 with anticoil 4, 0.7 failed 5 of 60 boards and 0.75 closed all
 // 60; at 600, 0.6 closed 60 of 60, so the discount holds there
-// (docs/superpowers/measurements/2026-09-27-envelope-leaks.md).
+// (docs/measurements/envelope-leaks.md).
 Deno.test('straightFloor: a low coiling penalty lowers the floor less on a large board', () => {
   const at = (side: number, pStraight: number) => withDefaults({ W: side, H: side, pStraight, anticoil: 4 })
   assert(refused(at(1000, 0.7)), '0.7 at 1000 failed 5 of 60')

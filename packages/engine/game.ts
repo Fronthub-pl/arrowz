@@ -4,9 +4,9 @@
 // host, so nothing here counts them.
 //
 // A corridor is a ray from the head cell minus the piece's own cells, and it
-// does not depend on the state of the board (design §2). Removing a piece can
-// therefore only free others: the board never has to be rewritten, and a
-// session is nothing but the set of pieces that have left.
+// does not depend on the state of the board (docs/design.md#the-key-consequence).
+// Removing a piece can therefore only free others: the board never has to be
+// rewritten, and a session is nothing but the set of pieces that have left.
 //
 // Runtime-neutral, like engine.ts: no Deno, DOM, Node or process API.
 import { fingerprint } from './engine.ts'

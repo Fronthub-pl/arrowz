@@ -1,7 +1,7 @@
 // One word per concept for everything a player reads: the retired words of
-// the glossary in docs/superpowers/specs/2026-09-25-lab-glossary-design.md
-// may not come back into the lab's dictionaries, the knob texts or the CLI's
-// help. An exception names its key and why.
+// docs/glossary.md#retired-words may not come back into the lab's
+// dictionaries, the knob texts, the CLI's help or the Docs tab. An exception
+// names its key and why (docs/glossary.md#exceptions).
 import { assert } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { helpText } from './command.ts'

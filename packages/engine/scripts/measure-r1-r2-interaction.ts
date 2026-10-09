@@ -1,7 +1,7 @@
 /**
  * Do the trap lever (`trapBias`) and the tail backbite interact, what does the
  * trap lever cost in wall clock, and does it still close the most winding legal
- * corner of the envelope? Result in docs/superpowers/measurements/2026-09-12-r1-r2-measurements.md.
+ * corner of the envelope? Result in docs/measurements/r1-r2.md.
  *
  * One grid answers three questions, because they share the runs:
  *
