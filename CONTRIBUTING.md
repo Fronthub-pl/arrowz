@@ -102,6 +102,8 @@ welcome, and a maintainer adds it before the release. Every file in a package's
 directory counts, its README and its tests included. Changes to the lab, to
 `docs/` or to the repository's tooling need none.
 
+How a release is made from the changesets is in [docs/releasing.md](docs/releasing.md).
+
 ## Pull requests
 
 - Keep a pull request to one change, and describe what a user or a developer
