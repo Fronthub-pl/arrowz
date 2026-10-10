@@ -1,0 +1,202 @@
+name: Release
+
+# Stages on npm every package whose version is not there yet; a maintainer then
+# approves each stage on npmjs.com. docs/releasing.md has the whole procedure.
+on:
+  push:
+    branches: [main]
+    paths: ['packages/*/CHANGELOG.md']
+  workflow_dispatch:
+  # A change to the release itself is rehearsed: everything up to the stage, on all three packages.
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - packages/engine/scripts/release.ts
+      - packages/engine/scripts/pack-check.ts
+      - packages/engine/scripts/consumer-smoke.mjs
+      - packages/engine/scripts/consumer-golden.json
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  cancel-in-progress: false
+
+jobs:
+  # A version gets its tag only once it is live on npm, so this job tags what
+  # the previous run staged and the maintainer has approved since.
+  tag-published:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: '~2.9'
+
+      - run: deno run --allow-read --allow-run --allow-env packages/engine/scripts/release.ts tags
+
+  # The whole history is fetched: a version is released only from the files
+  # of the commit that set it, and that commit has to be found.
+  plan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      dirs: ${{ steps.plan.outputs.dirs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: '~2.9'
+
+      - id: plan
+        run: deno run --allow-read --allow-write --allow-run --allow-env packages/engine/scripts/release.ts plan ${{ github.event_name == 'pull_request' && '--all' || '' }}
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.dirs != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: '~2.9'
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @fronthub/arrowz-board exec playwright install --with-deps chromium
+
+      - run: pnpm nx run-many -t check lint fmt test build smoke pack-check
+
+      # Packed again, into the directory the stage job receives: the gates run on those very files.
+      - run: deno run --allow-read --allow-write --allow-run --allow-env packages/engine/scripts/pack-check.ts --out=tarballs $DIRS
+        env:
+          DIRS: ${{ needs.plan.outputs.dirs }}
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tarballs
+          path: tarballs/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  smoke:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, node: 22 }
+          - { os: ubuntu-latest, node: 24 }
+          - { os: ubuntu-24.04-arm, node: 22 }
+          - { os: ubuntu-24.04-arm, node: 24 }
+          - { os: macos-latest, node: 22 }
+          - { os: macos-latest, node: 24 }
+          - { os: macos-15-intel, node: 22 }
+          - { os: macos-15-intel, node: 24 }
+          - { os: windows-latest, node: 22 }
+          - { os: windows-latest, node: 24 }
+          - { os: windows-11-arm, node: 22 }
+          - { os: windows-11-arm, node: 24 }
+          # The oldest Node the packages promise to run on.
+          - { os: ubuntu-latest, node: 22.12.0 }
+          # npm 12 runs no install script and takes no git or URL dependency; no Node bundles it yet.
+          - { os: ubuntu-latest, node: 24, npm: 12 }
+          - { os: ubuntu-latest, node: 24, deno: true }
+          - { os: windows-latest, node: 24, deno: true }
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+
+      - if: matrix.npm
+        run: npm install --global npm@${{ matrix.npm }}
+
+      - if: matrix.deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: '~2.9'
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tarballs
+          path: tarballs
+
+      - run: ${{ matrix.deno && 'deno run --no-config --no-lock --allow-all' || 'node' }} packages/engine/scripts/consumer-smoke.mjs tarballs
+
+  # The only job npm trusts. It runs no code from the repository: it receives
+  # the tarballs the gates passed and hands them to npm, which holds them until
+  # a maintainer approves each one with a second factor.
+  stage:
+    needs: [plan, build, smoke]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      # An exact Node, so the npm that stages is the one this file names (24.21.0 bundles npm 11.19.0).
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tarballs
+          path: tarballs
+
+      - name: Stage on npm
+        run: |
+          version=$(npm --version)
+          echo "npm $version"
+          major=${version%%.*}
+          rest=${version#*.}
+          minor=${rest%%.*}
+          if [ "$major" -lt 11 ] || { [ "$major" -eq 11 ] && [ "$minor" -lt 15 ]; }; then
+            echo "::error::npm $version cannot stage: staged publishing needs 11.15 or newer"
+            exit 1
+          fi
+          # Dependencies first. Every tarball is tried: after a partial failure a
+          # re-run must still reach the packages npm has not staged yet.
+          failed=0
+          for name in engine board cli; do
+            for tgz in tarballs/fronthub-arrowz-"$name"-*.tgz; do
+              if [ -e "$tgz" ]; then
+                npm stage publish "$tgz" || failed=1
+              fi
+            done
+          done
+          exit "$failed"
