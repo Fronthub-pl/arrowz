@@ -246,7 +246,6 @@ const stepsOf = (job: Obj): Obj[] => {
 }
 const allSteps = (doc: Obj): Obj[] => Object.values(jobsOf(doc)).flatMap((job) => stepsOf(obj(job)))
 
-const SHA = /^[0-9a-f]{40}$/
 const ACTIONS = [
   'actions/checkout',
   'actions/setup-node',
@@ -256,13 +255,19 @@ const ACTIONS = [
   'actions/download-artifact',
 ]
 
-/** A copy of a job or step in which each `uses` keeps the action name and any 40-hex commit becomes `@pinned`. */
+/** The action a `uses` names. The value must be `<owner>/<repo>@<40 hex>` and nothing more. */
+function actionOf(uses: unknown): string {
+  const name = /^([\w.-]+\/[\w.-]+)@[0-9a-f]{40}$/.exec(String(uses))?.[1]
+  assert(name !== undefined, `${uses} is not an action pinned to a commit`)
+  return name
+}
+const runs = (step: Obj, action: string): boolean => 'uses' in step && actionOf(step.uses) === action
+
+/** A copy of a job or step in which each `uses` keeps the action name and its commit becomes `@pinned`. */
 function pinned<T>(value: T): T {
   return JSON.parse(JSON.stringify(value), (_key, v) => {
-    if (typeof v !== 'object' || v === null || Array.isArray(v) || typeof (v as Obj).uses !== 'string') return v
-    const [name, ref] = ((v as Obj).uses as string).split('@')
-    assert(SHA.test(ref ?? ''), `${name} is not pinned to a commit`)
-    return { ...v, uses: `${name}@pinned` }
+    if (typeof v !== 'object' || v === null || Array.isArray(v) || !('uses' in v)) return v
+    return { ...v, uses: `${actionOf(v.uses)}@pinned` }
   })
 }
 
@@ -314,6 +319,7 @@ Deno.test('the jobs, their keys and their permissions are exactly the expected o
   assertEquals(obj(jobs.smoke).needs, 'build')
 })
 
+const CHECKOUT = { uses: 'actions/checkout@pinned', with: { 'persist-credentials': false } }
 const SETUP_DENO = { uses: 'denoland/setup-deno@pinned', with: { 'deno-version': '~2.9' } }
 const DOWNLOAD = { uses: 'actions/download-artifact@pinned', with: { name: 'tarballs', path: 'tarballs' } }
 
@@ -364,6 +370,107 @@ if [ "$received" -ne "$judged" ]; then
   exit 1
 fi
 `.slice(1)
+
+const DIGEST_STEPS = [
+  {
+    run:
+      'deno run --allow-read --allow-write --allow-run --allow-env packages/engine/scripts/pack-check.ts --out=tarballs $DIRS',
+    env: { DIRS: '${{ needs.plan.outputs.dirs }}' },
+  },
+  {
+    id: 'sums',
+    run: "{\n  echo 'sums<<SUMS_END'\n  sha256sum tarballs/*.tgz\n  echo 'SUMS_END'\n} >> \"$GITHUB_OUTPUT\"\n",
+  },
+  { name: 'Read the digests back', env: { SUMS: '${{ steps.sums.outputs.sums }}' }, run: CHECK },
+  {
+    uses: 'actions/upload-artifact@pinned',
+    with: { name: 'tarballs', path: 'tarballs/*.tgz', 'if-no-files-found': 'error', 'retention-days': 7 },
+  },
+]
+
+Deno.test('build is exactly the job that runs every gate and packs what passed them', () => {
+  assertEquals(pinned(jobsOf(load('release.yml')).build), {
+    needs: 'plan',
+    if: "needs.plan.outputs.dirs != ''",
+    'runs-on': 'ubuntu-latest',
+    permissions: { contents: 'read' },
+    outputs: { sums: '${{ steps.sums.outputs.sums }}' },
+    steps: [
+      CHECKOUT,
+      SETUP_DENO,
+      { uses: 'pnpm/action-setup@pinned' },
+      { uses: 'actions/setup-node@pinned', with: { 'node-version': 24, 'package-manager-cache': false } },
+      { run: 'pnpm install --frozen-lockfile' },
+      { run: 'pnpm --filter @fronthub/arrowz-board exec playwright install --with-deps chromium' },
+      { run: 'pnpm nx run-many -t check lint fmt test build smoke pack-check' },
+      ...DIGEST_STEPS,
+    ],
+  })
+})
+
+const legsOf = (smoke: Obj): unknown => obj(obj(smoke.strategy, 'strategy').matrix, 'matrix').include
+
+Deno.test('smoke is exactly the job that installs the tarballs as a consumer would, whatever its legs', () => {
+  const smoke = obj(jobsOf(load('release.yml')).smoke, 'smoke')
+  assertEquals(pinned(smoke), {
+    needs: 'build',
+    strategy: { 'fail-fast': false, matrix: { include: legsOf(smoke) } },
+    'runs-on': '${{ matrix.os }}',
+    permissions: { contents: 'read' },
+    steps: [
+      CHECKOUT,
+      {
+        uses: 'actions/setup-node@pinned',
+        with: { 'node-version': '${{ matrix.node }}', 'package-manager-cache': false },
+      },
+      { if: 'matrix.npm', run: 'npm install --global npm@${{ matrix.npm }}' },
+      { if: 'matrix.deno', ...SETUP_DENO },
+      DOWNLOAD,
+      {
+        run:
+          "${{ matrix.deno && 'deno run --no-config --no-lock --allow-all' || 'node' }} packages/engine/scripts/consumer-smoke.mjs tarballs",
+      },
+    ],
+  })
+})
+
+const SYSTEMS = [
+  'ubuntu-latest',
+  'ubuntu-24.04-arm',
+  'macos-latest',
+  'macos-15-intel',
+  'windows-latest',
+  'windows-11-arm',
+]
+// `matrix.npm` is spliced into a script: a version cannot carry a command, and it is never falsy.
+const isVersion = (value: unknown): boolean =>
+  (typeof value === 'number' || typeof value === 'string') && /^[1-9]\d*(\.\d+){0,2}$/.test(String(value))
+
+Deno.test('the smoke matrix can grow, and keeps its six systems, its oldest Node, an npm leg and a Deno leg', () => {
+  const include = legsOf(obj(jobsOf(load('release.yml')).smoke, 'smoke'))
+  assert(Array.isArray(include), 'include is not a list')
+  const legs = include.map((leg, i) => obj(leg, `leg ${i}`))
+  assert(legs.length >= 16, `${legs.length} legs: one was dropped`)
+  const distinct = new Set(legs.map((leg) => JSON.stringify(Object.entries(leg).sort())))
+  assertEquals(distinct.size, legs.length, 'two legs are the same, so one stands in for a dropped one')
+  for (const leg of legs) {
+    const said = JSON.stringify(leg)
+    assert(Object.keys(leg).every((key) => ['os', 'node', 'npm', 'deno'].includes(key)), said)
+    assert(typeof leg.os === 'string' && SYSTEMS.includes(leg.os), said)
+    assert(!('npm' in leg) || isVersion(leg.npm), said)
+  }
+  for (const system of SYSTEMS) assert(legs.some((leg) => leg.os === system), `no leg runs on ${system}`)
+  // Without such legs the two conditional steps of the job never run.
+  assert(legs.some((leg) => 'npm' in leg), 'no leg installs another npm')
+  assert(legs.some((leg) => leg.deno === true), 'no leg runs under Deno')
+  const manifest = obj(JSON.parse(Deno.readTextFileSync(join(here, 'package.json'))), 'package.json')
+  const oldest = /^>=(\d+\.\d+)$/.exec(String(obj(manifest.engines, 'engines').node))?.[1]
+  assert(oldest !== undefined, 'engines.node is not ">=<major>.<minor>"')
+  assert(
+    legs.some((leg) => leg.node === `${oldest}.0` && !leg.deno),
+    `no leg runs Node ${oldest}.0, the oldest the packages promise`,
+  )
+})
 
 const STAGE_HEAD = `
 version=$(npm --version)
@@ -446,33 +553,49 @@ Deno.test('stage is exactly the job that hands the judged tarballs to npm, and n
   })
 })
 
+// Any case, and a space before the parenthesis: no spelling of a status function may get past.
+const STATUS = /(always|failure|cancelled)\s*\(/i
+
 Deno.test('every step is a pinned action from the allowed set or a script, and none can go on after a failure', () => {
   const doc = load('release.yml')
   for (const [name, job] of Object.entries(jobsOf(doc))) {
     const conditions = [obj(job).if, ...stepsOf(obj(job)).map((step) => step.if)]
-    for (const condition of conditions) assert(!/always\(\)|failure\(\)|cancelled\(\)/.test(String(condition)), name)
+    for (const condition of conditions) assert(!STATUS.test(String(condition)), `${name}: ${condition}`)
     const runsOn = obj(job)['runs-on']
     assert(runsOn === 'ubuntu-latest' || runsOn === '${{ matrix.os }}', `${name} runs on ${runsOn}`)
   }
   for (const step of allSteps(doc)) {
     assertEquals(Object.keys(step).filter((key) => key === 'uses' || key === 'run').length, 1, JSON.stringify(step))
     assert(!('continue-on-error' in step))
-    if (typeof step.uses !== 'string') continue
-    const [name, ref] = step.uses.split('@')
-    assert(ACTIONS.includes(name ?? ''), `${name} is not an allowed action`)
-    assert(SHA.test(ref ?? ''), `${step.uses} is not pinned to a commit`)
-    const input = obj(step.with ?? {}, 'with')
-    if (name === 'actions/setup-node') {
-      assertEquals(input['package-manager-cache'], false)
-      assert(!('cache' in input))
-    }
+    if ('uses' in step) assert(ACTIONS.includes(actionOf(step.uses)), `${step.uses} is not an allowed action`)
   }
+})
+
+Deno.test('no action is given a cache, whatever the case of the input name', () => {
+  for (const step of allSteps(load('release.yml')).filter((s) => 'uses' in s)) {
+    const input = obj(step.with ?? {}, 'with')
+    for (const [key, value] of Object.entries(input)) {
+      // GitHub hands an input to the action in upper case, so `Cache` is the input `cache`.
+      if (key.toLowerCase() === 'package-manager-cache') assertEquals(value, false, `${step.uses}: ${key}`)
+      else assert(!key.toLowerCase().includes('cache'), `${step.uses} is given ${key}`)
+    }
+    if (runs(step, 'actions/setup-node')) assertEquals(input['package-manager-cache'], false, 'setup-node')
+  }
+})
+
+Deno.test('every action line names a commit and, in a comment, the tag that commit stands for', () => {
+  // A parser drops comments, so this one guard reads the text; a line that is only a comment is prose.
+  const text = Deno.readTextFileSync(join(workflowDir, 'release.yml'))
+  const lines = text.split('\n').filter((line) => line.includes('uses:') && !line.trimStart().startsWith('#'))
+  for (const line of lines) assert(/^ +(- )?uses: [\w.-]+\/[\w.-]+@[0-9a-f]{40} # v\d[\w.-]*$/.test(line), line)
+  // A `uses` spelled so that no line reads `uses:` would escape the pattern above.
+  assertEquals(lines.length, allSteps(load('release.yml')).filter((step) => 'uses' in step).length)
 })
 
 Deno.test('checkouts keep no token, except where tags are pushed, and the ones that read history fetch all of it', () => {
   const jobs = jobsOf(load('release.yml'))
   for (const [name, job] of Object.entries(jobs)) {
-    for (const step of stepsOf(obj(job)).filter((s) => String(s.uses).startsWith('actions/checkout@'))) {
+    for (const step of stepsOf(obj(job)).filter((s) => runs(s, 'actions/checkout'))) {
       const input = obj(step.with, 'with')
       if (name !== 'tag-published') assertEquals(input['persist-credentials'], false, name)
       assert(!('filter' in input), `${name} fetches a partial clone`)
@@ -490,32 +613,20 @@ Deno.test('the digests are taken from the packed files, read back on the runner,
     String(step.run).includes('pack-check.ts') && String(step.run).includes('--out=tarballs')
   )
   assert(pack >= 0, 'no step packs into tarballs')
-  assertEquals(pinned(steps.slice(pack, pack + 4)), [
-    {
-      run:
-        'deno run --allow-read --allow-write --allow-run --allow-env packages/engine/scripts/pack-check.ts --out=tarballs $DIRS',
-      env: { DIRS: '${{ needs.plan.outputs.dirs }}' },
-    },
-    {
-      id: 'sums',
-      run: "{\n  echo 'sums<<SUMS_END'\n  sha256sum tarballs/*.tgz\n  echo 'SUMS_END'\n} >> \"$GITHUB_OUTPUT\"\n",
-    },
-    { name: 'Read the digests back', env: { SUMS: '${{ steps.sums.outputs.sums }}' }, run: CHECK },
-    {
-      uses: 'actions/upload-artifact@pinned',
-      with: { name: 'tarballs', path: 'tarballs/*.tgz', 'if-no-files-found': 'error', 'retention-days': 7 },
-    },
-  ])
+  assertEquals(pinned(steps.slice(pack, pack + 4)), DIGEST_STEPS)
   // Without this, the stage job could keep a weaker copy of the check.
   const stage = stepsOf(obj(jobsOf(load('release.yml')).stage)).map((step) => String(step.run))
   assert(stage.some((script) => script.includes(CHECK)))
 })
 
 Deno.test('the repository has two workflows, and the other one asks for neither an identity nor an environment', () => {
-  const names = [...Deno.readDirSync(workflowDir)].map((e) => e.name).filter((n) => !n.startsWith('.')).sort()
+  const names = [...Deno.readDirSync(workflowDir)].map((e) => e.name).filter((n) => n !== '.DS_Store').sort()
   assertEquals(names, ['ci.yml', 'release.yml'])
   const ci = load('ci.yml')
-  const maps = [ci.permissions, ...Object.values(jobsOf(ci)).map((job) => obj(job).permissions)]
-  for (const map of maps) assert(!(typeof map === 'object' && map !== null && 'id-token' in map))
-  for (const job of Object.values(jobsOf(ci))) assert(!('environment' in obj(job)))
+  const jobs = Object.values(jobsOf(ci)).map((job) => obj(job, 'job'))
+  // Each grant is a mapping: the string `write-all` would hand out the identity without naming it.
+  const grants = [ci, ...jobs.filter((job) => 'permissions' in job)].map((at) => obj(at.permissions, 'permissions'))
+  const has = (map: Obj, name: string) => Object.keys(map).some((key) => key.toLowerCase() === name)
+  for (const grant of grants) assert(!has(grant, 'id-token'))
+  for (const job of jobs) assert(!has(job, 'environment'))
 })
