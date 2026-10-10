@@ -1,6 +1,8 @@
 // What a release run decides: which versions it stages, which tags it creates
 // and where, and that the goldens of the consumer smoke are the engine's own.
 import { assertEquals, assertThrows } from '@std/assert'
+import { dirname, fromFileUrl, join } from '@std/path'
+import { defaultParams, fingerprint, generate, layoutHash } from './mod.ts'
 import { commitOf, type Pkg, planOf, releaseCommit, type Seen, seenOnNpm, tagOf, tagsDue } from './scripts/release.ts'
 
 const pkg = (short: string, version: string): Pkg => ({
@@ -112,4 +114,19 @@ Deno.test('in a repository the tag lands on the merge that brought the version t
   } finally {
     new Deno.Command('rm', { args: ['-rf', repo] }).outputSync()
   }
+})
+
+const here = dirname(fromFileUrl(import.meta.url))
+
+Deno.test('the goldens of the consumer smoke are what the engine lays today', async () => {
+  // A drift is caught here, on the pull request that causes it, not on release day.
+  const golden = JSON.parse(Deno.readTextFileSync(join(here, 'scripts', 'consumer-golden.json'))) as {
+    fingerprint: string
+    pieces: number
+    layout: string
+  }
+  const { board } = generate({ ...defaultParams(), W: 40, H: 40, seed: 1 })
+  assertEquals([fingerprint(board), board.pieces.length], [golden.fingerprint, golden.pieces])
+  // 7 is the seed `arrowz carve` uses when the command line names none.
+  assertEquals(await layoutHash(generate({ ...defaultParams(), W: 25, H: 25, seed: 7 }).board), golden.layout)
 })
