@@ -30,7 +30,7 @@
       "./simple": { "types": "./dist/lab-simple.d.ts", "default": "./dist/lab-simple.js" }
     }
   },
-  "files": ["dist", "LICENSE", "NOTICE"],
+  "files": ["dist", "LICENSE", "NOTICE", "CHANGELOG.md"],
   "scripts": {
     "build": "pnpm -w exec tsc -p packages/engine/tsconfig.build.json",
     "smoke": "node scripts/node-smoke.mjs"

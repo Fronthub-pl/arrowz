@@ -75,7 +75,20 @@ Deno.test('the CLI package is the arrowz command over the published engine', () 
   assertEquals(m.name, '@fronthub/arrowz-cli')
   assertEquals(m.bin, { arrowz: './dist/arrowz.mjs' })
   assertEquals(m.dependencies, { '@fronthub/arrowz-engine': 'workspace:^' })
-  assertEquals(m.files, ['dist', 'LICENSE'])
+  assertEquals(m.files, ['dist', 'LICENSE', 'CHANGELOG.md'])
+})
+
+Deno.test('every published package packs its changelog', () => {
+  // pnpm packs CHANGELOG.md only when `files` names it; the file arrives with the package's first release.
+  for (const pkg of PACKAGES) {
+    assert(manifest(pkg).files?.includes('CHANGELOG.md'), `${pkg}: "files" leaves CHANGELOG.md out of the tarball`)
+  }
+})
+
+Deno.test('only package.json carries the engine version', () => {
+  // Changesets bumps package.json alone, so a version in deno.json would go stale at the first release.
+  const deno = JSON.parse(read('packages', 'engine', 'deno.json')) as Record<string, unknown>
+  assertEquals('version' in deno, false)
 })
 
 Deno.test('NOTICE lists the sources of the themes, each with its licence and address', () => {

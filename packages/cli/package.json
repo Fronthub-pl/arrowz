@@ -14,7 +14,7 @@
   "engines": { "node": ">=22.12" },
   "bin": { "arrowz": "./dist/arrowz.mjs" },
   "publishConfig": { "access": "public" },
-  "files": ["dist", "LICENSE"],
+  "files": ["dist", "LICENSE", "CHANGELOG.md"],
   "scripts": {
     "build": "deno bundle --platform deno --external '@fronthub/arrowz-engine' --external '@fronthub/arrowz-engine/*' -o dist/arrowz.mjs arrowz.ts",
     "smoke": "node scripts/node-smoke.mjs"

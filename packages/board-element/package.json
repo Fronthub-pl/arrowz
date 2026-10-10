@@ -38,7 +38,8 @@
   "files": [
     "dist",
     "LICENSE",
-    "NOTICE"
+    "NOTICE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "check": "tsc -p tsconfig.json --noEmit",
