@@ -18,7 +18,8 @@
   (`@arrowz/engine`) and `packages/cli`: `deno task test` must pass after
   every change, and `deno task verify` (check, lint, fmt, test) before a PR.
   The whole repository, Node projects included, is verified with
-  `pnpm nx run-many -t verify`; pnpm comes through corepack (`corepack enable pnpm`).
+  `pnpm nx run-many -t verify`; pnpm comes from its standalone installer
+  (CONTRIBUTING.md), not Corepack.
 - The engine (`packages/engine/engine.ts`) knows neither Deno nor the DOM, and
   so do `command.ts`, `look.ts`, `lab-simple.ts`, `lab-presets.ts`, `lab-i18n.ts`,
   `lab-report.ts`, `lab-docs.ts`: no file
@@ -35,7 +36,7 @@
   runs the worker `vite build` emits and checks its board against the engine's,
   so what the browser loads is gated, not merely compiled.
 - `pnpm nx serve lab` and the rest of the Nx targets need
-  `corepack enable pnpm && pnpm install` once. The Deno gates do not:
+  `pnpm install` once. The Deno gates do not:
   nothing under `packages/` imports the board element, so `deno task check` and
   `deno task lint` pass with no `node_modules`.
 - No attribution lines in commit messages or PR descriptions.

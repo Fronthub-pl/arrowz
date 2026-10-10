@@ -81,7 +81,7 @@ curl -fsSL https://deno.land/install.sh | sh     # macOS and Linux
 irm https://deno.land/install.ps1 | iex          # Windows (PowerShell)
 ```
 
-Get the code and make a first board, from inside the `arrowz` folder:
+Get the code, then make a first board from inside the `arrowz` folder:
 
 ```sh
 git clone https://github.com/Fronthub-pl/arrowz.git
@@ -95,12 +95,13 @@ picture to open in a browser. [The command line's README](packages/cli/README.md
 has every setting, five boards worth trying, and what to do when something
 goes wrong.
 
-The lab and the board element also need Node.js with pnpm, which comes through
-corepack:
+The lab and the board element also need **Node.js 24 or newer** and
+**[pnpm](https://pnpm.io/installation)**; [CONTRIBUTING.md](CONTRIBUTING.md#what-you-need)
+shows how to install it. Then, inside the `arrowz` folder:
 
 ```sh
-corepack enable pnpm && pnpm install   # once
-pnpm nx serve lab                      # the lab on http://localhost:8779
+pnpm install          # once
+pnpm nx serve lab     # the lab on http://localhost:8779
 ```
 
 ## What is in this repository
@@ -148,7 +149,10 @@ pnpm nx run-many -t verify        # everything, the lab and the board element in
 The Deno tests include reference boards that must come out identical every
 time, and each package README is compared with its code by a test, so a README
 that drifts from the code fails the checks. The repository's rules for code
-and comments are in [AGENTS.md](AGENTS.md), which coding agents read too.
+and comments are in [AGENTS.md](AGENTS.md), which coding agents read too, and
+[CONTRIBUTING.md](CONTRIBUTING.md) walks through setting up, checking a change
+and opening a pull request. Security problems go privately through
+[SECURITY.md](SECURITY.md).
 
 ## Licence
 
