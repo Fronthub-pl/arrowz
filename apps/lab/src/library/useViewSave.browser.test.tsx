@@ -214,7 +214,7 @@ test('a failed save keeps the picture and says so', async () => {
 })
 
 test('a save that lands takes the store’s meta and refreshes the list', async () => {
-  const saved = { ...stored.meta, view: { ...stored.meta.view, stroke: 0.8 }, command: 'deno task carve --stroke=0.8' }
+  const saved = { ...stored.meta, view: { ...stored.meta.view, stroke: 0.8 }, command: 'arrowz carve --stroke=0.8' }
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(
     new Response(JSON.stringify({ meta: saved, layoutExisted: true, recipeExisted: true }), { status: 201 }),
   )
@@ -223,7 +223,7 @@ test('a save that lands takes the store’s meta and refreshes the list', async 
 
   await act(async () => result.current({ ...stored.meta.view, stroke: 0.8 }))
   await expect.poll(() => useStore.getState().library.notice?.kind).toBe('viewSaved')
-  expect(useStore.getState().result.preview?.meta?.command).toBe('deno task carve --stroke=0.8')
+  expect(useStore.getState().result.preview?.meta?.command).toBe('arrowz carve --stroke=0.8')
   expect(refreshed).toBe(1)
 })
 

@@ -425,7 +425,7 @@ Deno.test('every note the CLI README shows is what carve prints for the command 
   assert(shown.length >= 3, `only ${shown.length} note blocks`)
   for (const { command, block } of shown) {
     assert(command.startsWith(COMMAND_PREFIX) && command.includes('--dry-run'), command)
-    const { stderr } = await runCli('carve.ts', command.slice(COMMAND_PREFIX.length).trim().split(/\s+/))
+    const { stderr } = await runCli('arrowz.ts', ['carve', ...command.slice(COMMAND_PREFIX.length).trim().split(/\s+/)])
     assertEquals(stderr.split('\n').filter((l) => l.startsWith('note:')), block, command)
   }
 })

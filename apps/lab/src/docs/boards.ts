@@ -13,7 +13,7 @@ import { STAT_KEYS, type StatKey } from '@fronthub/arrowz-engine/report'
 export const DOCS_BOARD_MAX = 500
 
 export interface DocsBoardSpec {
-  /** The flags as the page writes them; the page shows them after `deno task carve`. */
+  /** The flags as the page writes them; the page shows them after `arrowz carve`. */
   readonly cmd: string
   readonly parsed: ParsedArgs
   readonly params: Params
@@ -28,7 +28,7 @@ const NO_DRAW = (): number => 0
 export function readBoardCmd(cmd: string): { spec: DocsBoardSpec | null; problems: string[] } {
   const split = splitCommand(cmd)
   const problems = split.problems.map(problemText)
-  if (!/^\s*--/.test(cmd)) problems.push(`holds the flags only, without deno task carve: ${cmd}`)
+  if (!/^\s*--/.test(cmd)) problems.push(`holds the flags only, without arrowz carve: ${cmd}`)
   const parsed = parseArgs(split.argv)
   problems.push(...parsed.errors)
   if (parsed.choice.random) problems.push('a board on a page is the one its command makes: no --randomized')

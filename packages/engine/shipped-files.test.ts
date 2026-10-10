@@ -1,5 +1,6 @@
-// The licence files a package ships are copies of the repository's, and NOTICE
-// lists the sources the built-in themes record in `look.ts`.
+// What the three packages ship: manifests npm can publish and install, licence
+// files that are copies of the repository's, and a NOTICE that lists the
+// sources the built-in themes record in `look.ts`.
 import { assert, assertEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { THEMES } from './look.ts'
@@ -30,6 +31,51 @@ Deno.test('the packages with themes ship the repository NOTICE, and pack it', ()
     const { files } = JSON.parse(read('packages', pkg, 'package.json')) as { files: string[] }
     assert(files.includes('NOTICE'), `${pkg}: "files" leaves NOTICE out of the tarball`)
   }
+})
+
+interface Manifest {
+  name: string
+  license?: string
+  private?: boolean
+  engines?: { node?: string }
+  publishConfig?: { access?: string }
+  repository?: { url?: string; directory?: string }
+  scripts?: Record<string, string>
+  dependencies?: Record<string, string>
+  bin?: Record<string, string>
+  files?: string[]
+}
+const manifest = (pkg: string): Manifest => JSON.parse(read('packages', pkg, 'package.json')) as Manifest
+
+Deno.test('every published manifest names its licence, its home in the repository and public access', () => {
+  for (const pkg of PACKAGES) {
+    const m = manifest(pkg)
+    assertEquals(
+      [m.private, m.license, m.engines?.node, m.publishConfig?.access, m.repository?.directory, m.repository?.url],
+      [undefined, 'MIT', '>=22.12', 'public', `packages/${pkg}`, 'git+https://github.com/Fronthub-pl/arrowz.git'],
+      pkg,
+    )
+  }
+})
+
+Deno.test('a published package installs with scripts off and from the registry alone', () => {
+  // npm 12 runs no dependency script and resolves no git or URL dependency unless the consumer allows it.
+  for (const pkg of PACKAGES) {
+    const m = manifest(pkg)
+    const lifecycle = Object.keys(m.scripts ?? {}).filter((s) => /^(pre|post)?install$|^prepare$/.test(s))
+    assertEquals(lifecycle, [], pkg)
+    for (const [name, range] of Object.entries(m.dependencies ?? {})) {
+      assert(/^(workspace:)?[\^~]?\d/.test(range) || range === 'workspace:^', `${pkg}: ${name} is ${range}`)
+    }
+  }
+})
+
+Deno.test('the CLI package is the arrowz command over the published engine', () => {
+  const m = manifest('cli')
+  assertEquals(m.name, '@fronthub/arrowz-cli')
+  assertEquals(m.bin, { arrowz: './dist/arrowz.mjs' })
+  assertEquals(m.dependencies, { '@fronthub/arrowz-engine': 'workspace:^' })
+  assertEquals(m.files, ['dist', 'LICENSE'])
 })
 
 Deno.test('NOTICE lists the sources of the themes, each with its licence and address', () => {

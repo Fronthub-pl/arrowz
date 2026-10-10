@@ -1,44 +1,38 @@
 # Wiersz poleceń
 
-Wiersz poleceń robi plansze. `deno task carve` układa planszę i ją zapisuje, `deno task report` mierzy generator na wielu planszach, a `deno task compile` buduje z polecenia jeden program, który działa samodzielnie. Każde polecenie z tej strony uruchamiasz w głównym katalogu repozytorium.
+Wiersz poleceń robi plansze: `arrowz carve` układa planszę i ją zapisuje. To pakiet npm `@fronthub/arrowz-cli`. W klonie repozytorium ten sam program działa jako `deno task carve`, a `deno task report` mierzy generator na wielu planszach.
 
 Plansze na tej stronie powstają w Twojej przeglądarce, tym samym generatorem, którego używa polecenie, z polecenia wypisanego pod każdą z nich. **Otwórz w laboratorium** otwiera to polecenie w laboratorium.
 
 ## Pierwsze kroki {#start}
 
-Wiersz poleceń potrzebuje [Deno](https://deno.com/) w wersji 2.9 lub nowszej i niczego więcej:
+Polecenie potrzebuje [Node.js](https://nodejs.org/) w wersji 22.12 lub nowszej. Zainstaluj je i zrób pierwszą planszę:
 
 ```sh
-curl -fsSL https://deno.land/install.sh | sh     # macOS i Linux
-irm https://deno.land/install.ps1 | iex          # Windows (PowerShell)
+npm install -g @fronthub/arrowz-cli
+arrowz carve --width=25 --height=25 --svg
 ```
 
-Pobierz kod, wejdź do katalogu `arrowz` i zrób pierwszą planszę:
+Żeby spróbować raz, bez instalowania czegokolwiek, wpisz `npx @fronthub/arrowz-cli carve` zamiast `arrowz carve`. `arrowz` to nazwa polecenia, nie pakietu: `npx arrowz` pobrałby jakiś inny pakiet o tej nazwie, a to nie jest ten.
 
-```sh
-git clone https://github.com/Fronthub-pl/arrowz.git
-cd arrowz
-deno task carve --width=25 --height=25 --svg
-```
-
-Plansza trafia do `packages/cli/boards/25x25/`: plik planszy, który czyta gra (`.board.json`), notatka o tym, jak powstała (`.json`), a dzięki `--svg` także obrazek do otwarcia w przeglądarce.
+Plansza trafia do `boards/25x25/` w katalogu, z którego uruchomiono polecenie: plik planszy, który czyta gra (`.board.json`), notatka o tym, jak powstała (`.json`), a dzięki `--svg` także obrazek do otwarcia w przeglądarce.
 
 ## Robienie plansz {#making}
 
 Wszystko robi zadanie `carve`. Flagi na co dzień i pokrętła podajesz razem, w jednym poleceniu, a żadna flaga nie zmienia znaczenia innej. Polecenie wypisuje własną instrukcję. Obie jej postaci są na końcu tej strony, w sekcji [Co wypisuje `--help`](docs:cli#help).
 
 ```sh
-deno task carve --help          # krótka postać: flagi na co dzień, wyjście, obrazek (także -h)
-deno task carve --help=knobs    # pełna tabela: każde pokrętło, jego zakres i wartość domyślna
+arrowz carve --help          # krótka postać: flagi na co dzień, wyjście, obrazek (także -h)
+arrowz carve --help=knobs    # pełna tabela: każde pokrętło, jego zakres i wartość domyślna
 ```
 
 ### Plansza
 
 ```sh
-deno task carve --width=40 --height=40 --seed=7
+arrowz carve --width=40 --height=40 --seed=7
 ```
 
-Polecenie zapisuje dwa pliki w `packages/cli/boards/40x40/`. Nazwy obu, `sha256-…`, pochodzą od strzałek na planszy:
+Polecenie zapisuje dwa pliki w `boards/40x40/`. Nazwy obu, `sha256-…`, pochodzą od strzałek na planszy:
 
 - `….board.json` — plansza: każda strzałka, komórka po komórce, ciasno spakowana. Ten plik wczytuje gra.
 - `….json` — mały plik tekstowy z zapisem, jak plansza powstała.
@@ -48,37 +42,37 @@ Nazwa pochodzi od strzałek, nie od ustawień. Inne ziarno albo inne ustawienia,
 ### Także obrazek
 
 ```sh
-deno task carve --width=40 --height=40 --svg
-deno task carve --width=40 --height=40 --svg=my-board.svg
+arrowz carve --width=40 --height=40 --svg
+arrowz carve --width=40 --height=40 --svg=my-board.svg
 ```
 
-`--svg` dokłada obrazek, `….svg`, obok pliku planszy. `--svg=my-board.svg` robi to samo i dodatkowo kładzie kopię w `my-board.svg`. Zadanie działa w katalogu `packages/cli/`, więc względna ścieżka zaczyna się tam: ta kopia trafia do `packages/cli/my-board.svg`.
+`--svg` dokłada obrazek, `….svg`, obok pliku planszy. `--svg=my-board.svg` robi to samo i dodatkowo kładzie kopię w `my-board.svg`. Względna ścieżka zaczyna się w katalogu, z którego uruchomiono polecenie.
 
 ### Pięć rzeczy do wypróbowania
 
-Skopiuj dowolne z nich. Każde zapisuje planszę w `packages/cli/boards/`. Dodaj `--svg`, żeby dostać też obrazek, albo `--dry-run`, żeby zobaczyć liczby bez zapisywania pliku. Każda flaga stąd jest objaśniona w sekcji [Ustawienia na co dzień](docs:cli#everyday).
+Skopiuj dowolne z nich. Każde zapisuje planszę w `boards/`. Dodaj `--svg`, żeby dostać też obrazek, albo `--dry-run`, żeby zobaczyć liczby bez zapisywania pliku. Każda flaga stąd jest objaśniona w sekcji [Ustawienia na co dzień](docs:cli#everyday).
 
 ```sh
 # na tyle mała, żeby prześledzić wzrokiem każdą strzałkę
-deno task carve --width=12 --height=12 --colored
+arrowz carve --width=12 --height=12 --colored
 
 # gęste pole drobnych strzałek
-deno task carve --width=40 --height=40 --length=0 --colored
+arrowz carve --width=40 --height=40 --length=0 --colored
 
 # zamiast tego kilka długich węży
-deno task carve --width=40 --height=40 --length=1 --winding=0 --colored
+arrowz carve --width=40 --height=40 --length=1 --winding=0 --colored
 
 # szkielet bardzo długich strzałek przez całą planszę
-deno task carve --width=80 --height=80 --skeleton --colored
+arrowz carve --width=80 --height=80 --skeleton --colored
 
 # wysoka plansza
-deno task carve --width=40 --height=80
+arrowz carve --width=40 --height=80
 ```
 
 ### Wiele plansz naraz
 
 ```sh
-deno task carve --width=100 --height=200 --seed=1 --count=50
+arrowz carve --width=100 --height=200 --seed=1 --count=50
 ```
 
 To robi 50 różnych plansz, na ziarnach 1, 2, 3 i tak dalej. Ziarno, którego plansza nie jest pełna, jest pomijane i nic z niego nie trafia na dysk. Ziarno, które układa planszę już obecną w magazynie, też jest pomijane, ale jego polecenie zostaje dopisane do pliku `.json` tamtej planszy. W obu przypadkach polecenie bierze następne ziarno, aż zbierze 50 plansz. Gdy wypróbuje dwa razy więcej ziaren, niż ma zrobić plansz, poddaje się, a `--max-seeds=200` przesuwa tę granicę. Ostatni wiersz mówi, ile plansz zapisano, które ziarna pominięto i dlaczego. Bez `--randomized` każde ziarno zawsze układa tę samą planszę, więc to samo polecenie uruchomione na pustym magazynie robi te same plansze.
@@ -86,7 +80,7 @@ To robi 50 różnych plansz, na ziarnach 1, 2, 3 i tak dalej. Ziarno, którego p
 ### Opis planszy bez zapisywania
 
 ```sh
-deno task carve --width=30 --height=30 --seed=7 --dry-run
+arrowz carve --width=30 --height=30 --seed=7 --dry-run
 ```
 
 To buduje planszę, niczego nie zapisuje i wypisuje jeden wiersz z jej opisem, w formacie dla programów, nie dla ludzi. Oto on, skrócony do najciekawszych pól:
@@ -103,7 +97,7 @@ To buduje planszę, niczego nie zapisuje i wypisuje jeden wiersz z jej opisem, w
   "solvable": true,
   "genMs": 11,
   "pinned": [],
-  "command": "deno task carve --width=30 --height=30 --seed=7"
+  "command": "arrowz carve --width=30 --height=30 --seed=7"
 }
 ```
 
@@ -118,7 +112,7 @@ To najszybszy sposób, żeby wypróbować ustawienie: widzisz, ile strzałek dos
 Rzadko, przy dużych rozmiarach, generator poddaje się, zanim wypełni wszystkie komórki. Plansza i tak zostaje zapisana, opis mówi `"ok": false`, a polecenie kończy się kodem wyjścia 1, żeby skrypt to zauważył. Dodaj `--svg`, a obrazek pokaże puste komórki zabarwione na różowo. Zbyt długie generowanie można przerwać:
 
 ```sh
-CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
+CARVE_TIMEOUT_S=60 arrowz carve --width=1000 --height=1000
 ```
 
 To zatrzymuje generator po minucie i zapisuje to, co zdążył ułożyć, z oznaczeniem `"aborted": true`.
@@ -129,7 +123,7 @@ To zatrzymuje generator po minucie i zapisuje to, co zdążył ułożyć, z ozna
 deno task report --only=easy --square --runs=1
 ```
 
-`deno task report` buduje plansze na swoich stałych poziomach trudności, od 25×25 do 1000×1000, i wypisuje o nich stronę pomiarów. To narzędzie do strojenia generatora. Do robienia plansz nie jest potrzebne. Dla każdego poziomu wypisuje taki blok:
+`deno task report` buduje plansze na swoich stałych poziomach trudności, od 25×25 do 1000×1000, i wypisuje o nich stronę pomiarów. To narzędzie do strojenia generatora. Do robienia plansz nie jest potrzebne. To zadanie repozytorium (zobacz [W klonie repozytorium](docs:cli#clone)); zainstalowane polecenie go nie ma. Dla każdego poziomu wypisuje taki blok:
 
 ```text
 --- Easy 25x25 (1 runs) ---
@@ -159,7 +153,7 @@ Bez `--only` raport przechodzi po kolei przez każdy poziom trudności, aż do 1
 Generator odrzuca ustawienia, o których wie, że nie zadziałają. Robi to, zanim zacznie, a nie po dziesięciu minutach prób:
 
 ```sh
-deno task carve --width=30 --height=30 --pstraight=0.2 --svg=/tmp/x.svg
+arrowz carve --width=30 --height=30 --pstraight=0.2 --svg=/tmp/x.svg
 ```
 
 ```text
@@ -242,7 +236,7 @@ Przełącznik, domyślnie wyłączony. Gdy jest włączony, generator najpierw u
 Zwykle wartość `--length` albo `--winding` oznacza jeden dokładny zestaw pokręteł. Z `--randomized` każda wartość oznacza zakres, a generator przy każdym uruchomieniu losuje z niego nowy zestaw. Dlatego to samo ziarno daje za każdym razem inną planszę: o tym dodatkowym rzucie kością ziarno nie decyduje. Nic nie ginie. Wylosowane ustawienia trafiają do pliku `.json` planszy jako pełne polecenie, więc każdą planszę, która Ci się spodoba, da się zrobić jeszcze raz, dokładnie taką samą.
 
 ```sh
-deno task carve --width=40 --height=40 --randomized
+arrowz carve --width=40 --height=40 --randomized
 ```
 
 Podanie pokrętła obok `--randomized` przypina tylko to jedno pokrętło, a reszta dalej jest losowana; zobacz [Wszystkie pokrętła](docs:cli#knobs).
@@ -291,7 +285,7 @@ Flagi na co dzień to skróty. Za każdą z nich stoi kilka pokręteł, a każde
 Ta sekcja nie jest potrzebna, żeby używać wiersza poleceń. Jest tu, bo pytanie „co właściwie robi to pokrętło?” zasługuje na odpowiedź.
 
 ```sh
-deno task carve --width=40 --height=40 --seed=7 --pstraight=0.95 --svg
+arrowz carve --width=40 --height=40 --seed=7 --pstraight=0.95 --svg
 ```
 
 Pokrętło podane wprost ma pierwszeństwo przed flagą na co dzień, która inaczej by je ustawiła.
@@ -314,7 +308,7 @@ Flaga na co dzień nie ustawia jednego pokrętła, tylko cały ich zestaw:
 Wiersz poleceń mówi o tym, gdy to się dzieje, raz na uruchomienie, na stderr. Ten sam fakt dopisuje do wiersza `--dry-run`, żeby skrypt widział go bez czytania stderr:
 
 ```sh
-deno task carve --width=30 --height=30 --randomized --winding=0.5 --pstraight=0.9 --dry-run
+arrowz carve --width=30 --height=30 --randomized --winding=0.5 --pstraight=0.9 --dry-run
 ```
 
 ```text
@@ -328,7 +322,7 @@ note: --pstraight=0.9 is pinned; --winding still sets wLateral, anticoil, warns
 Przypiąć można też pokrętło, które przy reszcie ustawień niczego nie zmienia: pokrętło szkieletu bez szkieletu albo zadaną długość, gdy „ile zadanych” wynosi 0. Laboratorium przyciemnia takie pokrętło. Wiersz poleceń wypisuje to w osobnej linijce, z tym samym powodem, tylko po angielsku:
 
 ```sh
-deno task carve --width=30 --height=30 --probelen=30 --dry-run
+arrowz carve --width=30 --height=30 --probelen=30 --dry-run
 ```
 
 ```text
@@ -341,7 +335,7 @@ Tego drugiego wiersza nie ma w serii `--count` losowanej z `--randomized`. Tam k
 Gdy losowanie musi przesunąć własną wartość, żeby zachować regułę, mówi, którą i dokąd. Podaj udział większy niż to, co zostało pod limitem, a ustąpi udział ustawiony przez flagę na co dzień:
 
 ```sh
-deno task carve --width=30 --height=30 --length=0 --wmid=0.5 --dry-run
+arrowz carve --width=30 --height=30 --length=0 --wmid=0.5 --dry-run
 ```
 
 ```text
@@ -353,7 +347,7 @@ Ile kosztuje przypinanie: bezpieczne zakresy w tabeli niżej zmierzono dla cały
 
 ### Pokrętła
 
-Wszystkie, w grupach takich jak w `deno task carve --help=knobs`. **Krok** to odległość między wartościami, które przyjmuje pokrętło. Wartość między dwoma krokami jest odrzucana, tak jak wartość spoza zakresu, bo ani suwak laboratorium, ani wypisane polecenie nie mogłyby do niej wrócić. Tabela pochodzi z kodu wiersza poleceń, więc mówi to, co polecenie przyjmuje.
+Wszystkie, w grupach takich jak w `arrowz carve --help=knobs`. **Krok** to odległość między wartościami, które przyjmuje pokrętło. Wartość między dwoma krokami jest odrzucana, tak jak wartość spoza zakresu, bo ani suwak laboratorium, ani wypisane polecenie nie mogłyby do niej wrócić. Tabela pochodzi z kodu wiersza poleceń, więc mówi to, co polecenie przyjmuje.
 
 ::table{of="knobs"}
 
@@ -403,10 +397,10 @@ Flagi na co dzień nie mogą złamać tych reguł. Każda wartość każdej flag
 
 ## Gdzie zapisują się plansze {#saved}
 
-Domyślnie plansze trafiają do `packages/cli/boards/`, do osobnego katalogu dla każdego rozmiaru:
+Domyślnie plansze trafiają do `boards/` w katalogu, z którego uruchamiasz polecenie, do osobnego katalogu dla każdego rozmiaru:
 
 ```text
-packages/cli/boards/
+boards/
   25x25/
     sha256-0dc74eef….board.json   the board
     sha256-0dc74eef….json         what it was made from
@@ -417,16 +411,16 @@ packages/cli/boards/
 
 Nazwa pliku pochodzi od strzałek na planszy. Te same strzałki z innego ziarna albo z innych ustawień dzielą jeden komplet plików, a plik `.json` wymienia każde polecenie, które je zrobiło. Kolory i grubość linii nie wchodzą do nazwy, więc zmiana tylko ich zapisuje pod tą samą nazwą i podmienia obrazek.
 
-Inne miejsce wskażesz zmienną `ARROWZ_BOARDS_DIR`:
+Inne miejsce wskażesz zmienną `ARROWZ_BOARDS_DIR`; względna ścieżka w niej też zaczyna się w katalogu, z którego uruchamiasz polecenie:
 
 ```sh
 export ARROWZ_BOARDS_DIR=~/arrowz-boards
-deno task carve --width=25 --height=25
+arrowz carve --width=25 --height=25
 ```
 
 Plik `.json` obok każdej planszy trzyma każde użyte ustawienie, czas powstania planszy, czas generowania i liczbę strzałek. Trzyma też wiersz `command`, który robi dokładnie tę samą planszę jeszcze raz. Jeśli masz zachować z planszy jedną rzecz, zachowaj ten wiersz.
 
-> Plansze nie są częścią repozytorium: `packages/cli/boards/` jest z niego celowo wyłączony. Plik planszy 1000×1000 ma około megabajta, a jej obrazek dziesiątki megabajtów.
+> Uwaga na rozmiar: plik planszy 1000×1000 ma około megabajta, a jej obrazek dziesiątki megabajtów.
 
 ## Zmienne środowiskowe {#env}
 
@@ -434,34 +428,27 @@ Plik `.json` obok każdej planszy trzyma każde użyte ustawienie, czas powstani
 
 ::table{of="env"}
 
-## Samodzielny program {#standalone}
+## W klonie repozytorium {#clone}
 
-Jeśli wolisz jeden plik, który uruchamiasz bez każdorazowego wywoływania Deno:
-
-```sh
-deno task compile
-```
-
-To zapisuje samodzielny program w `packages/cli/dist/carve`. Przyjmuje dokładnie te same opcje co zadanie `carve`, a krócej się go wpisuje:
+Repozytorium uruchamia ten sam program prosto ze źródeł, pod [Deno](https://deno.com/) w wersji 2.9 lub nowszej i bez budowania czegokolwiek:
 
 ```sh
-./packages/cli/dist/carve --width=25 --height=25 --dry-run
+git clone https://github.com/Fronthub-pl/arrowz.git
+cd arrowz
+deno task carve --width=25 --height=25 --svg
 ```
 
-Jest jeden haczyk. Samodzielny program nie wie, gdzie jest repozytorium, więc nie umie ustalić, gdzie zapisywać plansze. Zanim poprosisz go o zapisanie czegokolwiek, powiedz mu, gdzie je kłaść:
+Wpisuj `deno task carve` wszędzie tam, gdzie ta strona pisze `arrowz carve`. Zadanie działa w katalogu `packages/cli/`, więc tam plansze trafiają do `packages/cli/boards/`, czyli do magazynu, który czyta to laboratorium, a względna ścieżka, na przykład `--svg=my-board.svg`, zaczyna się w tym katalogu. Ten katalog jest celowo wyłączony z repozytorium.
 
-```sh
-export ARROWZ_BOARDS_DIR=~/arrowz-boards
-./packages/cli/dist/carve --width=25 --height=25
-```
-
-Bez tego zapis kończy się błędem o katalogu, którego nie da się utworzyć. Opis planszy zamiast zapisu (`--dry-run`) działa w obu przypadkach.
+`deno task report` to zadanie tylko repozytorium: zainstalowane polecenie go nie ma.
 
 ## Gdy coś idzie nie tak {#trouble}
 
-**`deno task` mówi, że nie może znaleźć `deno.json`** — jesteś poza katalogiem projektu. Przejdź (`cd`) do katalogu `arrowz` i spróbuj jeszcze raz.
+**`arrowz: command not found`** — pakiet nie jest zainstalowany dla całego komputera. Zainstaluj go poleceniem `npm install -g @fronthub/arrowz-cli` albo uruchom raz przez `npx @fronthub/arrowz-cli carve …`.
 
-**`Requires env access`** — uruchomiono `deno run packages/cli/carve.ts` bezpośrednio. Deno nie pozwala programowi czytać Twoich plików ani ustawień bez wyraźnej zgody. Użyj zadania `carve`, które daje dokładnie to, czego potrzeba.
+**`deno task` mówi, że nie może znaleźć `deno.json`** — w klonie jesteś poza katalogiem projektu. Przejdź (`cd`) do katalogu `arrowz` i spróbuj jeszcze raz.
+
+**`Requires env access`** — w klonie uruchomiono `deno run packages/cli/arrowz.ts` bezpośrednio. Deno nie pozwala programowi czytać Twoich plików ani ustawień bez wyraźnej zgody. Użyj zadania `carve`, które daje dokładnie to, czego potrzeba.
 
 **`unknown flag …`** — polecenie w ogóle nie zna tej flagi. Sprawdź pisownię w `--help` albo `--help=knobs`.
 
@@ -469,14 +456,14 @@ Bez tego zapis kończy się błędem o katalogu, którego nie da się utworzyć.
 
 **`invalid arguments: --pstraight=0.2 is outside 0.6..1`** — wartość jest poza zakresem, między dwoma krokami pokrętła albo łamie regułę. Każdy wiersz zaczyna się od flagi do zmiany, a złamana reguła wymienia każdą flagę, której dotyczy. Nic nie zostało wygenerowane ani zapisane.
 
-**`failed to close board …`** — generator próbował, cofał strzałki, zaczynał od nowa i mimo to nie wypełnił planszy. Prawie zawsze winne jest pokrętło ustawione daleko od wartości domyślnej. [Tabela pokręteł](docs:cli#knobs) mówi, co robi każde z nich. Przesuń je z powrotem w stronę wartości domyślnej albo spróbuj innego ziarna. Plansza i tak jest w `packages/cli/boards/`. Dodaj `--svg`, a obrazek pokaże puste komórki zabarwione na różowo, więc zobaczysz, gdzie generator utknął.
+**`failed to close board …`** — generator próbował, cofał strzałki, zaczynał od nowa i mimo to nie wypełnił planszy. Prawie zawsze winne jest pokrętło ustawione daleko od wartości domyślnej. [Tabela pokręteł](docs:cli#knobs) mówi, co robi każde z nich. Przesuń je z powrotem w stronę wartości domyślnej albo spróbuj innego ziarna. Plansza i tak jest zapisana. Dodaj `--svg`, a obrazek pokaże puste komórki zabarwione na różowo, więc zobaczysz, gdzie generator utknął.
 
-**`failed to close board …: covered, but the rays make a cycle`** — każda komórka jest zajęta, a mimo to żadna strzałka nigdy nie odjedzie: dwie strzałki wskazują na siebie nawzajem albo robi to dłuższy pierścień strzałek. To błąd generatora, a nie skutek wybranych ustawień. Żadne polecenie go nie wywoła, bo generator daje każdej strzałce drogę do krawędzi, zanim cokolwiek na niej stanie. Jeśli kiedyś zobaczysz ten wiersz, plansza i tak jest zapisana w `packages/cli/boards/`. Zachowaj ją i zgłoś, bo to plansza, która nie powinna istnieć.
+**`failed to close board …: covered, but the rays make a cycle`** — każda komórka jest zajęta, a mimo to żadna strzałka nigdy nie odjedzie: dwie strzałki wskazują na siebie nawzajem albo robi to dłuższy pierścień strzałek. To błąd generatora, a nie skutek wybranych ustawień. Żadne polecenie go nie wywoła, bo generator daje każdej strzałce drogę do krawędzi, zanim cokolwiek na niej stanie. Jeśli kiedyś zobaczysz ten wiersz, plansza i tak jest zapisana. Zachowaj ją i zgłoś, bo to plansza, która nie powinna istnieć.
 
 **Jedna plansza generuje się w nieskończoność** — ustaw `CARVE_TIMEOUT_S` na liczbę sekund, a generator zatrzyma się po tym czasie i zapisze to, co zdążył ułożyć:
 
 ```sh
-CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
+CARVE_TIMEOUT_S=60 arrowz carve --width=1000 --height=1000
 ```
 
 **Raport trwa w nieskończoność** — `deno task report` bez niczego więcej przechodzi przez każdy poziom trudności aż do 1000×1000, po trzy razy. Dodaj `--only=easy --square --runs=1`. Samo `--only=easy` nie pasuje do niczego: potrzebuje obok `--square` albo `--portrait`.
@@ -484,7 +471,7 @@ CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
 **Chcesz wiedzieć, co robi** — ustaw `CARVE_TRACE=1`, a polecenie będzie na bieżąco wypisywać postęp:
 
 ```sh
-CARVE_TRACE=1 deno task carve --width=200 --height=200
+CARVE_TRACE=1 arrowz carve --width=200 --height=200
 ```
 
 ```text

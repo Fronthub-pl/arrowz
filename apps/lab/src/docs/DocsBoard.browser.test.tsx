@@ -72,7 +72,7 @@ test('a board is generated, drawn, captioned and measured', async () => {
     ['average length', (144 / expected.pieces).toFixed(1)],
   ])
   expect(screen.container.querySelector('.fw-docs-board pre.fw-cmd')?.textContent).toBe(
-    'deno task carve --width=12 --height=12 --seed=7',
+    'arrowz carve --width=12 --height=12 --seed=7',
   )
   expect(workers.posted).toHaveLength(1)
 })
@@ -82,7 +82,7 @@ test('Copy writes the whole command', async () => {
   vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({ writeText: write } as unknown as Clipboard)
   const screen = await show(BOARD, createDocsQueue(answeringWorkers().make, new Map()))
   await screen.getByRole('button', { name: 'Copy: A small board' }).click()
-  expect(write).toHaveBeenLastCalledWith('deno task carve --width=12 --height=12 --seed=7')
+  expect(write).toHaveBeenLastCalledWith('arrowz carve --width=12 --height=12 --seed=7')
 })
 
 test('the board looks as its command says, not as the lab is set', async () => {

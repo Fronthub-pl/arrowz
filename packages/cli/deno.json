@@ -5,9 +5,8 @@
     "exactOptionalPropertyTypes": true
   },
   "tasks": {
-    "carve": "deno run --allow-read --allow-write --allow-env=ARROWZ_BOARDS_DIR,CARVE_TIMEOUT_S,CARVE_TRACE,GIANT_DEBUG carve.ts",
+    "carve": "deno run --allow-read --allow-write --allow-env=ARROWZ_BOARDS_DIR,CARVE_TIMEOUT_S,CARVE_TRACE,GIANT_DEBUG arrowz.ts carve",
     "report": "deno run --allow-read --allow-write --allow-env=ARROWZ_BOARDS_DIR,CARVE_TIMEOUT_S,CARVE_TRACE,GIANT_DEBUG report.ts",
-    "store": "sh store.sh",
-    "compile": "deno compile --allow-read --allow-write --allow-env=ARROWZ_BOARDS_DIR,CARVE_TIMEOUT_S,CARVE_TRACE,GIANT_DEBUG -o dist/carve carve.ts"
+    "store": "sh store.sh"
   }
 }

@@ -34,8 +34,9 @@ pnpm --filter @fronthub/arrowz-board exec playwright install --with-deps chromiu
 ```
 
 The last line installs the Chromium that the browser tests of the lab and the
-board element run in. Changes to the engine or the command line alone need
-only Deno; you can skip the rest.
+board element run in; changes to the engine or the command line alone can skip
+it. They still need `pnpm install`: the command line uses Node's built-in
+modules, and Deno checks those against the types in `node_modules`.
 
 ## Checking your change
 

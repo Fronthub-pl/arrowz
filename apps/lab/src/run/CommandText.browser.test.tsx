@@ -32,6 +32,18 @@ test('splits the command into the prefix and one span per flag', async () => {
   expect(screen.container.querySelector('.fw-cmd')?.textContent).toBe(COMMAND)
 })
 
+// A board saved before the program had its own name carries the repository task.
+test('splits a command in the repository task spelling the same way, under its own prefix', async () => {
+  const screen = await render(
+    <pre className="fw-cmd">
+      <CommandText command="deno task carve --width=8 --colored" />
+    </pre>,
+  )
+  const lines = [...screen.container.querySelectorAll('.fw-cmd > .ln')]
+  expect(lines.map((l) => l.textContent)).toEqual(['deno task carve', '--width=8', '--colored'])
+  expect(screen.container.querySelector('.fw-cmd')?.textContent).toBe('deno task carve --width=8 --colored')
+})
+
 test('leaves a command without the program prefix whole', async () => {
   const screen = await render(
     <pre className="fw-cmd">

@@ -30,6 +30,7 @@
     ],
     "packageJson": {
       "dependencies": [
+        "npm:@types/node@^26.5.1",
         "npm:nx@^23.2.0",
         "npm:typescript@^5.9.3"
       ]

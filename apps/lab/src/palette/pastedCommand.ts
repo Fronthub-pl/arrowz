@@ -1,6 +1,6 @@
 import {
   type ArgProblem,
-  COMMAND_PREFIX,
+  COMMAND_PREFIXES,
   drawOf,
   ENV_WORD_SOURCE,
   parseArgs,
@@ -13,11 +13,10 @@ import { viewFieldsOf } from '../state/view.slice'
 import type { Command, CommandDeps } from './commands'
 
 // The same prompt-and-environment shape splitCommand drops, so a line copied
-// straight from a terminal ($ ..., NAME=value ... deno task carve ...) is
+// straight from a terminal ($ ..., NAME=value ... arrowz carve ...) is
 // still recognised as a command rather than searched as a knob.
-const CARVE_LINE = new RegExp(
-  `^(?:\\$\\s+)?(?:${ENV_WORD_SOURCE}\\s+)*${COMMAND_PREFIX.split(' ').join('\\s+')}(\\s|$)`,
-)
+const PREFIX_SOURCE = COMMAND_PREFIXES.map((prefix) => prefix.split(' ').join('\\s+')).join('|')
+const CARVE_LINE = new RegExp(`^(?:\\$\\s+)?(?:${ENV_WORD_SOURCE}\\s+)*(?:${PREFIX_SOURCE})(\\s|$)`)
 
 /**
  * A query that is a carve line: the prefix (a prompt and environment words

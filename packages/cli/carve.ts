@@ -1,4 +1,5 @@
-// CLI layer over the engine in engine.ts. Run: deno task carve --width=N --height=N [options] [mode]
+// CLI layer over the engine in engine.ts. Run: arrowz carve --width=N --height=N [options] [mode]
+// (in a clone of the repository: deno task carve, the same program).
 //
 // The everyday flags of the simple lab view (a size, --length and --winding in 0..1, --skeleton, --seed, the
 // picture flags --colored --line --arrow-width --arrow-height, --randomized) stand beside every engine knob,
@@ -6,7 +7,7 @@
 // written on the command line is PINNED: the bundle is drawn first and the pin is written over it. Each pin
 // is named once per run on stderr, because --dry-run owns stdout.
 //
-// Always one board file -> packages/cli/boards/, or with --dry-run one JSON line and nothing written. Modes:
+// Always one board file -> the store (see `boardsDir`), or with --dry-run one JSON line and nothing written. Modes:
 //   --svg[=path]    an SVG preview in the store as well (+ a copy at path)
 //   --dry-run       one JSON line on stdout: the id (the layout hash the store would name it by), metrics,
 //                   the pinned knobs and the fingerprint
@@ -45,21 +46,25 @@ import {
 } from '@fronthub/arrowz-engine/command'
 import { BUNDLES } from '@fronthub/arrowz-engine/simple'
 import type { Move } from '@fronthub/arrowz-engine/simple'
+import { writeFileSync } from 'node:fs'
+import process from 'node:process'
+import { exit } from './exit.ts'
 import { saveBoard, type SaveResult } from './store.ts'
 
-// The CLI is a program, not a module: nothing imports it (the tests spawn it).
-if (!import.meta.main) throw new Error('carve.ts is the CLI entry point; import command.ts or the engine instead')
+// A program, not a module: arrowz.ts imports it to run it, and the word
+// `carve` it dispatched on is argv[2].
+const argv = process.argv.slice(3)
 
-// Trace and debug enter the engine as functions — the engine knows no `Deno`.
+// Trace and debug enter the engine as functions — the engine knows no runtime.
 // Left undefined (not null) so they fit the optional hooks of GenerateOptions.
 // CARVE_TIMEOUT_S is a wall-clock budget for measurements: the engine calls
 // the trace at least once a second, and past the deadline the callback
 // aborts the run; the board carved so far still goes to the store.
-const timeoutEnv = Deno.env.get('CARVE_TIMEOUT_S')
+const timeoutEnv = process.env.CARVE_TIMEOUT_S
 const timeoutS = timeoutEnv === undefined ? null : Number(timeoutEnv)
 if (timeoutS !== null && !(timeoutS >= 0)) {
   console.error(`invalid CARVE_TIMEOUT_S: ${timeoutEnv} is not a number of seconds`)
-  Deno.exit(2)
+  exit(2)
 }
 let deadline = Infinity
 /** Starts the CARVE_TIMEOUT_S budget afresh: once for the run, and once per seed of a batch. */
@@ -67,7 +72,7 @@ function armDeadline(): void {
   deadline = timeoutS === null ? Infinity : performance.now() + timeoutS * 1000
 }
 armDeadline()
-const traceOn = Boolean(Deno.env.get('CARVE_TRACE'))
+const traceOn = Boolean(process.env.CARVE_TRACE)
 const trace = traceOn || timeoutS !== null
   ? (i: TraceInfo) => {
     if (traceOn) {
@@ -78,14 +83,14 @@ const trace = traceOn || timeoutS !== null
     if (performance.now() > deadline) throw new GenerateAbort(`time budget of ${timeoutS} s exhausted`)
   }
   : undefined
-const debug = Deno.env.get('GIANT_DEBUG') ? (msg: string) => console.error(msg) : undefined
+const debug = process.env.GIANT_DEBUG ? (msg: string) => console.error(msg) : undefined
 /** The hooks as generate() takes them, beside the knobs: only the ones that are on. */
 const hooks: Pick<GenerateOptions, 'trace' | 'debug'> = { ...(trace ? { trace } : {}), ...(debug ? { debug } : {}) }
 
 // One parser reads every flag. It is pure — it hands back the everyday
 // choice, the knobs the command line pinned and the view, and leaves the
 // drawing to us — so a batch can redraw for each seed and keep the same pins.
-const parsed = parseArgs(Deno.args)
+const parsed = parseArgs(argv)
 const view = parsed.view
 const rest = parsed.rest
 // Mode flags (not engine parameters) are read from what the parser left; every reader marks what it took
@@ -120,7 +125,7 @@ function refuseErrors(items: readonly string[], violations?: readonly Violation[
     for (const it of items) console.error(`  - ${it}`)
     console.error('see --help')
   }
-  Deno.exit(2)
+  exit(2)
 }
 function refuseViolations(items: readonly Violation[]): never {
   refuseErrors(items.map(flagViolation), items)
@@ -136,7 +141,7 @@ if (helpFlag !== undefined) {
     refuseErrors([`${helpFlag} is not --help or --help=knobs`])
   }
   console.log(helpText({ knobs: helpFlag === '--help=knobs' }))
-  Deno.exit(0)
+  exit(0)
 }
 
 // The flags themselves can be wrong (a missing size, a slider outside 0..1, a
@@ -233,7 +238,7 @@ function bundleFlag(bundle: BundleKey): string {
   return bundle === 'difficulty' ? 'the difficulty baseline' : `--${bundle}`
 }
 /** The flags this run was given, by name: a value is not part of the name. */
-const givenFlags = new Set(Deno.args.map((a) => {
+const givenFlags = new Set(argv.map((a) => {
   const eq = a.indexOf('=')
   return eq < 0 ? a : a.slice(0, eq)
 }))
@@ -380,7 +385,7 @@ if (count !== null) {
   const notClosed = skipped.length ? `, not closed: ${skipped.join(' ')}` : ''
   const stored = alreadyStored.length ? `, already stored: ${alreadyStored.join(' ')}` : ''
   console.log(`batch: ${written}/${count} boards written, ${tried} seeds tried${notClosed}${stored}`)
-  Deno.exit(written === count ? 0 : 1)
+  exit(written === count ? 0 : 1)
 }
 const result = generate(params, hooks)
 const c = result.board, W = params.W, H = params.H
@@ -454,7 +459,7 @@ if (!result.ok) {
       },
     })
     const meta = saved.meta
-    if (svgOut && svg !== undefined) Deno.writeTextFileSync(svgOut, svg)
+    if (svgOut && svg !== undefined) writeFileSync(svgOut, svg)
     console.log(
       `${storedNames(meta, svgOut)}${
         alreadyNote(saved)
@@ -463,7 +468,7 @@ if (!result.ok) {
       } s`,
     )
   }
-  Deno.exit(1)
+  exit(1)
 }
 const m = result.metrics
 if (!m) throw new Error('unreachable: ok without metrics')
@@ -493,7 +498,7 @@ if (dryRun) {
     boardBytes,
     fingerprint: fingerprint(c),
   }))
-  Deno.exit(0)
+  exit(0)
 }
 const svg = svgFlag ? toSvg(c, svgView) : undefined
 const saved = await saveBoard({
@@ -506,7 +511,7 @@ const saved = await saveBoard({
   metrics: { ok: result.ok, pieces: c.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
 })
 const meta = saved.meta
-if (svgOut && svg !== undefined) Deno.writeTextFileSync(svgOut, svg)
+if (svgOut && svg !== undefined) writeFileSync(svgOut, svg)
 if (view.top > 0) {
   // The span (how many columns and rows a piece crosses) tells whether it
   // crosses the board or coils in one region. A piece is a path of adjacent
@@ -529,4 +534,4 @@ console.log(
     (100 * m.coil).toFixed(0)
   }% backtracks=${result.backtracks} restarts=${result.restartsUsed} ${(result.genMs / 1000).toFixed(2)} s`,
 )
-Deno.exit(0)
+exit(0)

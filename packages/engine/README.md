@@ -211,6 +211,7 @@ out when it fits in a line and described when it does not.
 
 | Function | Signature | Behaviour |
 |---|---|---|
+| `commandPrefixOf` | `(command: string) => string \| null` | The spelling a command text starts with, as a whole word, or `null` when it starts with none. |
 | `boardId` | `(params: Params) => string` | A board's id: the seed and a hash of the parameters, without the view, so the same command lands in the same slot in the browser and in the CLI. |
 | `buildCommand` | `(params: Params, view?: Partial<View>) => string` | The command line that reproduces a board with this view. |
 | `drawnViolations` | `(violations: readonly Violation[], typed: ReadonlySet<ParamKey>) => Violation[]` | The violations no edit of the command line could fix: a range or step violation on a knob the caller did not write (`typed` is what they did write). |
@@ -223,7 +224,7 @@ out when it fits in a line and described when it does not.
 | `knobFlag` | `(params: Params, key: ParamKey) => string` | How one knob is written on the command line, flag and value; `headBias` and `mix` share `--start`, so the whole set is needed. |
 | `parseArgs` | `(argv: readonly string[]) => ParsedArgs` | Splits argv into the everyday choice, the knobs it pins, the view, the mode flags and the errors. Pure and unrandomised: drawing for `--randomized` is the caller's job. |
 | `problemText` | `(p: ArgProblem) => string` | The English sentence the CLI prints for a problem. |
-| `splitCommand` | `(text: string) => { argv: string[]; problems: ArgProblem[] }` | One pasted line as the argv a shell would hand the CLI, with shell quoting and continuation lines; a leading `deno task carve` is dropped. |
+| `splitCommand` | `(text: string) => { argv: string[]; problems: ArgProblem[] }` | One pasted line as the argv a shell would hand the CLI, with shell quoting and continuation lines; a leading `arrowz carve` or `deno task carve` is dropped. |
 | `startChoiceOf` | `(params: Params) => StartChoice` | Which start choice a stored `headBias` and `mix` stand for. |
 | `storeRequest` | `(board: BoardFile, params: Params, view: View, source: string, metrics?: StoreRequest['metrics']) => StoreRequest` | The body of a board-store write, with the command built here so the two agree. |
 | `svgOptions` | `(view: View) => SvgOptions` | The `SvgOptions` a view implies, with its theme resolved under the stated colours. |
@@ -233,7 +234,8 @@ out when it fits in a line and described when it does not.
 | Constant | Value | Meaning |
 |---|---|---|
 | `CARVE_FLAGS` | 53 flags, as they are typed | Every flag the CLI takes; `-h` is the one with a single dash. |
-| `COMMAND_PREFIX` | `'deno task carve'` | How the CLI is invoked from anywhere inside the repository. |
+| `COMMAND_PREFIX` | `'arrowz carve'` | How the installed CLI is invoked; the lab prints it and the store records it. |
+| `COMMAND_PREFIXES` | `['arrowz carve', 'deno task carve']` | Every spelling a reader takes for the CLI: the installed program, and the repository task. |
 | `DEFAULT_VIEW` | a `View` | The view of a board nobody has styled: cell 12, line 0.5, automatic head width, rounded, no theme, margin 4. |
 | `ENV_VARS` | 4 `{ name, usage }` rows | The environment variables `carve` and `report` read, each with the words `--help` prints for it. |
 | `ENV_WORD_SOURCE` | `'[A-Z_][A-Z0-9_]*=\S*'` | The pattern of a `NAME=value` environment word, shared with the lab's command palette. |

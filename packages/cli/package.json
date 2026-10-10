@@ -1,0 +1,25 @@
+{
+  "name": "@fronthub/arrowz-cli",
+  "version": "0.1.0",
+  "description": "The arrowz command: lays an Arrowz puzzle board and saves it as a board file, with an SVG preview on request.",
+  "keywords": ["arrowz", "puzzle", "board", "generator", "cli", "svg"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fronthub-pl/arrowz.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/Fronthub-pl/arrowz/tree/main/packages/cli#readme",
+  "type": "module",
+  "engines": { "node": ">=22.12" },
+  "bin": { "arrowz": "./dist/arrowz.mjs" },
+  "publishConfig": { "access": "public" },
+  "files": ["dist", "LICENSE"],
+  "scripts": {
+    "build": "deno bundle --platform deno --external '@fronthub/arrowz-engine' --external '@fronthub/arrowz-engine/*' -o dist/arrowz.mjs arrowz.ts",
+    "smoke": "node scripts/node-smoke.mjs"
+  },
+  "dependencies": {
+    "@fronthub/arrowz-engine": "workspace:^"
+  }
+}

@@ -112,8 +112,9 @@ player reads. It reads:
 Code is not prose, so the test blanks it first: code spans, fenced blocks,
 heading ids, directive lines and link targets in the Docs pages, and flag,
 environment and group names (`--start`, `CARVE_TIMEOUT_S`) in the help. The
-command `deno task carve` is a name, not a word: the help and the Docs pages
-blank it, and the one dictionary key that quotes it is an exception.
+command `arrowz carve` is a name, not a word, and so is `deno task carve`,
+the task that runs it in a clone: the help and the Docs pages blank both, and
+the one dictionary key that quotes the task is an exception.
 
 Two words belong to the command line. *Knob* is its word for a setting (its
 "Knobs." section and "knob" column), so `RULE_REASONS`, `helpText` and the CLI
@@ -134,7 +135,7 @@ Today they are:
 - `ui.cmdHintClose`: "close" the palette, a verb about the dialog.
 - `ui.cmdPlaceholder`: "knob" / "pokrętła" in the palette's search hint, where
   a developer types.
-- `ui.storeEmpty`: the command `deno task carve`.
+- `ui.storeEmpty`: the task `deno task carve`.
 - Polish `ui.docsElement` and a few Docs table rows: *element* names the web
   component ("Element planszy"), not an arrow.
 

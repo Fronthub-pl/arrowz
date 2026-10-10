@@ -55,7 +55,6 @@
     "carve": "deno task --cwd=packages/cli carve",
     "report": "deno task --cwd=packages/cli report",
     "docs": "deno run --allow-read --allow-write --allow-run --allow-env packages/cli/scripts/record-doc-images.ts",
-    "store": "deno task --cwd=packages/cli store",
-    "compile": "deno task --cwd=packages/cli compile"
+    "store": "deno task --cwd=packages/cli store"
   }
 }

@@ -1,11 +1,14 @@
-// Store of generated boards: packages/cli/boards/<W>x<H>/<id>.board.json + <id>.json,
-// plus <id>.svg when a preview was asked for. The id is the board's layout hash
-// (`sha256-<64 hex>`): one arrangement of arrows has one set of files, whatever
-// seeds and parameters carved it, and its meta lists them as recipes
-// (docs/board-file.md#names-in-the-store). Shared by the CLI
-// (carve.ts) and the store server. The directory is gitignored — a 1000×1000
-// board file is about a megabyte, and the commands in the meta reproduce it.
-import { dirname, fromFileUrl, join } from '@std/path'
+// Store of generated boards: <store>/<W>x<H>/<id>.board.json + <id>.json, plus
+// <id>.svg when a preview was asked for (see `boardsDir` for <store>). The id is
+// the board's layout hash (`sha256-<64 hex>`): one arrangement of arrows has one
+// set of files, whatever seeds and parameters carved it, and its meta lists
+// them as recipes (docs/board-file.md#names-in-the-store). Shared by the CLI
+// (carve.ts) and the store server. The repository's own store,
+// packages/cli/boards/, is gitignored — a 1000×1000 board file is about a
+// megabyte, and the commands in the meta reproduce it.
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import process from 'node:process'
 import type { BoardMeta, BoardSize, Recipe, StoreRequest, View } from '@fronthub/arrowz-engine'
 import { decodeBoard, defaultParams, layoutHash } from '@fronthub/arrowz-engine'
 import { boardId, DEFAULT_VIEW } from '@fronthub/arrowz-engine/command'
@@ -29,17 +32,9 @@ export interface SaveResult {
 /** The only file names the store lists or deletes. */
 const LAYOUT_ID = /^sha256-[0-9a-f]{64}$/
 
+/** The store: ARROWZ_BOARDS_DIR, or `boards` in the working directory; a relative one starts there too. */
 export function boardsDir(): string {
-  return Deno.env.get('ARROWZ_BOARDS_DIR') || join(dirname(fromFileUrl(import.meta.url)), 'boards')
-}
-
-function exists(path: string): boolean {
-  try {
-    Deno.statSync(path)
-    return true
-  } catch {
-    return false
-  }
+  return resolve(process.env.ARROWZ_BOARDS_DIR || 'boards')
 }
 
 /** A stored view with the fields a later knob added filled in with the defaults. */
@@ -57,7 +52,7 @@ function fillView(view: View): View {
  */
 function readMeta(file: string): BoardMeta | null {
   try {
-    const parsed: unknown = JSON.parse(Deno.readTextFileSync(file))
+    const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
     if (typeof parsed !== 'object' || parsed === null) return null
     const meta = parsed as BoardMeta
     const sources: Recipe[] = Array.isArray(meta.sources) ? meta.sources : []
@@ -104,7 +99,7 @@ export async function saveBoard(
   // params equal to the decoded board's checked W and H.
   const id = await layoutHash(decodeBoard(board))
   const dir = join(boardsDir(), `${params.W}x${params.H}`)
-  Deno.mkdirSync(dir, { recursive: true })
+  mkdirSync(dir, { recursive: true })
   const now = new Date().toISOString()
   const metaFile = join(dir, `${id}.json`)
   const boardPath = join(dir, `${id}.board.json`)
@@ -130,7 +125,7 @@ export async function saveBoard(
   // A missing or unreadable meta means the board file beside it is not vouched for, so it is written
   // again; a missing board file counts as new the same way, because the meta must describe the file on
   // disk and listBoards pairs the two. `layoutExisted` is unmoved by either: it only reports a stored meta.
-  const writesFile = before === null || !exists(boardPath)
+  const writesFile = before === null || !existsSync(boardPath)
   // The stored meta whose board file this save leaves alone, if any: its
   // fingerprint and size still describe that file.
   const vouched = writesFile ? null : before
@@ -161,11 +156,11 @@ export async function saveBoard(
     stuck: metrics.stuck ?? before?.stuck ?? null,
     sources,
   }
-  if (writesFile) Deno.writeTextFileSync(boardPath, boardText)
+  if (writesFile) writeFileSync(boardPath, boardText)
   const svgFile = join(dir, `${id}.svg`)
-  if (svg !== undefined) Deno.writeTextFileSync(svgFile, svg)
-  else if (exists(svgFile)) Deno.removeSync(svgFile)
-  Deno.writeTextFileSync(metaFile, JSON.stringify(meta, null, 2))
+  if (svg !== undefined) writeFileSync(svgFile, svg)
+  else if (existsSync(svgFile)) rmSync(svgFile)
+  writeFileSync(metaFile, JSON.stringify(meta, null, 2))
   return { meta, layoutExisted: before !== null, recipeExisted: replaced !== null }
 }
 
@@ -182,30 +177,30 @@ export function deleteBoard(size: string, id: string): boolean {
   let removed = false
   for (const ext of ['.board.json', '.json', '.svg']) {
     const file = join(dir, id + ext)
-    if (exists(file)) {
-      Deno.removeSync(file)
+    if (existsSync(file)) {
+      rmSync(file)
       removed = true
     }
   }
-  if (exists(dir) && [...Deno.readDirSync(dir)].length === 0) Deno.removeSync(dir)
+  if (existsSync(dir) && readdirSync(dir).length === 0) rmdirSync(dir)
   return removed
 }
 
 /** Sizes ascending by cell count, layouts newest first within a size. Only layout-hash names are read. */
 export function listBoards(): BoardSize[] {
   const root = boardsDir()
-  if (!exists(root)) return []
+  if (!existsSync(root)) return []
   const sizes: BoardSize[] = []
-  for (const entry of Deno.readDirSync(root)) {
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
     const m = /^(\d+)x(\d+)$/.exec(entry.name)
-    if (!m || !entry.isDirectory) continue
+    if (!m || !entry.isDirectory()) continue
     const dir = join(root, entry.name)
     const boards: BoardMeta[] = []
-    for (const f of Deno.readDirSync(dir)) {
-      if (!f.name.endsWith('.json') || f.name.endsWith('.board.json')) continue
-      const id = f.name.slice(0, -'.json'.length)
-      if (!LAYOUT_ID.test(id) || !exists(join(dir, `${id}.board.json`))) continue
-      const meta = readMeta(join(dir, f.name))
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith('.json') || name.endsWith('.board.json')) continue
+      const id = name.slice(0, -'.json'.length)
+      if (!LAYOUT_ID.test(id) || !existsSync(join(dir, `${id}.board.json`))) continue
+      const meta = readMeta(join(dir, name))
       if (meta) boards.push(meta)
     }
     if (!boards.length) continue

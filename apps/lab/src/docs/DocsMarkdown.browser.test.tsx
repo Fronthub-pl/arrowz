@@ -75,9 +75,9 @@ test('a link out of the lab opens in a new tab', async () => {
 })
 
 test('code in a known language is coloured, text is not, and each Copy names its section', async () => {
-  const screen = await show('# T\n\n## Run {#run}\n\n```sh\ndeno task carve --width=4\n```\n\n```text\nok\n```')
+  const screen = await show('# T\n\n## Run {#run}\n\n```sh\narrowz carve --width=4\n```\n\n```text\nok\n```')
   const sh = screen.container.querySelector('pre.fw-docs-code > code')
-  expect(sh?.textContent).toBe('deno task carve --width=4')
+  expect(sh?.textContent).toBe('arrowz carve --width=4')
   expect(sh?.querySelector('.tk-attr')?.textContent).toBe('--width')
   const term = screen.container.querySelector('pre.fw-docs-term')
   expect(term?.textContent).toBe('ok')

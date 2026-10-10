@@ -1,14 +1,13 @@
 # Arrowz command line
 
-The command-line side of [Arrowz](../../README.md): `deno task carve` makes
-boards, `deno task report` measures the generator, `deno task store` serves the
-saved boards to the lab, and `deno task compile` builds `carve` as one program.
-Every command below runs from the repository's root folder; how to get there,
-and what the puzzle is, is in the [main README](../../README.md).
+The command-line side of [Arrowz](../../README.md): `arrowz carve` lays a board
+and saves it, with a picture when you ask for one. It is the npm package
+`@fronthub/arrowz-cli` and runs on Node.js 22.12 or newer. What the puzzle is,
+and the rest of the project, is in the [main README](../../README.md).
 
 ## Contents
 
-1. [Making a standalone program](#making-a-standalone-program)
+1. [Installing](#installing)
 2. [The commands](#the-commands)
 3. [The everyday settings](#the-everyday-settings)
 4. [The full set of settings](#the-full-set-of-settings)
@@ -19,57 +18,59 @@ and what the puzzle is, is in the [main README](../../README.md).
 
 ---
 
-## Making a standalone program
-
-If you would rather have a single file you can run without Deno being involved
-every time:
+## Installing
 
 ```sh
-deno task compile
+npm install -g @fronthub/arrowz-cli
+arrowz carve --width=25 --height=25 --dry-run
 ```
 
-That writes a self-contained program to `packages/cli/dist/carve`. It takes
-exactly the same options as the `carve` task, and is shorter to type:
+To run it once without installing anything:
 
 ```sh
-./packages/cli/dist/carve --width=25 --height=25 --dry-run
+npx @fronthub/arrowz-cli carve --width=25 --height=25 --dry-run
 ```
 
-One catch. The standalone program does not know where the repository is, so it
-cannot work out where to file boards. Before asking it to save anything, tell
-it where to put them:
+`arrowz` is the name of the command, not of the package. Do not run
+`npx arrowz`: it would fetch whatever package carries that name, and it is not
+this one.
 
-```sh
-export ARROWZ_BOARDS_DIR=~/arrowz-boards
-./packages/cli/dist/carve --width=25 --height=25
-```
+### In a clone of the repository
 
-Without that, saving fails with an error about a directory it cannot create.
-Asking it to describe a board rather than save one (`--dry-run`, below) works
-either way.
+The repository runs the same program straight from its sources, under Deno and
+with nothing to build: write `deno task carve` wherever this page writes
+`arrowz carve`. Three things are different there:
+
+* boards go to `packages/cli/boards/`, the store the lab reads, because the
+  task runs inside `packages/cli/`;
+* `deno task report` measures the generator (see
+  [Printing the measurements report](#printing-the-measurements-report));
+* `deno task store` serves the saved boards to the lab.
+
+The last two are tasks of the repository only; the package does not have them.
 
 ---
 
 ## The commands
 
-Everything runs through the `carve` task, one dialect: the everyday flags and
+Everything runs through `arrowz carve`, one dialect: the everyday flags and
 the engine's own knobs stand side by side on the same command line. There is
 no switch that changes what a flag means.
 
 It prints its own instructions:
 
 ```sh
-deno task carve --help          # the short form: everyday flags, output, picture (-h too)
-deno task carve --help=knobs    # the full table: every knob, its range and default
+arrowz carve --help          # the short form: everyday flags, output, picture (-h too)
+arrowz carve --help=knobs    # the full table: every knob, its range and default
 ```
 
 ### Making a board
 
 ```sh
-deno task carve --width=40 --height=40 --seed=7
+arrowz carve --width=40 --height=40 --seed=7
 ```
 
-Writes two files into `packages/cli/boards/40x40/`:
+Writes two files into `boards/40x40/`, inside the folder you ran it from:
 
 * `sha256-e5f707067ec077e5558a8e91473371bf725b8e94467c61b4ce1436086eb2cdb4.board.json` — the board: every arrow, cell by cell, packed
   small. This is the file a game loads.
@@ -83,43 +84,43 @@ the same files, and the small file lists every command that made them — so
 ### Getting a picture as well
 
 ```sh
-deno task carve --width=40 --height=40 --svg
-deno task carve --width=40 --height=40 --svg=my-board.svg
+arrowz carve --width=40 --height=40 --svg
+arrowz carve --width=40 --height=40 --svg=my-board.svg
 ```
 
 `--svg` adds `sha256-e5f707067ec077e5558a8e91473371bf725b8e94467c61b4ce1436086eb2cdb4.svg` next to the board. `--svg=my-board.svg` does
-the same and also drops a copy at `my-board.svg`. The task runs inside
-`packages/cli/`, so a relative path starts there: this copy lands at
-`packages/cli/my-board.svg`.
+the same and also drops a copy at `my-board.svg`. A relative path starts in the
+folder you ran the command from. (The repository task runs inside
+`packages/cli/`, so there the copy lands at `packages/cli/my-board.svg`.)
 
 ### Five things to try
 
-Copy any of these. Each one writes a board into `packages/cli/boards/`; add
+Copy any of these. Each one writes a board into `boards/`; add
 `--svg` to get a picture of it as well, or `--dry-run` to see the numbers
 without writing a file. Every flag used here is explained in
 [The everyday settings](#the-everyday-settings).
 
 ```sh
 # small enough to follow every arrow by eye
-deno task carve --width=12 --height=12 --colored
+arrowz carve --width=12 --height=12 --colored
 
 # a dense field of tiny arrows
-deno task carve --width=40 --height=40 --length=0 --colored
+arrowz carve --width=40 --height=40 --length=0 --colored
 
 # a few long snakes instead
-deno task carve --width=40 --height=40 --length=1 --winding=0 --colored
+arrowz carve --width=40 --height=40 --length=1 --winding=0 --colored
 
 # a skeleton of very long arrows crossing the whole board
-deno task carve --width=80 --height=80 --skeleton --colored
+arrowz carve --width=80 --height=80 --skeleton --colored
 
 # a tall board
-deno task carve --width=40 --height=80
+arrowz carve --width=40 --height=80
 ```
 
 ### Making many boards at once
 
 ```sh
-deno task carve --width=100 --height=200 --seed=1 --count=50
+arrowz carve --width=100 --height=200 --seed=1 --count=50
 ```
 
 Makes 50 different boards on the seeds 1, 2, 3 and so on. A seed whose board
@@ -135,7 +136,7 @@ skips the seeds it laid before and writes boards from the seeds after them.
 ### Describing a board without saving it
 
 ```sh
-deno task carve --width=30 --height=30 --seed=7 --dry-run
+arrowz carve --width=30 --height=30 --seed=7 --dry-run
 ```
 
 Builds the board, writes nothing, and prints one line of text describing it, in
@@ -152,7 +153,7 @@ parts:
   "solvable": true,
   "genMs": 11,
   "pinned": [],
-  "command": "deno task carve --width=30 --height=30 --seed=7"
+  "command": "arrowz carve --width=30 --height=30 --seed=7"
 }
 ```
 
@@ -175,7 +176,7 @@ the uncovered cells tinted pink. A run that is taking too long can be cut
 short:
 
 ```sh
-CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
+CARVE_TIMEOUT_S=60 arrowz carve --width=1000 --height=1000
 ```
 
 That stops after a minute and saves whatever was drawn by then, marked
@@ -189,7 +190,8 @@ deno task report --only=easy --square --runs=1
 
 A separate command, `deno task report`, builds boards at a chosen size and
 prints a page of measurements about them. This one is a diagnostic tool for
-people tuning the generator, not something you need to read. Real output:
+people tuning the generator, not something you need to read, and it is a task
+of the repository: the installed `arrowz` does not have it. Real output:
 
 <!-- report-output -->
 
@@ -227,7 +229,7 @@ The generator refuses settings it knows will not work before it starts, not
 after ten minutes of grinding:
 
 ```sh
-deno task carve --width=30 --height=30 --pstraight=0.2 --svg=/tmp/x.svg
+arrowz carve --width=30 --height=30 --pstraight=0.2 --svg=/tmp/x.svg
 ```
 
 ```
@@ -290,7 +292,7 @@ can download. Their files run to 0.9 MB, 7 MB and 22 MB, which is more than
 belongs in a repository. Make your own with one command:
 
 ```sh
-deno task carve --width=1000 --height=1000 --seed=7 --svg=huge.svg
+arrowz carve --width=1000 --height=1000 --seed=7 --svg=huge.svg
 ```
 
 ### Seed — `--seed`
@@ -370,7 +372,7 @@ board's `.json` file as a full command, so any board you like can be reproduced
 exactly.
 
 ```sh
-deno task carve --width=40 --height=40 --randomized
+arrowz carve --width=40 --height=40 --randomized
 ```
 
 Naming one of the internal knobs (below) alongside `--randomized` pins that one
@@ -451,7 +453,7 @@ You do not need this section to use the tool. It is here because the question
 called options on this page; the internal ones behind them are called knobs.
 
 ```sh
-deno task carve --width=40 --height=40 --seed=7 --pstraight=0.95 --svg
+arrowz carve --width=40 --height=40 --seed=7 --pstraight=0.95 --svg
 ```
 
 That is the whole of it: name a knob and it takes over from whichever everyday
@@ -492,7 +494,7 @@ same fact to the `--dry-run` JSON so a script can see it without parsing
 stderr:
 
 ```sh
-deno task carve --width=30 --height=30 --randomized --winding=0.5 --pstraight=0.9 --dry-run
+arrowz carve --width=30 --height=30 --randomized --winding=0.5 --pstraight=0.9 --dry-run
 ```
 
 ```
@@ -512,7 +514,7 @@ share at 0. The lab dims such a row; the CLI says it on a line of its own, in
 the same words.
 
 ```sh
-deno task carve --width=30 --height=30 --probelen=30 --dry-run
+arrowz carve --width=30 --height=30 --probelen=30 --dry-run
 ```
 
 ```
@@ -529,7 +531,7 @@ which one and where it went. Naming a share bigger than what is left under the
 cap makes the everyday flag's share give way:
 
 ```sh
-deno task carve --width=30 --height=30 --length=0 --wmid=0.5 --dry-run
+arrowz carve --width=30 --height=30 --length=0 --wmid=0.5 --dry-run
 ```
 
 ```
@@ -546,7 +548,7 @@ otherwise.
 
 ### The knobs
 
-All 27, grouped the way `deno task carve --help=knobs` groups them. Ranges
+All 27, grouped the way `arrowz carve --help=knobs` groups them. Ranges
 spell their word forms where one exists; `auto`, `random` and `off` are
 explained where they appear. **Step** is the distance between the settings a
 knob has: a value that lands between two of them is refused, the same as one
@@ -666,10 +668,11 @@ flag"](#when-a-knob-meets-an-everyday-flag) above for what pinning one costs.
 
 ## Where boards are saved
 
-By default, boards go into `packages/cli/boards/`, sorted into a folder per size:
+By default, boards go into `boards/` in the folder you run the command from,
+sorted into a folder per size:
 
 ```
-packages/cli/boards/
+boards/
   25x25/
     sha256-0dc74eeff4ad01590a81f3aa79727f673dad073976f7a37df4bd8a4af4d7b978.board.json   the board
     sha256-0dc74eeff4ad01590a81f3aa79727f673dad073976f7a37df4bd8a4af4d7b978.json         what it was made from
@@ -684,11 +687,12 @@ lists every command that made them. (Colours and line thickness are not part of
 the name, so changing only those writes to the same file name and replaces the
 picture.)
 
-Point it somewhere else with the `ARROWZ_BOARDS_DIR` variable:
+Point it somewhere else with the `ARROWZ_BOARDS_DIR` variable; a relative path
+there starts in the folder you run the command from, too:
 
 ```sh
 export ARROWZ_BOARDS_DIR=~/arrowz-boards
-deno task carve --width=25 --height=25
+arrowz carve --width=25 --height=25
 ```
 
 The `.json` file next to each board holds every setting used, when it was
@@ -696,9 +700,9 @@ made, how long it took, and how many arrows it has. It also holds a `command`
 line that makes the same board again, exactly. If you keep only one thing from
 a board, keep that line.
 
-> Boards are not part of the repository. `packages/cli/boards/` is deliberately
-> left out of it: a 1000×1000 board file is about a megabyte, and its picture
-> tens of megabytes.
+> In a clone of the repository the boards are in `packages/cli/boards/`, and
+> that folder is deliberately left out of the repository: a 1000×1000 board
+> file is about a megabyte, and its picture tens of megabytes.
 
 ---
 
@@ -709,7 +713,7 @@ environment:
 
 | Variable | What it does |
 |---|---|
-| `ARROWZ_BOARDS_DIR` | where boards are saved instead of `packages/cli/boards/` (see [Where boards are saved](#where-boards-are-saved)) |
+| `ARROWZ_BOARDS_DIR` | where boards are saved instead of `boards/` (see [Where boards are saved](#where-boards-are-saved)) |
 | `CARVE_TIMEOUT_S` | gives up a board after that many seconds; `carve` stores the part built so far as incomplete |
 | `CARVE_TRACE` | set to `1`, prints the generator's progress on stderr as it works |
 | `GIANT_DEBUG` | set to `1`, prints how each very long arrow (a giant) was grown, on stderr |
@@ -718,11 +722,16 @@ environment:
 
 ## When something goes wrong
 
-**`deno task` says it could not find `deno.json`** — you are outside the project
-folder.
+**`arrowz: command not found`** — the package is not installed for the whole
+machine. Install it with `npm install -g @fronthub/arrowz-cli`, or run it once
+with `npx @fronthub/arrowz-cli carve …`.
+
+**`deno task` says it could not find `deno.json`** — in a clone, you are
+outside the project folder.
 `cd` into the `arrowz` folder and try again.
 
-**`Requires env access`** — you ran `deno run packages/cli/carve.ts` directly.
+**`Requires env access`** — in a clone, you ran
+`deno run packages/cli/arrowz.ts` directly.
 Deno refuses to let a program touch your files or settings unless told to. Use
 the `carve` task, which grants exactly what is needed.
 
@@ -747,7 +756,7 @@ generated and nothing was written.
 still could not fill the board. Almost always a knob pushed far from its
 default is to blame; [the knobs](#the-knobs) say what each one does. Move it
 back towards its default, or try another seed.
-The board is in `packages/cli/boards/` all the same; add `--svg` and the
+The board is saved all the same; add `--svg` and the
 picture shows the uncovered cells tinted pink, so you can see where it got
 stuck.
 
@@ -756,14 +765,14 @@ is filled, and still no tap is ever legal: two arrows point at each other, or a
 longer ring of them do. This is a bug in the generator, not a setting you chose
 — nothing you can type produces it, because the generator gives each arrow its
 path to the edge before anything stands in it. If you ever see the line, the
-board is still written to `packages/cli/boards/`; please keep it and report it,
+board is still saved; please keep it and report it,
 because it is the board that should not exist.
 
 **One board takes forever** — set `CARVE_TIMEOUT_S` to a number of seconds and
 the generator stops there, saving whatever it had drawn:
 
 ```sh
-CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
+CARVE_TIMEOUT_S=60 arrowz carve --width=1000 --height=1000
 ```
 
 **The report takes forever** — `deno task report` with nothing else walks
@@ -775,7 +784,7 @@ needs `--square` or `--portrait` alongside it.
 it goes:
 
 ```sh
-CARVE_TRACE=1 deno task carve --width=200 --height=200
+CARVE_TRACE=1 arrowz carve --width=200 --height=200
 ```
 
 ```

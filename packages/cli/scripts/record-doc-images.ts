@@ -40,7 +40,7 @@ interface Manifest {
 const RSVG = 'rsvg-convert'
 const root = join(dirname(fromFileUrl(import.meta.url)), '..', '..', '..')
 const imagesDir = join(root, 'docs', 'images')
-const carve = join(root, 'packages', 'cli', 'carve.ts')
+const arrowz = join(root, 'packages', 'cli', 'arrowz.ts')
 
 function isEntry(value: unknown): value is ImageEntry {
   if (typeof value !== 'object' || value === null) return false
@@ -107,7 +107,8 @@ for (const entry of entries) {
     '--allow-read',
     '--allow-write',
     '--allow-env=ARROWZ_BOARDS_DIR,CARVE_TIMEOUT_S,CARVE_TRACE,GIANT_DEBUG',
-    carve,
+    arrowz,
+    'carve',
     ...entry.flags,
     `--svg=${svg}`,
   ]

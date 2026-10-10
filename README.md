@@ -109,7 +109,7 @@ pnpm nx serve lab     # the lab on http://localhost:8779
 | Path | What it is |
 |---|---|
 | [`packages/engine/`](packages/engine/README.md) | `@fronthub/arrowz-engine`: the generator, its parameters and safe limits, the board file, the game rules and the SVG export. Runs in Deno, Node and the browser. |
-| [`packages/cli/`](packages/cli/README.md) | The command line: `deno task carve` makes boards, `deno task report` measures the generator, `deno task store` serves saved boards. |
+| [`packages/cli/`](packages/cli/README.md) | `@fronthub/arrowz-cli`, the command line: `arrowz carve` makes boards, and in a clone it runs as `deno task carve`. Two more tasks stay in the clone: `deno task report` measures the generator and `deno task store` serves saved boards. |
 | [`packages/board-element/`](packages/board-element/README.md) | `<arrowz-board>`: a web component that draws a board on the GPU and plays it, usable from plain HTML or any framework. |
 | [`apps/lab/`](apps/lab/README.md) | The lab: a React application for trying settings, with the board, its measurements, the reproducing command and a library of saved boards. |
 | [`packages/engine/HISTORY.md`](packages/engine/HISTORY.md) | The engineering log: every measurement, dead end and decision behind the generator. |

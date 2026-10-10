@@ -16,7 +16,7 @@ describe('problemsOf', () => {
       '### Detail',
       '- one\n- two',
       '| a | b |\n|---|---|\n| 1 | 2 |',
-      '```sh\ndeno task carve --width=4\n```',
+      '```sh\narrowz carve --width=4\n```',
       '::table{of="element-props"}',
       '::help{form="knobs"}',
       '::play{board="rule-free"}',
@@ -58,16 +58,16 @@ describe('problemsOf', () => {
 describe('shapeOf', () => {
   test('a translation has the same shape', () => {
     const en =
-      '# Board\n\nLead.\n\n## Using it {#example}\n\n```sh\n# make one\ndeno task carve --width=4  # small\n```\n\n::table{of="element-props"}\n\nSee [the knobs](docs:cli#knobs).'
+      '# Board\n\nLead.\n\n## Using it {#example}\n\n```sh\n# make one\narrowz carve --width=4  # small\n```\n\n::table{of="element-props"}\n\nSee [the knobs](docs:cli#knobs).'
     const pl =
-      '# Plansza\n\nWstęp.\n\n## Jak użyć {#example}\n\n```sh\n# zrób jedną\ndeno task carve --width=4  # mała\n```\n\n::table{of="element-props"}\n\nZobacz [pokrętła](docs:cli#knobs).'
+      '# Plansza\n\nWstęp.\n\n## Jak użyć {#example}\n\n```sh\n# zrób jedną\narrowz carve --width=4  # mała\n```\n\n::table{of="element-props"}\n\nZobacz [pokrętła](docs:cli#knobs).'
     expect(shapeOf(parseDocs(pl))).toEqual(shapeOf(parseDocs(en)))
   })
 
   test.each([
     ['another id', '## A {#a}', '## A {#b}'],
     ['another directive value', '::table{of="element-props"}', '::table{of="element-slots"}'],
-    ['another command', '```sh\ndeno task carve --width=4\n```', '```sh\ndeno task carve --width=5\n```'],
+    ['another command', '```sh\narrowz carve --width=4\n```', '```sh\narrowz carve --width=5\n```'],
     ['another link target', '[x](docs:cli#a)', '[x](docs:cli#b)'],
     ['a missing note', '> Note.\n\nText.', 'Text.'],
     ['another table size', '| a |\n|---|\n| 1 |', '| a |\n|---|\n| 1 |\n| 2 |'],
@@ -102,7 +102,7 @@ describe('board directives', () => {
   test.each([
     ['::board{cmd="--width=20 --height=20"}', 'needs a label'],
     ['::board[x]', 'needs cmd'],
-    ['::board[x]{cmd="deno task carve --width=20 --height=20"}', 'cmd: holds the flags only'],
+    ['::board[x]{cmd="arrowz carve --width=20 --height=20"}', 'cmd: holds the flags only'],
     ['::board[x]{cmd="--width=20 --height=20 --randomized"}', '--randomized'],
     ['::board[x]{cmd="--width=600 --height=20"}', 'manual'],
     ['::board[x]{cmd="--width=20 --height=20" manual}', 'about'],

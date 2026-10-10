@@ -1,6 +1,6 @@
 // The lab must mirror the CLI 1:1: the command from the lab has to give the
 // same board as the worker. We generate through generate() and through
-// carve.ts in a child process and compare the SVG byte for byte.
+// `arrowz carve` in a child process and compare the SVG byte for byte.
 // --dry-run is tested the same way: the board store points at a temporary
 // directory, which must stay empty.
 //
@@ -33,7 +33,7 @@ import { defaultChoice, exportCell, simpleParams, simpleRanges } from '@fronthub
 import type { BoardMeta, ParamKey, Params, SimpleChoice, View } from '@fronthub/arrowz-engine'
 
 const here = dirname(fromFileUrl(import.meta.url))
-const carve = join(here, 'carve.ts')
+const arrowz = join(here, 'arrowz.ts')
 const tmp = () => Deno.makeTempDirSync({ prefix: 'arrowz-cli-' })
 const exists = (path: string): boolean => {
   try {
@@ -50,13 +50,13 @@ const readMeta = (file: string): BoardMeta => JSON.parse(Deno.readTextFileSync(f
 const storedFingerprint = (file: string): string => fingerprint(decodeBoard(JSON.parse(Deno.readTextFileSync(file))))
 /** The store's name for the board these parameters carve: its layout hash. */
 const layoutIdOf = (params: Params): Promise<string> => layoutHash(generate(params).board)
-/** The prefix as a regular expression source: the spaces of "deno task carve" are literal. */
+/** The prefix as a regular expression source: the space of "arrowz carve" is literal. */
 const prefixRe = COMMAND_PREFIX.replace(/ /g, '\\s')
 
-/** Runs carve.ts with the board store pointed at boardsDir. */
+/** Runs `arrowz carve` with the board store pointed at boardsDir. */
 function runCarve(argv: readonly string[], boardsDir: string, env: Record<string, string> = {}) {
   const r = new Deno.Command(Deno.execPath(), {
-    args: ['run', '--allow-read', '--allow-write', '--allow-env', carve, ...argv],
+    args: ['run', '--allow-read', '--allow-write', '--allow-env', arrowz, 'carve', ...argv],
     cwd: dirname(here),
     env: { ARROWZ_BOARDS_DIR: boardsDir, ...env },
     stdout: 'piped',
@@ -92,7 +92,7 @@ interface DryLine {
   violations?: unknown[]
 }
 
-/** Runs carve.ts with the board store pointed at <dir>/boards and parses the JSON line. */
+/** Runs `arrowz carve` with the board store pointed at <dir>/boards and parses the JSON line. */
 function dryRun(args: readonly string[], dir: string, env: Record<string, string> = {}) {
   const r = runCarve(args, join(dir, 'boards'), env)
   const line = r.stdout.split('\n').find((l) => l.startsWith('{'))
