@@ -384,7 +384,13 @@ const DIGEST_STEPS = [
   { name: 'Read the digests back', env: { SUMS: '${{ steps.sums.outputs.sums }}' }, run: CHECK },
   {
     uses: 'actions/upload-artifact@pinned',
-    with: { name: 'tarballs', path: 'tarballs/*.tgz', 'if-no-files-found': 'error', 'retention-days': 7 },
+    with: {
+      name: 'tarballs',
+      path: 'tarballs/*.tgz',
+      'if-no-files-found': 'error',
+      'retention-days': 7,
+      overwrite: true,
+    },
   },
 ]
 

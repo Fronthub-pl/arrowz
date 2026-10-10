@@ -134,6 +134,8 @@ jobs:
           path: tarballs/*.tgz
           if-no-files-found: error
           retention-days: 7
+          # A re-run of every job uploads again; the stage job trusts the digests, not the artifact's name.
+          overwrite: true
 
   smoke:
     needs: build

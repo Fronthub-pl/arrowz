@@ -1,5 +1,6 @@
 node_modules/
 dist/
+tarballs/
 .nx/
 # Vitest browser mode drops failure screenshots here.
 .vitest/
