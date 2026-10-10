@@ -19,14 +19,14 @@ on:
 permissions: {}
 
 concurrency:
-  group: release-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
-  cancel-in-progress: false
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # A version gets its tag only once it is live on npm, so this job tags what
-  # the previous run staged and the maintainer has approved since.
+  # Tags each package's current version once that version is live on npm and has
+  # no tag yet; after a maintainer's approval that is the next run.
   tag-published:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -68,6 +68,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      sums: ${{ steps.sums.outputs.sums }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -94,6 +96,16 @@ jobs:
       - run: deno run --allow-read --allow-write --allow-run --allow-env packages/engine/scripts/pack-check.ts --out=tarballs $DIRS
         env:
           DIRS: ${{ needs.plan.outputs.dirs }}
+
+      # The stage job accepts only the files with these digests: an artifact is
+      # found by name, and another job of the run could replace one.
+      - id: sums
+        run: |
+          {
+            echo 'sums<<SUMS_END'
+            sha256sum tarballs/*.tgz
+            echo 'SUMS_END'
+          } >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -159,7 +171,7 @@ jobs:
   # a maintainer approves each one with a second factor.
   stage:
     needs: [plan, build, smoke]
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: npm
     permissions:
@@ -179,24 +191,65 @@ jobs:
           path: tarballs
 
       - name: Stage on npm
+        env:
+          SUMS: ${{ needs.build.outputs.sums }}
         run: |
           version=$(npm --version)
           echo "npm $version"
           major=${version%%.*}
           rest=${version#*.}
           minor=${rest%%.*}
+          case "$version" in
+            *.*.*) ;;
+            *)
+              echo "::error::cannot read the npm version '$version'"
+              exit 1
+              ;;
+          esac
+          for part in "$major" "$minor"; do
+            case "$part" in
+              '' | *[!0-9]*)
+                echo "::error::cannot read the npm version '$version'"
+                exit 1
+                ;;
+            esac
+          done
           if [ "$major" -lt 11 ] || { [ "$major" -eq 11 ] && [ "$minor" -lt 15 ]; }; then
             echo "::error::npm $version cannot stage: staged publishing needs 11.15 or newer"
+            exit 1
+          fi
+          # Only the files the gates judged, and all of them.
+          if [ -z "$SUMS" ]; then
+            echo "::error::the build job handed over no digests"
+            exit 1
+          fi
+          printf '%s\n' "$SUMS" | sha256sum --check --strict
+          judged=$(printf '%s\n' "$SUMS" | grep -c .)
+          received=$(find tarballs -type f | wc -l)
+          if [ "$received" -ne "$judged" ]; then
+            echo "::error::the artifact holds $received files, the gates judged $judged"
             exit 1
           fi
           # Dependencies first. Every tarball is tried: after a partial failure a
           # re-run must still reach the packages npm has not staged yet.
           failed=0
+          handed=0
           for name in engine board cli; do
             for tgz in tarballs/fronthub-arrowz-"$name"-*.tgz; do
               if [ -e "$tgz" ]; then
-                npm stage publish "$tgz" || failed=1
+                handed=$((handed + 1))
+                earlier=$failed
+                failed=0
+                npm stage publish --ignore-scripts "$tgz" || failed=1
+                if [ "$failed" -eq 1 ]; then
+                  echo "::error::npm did not stage $tgz"
+                fi
+                failed=$((earlier + failed))
               fi
             done
           done
+          if [ "$handed" -eq 0 ]; then
+            echo "::error::no tarball was handed to npm"
+            exit 1
+          fi
           exit "$failed"
