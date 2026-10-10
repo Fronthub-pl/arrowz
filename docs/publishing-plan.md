@@ -5,6 +5,12 @@ earlier, unpublished draft design (lockstep `1.0.0-alpha` versions, CLI as
 compiled binaries, JSR); §1 lists what changed and why. Every external fact was
 checked in official documentation; open points are listed in §10.
 
+Revised 2026-10-10 for two npm changes announced on 2026-07-08
+([GitHub changelog](https://github.blog/changelog/2026-07-08-npm-install-time-security-and-gat-bypass2fa-deprecation/)):
+npm 12 is now `latest` and installs with dependency scripts, git dependencies
+and remote-URL dependencies switched off (§5, §7), and granular access tokens
+that bypass 2FA are being retired (§4, §8).
+
 ## 0. Goals
 
 1. A secure release that is simple and almost fully automated.
@@ -127,18 +133,33 @@ its creation. Order:
 If the trusted-publisher entry expires (unused for 2 days), delete and recreate
 it; entries cannot be edited.
 
+Every step of this section is done by the maintainer, in the browser or in a
+terminal logged in with 2FA. None of it can be scripted with a token: changing
+package access, maintainers or the trusted-publishing configuration is among
+the first actions that 2FA-bypass tokens lose (§8).
+
 ## 5. Gates (on the packed tarballs, i.e. the files users receive)
 
 1. **Contents + size**: file list on an allowlist (`dist/`, `README.md`,
    `LICENSE`, `NOTICE`, `CHANGELOG.md`, `package.json`), size budget (engine
    ≤ 200 kB, board ≤ 100 kB, CLI ≤ 20 kB). Catches stray tests (`readme.test.ts` leaks today).
+   The packed `package.json` must also install under npm 12's defaults, which
+   run no dependency script and resolve no git or remote-URL dependency unless
+   the consumer allows each one: no `preinstall`, `install` or `postinstall`
+   script, no `binding.gyp` in the tarball (npm builds it implicitly), and
+   every dependency a registry version range (no git, URL, `file:` or
+   `workspace:` spec).
 2. **`publint`** and **`@arethetypeswrong/cli --pack --profile esm-only`**
    (the default profile wrongly fails an ESM-only package).
 3. **Consumer smoke** in an empty project on the OS × runtime matrix: the engine
    reproduces the 40×40 seed 1 fingerprint; `npx arrowz carve --width=25
    --height=25 --dry-run` prints the golden layout id; a Vite page using the
    element builds. Packages of this release come from the tarballs; packages not
-   in this release may come from the registry.
+   in this release may come from the registry. At least one leg installs with
+   npm 12 and its defaults, nothing approved with `npm approve-scripts` and no
+   `--allow-git` or `--allow-remote`. No Node line bundles npm 12 yet (22 has
+   npm 10; 24 and 26 have npm 11), so that leg installs it itself
+   (`npm i -g npm@12`; this is the smoke job, never `stage`).
 4. Gates 1–2 also run on every PR (Nx target `pack-check`).
 
 ## 6. Package changes
@@ -191,8 +212,13 @@ it; entries cannot be edited.
   PR template, optional `CODE_OF_CONDUCT.md`.
 - README quick start: correct step order, prerequisites Deno ≥ 2.9, Node 24 LTS,
   pnpm installed with its standalone installer or `npm i -g pnpm` (Corepack is
-  not shipped from Node 25); install-from-npm sections per package;
+  not shipped from Node 25); install-from-npm sections per package, which say
+  that the packages run no install script and so need no `npm approve-scripts`
+  entry under npm 12;
   `docs/releasing.md` for the maintainer; lab docs (EN + PL) updated for names.
+- npm 12's install defaults change nothing for a clone: contributors install
+  with pnpm, which already runs build scripts only for the packages that
+  `allowBuilds` in `pnpm-workspace.yaml` names (`nx`, `esbuild`).
 
 ## 8. GitHub and npm settings (clicks, no code)
 
@@ -210,6 +236,14 @@ Day one:
   Actions to create PRs" **off**.
 - Secret scanning + push protection on; private vulnerability reporting on.
 - GitHub org: require 2FA. npm: passkey/security-key 2FA, npm org 2FA required.
+- npm tokens: none. No granular access token with "bypass 2FA" is created for
+  this project, and `npm token list` stays empty. npm is retiring those tokens
+  in two steps: from early August 2026 (announced date) they no longer skip 2FA
+  for account, package and organization management, and around January 2027
+  they lose direct publishing and can only stage. The release never used one
+  (§3: OIDC stages, a human approves with 2FA), so nothing has to migrate. A
+  token is not a fallback either: if trusted publishing is unavailable, the
+  release waits.
 - Recovery: npm and GitHub recovery codes stored in a password manager (losing
   the 2FA device otherwise means an npm support ticket); consider a second
   trusted owner of the npm `fronthub` org who can approve stages.
@@ -242,3 +276,16 @@ bootstrap.
 - The exact npm error text for "already staged".
 - Whether the `0.0.0` placeholder keeps `latest` after 0.1.0
   (check with `npm dist-tag ls`).
+- Whether the first step of the 2FA-bypass token retirement is in effect: it
+  was announced for early August 2026, and the announcement's discussion
+  (github.com/orgs/community/discussions/201329) does not confirm it. The plan
+  does not depend on the answer.
+- Whether the Vite page of the consumer smoke builds under npm 12 with no
+  approved script (`esbuild` ships a `postinstall`). If it does not, the smoke
+  approves that one script and says why.
+- npm's staged-publishing page says that staging a package that does not exist
+  yet publishes a public placeholder `0.0.0-stage`. If a stage from the
+  maintainer's laptop can create the package that way, §4 step 1 needs no
+  hand-made `0.0.0`; try it on the rehearsal package.
+- npm's roadmap in the same discussion names creating new scoped packages from
+  a trusted workflow, with no date; it would remove the placeholder step.
