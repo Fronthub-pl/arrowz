@@ -324,8 +324,8 @@ export interface Recipe {
 }
 
 /**
- * One stored layout: the meta JSON next to the board file in
- * packages/cli/boards/<WxH>/. The recipe fields at the top level (seed, params,
+ * One stored layout: the meta JSON next to the board file in the store's
+ * <WxH>/ folder. The recipe fields at the top level (seed, params,
  * view, command, source, genMs, restarts, backtracks, aborted) copy the recipe
  * the latest save wrote; `sources` lists them all.
  */

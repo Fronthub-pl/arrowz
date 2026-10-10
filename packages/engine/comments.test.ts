@@ -90,7 +90,7 @@ function scopedFiles(): string[] {
   walk(join(root, 'apps', 'lab', 'src'), ['.ts', '.tsx', '.css'], files)
   walk(join(root, 'packages', 'board-element', 'src'), ['.ts'], files)
   walk(here, ['.ts', '.mjs'], files)
-  walk(join(root, 'packages', 'cli'), ['.ts'], files)
+  walk(join(root, 'packages', 'cli'), ['.ts', '.mjs'], files)
   return files.sort()
 }
 
@@ -117,6 +117,7 @@ Deno.test('the comment guard walks the lab, the board element, the engine and th
       'engine/scripts/node-smoke.mjs',
       'cli/carve.ts',
       'cli/scripts/record-doc-images.ts',
+      'cli/scripts/node-smoke.mjs',
     ]
   ) {
     assert(files.some((p) => p.endsWith(f.split('/').join(SEPARATOR))), `${f} not found: the walk is wrong`)

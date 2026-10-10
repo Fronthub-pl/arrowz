@@ -195,7 +195,7 @@ test('the margin, the dot grid and the themes are compared on live boards', asyn
       for (const pre of el.querySelectorAll('figure.fw-docs-board pre.fw-cmd')) out.push(pre.textContent ?? '')
     return out
   }
-  const base = 'deno task carve --width=12 --height=12 --seed=7'
+  const base = 'arrowz carve --width=12 --height=12 --seed=7'
   expect(commands('margin')).toEqual([`${base} --pad=0`, base, `${base} --pad=16`])
   expect(commands('dots')).toEqual([`${base} --points`, `${base} --points --line=0.2 --point-radius=0.15`])
   expect(commands('themes')).toEqual([

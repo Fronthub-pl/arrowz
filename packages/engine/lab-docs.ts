@@ -490,7 +490,7 @@ const EN = {
     lang: "The page's language, `en` or `pl`.",
   },
   env: {
-    ARROWZ_BOARDS_DIR: 'Where boards are saved, instead of `packages/cli/boards/`.',
+    ARROWZ_BOARDS_DIR: 'Where boards are saved, instead of `boards/` in the folder the command runs from.',
     CARVE_TRACE: "Set to `1`, prints the generator's progress on stderr while it works.",
     GIANT_DEBUG: 'Set to `1`, prints on stderr how each arrow of the skeleton was grown.',
     CARVE_TIMEOUT_S:
@@ -728,7 +728,7 @@ const PL = {
     lang: 'Język strony, `en` albo `pl`.',
   },
   env: {
-    ARROWZ_BOARDS_DIR: 'Gdzie zapisywać plansze zamiast `packages/cli/boards/`.',
+    ARROWZ_BOARDS_DIR: 'Gdzie zapisywać plansze zamiast `boards/` w katalogu, z którego uruchamiasz polecenie.',
     CARVE_TRACE: 'Ustawiona na `1` wypisuje na stderr postęp generatora w trakcie pracy.',
     GIANT_DEBUG: 'Ustawiona na `1` wypisuje na stderr, jak rosła każda strzałka szkieletu.',
     CARVE_TIMEOUT_S: 'Przerywa planszę po tylu sekundach; `carve` zapisuje to, co zdążył ułożyć, jako niepełną.',

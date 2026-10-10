@@ -351,12 +351,13 @@ export function cellTokens(text: string, role: CellRole): CodeToken[] {
   return out
 }
 
-// Sticky. The groups, in order: a comment, `deno task <name>`, a variable with
-// `=` and its value, a flag with an optional `=` and value, a quoted string,
-// whitespace, any other word. A token starts where the last one ended, so `#`
-// opens a comment only at the start of a word.
+// Sticky. The groups, in order: a comment, a call (`arrowz <command>` or
+// `deno task <name>`), a variable with `=` and its value, a flag with an
+// optional `=` and value, a quoted string, whitespace, any other word. A token
+// starts where the last one ended, so `#` opens a comment only at the start of
+// a word.
 const SH_TOKEN =
-  /(#.*)|(deno task [a-z]+)|([A-Z_][A-Z0-9_]*)(=)(\S*)|(--?[a-z][\w-]*)(?:(=)(\S*))?|('[^']*'|"[^"]*")|(\s+)|(\S+)/y
+  /(#.*)|((?:arrowz|deno task) [a-z]+)|([A-Z_][A-Z0-9_]*)(=)(\S*)|(--?[a-z][\w-]*)(?:(=)(\S*))?|('[^']*'|"[^"]*")|(\s+)|(\S+)/y
 const NUMBER = /^-?\d+(?:\.\d+)?$/
 
 const valueClass = (value: string): TokenClass => (NUMBER.test(value) ? 'num' : 'str')

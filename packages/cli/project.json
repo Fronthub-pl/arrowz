@@ -21,6 +21,8 @@
       "cache": false,
       "options": { "cwd": "packages/cli", "command": "sh store.sh" }
     },
-    "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test"] }
+    "build": { "executor": "nx:run-commands", "options": { "cwd": "packages/cli", "command": "pnpm run build" } },
+    "smoke": { "executor": "nx:run-commands", "options": { "cwd": "packages/cli", "command": "pnpm run smoke" } },
+    "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test", "smoke"] }
   }
 }

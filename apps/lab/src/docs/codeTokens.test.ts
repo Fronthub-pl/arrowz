@@ -131,7 +131,7 @@ describe('a table cell', () => {
 
 describe('a shell block', () => {
   const SH =
-    'CARVE_TIMEOUT_S=60 deno task carve --width=1000 --theme=gruvbox-dark --svg   # stops after a minute\n./carve -h'
+    'CARVE_TIMEOUT_S=60 arrowz carve --width=1000 --theme=gruvbox-dark --svg   # stops after a minute\n./carve -h'
   const tokens = highlightSh(SH)
 
   test('reads back exactly as written', () => {
@@ -140,21 +140,30 @@ describe('a shell block', () => {
 
   test('colours the variable, the task, the flags, their values and the comment', () => {
     expect(inColour(tokens, 'type')).toEqual(['CARVE_TIMEOUT_S'])
-    expect(inColour(tokens, 'fn')).toEqual(['deno task carve'])
+    expect(inColour(tokens, 'fn')).toEqual(['arrowz carve'])
     expect(inColour(tokens, 'attr')).toEqual(['--width', '--theme', '--svg', '-h'])
     expect(inColour(tokens, 'num')).toEqual(['60', '1000'])
     expect(inColour(tokens, 'str')).toEqual(['gruvbox-dark'])
     expect(inColour(tokens, 'com')).toEqual(['# stops after a minute'])
   })
 
+  test('colours a repository task as it colours the program', () => {
+    expect(inColour(highlightSh('deno task report --seeds=3\ndeno task carve --width=9'), 'fn')).toEqual([
+      'deno task report',
+      'deno task carve',
+    ])
+    // The program without a command is not a known call, and neither is a longer word.
+    expect(inColour(highlightSh('arrowz\narrowzz carve'), 'fn')).toEqual([])
+  })
+
   // A colour value starts with `#`, and it is a value, not a comment.
   test('a # inside a value is not a comment', () => {
-    expect(inColour(highlightSh('deno task carve --paper=#f6f6fa'), 'com')).toEqual([])
+    expect(inColour(highlightSh('arrowz carve --paper=#f6f6fa'), 'com')).toEqual([])
   })
 })
 
 describe('a JSON block', () => {
-  const JSON_TEXT = '{\n  "W": 30, "ok": true,\n  "pinned": [],\n  "command": "deno task carve --width=30"\n}'
+  const JSON_TEXT = '{\n  "W": 30, "ok": true,\n  "pinned": [],\n  "command": "arrowz carve --width=30"\n}'
   const tokens = highlightJson(JSON_TEXT)
 
   test('reads back exactly as written', () => {
@@ -164,7 +173,7 @@ describe('a JSON block', () => {
   test('a key is a property, a value a string or a constant', () => {
     expect(inColour(tokens, 'prop')).toEqual(['"W"', '"ok"', '"pinned"', '"command"'])
     expect(inColour(tokens, 'num')).toEqual(['30', 'true'])
-    expect(inColour(tokens, 'str')).toEqual(['"deno task carve --width=30"'])
+    expect(inColour(tokens, 'str')).toEqual(['"arrowz carve --width=30"'])
   })
 })
 

@@ -288,7 +288,7 @@ describe('a pasted command', () => {
     )
     const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
     if (input === null) throw new Error('no input')
-    await userEvent.fill(input, 'deno task carve --width=30 --height=40 --seed=5 --pstraight=0.9')
+    await userEvent.fill(input, 'arrowz carve --width=30 --height=40 --seed=5 --pstraight=0.9')
     const rows = screen.container.querySelectorAll('[role=option]')
     expect(rows).toHaveLength(1)
     expect(rows[0]?.textContent).toContain('Load this command')
@@ -304,7 +304,7 @@ describe('a pasted command', () => {
     if (input === null) throw new Error('no input')
     // The line goes through the real clipboard, so the input's own handling of the line breaks is what is tested.
     const source = document.createElement('textarea')
-    source.value = 'deno task carve --width=30 \\\n  --height=40 \\\n  --colored'
+    source.value = 'arrowz carve --width=30 \\\n  --height=40 \\\n  --colored'
     document.body.append(source)
     source.select()
     await userEvent.copy()

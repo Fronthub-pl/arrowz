@@ -28,7 +28,7 @@ that bypass 2FA are being retired (§4, §8).
 |---|---|---|
 | `@fronthub/arrowz-engine` | `packages/engine` | the generator: ESM JavaScript + `.d.ts` in `dist/` |
 | `@fronthub/arrowz-board` | `packages/board-element` | the `<arrowz-board>` web component; depends on the engine (`^`) and `lit` (`^3`) |
-| `@fronthub/arrowz-cli` | `packages/cli` | the `arrowz` command (`arrowz carve …`), plain JavaScript for Node, built by `deno bundle --external '@fronthub/arrowz-engine*'` into `dist/arrowz.mjs` (`#!/usr/bin/env node`; `@std/path` gets bundled, the engine does not); depends on the engine (`^`) |
+| `@fronthub/arrowz-cli` | `packages/cli` | the `arrowz` command (`arrowz carve …`), plain JavaScript for Node, built by `deno bundle` into `dist/arrowz.mjs` (`#!/usr/bin/env node`) with the engine left external; depends on the engine (`^`) |
 
 Three packages. Not published: the lab (an app), the board store server (only
 the lab talks to it), `report` (a maintainer measurement tool; it needs engine
@@ -142,7 +142,8 @@ the first actions that 2FA-bypass tokens lose (§8).
 
 1. **Contents + size**: file list on an allowlist (`dist/`, `README.md`,
    `LICENSE`, `NOTICE`, `CHANGELOG.md`, `package.json`), size budget (engine
-   ≤ 200 kB, board ≤ 100 kB, CLI ≤ 20 kB). Catches stray tests (`readme.test.ts` leaks today).
+   ≤ 200 kB, board ≤ 100 kB, CLI ≤ 30 kB: its bundle packs to 6 kB and its README to
+   15 kB). Catches stray tests.
    The packed `package.json` must also install under npm 12's defaults, which
    run no dependency script and resolve no git or remote-URL dependency unless
    the consumer allows each one: no `preinstall`, `install` or `postinstall`
@@ -180,9 +181,10 @@ the first actions that 2FA-bypass tokens lose (§8).
   that says the repo has no LICENSE.
 - CLI: port `carve.ts`/`store.ts` from `Deno.*` to `node:` built-ins (still runs
   under Deno and its tests); `package.json` with `bin: { arrowz: … }`; default
-  boards dir `./boards` when `ARROWZ_BOARDS_DIR` is unset (repo tasks set it to
-  `packages/cli/boards`); `buildCommand` prints `arrowz carve …` instead of
-  `deno task carve …`; remove the `deno task compile` binary task.
+  boards dir `./boards` when `ARROWZ_BOARDS_DIR` is unset (the repository task
+  runs inside `packages/cli`, so there it is `packages/cli/boards`);
+  `buildCommand` prints `arrowz carve …` instead of `deno task carve …`; remove
+  the `deno task compile` binary task.
 - Known gap: `deno task store` runs `store.sh`, which plain Windows shells cannot
   run; port it to a Deno script or document WSL/Git Bash.
 

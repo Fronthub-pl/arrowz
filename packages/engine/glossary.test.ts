@@ -4,7 +4,7 @@
 // names its key and why (docs/glossary.md#exceptions).
 import { assert } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
-import { helpText } from './command.ts'
+import { COMMAND_PREFIXES, helpText } from './command.ts'
 import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS } from './engine.ts'
 import { docsFor } from './lab-docs.ts'
 import { EN, EN_CHOICES, PL } from './lab-i18n.ts'
@@ -63,6 +63,9 @@ const PL_RETIRED = [
   PL_KNOB,
   /siatk\S* punktów/i,
 ]
+
+/** The command under each of its spellings: a name, so its words are not prose. */
+const COMMAND_NAME = new RegExp(COMMAND_PREFIXES.join('|'), 'g')
 
 /** A dictionary path whose value may keep a retired word, and why. */
 const ALLOWED: Record<string, string> = {
@@ -162,7 +165,7 @@ Deno.test('the CLI help uses no retired word outside flag, variable and group na
     .replace(/--[a-z-]+/g, ' ')
     .replace(/\b[A-Z_]{3,}\b/g, ' ')
     .replace(/\[[a-z]+\]/g, ' ')
-    .replace(/deno task carve/g, ' ')
+    .replace(COMMAND_NAME, ' ')
   refuse(text.split('\n').map((line, i): [string, string] => [`helpText line ${i + 1}`, line]), EN_RETIRED)
 })
 
@@ -183,7 +186,7 @@ function proseOf(markdown: string): string {
     .replace(/^::.*$/gm, '')
     .replace(/\]\([^)\n]*\)/g, ']')
     // The CLI's own name, as the helpText case above strips it: the CLI page's title.
-    .replace(/deno task carve/g, ' ')
+    .replace(COMMAND_NAME, ' ')
 }
 
 /** A docs page's prose, line by line, each line keyed by its place in the file. */

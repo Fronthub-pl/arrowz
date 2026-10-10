@@ -9,6 +9,7 @@ import {
   buildCommand,
   CARVE_FLAGS,
   COMMAND_PREFIX,
+  commandPrefixOf,
   DEFAULT_VIEW,
   drawnViolations,
   drawOf,
@@ -37,7 +38,7 @@ import { PALETTE_CAP, THEMES } from './look.ts'
 import { EN } from './lab-i18n.ts'
 import type { ParamKey, Params, ViewNumber, Violation } from './types.ts'
 
-/** The prefix as a regular expression source: the spaces of "deno task carve" are literal. */
+/** The prefix as a regular expression source: the space of "arrowz carve" is literal. */
 const prefixRe = COMMAND_PREFIX.replace(/ /g, '\\s')
 /** Typed Object.keys for a parameter set: its keys are the fields of Params. */
 const paramKeys = (p: Params): (keyof Params)[] => Object.keys(p) as (keyof Params)[]
@@ -61,6 +62,21 @@ function withKnob(key: keyof Params, value: number): Params {
 Deno.test('buildCommand: default params give the size and the seed alone', () => {
   const p = { ...defaultParams(), W: 25, H: 50, seed: 7 }
   assertEquals(buildCommand(p), `${COMMAND_PREFIX} --width=25 --height=50 --seed=7`)
+})
+
+Deno.test('a command is written the way the installed program is called', () => {
+  const p = { ...defaultParams(), W: 25, H: 50, seed: 7 }
+  assertEquals(buildCommand(p), 'arrowz carve --width=25 --height=50 --seed=7')
+  assertEquals(helpText().split('\n')[0], 'Usage: arrowz carve --width=N --height=N [--seed=N] [options] [mode]')
+})
+
+Deno.test('commandPrefixOf names the spelling a command starts with, the repository task among them', () => {
+  assertEquals(commandPrefixOf('arrowz carve --width=9'), 'arrowz carve')
+  assertEquals(commandPrefixOf('deno task carve --width=9'), 'deno task carve')
+  assertEquals(commandPrefixOf('arrowz carve'), 'arrowz carve')
+  // A longer word that merely starts like the prefix is another program.
+  assertEquals(commandPrefixOf('arrowz carved --width=9'), null)
+  assertEquals(commandPrefixOf('--width=9'), null)
 })
 
 Deno.test('buildCommand <-> parseArgs: round trip for changed knobs and view', () => {
@@ -908,7 +924,7 @@ Deno.test('a shell hands carve the argv the command means', () => {
 // --- splitCommand -------------------------------------------------------
 
 Deno.test('splitCommand drops the prefix and splits on any run of whitespace', () => {
-  assertEquals(splitCommand('  deno   task\tcarve --width=9\n--height=9  '), {
+  assertEquals(splitCommand('  arrowz  \tcarve --width=9\n--height=9  '), {
     argv: ['--width=9', '--height=9'],
     problems: [],
   })
@@ -928,7 +944,7 @@ Deno.test('splitCommand reads both quote kinds, also inside a token', () => {
 // The palette's input turns each line break of a paste into a space (Chromium),
 // so the join arrives either with its newline or as a backslash and spaces.
 Deno.test('splitCommand joins a command copied over several lines', () => {
-  const lines = 'deno task carve --width=9 \\\n  --height=9 \\\n  --colored'
+  const lines = 'arrowz carve --width=9 \\\n  --height=9 \\\n  --colored'
   assertEquals(splitCommand(lines).argv, ['--width=9', '--height=9', '--colored'])
   assertEquals(splitCommand(lines.replaceAll('\n', '')).argv, ['--width=9', '--height=9', '--colored'])
   assertEquals(splitCommand('--width=9 \\\r\n--height=9').argv, ['--width=9', '--height=9'])
@@ -948,28 +964,39 @@ Deno.test('splitCommand reports an unclosed quote with what it had read', () => 
 // A line copied straight out of a terminal carries the `$` prompt, and often
 // an environment word or two, in front of the CLI's own invocation.
 Deno.test('splitCommand drops a shell prompt before the prefix', () => {
-  assertEquals(splitCommand('$ deno task carve --width=9 --height=9').argv, ['--width=9', '--height=9'])
+  assertEquals(splitCommand('$ arrowz carve --width=9 --height=9').argv, ['--width=9', '--height=9'])
 })
 
 Deno.test('splitCommand drops environment words before the prefix', () => {
   assertEquals(
-    splitCommand('ARROWZ_BOARDS_DIR=/tmp/x deno task carve --width=9 --height=9').argv,
+    splitCommand('ARROWZ_BOARDS_DIR=/tmp/x arrowz carve --width=9 --height=9').argv,
     ['--width=9', '--height=9'],
   )
 })
 
 Deno.test('splitCommand drops a prompt and several environment words together', () => {
   assertEquals(
-    splitCommand('$ ARROWZ_BOARDS_DIR=/tmp/x CARVE_TRACE=1 deno task carve --width=9').argv,
+    splitCommand('$ ARROWZ_BOARDS_DIR=/tmp/x CARVE_TRACE=1 arrowz carve --width=9').argv,
     ['--width=9'],
   )
 })
 
 Deno.test('splitCommand leaves the prefix in place behind a word that is neither a prompt nor an environment word', () => {
   assertEquals(
-    splitCommand('echo deno task carve --width=9').argv,
-    ['echo', 'deno', 'task', 'carve', '--width=9'],
+    splitCommand('echo arrowz carve --width=9').argv,
+    ['echo', 'arrowz', 'carve', '--width=9'],
   )
+})
+
+// Boards stored before the program had a name of its own carry this spelling,
+// and so does a terminal inside a clone of the repository.
+Deno.test('splitCommand reads the repository task spelling the same way', () => {
+  assertEquals(splitCommand('deno  task\tcarve --width=9 --height=9').argv, ['--width=9', '--height=9'])
+  assertEquals(
+    splitCommand('$ ARROWZ_BOARDS_DIR=/tmp/x deno task carve --width=9').argv,
+    ['--width=9'],
+  )
+  assertEquals(splitCommand('echo deno task carve --width=9').argv, ['echo', 'deno', 'task', 'carve', '--width=9'])
 })
 
 Deno.test('a lab command, quoted colours and all, splits and parses back to its own knobs and view', () => {

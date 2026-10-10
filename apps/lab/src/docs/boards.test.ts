@@ -21,7 +21,7 @@ describe('readBoardCmd', () => {
   })
 
   test.each([
-    ['deno task carve --width=20 --height=20', 'the flags only'],
+    ['arrowz carve --width=20 --height=20', 'the flags only'],
     ['--width=20 --height=20 --randomized', '--randomized'],
     ['--width=20 --height=20 --svg', 'no modes'],
     ['--width=20', 'missing --height'],

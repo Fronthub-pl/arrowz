@@ -9,6 +9,7 @@
     "graph": "nx graph"
   },
   "devDependencies": {
+    "@types/node": "^26.5.1",
     "nx": "^23.2.0",
     "typescript": "^5.9.3"
   }

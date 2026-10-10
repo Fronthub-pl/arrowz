@@ -35,10 +35,15 @@
   in the store served by `deno task store` (port 8777). `worker-smoke.mjs`
   runs the worker `vite build` emits and checks its board against the engine's,
   so what the browser loads is gated, not merely compiled.
-- `pnpm nx serve lab` and the rest of the Nx targets need
-  `pnpm install` once. The Deno gates do not:
-  nothing under `packages/` imports the board element, so `deno task check` and
-  `deno task lint` pass with no `node_modules`.
+- The files of the published CLI (`arrowz.ts`, `carve.ts`, `store.ts`,
+  `exit.ts`) run under Node as `arrowz`, so they use `node:` built-ins and
+  never `Deno.*`, and they end through `exit()`, never `process.exit()`;
+  `neutral.test.ts` greps the first rule. `report.ts`, `store-server.ts` and
+  the scripts stay Deno programs.
+- `pnpm nx serve lab` and the rest of the Nx targets need `pnpm install` once,
+  and so do `deno task check` and `deno task test`: Deno checks the CLI's
+  `node:` imports against `@types/node` from `node_modules`. `deno task lint`
+  and `deno task fmt` pass without it.
 - No attribution lines in commit messages or PR descriptions.
 
 ## Comments

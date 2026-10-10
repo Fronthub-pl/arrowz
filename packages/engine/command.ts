@@ -51,14 +51,24 @@ import {
 } from './look.ts'
 import type { BoardColours } from './look.ts'
 
-/** How the CLI is invoked from anywhere inside the repository; the lab prints it and the store records it. */
-export const COMMAND_PREFIX = 'deno task carve'
+/** How the installed CLI is invoked; the lab prints it and the store records it. */
+export const COMMAND_PREFIX = 'arrowz carve'
+/**
+ * Every spelling a reader takes for the CLI: the installed program, and the
+ * repository task, which older stored boards and a clone's terminal carry.
+ */
+export const COMMAND_PREFIXES: readonly string[] = [COMMAND_PREFIX, 'deno task carve']
+
+/** The spelling a command text starts with, as a whole word, or null when it starts with none. */
+export function commandPrefixOf(command: string): string | null {
+  return COMMAND_PREFIXES.find((prefix) => command === prefix || command.startsWith(`${prefix} `)) ?? null
+}
 
 /**
  * One pasted line as the argv a shell would hand the CLI: whitespace separates,
  * `'…'` quotes literally, `"…"` with `\"` and `\\`, and a backslash before
  * whitespace joins a line copied over several (a text input turns the
- * newline into a space). A leading `deno task carve` is dropped.
+ * newline into a space). A leading prefix (see `COMMAND_PREFIXES`) is dropped.
  */
 export function splitCommand(text: string): { argv: string[]; problems: ArgProblem[] } {
   const argv: string[] = []
@@ -126,18 +136,21 @@ export function isPromptOrEnvWord(word: string): boolean {
 }
 
 /**
- * The argv without a leading `deno task carve`, word by word, so any spacing
- * matches. A prompt and environment words ahead of the prefix are dropped
- * with it; anything else ahead of it is left for the parser to report.
+ * The argv without a leading prefix (see `COMMAND_PREFIXES`), word by word, so
+ * any spacing matches. A prompt and environment words ahead of the prefix are
+ * dropped with it; anything else ahead of it is left for the parser to report.
  */
 function dropPrefix(argv: string[]): string[] {
-  const words = COMMAND_PREFIX.split(' ')
   let at = 0
   for (; at < argv.length; at++) {
     const word = argv[at]
     if (word === undefined || !isPromptOrEnvWord(word)) break
   }
-  return words.every((word, i) => argv[at + i] === word) ? argv.slice(at + words.length) : argv
+  for (const prefix of COMMAND_PREFIXES) {
+    const words = prefix.split(' ')
+    if (words.every((word, i) => argv[at + i] === word)) return argv.slice(at + words.length)
+  }
+  return argv
 }
 
 /**
@@ -420,7 +433,7 @@ const EVERYDAY_FLAGS: readonly FlagRow[] = [
   ],
 ]
 const OUTPUT_FLAGS: readonly FlagRow[] = [
-  ['(no mode)', 'one board file into packages/cli/boards/ (ARROWZ_BOARDS_DIR) with its meta, no picture'],
+  ['(no mode)', 'one board file into ./boards/ (or ARROWZ_BOARDS_DIR) with its meta, no picture'],
   ['--svg[=path]', 'the same, plus an SVG preview in the store, and a copy at path'],
   ['--dry-run', 'one board, nothing written: one JSON line on stdout'],
   ['--count=N', 'N complete boards on the seeds from --seed up; a seed whose board does not fill is skipped'],

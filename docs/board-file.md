@@ -14,7 +14,7 @@ is the board's file name in the store.
 
 ## An example
 
-The 6×6 board of seed 1 (`deno task carve --width=6 --height=6 --seed=1`),
+The 6×6 board of seed 1 (`arrowz carve --width=6 --height=6 --seed=1`),
 148 bytes on disk, shown indented here:
 
 ```json

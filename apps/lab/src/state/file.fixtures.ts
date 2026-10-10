@@ -18,7 +18,7 @@ export async function fileFixture(
     seed,
     params,
     view: { ...DEFAULT_VIEW, top: 0 },
-    command: `deno task carve --width=${W} --height=${H} --seed=${seed}`,
+    command: `arrowz carve --width=${W} --height=${H} --seed=${seed}`,
     source: 'cli',
     createdAt: '2026-09-28T10:00:00.000Z',
     updatedAt: '2026-09-28T10:00:00.000Z',

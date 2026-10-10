@@ -28,7 +28,7 @@ beforeEach(() => {
 
 describe('a pasted command', () => {
   it('is recognised by its prefix or a flag with a value, not by a word or a lone flag', () => {
-    expect(isCommandQuery('deno task carve --width=9')).toBe(true)
+    expect(isCommandQuery('arrowz carve --width=9')).toBe(true)
     expect(isCommandQuery('  --width=9')).toBe(true)
     expect(isCommandQuery('width')).toBe(false)
     expect(isCommandQuery('-')).toBe(false)
@@ -38,15 +38,25 @@ describe('a pasted command', () => {
   })
 
   it('is recognised for a line copied from a terminal, prompt and environment words included', () => {
-    expect(isCommandQuery('$ deno task carve --width=9')).toBe(true)
-    expect(isCommandQuery('ARROWZ_BOARDS_DIR=/tmp/x deno task carve --width=9')).toBe(true)
-    expect(isCommandQuery('$ ARROWZ_BOARDS_DIR=/tmp/x CARVE_TRACE=1 deno task carve --width=9')).toBe(true)
+    expect(isCommandQuery('$ arrowz carve --width=9')).toBe(true)
+    expect(isCommandQuery('ARROWZ_BOARDS_DIR=/tmp/x arrowz carve --width=9')).toBe(true)
+    expect(isCommandQuery('$ ARROWZ_BOARDS_DIR=/tmp/x CARVE_TRACE=1 arrowz carve --width=9')).toBe(true)
     expect(isCommandQuery('--seed')).toBe(false)
+  })
+
+  // A stored board and a terminal inside a clone still write the repository task.
+  it('is recognised and read in the repository task spelling too', () => {
+    expect(isCommandQuery('deno task carve --width=9')).toBe(true)
+    expect(isCommandQuery('$ CARVE_TRACE=1 deno  task carve --width=9')).toBe(true)
+    expect(isCommandQuery('deno task carved')).toBe(false)
+    const row = pastedRow(deps().d, 'deno task carve --width=30 --height=40 --seed=5')
+    expect(row.problems).toEqual([])
+    expect(row.command.value).toBe(dictionary('en').t('boardAnnotation', 30, 40, 5))
   })
 
   it('reads a valid line into one choosable row naming its board and the ignored mode flags', () => {
     const { d } = deps()
-    const row = pastedRow(d, 'deno task carve --width=30 --height=40 --seed=5 --svg --count=3')
+    const row = pastedRow(d, 'arrowz carve --width=30 --height=40 --seed=5 --svg --count=3')
     expect(row.problems).toEqual([])
     expect(row.command.disabled).toBe(false)
     expect(row.command.name).toBe('Load this command')

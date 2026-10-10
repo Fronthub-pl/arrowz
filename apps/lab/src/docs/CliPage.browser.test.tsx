@@ -26,7 +26,7 @@ const mount = () =>
     </MemoryRouter>,
   )
 
-const SECTIONS = ['start', 'making', 'everyday', 'knobs', 'saved', 'env', 'standalone', 'trouble', 'words', 'help']
+const SECTIONS = ['start', 'making', 'everyday', 'knobs', 'saved', 'env', 'clone', 'trouble', 'words', 'help']
 
 test('the page has its ten sections, in order', async () => {
   const screen = await mount()
@@ -72,7 +72,7 @@ test('every board on the page is a figure with its command under it', async () =
   expect(figures).toHaveLength(30)
   for (const figure of figures)
     expect(figure.querySelector('pre.fw-cmd')?.textContent, figure.getAttribute('aria-label') ?? '').toMatch(
-      /^deno task carve --width=\d+ --height=\d+/,
+      /^arrowz carve --width=\d+ --height=\d+/,
     )
 })
 
