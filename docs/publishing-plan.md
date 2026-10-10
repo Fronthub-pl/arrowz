@@ -100,8 +100,8 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
    A release run that has started is never cancelled; GitHub keeps one waiting
    run per group, so a newer run can replace a waiting one, which loses nothing
    because it plans from the same `main`.
-   A second `npm stage publish` of an already staged version is refused by npm,
-   so a stray run fails without harm. A pull request that changes the workflow
+   npm does not accept a version that already exists as a staged version
+   (npm-stage.md); how `npm stage publish` ends then is in §10. A pull request that changes the workflow
    or one of its programs runs it as a dry run: plan, build and smoke on all
    three packages, never tag or stage. A run started by hand on another branch
    never tags and never stages either.
@@ -116,13 +116,15 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
      versions not on npm form the plan. Empty plan → stop. `0.0.0` is never
      planned: it is the manifests' value before the first version PR and the
      placeholder's on npm. An unclear answer from npm fails the job. A package
-     whose files differ from those of the commit that set its version (tests
-     and `scripts/` excepted) is refused, so a version is released only from
+     whose files differ from those of the commit that set its version (a file
+     in the package's `scripts/` directory, `*.test.ts` and `*.test.tsx` are
+     left out; everything else counts) is refused, so a version is released only from
      the files that were reviewed as that version.
    - **`build`** (`contents: read`, `persist-credentials: false`, no caches):
      full verify, build, `pnpm pack` the planned packages, run the gates (§5) on
      the tarballs, upload the tarballs as an artifact. It records the SHA-256
-     of every tarball as a job output.
+     of every tarball as a job output, then reads the digests back with the
+     same checks `stage` applies, so the dry run exercises them too.
    - **`smoke`**: matrix ubuntu / macOS / Windows (+ the free ARM runners) ×
      Node 22 and 24, plus Node 22.12.0 (the floor), npm 12 and Deno (16 legs),
      installing only the tarballs (§5 gate 3).
@@ -153,8 +155,9 @@ a trusted-publisher entry expires if no publish uses it within 2 days of
 its creation. Order:
 
 0. Before bootstrap day: while the manifests carry `0.0.0` nothing is planned
-   and `stage` is skipped, so `release.yml` can be run green only as a dry
-   run. The whole flow is to be rehearsed once on a throwaway package (e.g.
+   and `stage` is skipped. A run by hand on `main` is green too, but plans
+   nothing; the only run that exercises `build` and `smoke` is the dry run on a
+   pull request. The whole flow is to be rehearsed once on a throwaway package (e.g.
    `@fronthub/arrowz-rehearsal`), which is then deprecated. The workflow as it
    is cannot do that (`release.ts` knows three package directories and
    `pack-check.ts` refuses any other name), and the procedure is not written.
@@ -166,12 +169,13 @@ its creation. Order:
    environment `npm`; allowed action: staged publish only. Then set "Require
    two-factor authentication and disallow tokens".
 3. On the same day, merge the version PR that brings the packages to `0.1.0`.
-   CI stages them; approve on npm. `0.1.0` becomes `latest`, with provenance.
+   CI stages them; approve on npm. `0.1.0` is expected to become `latest`, with provenance (§10).
 4. `npm deprecate <name>@0.0.0 "placeholder"`; check `npm dist-tag ls` shows
    `latest` = `0.1.0`.
 
-If the trusted-publisher entry expires (unused for 2 days), delete and recreate
-it; entries cannot be edited.
+If the trusted-publisher entry expires (its first publish did not succeed
+within 2 days), delete it and create it again: npm does not let you use or edit
+an expired entry, while a valid one can be edited.
 
 Every step of this section is done by the maintainer, in the browser or in a
 terminal logged in with 2FA. None of it can be scripted with a token: changing
@@ -326,8 +330,10 @@ bootstrap.
   shows it once the staged version is approved (docs imply yes).
 - Whether staging/approving counts as the "first successful publish" for the
   2-day trusted-publisher rule (plan avoids depending on it: §4 runs it same day).
-- The exact CLI flag names of `npm trust github` for "stage only" (the web UI
-  field "Allowed actions" is documented).
+- Whether `npm trust github` takes `--allow-stage-publish` alone for "stage
+  only" (npm-stage.md names `--allow-publish` and `--allow-stage-publish` for
+  `npm trust <provider>`; the web UI field "Allowed actions" is documented, and
+  its form may insist on one action).
 - Whether GitHub Actions can be a ruleset bypass actor (plan avoids needing it).
 - Whether a rejected staged version can be re-staged with the same number
   (docs imply yes).

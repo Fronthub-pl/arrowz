@@ -22,7 +22,9 @@ here works.
 
 1. **Make the version pull request.** On an up-to-date `main`, in a new branch.
    First read the list of files in `.changeset/` and add any changeset a
-   contributor forgot (`pnpm changeset`). Then run, once:
+   contributor forgot (`pnpm changeset`), then commit what you added: the
+   command deletes every changeset it uses, and an undo restores only what is
+   committed. Then run, once:
 
    ```sh
    GITHUB_TOKEN=$(gh auth token) pnpm changeset version && pnpm install --lockfile-only
@@ -39,8 +41,8 @@ here works.
    Read the diff: the versions are what you expect and each changelog entry
    reads well for a user. If a changeset is missing after all, undo the run
    (`git restore .` on the new branch, and `git clean -f packages/*/CHANGELOG.md`
-   if a changelog was created), add the changeset and run the command once
-   more. Commit, push, open the pull request.
+   if a changelog was created), add the changeset, commit it and run the
+   command once more. Commit, push, open the pull request.
 
 2. **Wait for CI and merge.** The `changeset` check warns "No changeset" on
    this pull request, because it has just consumed them. That is expected.
@@ -71,8 +73,10 @@ here works.
    If `plan`, `build` or `smoke` is red, nothing reached npm. What to do
    depends on the fix:
 
-   - The fix does not touch a counted file of a package in this release (the
-     workflow, the lab, a test, a script): merge it, then start the workflow
+   - The fix touches no counted file of a package in this release (the
+     workflow, the lab, or a file in a package's `scripts/` directory or a
+     `*.test.ts` / `*.test.tsx` file; a shell script beside the sources or test
+     data does count): merge it, then start the workflow
      by hand on `main` (Actions → Release → Run workflow, branch `main`).
    - The fix changes such a file: the workflow will refuse that version. Add a
      changeset for the fix and make a new version pull request. The number
@@ -90,7 +94,8 @@ here works.
 4. **Approve on npm, the engine first.** Look at the workflow run and at the
    **Staged Packages** tab on npmjs.com for what is waiting. To look at the
    files of a staged version, download its tarball with
-   `npm stage download <stage-id>`. Approve it on npmjs.com (the **Approve**
+   `npm stage download <stage-id>` (`npm stage list` lists the staged
+   versions). Approve it on npmjs.com (the **Approve**
    button) or on the command line (`npm stage approve <stage-id>`); either way
    npm asks for your second factor. Approve `@fronthub/arrowz-engine` before
    the board and the command line: npm does not enforce the order, and a
@@ -143,6 +148,10 @@ be made with this workflow as it is (`release.ts` knows three package
 directories and `pack-check.ts` refuses any other name), and its procedure is
 not written yet. Until it has been done, the items in
 [Not yet tried](#not-yet-tried) are unknown.
+
+Before step 1, confirm one GitHub setting: Settings → Environments → `npm`
+accepts deployments from the branch `main` only. It is what stops an edited
+copy of the workflow on another branch from getting the identity npm trusts.
 
 1. **A placeholder for each package.** In an empty directory outside the
    repository, logged in to npm with your second factor, publish a `0.0.0`
@@ -207,16 +216,18 @@ nothing.
 | `stage` fails with `ENEEDAUTH` | npm did not accept the workflow's identity | Compare the trusted-publisher fields with the table of the first release. If the entry expired (its first publish did not succeed within two days), delete it and create it again; npm does not let you use or edit an expired entry. Then use "Re-run failed jobs", or start the workflow on `main`. |
 | `stage` fails with `cannot read the npm version '<version>'` or `npm <version> cannot stage: staged publishing needs 11.15 or newer` | The npm in the job is not one that can stage | Fix `release.yml` by pull request. Nothing was staged. |
 | `stage` fails with `the build job handed over no digests` | The `build` job passed an empty list: a fault of the run, not a changed artifact | Nothing was staged. Start the workflow again on `main`. |
-| `stage` fails with `the digest list names something that is not one of the three tarballs`, a `FAILED` line from `sha256sum`, or `the artifact holds <n> files, the gates judged <m>` | The artifact was changed after the build, which should never happen | Do not re-run. Nothing was staged. Find out which job touched the artifact before you release again. |
-| `stage` fails with `npm did not stage <file>` | npm refused that tarball; the others were still tried | Read npm's message above it. If a staged version of that version number is waiting, approve or reject it. If two staged versions of one version number ever appear, approve one and reject the other. |
+| `build` or `stage` fails with `the digest list names something that is not one of the three tarballs` | The `build` job wrote a line into its own list that it should not have: a fault in the workflow. In `build` nothing was uploaded for staging; in `stage` nothing was staged | Do not re-run. Fix `release.yml` by pull request. |
+| `build` fails with `the tarballs do not match their digests` or `the artifact holds <n> files, the gates judged <m>` | The digests could not be read back: a fault of the workflow. Nothing was uploaded for staging | Fix `release.yml` by pull request. |
+| `stage` fails with `the tarballs do not match their digests` (preceded by a `FAILED` line from `sha256sum`) or `the artifact holds <n> files, the gates judged <m>` | The artifact was changed after the build, which should never happen | Do not re-run. Nothing was staged. Find out which job touched the artifact before you release again. |
+| `stage` fails with `npm did not stage <file>` | npm refused that tarball; the others were still tried | Read npm's message above it. If a staged version of that version number is waiting, approve or reject it. |
 | `stage` fails with `<n> of <m> judged tarballs were handed to npm` | A judged tarball was not handed to npm: a fault of the run | Check on npm what is staged, then start the workflow again on `main`. |
-| `stage` is red while an earlier staged version of the same version number waits for approval | npm's documentation says a version that already exists as a staged version cannot be staged again; how the command ends has not been tried | Approve or reject the waiting staged version. Nothing else is wrong. |
-| `stage` is green and nothing is staged on npm | How `npm stage publish` ends when npm refuses a tarball has not been tried, so this may be the way it ends | Look at the **Staged Packages** tab and at `npm stage list`, and report it. |
+| `stage` is red while an earlier staged version of the same version number waits for approval | npm's documentation says a version that already exists as a staged version cannot be staged again; how the command ends has not been tried | Approve or reject the waiting staged version. If two staged versions of one version number ever appear, approve one and reject the other. Nothing else is wrong. |
+| `stage` is green and nothing is staged on npm | How `npm stage publish` ends when npm refuses a tarball has not been tried, so this may be the way it ends | Read what `npm stage publish` printed in the step's log. A later run tries again, because `plan` still finds the version missing. Add what you saw to [Not yet tried](#not-yet-tried): it answers the first item. |
 | A re-run of `stage` more than 7 days after the build fails | The artifact is deleted after 7 days | Start the workflow again on `main`. |
 | You approved the board or the command line before the engine | Installs of it fail until the engine is live | Approve the engine. |
 | A staged version holds the wrong files | The gates missed something | Reject it (`npm stage reject <stage-id>`), fix by pull request, release a new patch version. |
 | A bad version is live | | `npm deprecate <name>@<version> "<what is wrong, which version to use>"`, then release a fix. Do not unpublish: other packages may already depend on it. |
-| The trusted publisher expired or was removed | | Create it again (step 2 of the first release), then use "Re-run failed jobs" or start the workflow on `main`. The release waits only when npm's trusted publishing itself is not working. Never create a token, in either case. |
+| The trusted publisher expired or was removed | | If it expired, delete it first; then create it again (step 2 of the first release), then use "Re-run failed jobs" or start the workflow on `main`. The release waits only when npm's trusted publishing itself is not working. Never create a token, in either case. |
 
 ## Not yet tried
 
