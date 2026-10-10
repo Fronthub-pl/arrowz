@@ -33,10 +33,11 @@ function run(line) {
   return r
 }
 
-/** What a child printed as JSON, or {} when it is not JSON, so the check that reads it fails with its message. */
+/** What a child printed as a JSON object, or {} for anything else, so the check that reads it fails with its message. */
 function jsonOf(text) {
   try {
-    return JSON.parse(text)
+    const value = JSON.parse(text)
+    return typeof value === 'object' && value !== null && !Array.isArray(value) ? value : {}
   } catch {
     return {}
   }
@@ -114,8 +115,8 @@ document.body.firstElementChild.board = generate({ ...defaultParams(), W: 12, H:
   const built = vite.status === 0 && existsSync(assets)
     ? readdirSync(assets).map((f) => readFileSync(join(assets, f), 'utf8')).join('')
     : ''
-  // The generated page never spells the tag name, so only the package's own code can put it in the bundle.
-  check(built.includes('arrowz-board'), 'Vite bundles the element of the board package')
+  // The GLSL header is in the board's files and in none of the engine's, and a minifier keeps a string.
+  check(built.includes('#version 300 es'), 'Vite bundles the element of the board package')
 }
 
 rmSync(project, { recursive: true, force: true })
