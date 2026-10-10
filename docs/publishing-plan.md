@@ -1,8 +1,8 @@
 # Arrowz: going public and publishing to npm — revised plan
 
 Date: 2026-10-09. Status: accepted plan, carried out in the order of §9. Steps
-1–6 and the day-one settings of §8 are done; the release workflow with its
-gates (step 7, §3 and §5) and the rehearsal and bootstrap (§4) are not. It
+1–7 and the day-one settings of §8 are done; the rehearsal and the bootstrap
+(§4) are not. The maintainer's procedure is [releasing.md](releasing.md). It
 replaces an earlier, unpublished draft design (lockstep `1.0.0-alpha` versions,
 CLI as compiled binaries, JSR); §1 lists what changed and why. Every external
 fact was checked in official documentation; open points are listed in §10.
@@ -95,24 +95,42 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
    and changes no file (measured).
 3. The maintainer merges it. `release.yml` runs on a push to `main` that touches
    `packages/*/CHANGELOG.md` (only version PRs do), or on "Run workflow"
-   (`workflow_dispatch`); `concurrency: release` keeps one run at a time.
+   (`workflow_dispatch`). The concurrency group is the ref, so one run per
+   branch at a time; only a pull request's run is cancelled by a newer push.
    A second `npm stage publish` of an already staged version is refused by npm,
-   so a stray run fails without harm:
-   - **`tag-published`** (`contents: write`): for each package, if a version is
-     on npm but has no git tag yet, create the tag. (Tags are created only for
-     versions that really went live; see step 5.)
+   so a stray run fails without harm. A pull request that changes the workflow
+   or one of its programs runs it as a rehearsal: plan, build and smoke on all
+   three packages, never tag or stage.
+   - **`tag-published`** (`contents: write`; only on `main`): for each package,
+     if its current version is on npm but has no git tag yet, create the tag.
+     (Tags are created only for versions that really went live; see step 5. If
+     a package is released again before a run has seen the earlier version
+     live, the earlier version gets no tag.) The tag goes on the first-parent
+     commit of `main` that set the version, the merge of the version PR.
+     `0.0.0` is never tagged.
    - **`plan`** (`contents: read`): for each package, `npm view <name>@<version>`;
-     versions not on npm form the plan. Empty plan → stop.
+     versions not on npm form the plan. Empty plan → stop. `0.0.0` is never
+     planned: it is the manifests' value before the first version PR and the
+     placeholder's on npm. An unclear answer from npm fails the job. A package
+     whose files differ from those of the commit that set its version (tests
+     and `scripts/` excepted) is refused, so a version is released only from
+     the files that were reviewed as that version.
    - **`build`** (`contents: read`, `persist-credentials: false`, no caches):
      full verify, build, `pnpm pack` the planned packages, run the gates (§5) on
-     the tarballs, upload the tarballs as an artifact.
+     the tarballs, upload the tarballs as an artifact. It records the SHA-256
+     of every tarball as a job output.
    - **`smoke`**: matrix ubuntu / macOS / Windows (+ the free ARM runners) ×
-     Node 22 and 24 + Deno, installing only the tarballs (§5 gate 3).
-   - **`stage`** (environment `npm`, which only allows branch `main`;
-     `id-token: write`, `contents: read`; no checkout, no install): asserts
+     Node 22 and 24, plus Node 22.12.0 (the floor), npm 12 and Deno (16 legs),
+     installing only the tarballs (§5 gate 3).
+   - **`stage`** (only on `main`; environment `npm`, which only allows branch
+     `main`; `id-token: write`, `contents: read`; no checkout, no install): asserts
      `npm --version` ≥ 11.15 (Node pinned to an exact 24.x, never
-     `npm i -g npm` inside this job), then `npm stage publish <tgz>` for each planned
-     tarball, dependencies first (engine → board → CLI). Authentication is OIDC
+     `npm i -g npm` inside this job), checks the downloaded tarballs against the
+     digests and the count `build` recorded, then
+     `npm stage publish --ignore-scripts <tgz>` for each planned
+     tarball, dependencies first (engine → board → CLI). Every tarball is tried
+     even after one is refused, so a re-run after a partial failure reaches the
+     rest. Authentication is OIDC
      trusted publishing: no token is stored anywhere. Provenance is attached.
 4. npm emails the maintainer, who opens npmjs.com → package → Staged, checks it,
    and approves with 2FA (one approval per package version; a typical release
@@ -120,7 +138,7 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
    order, and a dependent approved first fails to install (ETARGET) until the
    engine is live. Never approve a stage you did not trigger.
 5. The tags for those versions are created by `tag-published` on the next run
-   (next merge, or "Run workflow" by hand).
+   (next merge, or "Run workflow" by hand on `main`).
 
 ## 4. First release (bootstrap), once per new package
 
@@ -153,8 +171,11 @@ the first actions that 2FA-bypass tokens lose (§8).
 
 ## 5. Gates (on the packed tarballs, i.e. the files users receive)
 
-1. **Contents + size**: file list on an allowlist (`dist/`, `README.md`,
-   `LICENSE`, `NOTICE`, `CHANGELOG.md`, `package.json`), size budget (engine
+1. **Contents + size**: file list on an exact allowlist per package
+   (`README.md`, `LICENSE`, `NOTICE`, `CHANGELOG.md`, `package.json`; in `dist/`
+   the engine and the board ship `<name>.js` and `<name>.d.ts` one level deep,
+   the CLI ships `arrowz.mjs` alone: a stale file in a local `dist/` is packed
+   otherwise, measured), size budget (engine
    ≤ 200 kB, board ≤ 100 kB, CLI ≤ 30 kB: its bundle packs to 6 kB and its README to
    15 kB). Catches stray tests.
    The packed `package.json` must also install under npm 12's defaults, which
@@ -163,6 +184,11 @@ the first actions that 2FA-bypass tokens lose (§8).
    script, no `binding.gyp` in the tarball (npm builds it implicitly), and
    every dependency a registry version range (no git, URL, `file:` or
    `workspace:` spec).
+   The packed manifest must name exactly the published entry points, each with
+   its types for the engine and the board (Are The Types Wrong says nothing
+   about a package without types), and a released tarball ships its
+   `CHANGELOG.md`. The CLI's manifest must name exactly the `arrowz` command,
+   and a dependency is `x.y.z`, `^x.y.z` or `~x.y.z`.
 2. **`publint`** and **`@arethetypeswrong/cli --pack --profile esm-only`**
    (the default profile wrongly fails an ESM-only package).
 3. **Consumer smoke** in an empty project on the OS × runtime matrix: the engine
@@ -171,10 +197,13 @@ the first actions that 2FA-bypass tokens lose (§8).
    element builds. Packages of this release come from the tarballs; packages not
    in this release may come from the registry. At least one leg installs with
    npm 12 and its defaults, nothing approved with `npm approve-scripts` and no
-   `--allow-git` or `--allow-remote`. No Node line bundles npm 12 yet (22 has
+   `--allow-git` or `--allow-remote`; every leg installs with
+   `--ignore-scripts`, so the claim that the packages need no install script
+   is checked everywhere. No Node line bundles npm 12 yet (22 has
    npm 10; 24 and 26 have npm 11), so that leg installs it itself
-   (`npm i -g npm@12`; this is the smoke job, never `stage`).
-4. Gates 1–2 also run on every PR (Nx target `pack-check`).
+   (`npm install --global npm@12`; this is the smoke job, never `stage`).
+4. Gates 1–2 also run on every PR (Nx target `pack-check`, in CI's list of
+   targets; it is not part of `verify`, so a local check needs no packing).
 
 ## 6. Package changes
 
@@ -296,12 +325,22 @@ bootstrap.
   was announced for early August 2026, and the announcement's discussion
   (github.com/orgs/community/discussions/201329) does not confirm it. The plan
   does not depend on the answer.
-- Whether the Vite page of the consumer smoke builds under npm 12 with no
-  approved script (`esbuild` ships a `postinstall`). If it does not, the smoke
-  approves that one script and says why.
+- The Vite page of the consumer smoke builds under npm 12 with no approved
+  script (measured on macOS with Vite 8: the only blocked script is the
+  optional `fsevents`); the smoke matrix repeats it on Linux, and every leg
+  installs with scripts off.
 - npm's staged-publishing page says that staging a package that does not exist
   yet publishes a public placeholder `0.0.0-stage`. If a stage from the
   maintainer's laptop can create the package that way, §4 step 1 needs no
   hand-made `0.0.0`; try it on the rehearsal package.
 - npm's roadmap in the same discussion names creating new scoped packages from
   a trusted workflow, with no date; it would remove the placeholder step.
+- Whether `npm stage publish` exits with an error when npm refuses a tarball
+  (the stage loop relies on it to report the refusal).
+- Whether the OIDC exchange works with the `.npmrc` that `actions/setup-node`
+  writes for `registry-url` (the workflow follows npm's own example).
+- What `npm view <name>@<version>` answers for a version that is staged and not
+  yet approved. If it says the version is missing, a second run before the
+  approval plans the same version again and npm refuses it.
+- Whether npm runs a lifecycle script when it stages a tarball (the workflow
+  passes `--ignore-scripts`, so it does not depend on the answer).
