@@ -15,6 +15,8 @@ const PACKAGES = ['@fronthub/arrowz-engine', '@fronthub/arrowz-board', '@fronthu
 const golden = JSON.parse(readFileSync(new URL('./consumer-golden.json', import.meta.url), 'utf8'))
 const tarballs = resolve(process.argv[2] ?? 'tarballs')
 const deno = 'Deno' in globalThis
+/** The Deno that runs the smoke, quoted for the shell. */
+const runtime = `"${process.execPath}"`
 let failures = 0
 
 function check(ok, what) {
@@ -31,12 +33,22 @@ function run(line) {
   return r
 }
 
+/** What a child printed as JSON, or {} when it is not JSON, so the check that reads it fails with its message. */
+function jsonOf(text) {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return {}
+  }
+}
+
 /** The tarball of a package when this release packs it, else its name, which npm resolves from the registry. */
 function specOf(name) {
   const prefix = `${name.slice(1).replace('/', '-')}-`
   const files = existsSync(tarballs) ? readdirSync(tarballs) : []
-  const file = files.find((f) => f.startsWith(prefix) && f.endsWith('.tgz'))
-  return file ? join(tarballs, file) : name
+  const found = files.filter((f) => f.startsWith(prefix) && f.endsWith('.tgz'))
+  if (found.length > 1) check(false, `${name} has one tarball in ${tarballs}, not ${found.join(' and ')}`)
+  return found.length > 0 ? join(tarballs, found[0]) : name
 }
 
 const specs = PACKAGES.map(specOf)
@@ -45,9 +57,9 @@ check(packed.length > 0, `the release packs ${packed.join(', ') || 'nothing'} ($
 
 writeFileSync(join(project, 'package.json'), JSON.stringify({ name: 'consumer', private: true, type: 'module' }))
 const npm = run('npm --version').stdout.trim()
-// Plain quotes and a bare major: cmd.exe would double the backslashes of JSON and swallow a caret.
-const install = run(`npm install ${specs.map((s) => `"${s}"`).join(' ')} vite@8`)
-check(install.status === 0, `npm ${npm} installs the packages and Vite, approving no script`)
+// Plain quotes and a bare major: cmd.exe would swallow the caret of a range such as ^8.
+const install = run(`npm install --ignore-scripts ${specs.map((s) => `"${s}"`).join(' ')} vite@8`)
+check(install.status === 0, `npm ${npm} installs the packages and Vite with install scripts off`)
 
 if (install.status === 0) {
   // A tarball that npm quietly replaced with the registry's copy would test the wrong files.
@@ -67,20 +79,20 @@ const width = parseArgs(['--width=25', '--height=25']).params.W
 console.log(JSON.stringify({ fingerprint: fingerprint(board), pieces: board.pieces.length, width, simple: Object.keys(simple).length }))
 `,
   )
-  const engine = run(`${deno ? 'deno run --allow-read --allow-env' : 'node'} engine.mjs`)
-  const laid = engine.status === 0 ? JSON.parse(engine.stdout) : {}
+  const engine = run(`${deno ? `${runtime} run --allow-read --allow-env` : 'node'} engine.mjs`)
+  const laid = engine.status === 0 ? jsonOf(engine.stdout) : {}
   check(
     laid.fingerprint === golden.fingerprint && laid.pieces === golden.pieces,
     `the engine lays the golden 40×40 board ${golden.fingerprint} (got ${laid.fingerprint}, ${laid.pieces} pieces)`,
   )
   check(laid.width === 25 && laid.simple > 0, 'the command and simple entries load')
 
-  // --no keeps npx from fetching the unrelated package named arrowz when the command is not installed.
+  // --no keeps npx from fetching whatever is published under the name arrowz when the command is not installed.
   const arrowz = deno
-    ? 'deno run --allow-read --allow-env --allow-write node_modules/@fronthub/arrowz-cli/dist/arrowz.mjs'
+    ? `${runtime} run --allow-read --allow-env --allow-write node_modules/@fronthub/arrowz-cli/dist/arrowz.mjs`
     : 'npx --no arrowz'
   const dry = run(`${arrowz} carve --width=25 --height=25 --dry-run`)
-  const line = dry.status === 0 ? JSON.parse(dry.stdout) : {}
+  const line = dry.status === 0 ? jsonOf(dry.stdout) : {}
   check(
     line.id === golden.layout,
     `arrowz carve names the golden layout ${golden.layout.slice(0, 15)}… (got ${line.id})`,
@@ -94,7 +106,7 @@ console.log(JSON.stringify({ fingerprint: fingerprint(board), pieces: board.piec
     join(project, 'main.js'),
     `import '@fronthub/arrowz-board'
 import { defaultParams, generate } from '@fronthub/arrowz-engine'
-document.querySelector('arrowz-board').board = generate({ ...defaultParams(), W: 12, H: 12, seed: 1 }).board
+document.body.firstElementChild.board = generate({ ...defaultParams(), W: 12, H: 12, seed: 1 }).board
 `,
   )
   const vite = run('npx --no vite build')
@@ -102,7 +114,8 @@ document.querySelector('arrowz-board').board = generate({ ...defaultParams(), W:
   const built = vite.status === 0 && existsSync(assets)
     ? readdirSync(assets).map((f) => readFileSync(join(assets, f), 'utf8')).join('')
     : ''
-  check(built.includes('arrowz-board'), 'Vite builds a page with the element and the engine')
+  // The generated page never spells the tag name, so only the package's own code can put it in the bundle.
+  check(built.includes('arrowz-board'), 'Vite bundles the element of the board package')
 }
 
 rmSync(project, { recursive: true, force: true })
