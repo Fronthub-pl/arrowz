@@ -1,9 +1,11 @@
 # Arrowz: going public and publishing to npm — revised plan
 
-Date: 2026-10-09. Status: accepted plan, not yet implemented. It replaces an
-earlier, unpublished draft design (lockstep `1.0.0-alpha` versions, CLI as
-compiled binaries, JSR); §1 lists what changed and why. Every external fact was
-checked in official documentation; open points are listed in §10.
+Date: 2026-10-09. Status: accepted plan, carried out in the order of §9. Steps
+1–6 and the day-one settings of §8 are done; the release workflow with its
+gates (step 7, §3 and §5) and the rehearsal and bootstrap (§4) are not. It
+replaces an earlier, unpublished draft design (lockstep `1.0.0-alpha` versions,
+CLI as compiled binaries, JSR); §1 lists what changed and why. Every external
+fact was checked in official documentation; open points are listed in §10.
 
 Revised 2026-10-10 for two npm changes announced on 2026-07-08
 ([GitHub changelog](https://github.blog/changelog/2026-07-08-npm-install-time-security-and-gat-bypass2fa-deprecation/)):
