@@ -3,7 +3,18 @@
 import { assertEquals, assertThrows } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { defaultParams, fingerprint, generate, layoutHash } from './mod.ts'
-import { commitOf, type Pkg, planOf, releaseCommit, type Seen, seenOnNpm, tagOf, tagsDue } from './scripts/release.ts'
+import {
+  changedSince,
+  commitOf,
+  manifestOf,
+  type Pkg,
+  planOf,
+  releaseCommit,
+  type Seen,
+  seenOnNpm,
+  tagOf,
+  tagsDue,
+} from './scripts/release.ts'
 
 const pkg = (short: string, version: string): Pkg => ({
   dir: `packages/${short}`,
@@ -17,11 +28,12 @@ const live = (...published: Pkg[]) => (p: Pkg): Seen => published.includes(p) ? 
 
 Deno.test('npm says a version is published by printing it', () => {
   assertEquals(seenOnNpm(0, '"0.1.0"\n', '0.1.0'), 'published')
+  // npm 12 wraps the version in an array.
+  assertEquals(seenOnNpm(0, '[\n  "0.1.0"\n]\n', '0.1.0'), 'published')
 })
 
 Deno.test('npm says a version or a whole package is missing with E404', () => {
   assertEquals(seenOnNpm(1, '{\n  "error": { "code": "E404", "summary": "Not Found" }\n}\n', '0.1.0'), 'absent')
-  assertEquals(seenOnNpm(0, '', '0.1.0'), 'absent')
 })
 
 Deno.test('anything but a clear answer from npm stops the run', () => {
@@ -30,6 +42,21 @@ Deno.test('anything but a clear answer from npm stops the run', () => {
   assertThrows(() => seenOnNpm(1, 'npm error network timeout', '0.1.0'), Error, 'did not say')
   assertThrows(() => seenOnNpm(1, '', '0.1.0'), Error, 'did not say')
   assertThrows(() => seenOnNpm(0, '"0.1.1"', '0.1.0'), Error, 'did not say')
+  assertThrows(() => seenOnNpm(0, '', '0.1.0'), Error, 'did not say')
+  assertThrows(() => seenOnNpm(0, '["0.1.1"]', '0.1.0'), Error, 'did not say')
+  assertThrows(() => seenOnNpm(0, '["0.1.0","0.1.1"]', '0.1.0'), Error, 'did not say')
+  assertThrows(() => seenOnNpm(0, '[]', '0.1.0'), Error, 'did not say')
+})
+
+Deno.test('a manifest without a name or a version stops the run', () => {
+  assertEquals(manifestOf('packages/x', '{"name":"n","version":"1.0.0"}'), {
+    dir: 'packages/x',
+    name: 'n',
+    version: '1.0.0',
+  })
+  assertThrows(() => manifestOf('packages/x', '{"name":"n"}'), Error, 'packages/x/package.json')
+  assertThrows(() => manifestOf('packages/x', '{"name":"n","version":""}'), Error, 'packages/x/package.json')
+  assertThrows(() => manifestOf('packages/x', '{"version":"1.0.0"}'), Error, 'packages/x/package.json')
 })
 
 Deno.test('a run releases the versions npm does not have, dependencies first', () => {
@@ -70,9 +97,12 @@ Deno.test('the tag goes on the commit of main that set the version', () => {
 /** Runs git in a scratch repository, with an identity of its own and without the caller's signing setup. */
 async function scratch(cwd: string, args: string[], stdin = ''): Promise<string> {
   const identity = ['-c', 'user.name=t', '-c', 'user.email=t@example.test', '-c', 'commit.gpgsign=false']
+  // Bound to the scratch directory, so a GIT_DIR or GIT_INDEX_FILE of the caller (git sets them for hooks) cannot redirect a commit.
+  const env = { GIT_DIR: `${cwd}/.git`, GIT_WORK_TREE: cwd, GIT_INDEX_FILE: `${cwd}/.git/index` }
   const child = new Deno.Command('git', {
     args: [...identity, ...args],
     cwd,
+    env,
     stdin: 'piped',
     stdout: 'piped',
     stderr: 'piped',
@@ -85,18 +115,33 @@ async function scratch(cwd: string, args: string[], stdin = ''): Promise<string>
   return new TextDecoder().decode(stdout).trim()
 }
 
-/** Commits the engine manifest at a version through the index alone: no file is written, so the test needs no write access. */
-async function commitManifest(repo: string, version: string, note: string): Promise<string> {
-  const manifest = JSON.stringify({ name: '@fronthub/arrowz-engine', version, note })
-  const blob = await scratch(repo, ['hash-object', '-w', '--stdin'], manifest)
-  await scratch(repo, ['update-index', '--add', '--cacheinfo', `100644,${blob},packages/engine/package.json`])
+/** Commits one file through the index alone: no file is written, so the test needs no write access. */
+async function commitFile(repo: string, path: string, content: string, note: string): Promise<string> {
+  const blob = await scratch(repo, ['hash-object', '-w', '--stdin'], content)
+  await scratch(repo, ['update-index', '--add', '--cacheinfo', `100644,${blob},${path}`])
   await scratch(repo, ['commit', '-q', '-m', note])
   return await scratch(repo, ['rev-parse', 'HEAD'])
 }
 
-Deno.test('in a repository the tag lands on the merge that brought the version to main', async () => {
+function commitManifest(repo: string, version: string, note: string): Promise<string> {
+  const manifest = JSON.stringify({ name: '@fronthub/arrowz-engine', version, note })
+  return commitFile(repo, 'packages/engine/package.json', manifest, note)
+}
+
+/** A new scratch directory; stops the test at once when there is none, so no command can run in the current one. */
+function scratchDir(): string {
   const made = new Deno.Command('mktemp', { args: ['-d'], stdout: 'piped' }).outputSync()
-  const repo = new TextDecoder().decode(made.stdout).trim()
+  const dir = new TextDecoder().decode(made.stdout).trim()
+  if (!made.success || dir === '') throw new Error('mktemp made no scratch directory')
+  return dir
+}
+
+const removeDir = (dir: string) => new Deno.Command('rm', { args: ['-rf', dir] }).outputSync()
+
+const engine = { dir: 'packages/engine', name: '@fronthub/arrowz-engine', version: '0.2.0' }
+
+Deno.test('in a repository the tag lands on the merge that brought the version to main', async () => {
+  const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
     const before = await commitManifest(repo, '0.1.0', 'first release')
@@ -105,14 +150,49 @@ Deno.test('in a repository the tag lands on the merge that brought the version t
     const tree = await scratch(repo, ['rev-parse', `${inPullRequest}^{tree}`])
     const merge = await scratch(repo, ['commit-tree', tree, '-p', before, '-p', inPullRequest, '-m', 'merge'])
     await scratch(repo, ['update-ref', 'refs/heads/main', merge])
-    const later = await commitManifest(repo, '0.2.0', 'a new keyword')
+    await commitManifest(repo, '0.2.0', 'a new keyword')
 
-    const engine = { dir: 'packages/engine', name: '@fronthub/arrowz-engine', version: '0.2.0' }
     assertEquals(commitOf(engine, repo), merge)
-    assertEquals([inPullRequest, later].includes(commitOf(engine, repo)), false)
     assertThrows(() => commitOf({ ...engine, version: '9.9.9' }, repo), Error, 'no commit')
   } finally {
-    new Deno.Command('rm', { args: ['-rf', repo] }).outputSync()
+    removeDir(repo)
+  }
+})
+
+Deno.test('a shallow clone cannot say which commit set the version', async () => {
+  const full = scratchDir()
+  const shallow = scratchDir()
+  try {
+    await scratch(full, ['init', '-q', '-b', 'main'])
+    await commitManifest(full, '0.1.0', 'first release')
+    await commitManifest(full, '0.2.0', 'version packages')
+    await scratch(shallow, ['init', '-q', '-b', 'main'])
+    await scratch(shallow, ['fetch', '-q', '--depth', '1', `file://${full}`, 'main'])
+    await scratch(shallow, ['update-ref', 'refs/heads/main', 'FETCH_HEAD'])
+    assertThrows(() => commitOf(engine, shallow), Error, 'shallow')
+  } finally {
+    removeDir(full)
+    removeDir(shallow)
+  }
+})
+
+Deno.test('what changed since the version commit is the package files that reach the tarball', async () => {
+  const repo = scratchDir()
+  try {
+    await scratch(repo, ['init', '-q', '-b', 'main'])
+    await commitManifest(repo, '0.2.0', 'version packages')
+    assertEquals(changedSince(engine, repo), [])
+
+    await commitFile(repo, 'packages/cli/carve.ts', 'other package', 'cli change')
+    await commitFile(repo, 'packages/engine/scripts/release.ts', 'script', 'script change')
+    await commitFile(repo, 'packages/engine/x.test.ts', 'test', 'test change')
+    await commitFile(repo, 'packages/engine/sub/y.test.tsx', 'test', 'nested test change')
+    assertEquals(changedSince(engine, repo), [])
+
+    await commitFile(repo, 'packages/engine/engine.ts', 'source', 'engine change')
+    assertEquals(changedSince(engine, repo), ['packages/engine/engine.ts'])
+  } finally {
+    removeDir(repo)
   }
 })
 

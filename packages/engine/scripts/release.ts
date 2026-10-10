@@ -36,8 +36,9 @@ export function seenOnNpm(code: number, stdout: string, version: string): Seen {
   } catch {
     answer = undefined
   }
-  if (code === 0 && answer === version) return 'published'
-  if (code === 0 && stdout.trim() === '') return 'absent'
+  // npm 10 and 11 print the version, npm 12 prints it in a one-element array.
+  const printed = Array.isArray(answer) && answer.length === 1 ? answer[0] : answer
+  if (code === 0 && printed === version) return 'published'
   if (code !== 0 && errorCode(answer) === 'E404') return 'absent'
   throw new Error(`npm view did not say whether ${version} is published (status ${code}): ${stdout.slice(0, 300)}`)
 }
@@ -51,7 +52,7 @@ export function tagOf(p: Pkg): string {
   return `${p.name}@${p.version}`
 }
 
-/** The versions that went live since the last run: on npm, and without a tag yet. */
+/** The current versions that are live on npm and have no tag yet. */
 export function tagsDue(pkgs: Pkg[], seen: (p: Pkg) => Seen, tags: Set<string>): Pkg[] {
   return pkgs.filter((p) => p.version !== UNRELEASED && !tags.has(tagOf(p)) && seen(p) === 'published')
 }
@@ -78,8 +79,11 @@ function git(cwd: string, ...args: string[]): string {
   return r.out
 }
 
-function manifestOf(dir: string, text: string): Pkg {
-  const { name, version } = JSON.parse(text) as { name: string; version: string }
+export function manifestOf(dir: string, text: string): Pkg {
+  const { name, version } = JSON.parse(text) as { name?: unknown; version?: unknown }
+  if (typeof name !== 'string' || name === '' || typeof version !== 'string' || version === '') {
+    throw new Error(`${dir}/package.json needs a name and a version, both non-empty strings`)
+  }
   return { dir, name, version }
 }
 
@@ -88,8 +92,14 @@ function onNpm(p: Pkg): Seen {
   return seenOnNpm(r.code, r.out, p.version)
 }
 
-/** The first-parent commit that set the package's current version: on main, the merge the release was built from. */
+/** The first-parent commit that set the package's current version: on main, the version PR's merge. It does not know what was built; `plan` checks that. */
 export function commitOf(p: Pkg, cwd = '.'): string {
+  // A grafted tip looks like the commit that added the manifest.
+  if (git(cwd, 'rev-parse', '--is-shallow-repository').trim() === 'true') {
+    throw new Error(
+      'the history is shallow, so the commit of a version is unknown: fetch the full history (fetch-depth: 0)',
+    )
+  }
   const history: { sha: string; version: string }[] = []
   const log = git(cwd, 'log', '--first-parent', '--format=%H', '--', `${p.dir}/package.json`)
   for (const sha of log.trim().split('\n').filter((line) => line !== '')) {
@@ -102,11 +112,40 @@ export function commitOf(p: Pkg, cwd = '.'): string {
   return sha
 }
 
+/** The files of a package that differ between the commit that set its version and HEAD; tests and scripts aside, which cannot change the tarball. */
+export function changedSince(p: Pkg, cwd = '.'): string[] {
+  const out = git(
+    cwd,
+    'diff',
+    '--name-only',
+    commitOf(p, cwd),
+    'HEAD',
+    '--',
+    p.dir,
+    `:(exclude)${p.dir}/scripts`,
+    `:(exclude,glob)${p.dir}/**/*.test.ts`,
+    `:(exclude,glob)${p.dir}/**/*.test.tsx`,
+  )
+  return out.split('\n').filter((line) => line !== '')
+}
+
 if (import.meta.main) {
   const [command, ...flags] = Deno.args
   const pkgs = DIRS.map((dir) => manifestOf(dir, Deno.readTextFileSync(`${dir}/package.json`)))
   if (command === 'plan') {
     const release = flags.includes('--all') ? pkgs : planOf(pkgs, onNpm)
+    if (!flags.includes('--all')) {
+      const stale = release.map((p) => ({ p, files: changedSince(p) })).filter((c) => c.files.length > 0)
+      for (const { p, files } of stale) {
+        console.error(
+          `refused ${tagOf(p)}: ${files.join(', ')} changed since ${commitOf(p).slice(0, 7)} set the version`,
+        )
+      }
+      if (stale.length > 0) {
+        console.error('A version is released from the files of its version commit: open a new version pull request.')
+        Deno.exit(1)
+      }
+    }
     for (const p of pkgs) console.log(`${release.includes(p) ? 'release' : 'skip   '} ${tagOf(p)}`)
     const output = Deno.env.get('GITHUB_OUTPUT')
     if (output) Deno.writeTextFileSync(output, `dirs=${release.map((p) => p.dir).join(' ')}\n`, { append: true })
