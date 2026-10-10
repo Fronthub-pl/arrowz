@@ -112,7 +112,7 @@ export function commitOf(p: Pkg, cwd = '.'): string {
   return sha
 }
 
-/** The files of a package that differ between the commit that set its version and HEAD; tests and scripts aside, which cannot change the tarball. */
+/** The files of a package that differ between the commit that set its version and HEAD; neither tests nor anything under `scripts/` is packed or part of a build. */
 export function changedSince(p: Pkg, cwd = '.'): string[] {
   const out = git(
     cwd,
@@ -129,22 +129,31 @@ export function changedSince(p: Pkg, cwd = '.'): string[] {
   return out.split('\n').filter((line) => line !== '')
 }
 
-if (import.meta.main) {
+/** One line per package that may not be released because its files changed since its version commit; empty when the plan stands. */
+export function refusalsOf(release: Pkg[], changed: (p: Pkg) => string[], commit: (p: Pkg) => string): string[] {
+  const lines: string[] = []
+  for (const p of release) {
+    const files = changed(p)
+    if (files.length > 0) {
+      lines.push(`refused ${tagOf(p)}: ${files.join(', ')} changed since ${commit(p).slice(0, 7)} set the version`)
+    }
+  }
+  return lines
+}
+
+const ADVICE = 'A version is released from the files of its version commit. ' +
+  'If a release of it is still running or waiting for approval, let that finish; otherwise open a new version pull request.'
+
+function main(): void {
   const [command, ...flags] = Deno.args
   const pkgs = DIRS.map((dir) => manifestOf(dir, Deno.readTextFileSync(`${dir}/package.json`)))
   if (command === 'plan') {
     const release = flags.includes('--all') ? pkgs : planOf(pkgs, onNpm)
-    if (!flags.includes('--all')) {
-      const stale = release.map((p) => ({ p, files: changedSince(p) })).filter((c) => c.files.length > 0)
-      for (const { p, files } of stale) {
-        console.error(
-          `refused ${tagOf(p)}: ${files.join(', ')} changed since ${commitOf(p).slice(0, 7)} set the version`,
-        )
-      }
-      if (stale.length > 0) {
-        console.error('A version is released from the files of its version commit: open a new version pull request.')
-        Deno.exit(1)
-      }
+    const refusals = flags.includes('--all') ? [] : refusalsOf(release, changedSince, commitOf)
+    if (refusals.length > 0) {
+      for (const line of refusals) console.error(line)
+      console.error(ADVICE)
+      Deno.exit(1)
     }
     for (const p of pkgs) console.log(`${release.includes(p) ? 'release' : 'skip   '} ${tagOf(p)}`)
     const output = Deno.env.get('GITHUB_OUTPUT')
@@ -163,5 +172,14 @@ if (import.meta.main) {
   } else {
     console.error('usage: release.ts plan [--all] | tags')
     Deno.exit(2)
+  }
+}
+
+if (import.meta.main) {
+  try {
+    main()
+  } catch (error) {
+    console.error(`error: ${error instanceof Error ? error.message : String(error)}`)
+    Deno.exit(1)
   }
 }

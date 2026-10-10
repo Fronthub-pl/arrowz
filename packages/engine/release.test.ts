@@ -9,6 +9,7 @@ import {
   manifestOf,
   type Pkg,
   planOf,
+  refusalsOf,
   releaseCommit,
   type Seen,
   seenOnNpm,
@@ -197,6 +198,21 @@ Deno.test('what changed since the version commit is the package files that reach
 })
 
 const here = dirname(fromFileUrl(import.meta.url))
+
+Deno.test('a package whose files changed since its version commit is refused, one line each', () => {
+  const changed = (p: Pkg) => p === ENGINE ? ['packages/engine/engine.ts', 'packages/engine/look.ts'] : []
+  assertEquals(refusalsOf([ENGINE, CLI], changed, () => 'abcdef0123456789'), [
+    'refused @fronthub/arrowz-engine@0.1.1: packages/engine/engine.ts, packages/engine/look.ts changed since abcdef0 set the version',
+  ])
+  assertEquals(refusalsOf([ENGINE, CLI], () => [], () => 'abcdef0123456789'), [])
+})
+
+Deno.test('the commit of a package that did not change is not looked up', () => {
+  const never = () => {
+    throw new Error('no version commit here')
+  }
+  assertEquals(refusalsOf([CLI], () => [], never), [])
+})
 
 Deno.test('the goldens of the consumer smoke are what the engine lays today', async () => {
   // A drift is caught here, on the pull request that causes it, not on release day.
