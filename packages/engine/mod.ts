@@ -1,5 +1,5 @@
-// Public surface of @arrowz/engine: the generator, its parameter table and
-// the board types. The command parser, the simple view, the presets, the
+// Public surface of @fronthub/arrowz-engine: the generator, its parameter table
+// and the board types. The command parser, the simple view, the presets, the
 // dictionaries and the run report are separate subpath exports (see deno.json).
 //
 // The list is explicit rather than a star: `Carver`, `mulberry32` and
@@ -30,7 +30,7 @@ export {
   validateParams,
 } from './engine.ts'
 // The recommended entry point for an application: a board from the CLI's
-// vocabulary. The lab keeps using simpleParams through @arrowz/engine/simple.
+// vocabulary. The lab keeps using simpleParams through the `./simple` entry.
 export { presetParams } from './lab-simple.ts'
 export { autoHeadWidth, DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED, pieceShape, voidStrips } from './geometry.ts'
 // The diagnostic palette, published for the same reason the shapes are: the

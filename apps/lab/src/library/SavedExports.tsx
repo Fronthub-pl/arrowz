@@ -1,4 +1,4 @@
-import type { BoardFile } from '@arrowz/engine'
+import type { BoardFile } from '@fronthub/arrowz-engine'
 import { type ReactElement, useState } from 'react'
 import { useDictionary } from '../i18n'
 import { downloadBlob } from '../run/download'

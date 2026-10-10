@@ -1,8 +1,8 @@
 // What a board looks like. No renderer and no DOM: mod.ts exports these, so
 // they must not move when the layer does. The diagnostic hue is not defined
 // here any more — it is the engine's palette, re-exported at the foot.
-import { DEFAULT_COLOURS, DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from '@arrowz/engine'
-import type { View } from '@arrowz/engine'
+import { DEFAULT_COLOURS, DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from '@fronthub/arrowz-engine'
+import type { View } from '@fronthub/arrowz-engine'
 
 export interface BoardView {
   /** Stroke width as a fraction of a cell. */
@@ -68,4 +68,4 @@ export const SHAKE_MS = 230
  * because `mod.ts` publishes these three as part of this package's surface,
  * and because `gl-color.ts` and `tesselate.ts` read them from this module.
  */
-export { hueBytes, hueDegrees, hueOf } from '@arrowz/engine'
+export { hueBytes, hueDegrees, hueOf } from '@fronthub/arrowz-engine'

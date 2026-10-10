@@ -1,4 +1,4 @@
-import type { Params, SeedRun } from '@arrowz/engine'
+import type { Params, SeedRun } from '@fronthub/arrowz-engine'
 import { SERIES_DEFAULT, SERIES_MAX, SERIES_MIN } from '../series/seeds'
 import { patcher, type SliceSet } from './slice'
 

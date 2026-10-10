@@ -6,7 +6,7 @@
 // rules are the state machine of gestures.ts, and this file only wires DOM
 // events to both and exposes the public API.
 import { css, html, LitElement } from 'lit'
-import type { BoardData, SessionSnapshot } from '@arrowz/engine'
+import type { BoardData, SessionSnapshot } from '@fronthub/arrowz-engine'
 import { type GameEvent, GameHost, type GameTarget } from './game-host.ts'
 import { GestureMachine, type GestureMode, type Intent, type PointerSample } from './gestures.ts'
 import { GlLayer } from './gl-layer.ts'
@@ -26,7 +26,7 @@ import {
   zoomAt,
   zoomBy,
 } from './viewport.ts'
-import { DEFAULT_PAD, DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, DEFAULT_SHOW_POINTS } from '@arrowz/engine'
+import { DEFAULT_PAD, DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, DEFAULT_SHOW_POINTS } from '@fronthub/arrowz-engine'
 export { DEFAULT_PAD, DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, DEFAULT_SHOW_POINTS }
 
 export interface BoardViewport {

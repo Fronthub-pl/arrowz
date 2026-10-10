@@ -14,15 +14,15 @@ Zaimportuj pakiet raz, a import zarejestruje znacznik. Potem nadaj komponentowi 
 ```html
 <arrowz-board id="board" interactive lang="pl" style="width: 100%; height: 80vh"></arrowz-board>
 <script type="module">
-  import '@arrowz/board-element'
-  import { defaultParams, generate } from '@arrowz/engine'
+  import '@fronthub/arrowz-board'
+  import { defaultParams, generate } from '@fronthub/arrowz-engine'
   const el = document.getElementById('board')
   el.board = generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board
   el.addEventListener('piece-click', (e) => console.log('piece', e.detail.pieceId))
 </script>
 ```
 
-- Import `@arrowz/board-element` ładuje komponent; `el.board` zadziała, czy ustawisz go przed importem, czy po nim.
+- Import `@fronthub/arrowz-board` ładuje komponent; `el.board` zadziała, czy ustawisz go przed importem, czy po nim.
 - `board` nie ma atrybutu: ustaw go w skrypcie, jako `el.board = …`, nigdy jako `board="…"` w znacznikach.
 - `interactive` i `play` to atrybuty logiczne: obecny znaczy „włączone”, więc wyłączasz go, usuwając atrybut (`el.interactive = false` robi to samo).
 
@@ -31,8 +31,8 @@ Zaimportuj pakiet raz, a import zarejestruje znacznik. Potem nadaj komponentowi 
 
 ```ts board.component.ts
 import { afterNextRender, Component, CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core'
-import type { BoardData, PieceClickEvent } from '@arrowz/board-element'
-import { defaultParams, generate } from '@arrowz/engine'
+import type { BoardData, PieceClickEvent } from '@fronthub/arrowz-board'
+import { defaultParams, generate } from '@fronthub/arrowz-engine'
 
 @Component({
   selector: 'app-board',
@@ -49,7 +49,7 @@ export class BoardComponent {
   readonly board = signal<BoardData | null>(generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board)
 
   constructor() {
-    afterNextRender(() => void import('@arrowz/board-element'))
+    afterNextRender(() => void import('@fronthub/arrowz-board'))
   }
 
   onPiece(e: PieceClickEvent) {
@@ -67,7 +67,7 @@ export class BoardComponent {
 :::tab{id="react"}
 
 ```ts arrowz-board.d.ts
-import type { ArrowzBoard, PieceClickEvent } from '@arrowz/board-element'
+import type { ArrowzBoard, PieceClickEvent } from '@fronthub/arrowz-board'
 import type { DetailedHTMLProps, HTMLAttributes } from 'react'
 
 declare module 'react' {
@@ -84,14 +84,14 @@ declare module 'react' {
 ```
 
 ```tsx Board.tsx
-import { defaultParams, generate } from '@arrowz/engine'
+import { defaultParams, generate } from '@fronthub/arrowz-engine'
 import { useEffect, useMemo, useState } from 'react'
 
 export function Board() {
   const [ready, setReady] = useState(false)
   const board = useMemo(() => generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board, [])
   useEffect(() => {
-    void import('@arrowz/board-element').then(() => setReady(true))
+    void import('@fronthub/arrowz-board').then(() => setReady(true))
   }, [])
   if (!ready) return null
   return (
@@ -125,14 +125,14 @@ export default defineConfig({
 
 ```vue Board.vue
 <script setup lang="ts">
-import type { PieceClickEvent } from '@arrowz/board-element'
-import { defaultParams, generate } from '@arrowz/engine'
+import type { PieceClickEvent } from '@fronthub/arrowz-board'
+import { defaultParams, generate } from '@fronthub/arrowz-engine'
 import { onMounted, ref, shallowRef } from 'vue'
 
 const board = shallowRef(generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board)
 const ready = ref(false)
 onMounted(async () => {
-  await import('@arrowz/board-element')
+  await import('@fronthub/arrowz-board')
   ready.value = true
 })
 const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
@@ -154,13 +154,13 @@ const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
 
 ```svelte Board.svelte
 <script lang="ts">
-  import type { PieceClickEvent } from '@arrowz/board-element'
-  import { defaultParams, generate } from '@arrowz/engine'
+  import type { PieceClickEvent } from '@fronthub/arrowz-board'
+  import { defaultParams, generate } from '@fronthub/arrowz-engine'
   import { onMount } from 'svelte'
 
   const board = generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board
   onMount(() => {
-    void import('@arrowz/board-element')
+    void import('@fronthub/arrowz-board')
   })
   const onPiece = (e: PieceClickEvent) => console.log('piece', e.detail.pieceId)
 </script>
@@ -185,12 +185,12 @@ Plansza podróżuje i leży w magazynie jako plik planszy, `.board.json`: zapisu
 Plik to nie plansza. `board` przyjmuje `BoardData`, którego `owner` to `Int32Array`, a JSON nie ma takiego typu: `JSON.stringify` zrobiłby z niego obiekt z numerowanymi kluczami. Plik to postać, w której plansza podróżuje i leży w magazynie, a `BoardData` to postać, z której rysuje komponent. Plik pobrany z serwera albo odczytany z bazy danych potrzebuje więc czterech kroków, żeby trafić do komponentu:
 
 1. Zacznij od pliku jako obiektu. Z serwera to `await response.json()`. Kolumna JSON albo JSONB zwykle przychodzi już jako obiekt, a kolumna tekstowa wymaga `JSON.parse`.
-2. Przekaż go do `decodeBoard` z `@arrowz/engine`, w przeglądarce, tam gdzie jest komponent. Funkcja przyjmuje dowolną wartość i sprawdza ją całą, odcisk na końcu, więc dane z zewnątrz nie potrzebują własnego schematu. `decodeBoardFile` oddaje też sam plik, z typem.
+2. Przekaż go do `decodeBoard` z `@fronthub/arrowz-engine`, w przeglądarce, tam gdzie jest komponent. Funkcja przyjmuje dowolną wartość i sprawdza ją całą, odcisk na końcu, więc dane z zewnątrz nie potrzebują własnego schematu. `decodeBoardFile` oddaje też sam plik, z typem.
 3. Złap `BoardFileError`: jego `message` mówi, co jest nie tak z plikiem.
 4. Przypisz wynik do `board`.
 
 ```ts load-board.ts
-import { type BoardData, decodeBoard } from '@arrowz/engine'
+import { type BoardData, decodeBoard } from '@fronthub/arrowz-engine'
 
 export async function loadBoard(url: string): Promise<BoardData> {
   const response = await fetch(url)
@@ -208,8 +208,8 @@ Te same kroki w każdym frameworku, z powodem pokazanym, gdy pliku nie da się o
 <arrowz-board id="board" style="width: 100%; height: 80vh"></arrowz-board>
 <p id="problem" hidden></p>
 <script type="module">
-  import '@arrowz/board-element'
-  import { BoardFileError, decodeBoard } from '@arrowz/engine'
+  import '@fronthub/arrowz-board'
+  import { BoardFileError, decodeBoard } from '@fronthub/arrowz-engine'
   const el = document.getElementById('board')
   const problem = document.getElementById('problem')
   const response = await fetch('/boards/demo.board.json')
@@ -228,7 +228,7 @@ Te same kroki w każdym frameworku, z powodem pokazanym, gdy pliku nie da się o
 
 ```ts stored-board.component.ts
 import { afterNextRender, Component, CUSTOM_ELEMENTS_SCHEMA, input, signal } from '@angular/core'
-import type { BoardData } from '@arrowz/engine'
+import type { BoardData } from '@fronthub/arrowz-engine'
 import { loadBoard } from './load-board'
 
 @Component({
@@ -249,7 +249,7 @@ export class StoredBoardComponent {
 
   constructor() {
     afterNextRender(() => {
-      void import('@arrowz/board-element')
+      void import('@fronthub/arrowz-board')
       loadBoard(this.url()).then(
         (board) => this.board.set(board),
         (e: unknown) => this.problem.set(e instanceof Error ? e.message : String(e)),
@@ -263,7 +263,7 @@ export class StoredBoardComponent {
 :::tab{id="react"}
 
 ```tsx StoredBoard.tsx
-import type { BoardData } from '@arrowz/engine'
+import type { BoardData } from '@fronthub/arrowz-engine'
 import { useEffect, useState } from 'react'
 import { loadBoard } from './load-board'
 
@@ -272,7 +272,7 @@ export function StoredBoard({ url }: { url: string }) {
   const [board, setBoard] = useState<BoardData | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   useEffect(() => {
-    void import('@arrowz/board-element').then(() => setReady(true))
+    void import('@fronthub/arrowz-board').then(() => setReady(true))
   }, [])
   useEffect(() => {
     let live = true
@@ -299,7 +299,7 @@ export function StoredBoard({ url }: { url: string }) {
 
 ```vue StoredBoard.vue
 <script setup lang="ts">
-import type { BoardData } from '@arrowz/engine'
+import type { BoardData } from '@fronthub/arrowz-engine'
 import { onMounted, ref, shallowRef } from 'vue'
 import { loadBoard } from './load-board'
 
@@ -308,7 +308,7 @@ const ready = ref(false)
 const board = shallowRef<BoardData | null>(null)
 const problem = ref<string | null>(null)
 onMounted(async () => {
-  await import('@arrowz/board-element')
+  await import('@fronthub/arrowz-board')
   ready.value = true
   try {
     board.value = await loadBoard(props.url)
@@ -330,7 +330,7 @@ onMounted(async () => {
 
 ```svelte StoredBoard.svelte
 <script lang="ts">
-  import type { BoardData } from '@arrowz/engine'
+  import type { BoardData } from '@fronthub/arrowz-engine'
   import { onMount } from 'svelte'
   import { loadBoard } from './load-board'
 
@@ -338,7 +338,7 @@ onMounted(async () => {
   let board = $state.raw<BoardData | null>(null)
   let problem = $state<string | null>(null)
   onMount(() => {
-    void import('@arrowz/board-element')
+    void import('@fronthub/arrowz-board')
     loadBoard(url).then(
       (loaded) => (board = loaded),
       (e: unknown) => (problem = e instanceof Error ? e.message : String(e)),
@@ -508,7 +508,7 @@ Plansze na tej stronie żyją według tej reguły: każda istnieje tylko wtedy, 
 
 ## Eksporty {#exports}
 
-Wszystko, co eksportuje `@arrowz/board-element`, według rodzaju. Import pakietu rejestruje `<arrowz-board>`. Typ, który w kolumnie Skąd ma `@arrowz/engine`, jest eksportowany dalej, więc nie potrzebujesz dla niego drugiego importu.
+Wszystko, co eksportuje `@fronthub/arrowz-board`, według rodzaju. Import pakietu rejestruje `<arrowz-board>`. Typ, który w kolumnie Skąd ma `@fronthub/arrowz-engine`, jest eksportowany dalej, więc nie potrzebujesz dla niego drugiego importu.
 
 ### Typy
 

@@ -1,4 +1,4 @@
-import type { ArrowzBoard } from '@arrowz/board-element'
+import type { ArrowzBoard } from '@fronthub/arrowz-board'
 import { contrast, shown } from '../design/contrast'
 
 // Layout invariants as assertions. Each reads an effect the browser computed,

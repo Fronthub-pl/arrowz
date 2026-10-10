@@ -1,4 +1,4 @@
-import { defaultParams, type SeedRun } from '@arrowz/engine'
+import { defaultParams, type SeedRun } from '@fronthub/arrowz-engine'
 import type { ReactNode } from 'react'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { KnobTrack } from '../console/KnobRow'

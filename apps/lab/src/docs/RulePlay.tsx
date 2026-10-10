@@ -6,7 +6,7 @@
  * hand the element a new board, which would start its game over. The gesture
  * is the element's, so a player's stored choice stands.
  */
-import type { ArrowzBoard } from '@arrowz/board-element'
+import type { ArrowzBoard } from '@fronthub/arrowz-board'
 import { type ReactElement, useRef, useState } from 'react'
 import type { PlainUiKey } from '../console/viewFields'
 import { useDictionary } from '../i18n'

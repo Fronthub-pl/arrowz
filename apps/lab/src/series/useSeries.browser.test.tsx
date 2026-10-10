@@ -1,5 +1,5 @@
-import { defaultParams } from '@arrowz/engine'
-import type { WorkerIn, WorkerOut } from '@arrowz/engine'
+import { defaultParams } from '@fronthub/arrowz-engine'
+import type { WorkerIn, WorkerOut } from '@fronthub/arrowz-engine'
 import { act, useEffect } from 'react'
 import { render } from 'vitest-browser-react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'

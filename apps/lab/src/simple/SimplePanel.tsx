@@ -1,4 +1,4 @@
-import { SIMPLE_CHOICES } from '@arrowz/engine/simple'
+import { SIMPLE_CHOICES } from '@fronthub/arrowz-engine/simple'
 import type { ReactElement } from 'react'
 import { FlagRow, SwitchRow } from '../console/rows/FlagRow'
 import { ViewNumberRow } from '../console/rows/NumberRow'

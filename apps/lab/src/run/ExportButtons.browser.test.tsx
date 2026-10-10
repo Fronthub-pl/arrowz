@@ -1,5 +1,5 @@
-import type { WorkerOut } from '@arrowz/engine'
-import { layoutHash } from '@arrowz/engine'
+import type { WorkerOut } from '@fronthub/arrowz-engine'
+import { layoutHash } from '@fronthub/arrowz-engine'
 import { act } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'

@@ -1,4 +1,4 @@
-import { decodeBoard, newSession } from '@arrowz/engine'
+import { decodeBoard, newSession } from '@fronthub/arrowz-engine'
 import { act } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { renderAt } from '../harness/renderAt'
@@ -9,7 +9,7 @@ import { BoardFrame } from './BoardFrame'
 import { threeDominoes } from './pieces.fixtures'
 
 // Every export calls through; the spy only counts `newSession`'s builds.
-vi.mock('@arrowz/engine', { spy: true })
+vi.mock('@fronthub/arrowz-engine', { spy: true })
 
 beforeEach(() => {
   const state = useStore.getState()
@@ -133,7 +133,8 @@ test('the control sits in the strip under the frame, after the solo toggle and b
 // The element builds sessions of its own for its game, so only the frame's
 // calls are counted, told apart by the file on the stack.
 test('View builds no game session, and the lab builds one per board, not per move or click', async () => {
-  const { newSession: real } = await vi.importActual<typeof import('@arrowz/engine')>('@arrowz/engine')
+  const { newSession: real } =
+    await vi.importActual<typeof import('@fronthub/arrowz-engine')>('@fronthub/arrowz-engine')
   const built: string[] = []
   vi.mocked(newSession).mockImplementation((board) => {
     const stack = new Error().stack ?? ''

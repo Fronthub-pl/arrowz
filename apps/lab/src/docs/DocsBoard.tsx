@@ -10,9 +10,9 @@
  * report rows the directive names, and the command with Copy.
  * Open in lab is what pasting the command into ⌘K does (`loadCommand`).
  */
-import { boardViewOf } from '@arrowz/board-element'
-import { COMMAND_PREFIX } from '@arrowz/engine/command'
-import { reportRows, type StatKey } from '@arrowz/engine/report'
+import { boardViewOf } from '@fronthub/arrowz-board'
+import { COMMAND_PREFIX } from '@fronthub/arrowz-engine/command'
+import { reportRows, type StatKey } from '@fronthub/arrowz-engine/report'
 import type { PhrasingContent } from 'mdast'
 import type { ContainerDirective } from 'mdast-util-directive'
 import { type CSSProperties, type ReactElement, useContext, useEffect, useMemo, useRef, useState } from 'react'

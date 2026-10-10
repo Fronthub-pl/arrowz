@@ -1,4 +1,4 @@
-import { defaultParams } from '@arrowz/engine'
+import { defaultParams } from '@fronthub/arrowz-engine'
 import { describe, expect, it } from 'vitest'
 import { decodeHash, encodeHash } from './url'
 import { VIEW } from './url.fixtures'

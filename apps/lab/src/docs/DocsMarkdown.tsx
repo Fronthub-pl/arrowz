@@ -6,7 +6,7 @@
  * anything else renders nothing, and the content guard fails before such a
  * page ships. Headings move one level down, because the shell owns `h1`.
  */
-import { helpText } from '@arrowz/engine/command'
+import { helpText } from '@fronthub/arrowz-engine/command'
 import type { Blockquote, Code, Heading, List, Root, RootContent, Table } from 'mdast'
 import type { LeafDirective } from 'mdast-util-directive'
 import type { ReactElement } from 'react'

@@ -1,4 +1,4 @@
-import { COMMAND_PREFIX } from '@arrowz/engine/command'
+import { COMMAND_PREFIX } from '@fronthub/arrowz-engine/command'
 import { Fragment, type ReactElement } from 'react'
 
 /**

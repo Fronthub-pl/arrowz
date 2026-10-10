@@ -3,9 +3,9 @@
 // is compared with the code both ways: a key bound without a description fails
 // here as surely as a description left behind for a key that is gone. The two
 // languages share their keys by type, so English stands for both.
-import { ENV_VARS, KNOB_ROWS } from '@arrowz/engine/command'
-import { docsFor } from '@arrowz/engine/docs'
-import { dictionary } from '@arrowz/engine/i18n'
+import { ENV_VARS, KNOB_ROWS } from '@fronthub/arrowz-engine/command'
+import { docsFor } from '@fronthub/arrowz-engine/docs'
+import { dictionary } from '@fronthub/arrowz-engine/i18n'
 import { expect, test } from 'vitest'
 import { docsPaletteRows } from '../palette/commands'
 import { shownKeys } from '../shell/hotkeys'

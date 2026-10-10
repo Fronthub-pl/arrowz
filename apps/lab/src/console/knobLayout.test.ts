@@ -1,5 +1,5 @@
-import { defaultParams, PARAM_SPEC, type ParamKey, validateParams } from '@arrowz/engine'
-import { wordFor } from '@arrowz/engine/command'
+import { defaultParams, PARAM_SPEC, type ParamKey, validateParams } from '@fronthub/arrowz-engine'
+import { wordFor } from '@fronthub/arrowz-engine/command'
 import { expect, test } from 'vitest'
 import { BLOCKS, blockKeys, RELEASE_TO } from './knobLayout'
 

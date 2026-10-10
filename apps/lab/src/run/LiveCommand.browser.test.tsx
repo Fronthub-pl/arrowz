@@ -1,5 +1,5 @@
-import { DEFAULT_PAD } from '@arrowz/board-element'
-import { buildCommand } from '@arrowz/engine/command'
+import { DEFAULT_PAD } from '@fronthub/arrowz-board'
+import { buildCommand } from '@fronthub/arrowz-engine/command'
 import { render } from 'vitest-browser-react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useStore } from '../state/store'

@@ -1,5 +1,5 @@
-import { svgOptions } from '@arrowz/engine/command'
-import { genSeconds } from '@arrowz/engine/report'
+import { svgOptions } from '@fronthub/arrowz-engine/command'
+import { genSeconds } from '@fronthub/arrowz-engine/report'
 import { type ReactElement, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { deleteBoard } from '../api/boards'

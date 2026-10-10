@@ -1,4 +1,4 @@
-import { svgOptions } from '@arrowz/engine/command'
+import { svgOptions } from '@fronthub/arrowz-engine/command'
 import type { ReactElement } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'

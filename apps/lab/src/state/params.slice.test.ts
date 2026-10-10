@@ -1,5 +1,5 @@
-import { defaultParams, giantStraightFloor, PARAM_SPEC, straightFloor } from '@arrowz/engine'
-import { MIX_START, START } from '@arrowz/engine/command'
+import { defaultParams, giantStraightFloor, PARAM_SPEC, straightFloor } from '@fronthub/arrowz-engine'
+import { MIX_START, START } from '@fronthub/arrowz-engine/command'
 import { beforeEach, describe, expect, it, test } from 'vitest'
 import { createParamsSlice, type ParamsState, specOf } from './params.slice'
 import { useStore } from './store'

@@ -1,6 +1,6 @@
 {
-  "name": "@arrowz/engine",
-  "version": "1.0.0-alpha.1",
+  "name": "@fronthub/arrowz-engine",
+  "version": "0.1.0",
   "exports": {
     ".": "./mod.ts",
     "./command": "./command.ts",
@@ -8,8 +8,7 @@
     "./presets": "./lab-presets.ts",
     "./i18n": "./lab-i18n.ts",
     "./report": "./lab-report.ts",
-    "./docs": "./lab-docs.ts",
-    "./comment-lines": "./comment-lines.ts"
+    "./docs": "./lab-docs.ts"
   },
   "compilerOptions": {
     "strict": true,

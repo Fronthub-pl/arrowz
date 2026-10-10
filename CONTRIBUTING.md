@@ -30,7 +30,7 @@ Invoke-WebRequest https://get.pnpm.io/install.ps1 -UseBasicParsing | Invoke-Expr
 git clone https://github.com/Fronthub-pl/arrowz.git
 cd arrowz
 pnpm install
-pnpm --filter @arrowz/board-element exec playwright install --with-deps chromium
+pnpm --filter @fronthub/arrowz-board exec playwright install --with-deps chromium
 ```
 
 The last line installs the Chromium that the browser tests of the lab and the

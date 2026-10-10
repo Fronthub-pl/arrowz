@@ -1,4 +1,4 @@
-import { helpText } from '@arrowz/engine/command'
+import { helpText } from '@fronthub/arrowz-engine/command'
 import { act } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'

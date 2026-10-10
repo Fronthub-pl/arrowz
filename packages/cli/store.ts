@@ -6,9 +6,9 @@
 // (carve.ts) and the store server. The directory is gitignored — a 1000×1000
 // board file is about a megabyte, and the commands in the meta reproduce it.
 import { dirname, fromFileUrl, join } from '@std/path'
-import type { BoardMeta, BoardSize, Recipe, StoreRequest, View } from '@arrowz/engine'
-import { decodeBoard, defaultParams, layoutHash } from '@arrowz/engine'
-import { boardId, DEFAULT_VIEW } from '@arrowz/engine/command'
+import type { BoardMeta, BoardSize, Recipe, StoreRequest, View } from '@fronthub/arrowz-engine'
+import { decodeBoard, defaultParams, layoutHash } from '@fronthub/arrowz-engine'
+import { boardId, DEFAULT_VIEW } from '@fronthub/arrowz-engine/command'
 
 /** The wire contract plus the two fields only the CLI sends. */
 export interface SaveInput extends StoreRequest {

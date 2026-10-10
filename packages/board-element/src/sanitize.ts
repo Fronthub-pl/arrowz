@@ -6,7 +6,7 @@
 // a cell overlap their neighbours, and nothing narrower is refused for being
 // ugly. Pure and DOM-free: the colour check is passed in, so Node can test it.
 import { type BoardView, DEFAULT_VIEW } from './view.ts'
-import { PAD_RANGE, POINT_RADIUS_RANGE } from '@arrowz/engine'
+import { PAD_RANGE, POINT_RADIUS_RANGE } from '@fronthub/arrowz-engine'
 export { PAD_RANGE, POINT_RADIUS_RANGE }
 
 export type IsColor = (css: string) => boolean

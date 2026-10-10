@@ -110,9 +110,10 @@ interface DocJson {
   nodes: Record<string, { symbols: DocSymbol[] }>
 }
 
-/** The entry points, keyed by the specifier a consumer imports: `.` is `@arrowz/engine`. */
+/** The entry points, keyed by the specifier a consumer imports: `.` is `@fronthub/arrowz-engine`. */
 const denoExports = (readJson('deno.json') as { exports: Record<string, string> }).exports
-const specifierOf = (key: string): string => key === '.' ? '@arrowz/engine' : `@arrowz/engine${key.slice(1)}`
+const specifierOf = (key: string): string =>
+  key === '.' ? '@fronthub/arrowz-engine' : `@fronthub/arrowz-engine${key.slice(1)}`
 const ENTRIES = Object.entries(denoExports).map(([key, path]) => ({
   key,
   specifier: specifierOf(key),
@@ -365,6 +366,16 @@ Deno.test('package.json exports the entry points of deno.json, each from its bui
   }
 })
 
+Deno.test('the published package exposes the generator, the command line and the simple choice only', () => {
+  const pkg = readJson('package.json') as {
+    exports: Record<string, unknown>
+    publishConfig: { exports: Record<string, unknown> }
+  }
+  const published = pkg.publishConfig.exports
+  assertEquals(Object.keys(published), ['.', './command', './simple'])
+  for (const key of Object.keys(published)) assertEquals(published[key], pkg.exports[key], key)
+})
+
 // --- The exports of each entry point -------------------------------------------------
 
 /**
@@ -433,7 +444,7 @@ for (const entry of ENTRIES) {
 Deno.test("the Docs tab's board-file table is BoardFile's fields, in order, with their types", () => {
   const symbol = symbolsOf('mod.ts').find((s) => s.name === 'BoardFile')
   const decl = symbol === undefined ? undefined : only(symbol)
-  if (decl?.kind !== 'interface') throw new Error('@arrowz/engine exports no interface BoardFile')
+  if (decl?.kind !== 'interface') throw new Error('@fronthub/arrowz-engine exports no interface BoardFile')
   const declared = (decl.def.properties ?? []).map((p) =>
     `${p.name}: ${p.tsType === undefined ? '' : render(p.tsType)}`
   )

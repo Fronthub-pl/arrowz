@@ -1,7 +1,7 @@
 // What a frame draws, pass by pass. Each pass is a function of the GL objects
 // and of the state it is handed, and keeps none of its own, so the order of a
 // frame is written in one place: `GlLayer.draw`.
-import type { BoardData } from '@arrowz/engine'
+import type { BoardData } from '@fronthub/arrowz-engine'
 import type { Rgba } from './gl-color.ts'
 import type { GlResources } from './gl-resources.ts'
 import type { Rider } from './rides.ts'

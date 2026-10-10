@@ -1,5 +1,5 @@
-import { DEFAULT_PAD } from '@arrowz/board-element'
-import { decodeBoard, type View } from '@arrowz/engine'
+import { DEFAULT_PAD } from '@fronthub/arrowz-board'
+import { decodeBoard, type View } from '@fronthub/arrowz-engine'
 import { act } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { contrast, shown } from '../design/contrast'

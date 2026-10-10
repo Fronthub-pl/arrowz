@@ -1,4 +1,4 @@
-import type { Params, TraceInfo, WorkerOut } from '@arrowz/engine'
+import type { Params, TraceInfo, WorkerOut } from '@fronthub/arrowz-engine'
 import { patcher, type SliceSet } from './slice'
 
 /** The worker's `done` message, which is also what the report reads. */

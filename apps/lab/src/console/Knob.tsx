@@ -1,4 +1,4 @@
-import type { InactiveKey, ParamSpec } from '@arrowz/engine'
+import type { InactiveKey, ParamSpec } from '@fronthub/arrowz-engine'
 import { ChoiceKnob } from './ChoiceKnob'
 import { ValueKnob } from './ValueKnob'
 

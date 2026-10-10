@@ -3,8 +3,8 @@
 // into one call would make every cancel draw a frame it does not draw today.
 // Every assertion before an `await` runs before any frame, so it holds under
 // `prefers-reduced-motion: reduce` too.
-import { defaultParams, generate } from '@arrowz/engine'
-import type { Board } from '@arrowz/engine'
+import { defaultParams, generate } from '@fronthub/arrowz-engine'
+import type { Board } from '@fronthub/arrowz-engine'
 import { beforeEach, expect, test } from 'vitest'
 import { type RideHost, Rides } from './rides.ts'
 import { tesselateBoard } from './tesselate.ts'

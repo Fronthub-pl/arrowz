@@ -9,7 +9,7 @@
 // createElement.
 import type { PropertyDeclaration } from 'lit'
 import { expect, test } from 'vitest'
-import { ELEMENT_MEMBERS, ELEMENT_PROPS } from '@arrowz/engine/docs'
+import { ELEMENT_MEMBERS, ELEMENT_PROPS } from '@fronthub/arrowz-engine/docs'
 import { ArrowzBoard } from './mod.ts'
 
 // `lit` is a dependency of this package, so the declaration type is available

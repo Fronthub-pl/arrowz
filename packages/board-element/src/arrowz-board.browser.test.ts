@@ -1,5 +1,5 @@
-import { decodeBoard, defaultParams, encodeBoard, generate } from '@arrowz/engine'
-import type { Board } from '@arrowz/engine'
+import { decodeBoard, defaultParams, encodeBoard, generate } from '@fronthub/arrowz-engine'
+import type { Board } from '@fronthub/arrowz-engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import {
   ArrowzBoard,

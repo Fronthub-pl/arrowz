@@ -1,5 +1,5 @@
-import type { InactiveKey, Violation } from '@arrowz/engine'
-import type { Dict } from '@arrowz/engine/i18n'
+import type { InactiveKey, Violation } from '@fronthub/arrowz-engine'
+import type { Dict } from '@fronthub/arrowz-engine/i18n'
 import { type ReactElement, type ReactNode, useState } from 'react'
 import { useDictionary } from '../i18n'
 import { boundOn, percent } from './track'

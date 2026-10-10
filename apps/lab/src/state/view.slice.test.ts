@@ -4,8 +4,8 @@ import {
   DEFAULT_POINT_RADIUS,
   PAD_RANGE,
   POINT_RADIUS_RANGE,
-} from '@arrowz/board-element'
-import { DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
+} from '@fronthub/arrowz-board'
+import { DEFAULT_VIEW, VIEW_RANGE } from '@fronthub/arrowz-engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { useStore } from './store'
 import { createViewSlice, lookOf, PALETTE_CAP, viewOf } from './view.slice'

@@ -1,5 +1,5 @@
-import type { View, ViewNumber } from '@arrowz/engine'
-import { viewNumberOf } from '@arrowz/engine/command'
+import type { View, ViewNumber } from '@fronthub/arrowz-engine'
+import { viewNumberOf } from '@fronthub/arrowz-engine/command'
 import { PALETTE_CAP, readPatch, VIEW_DEFAULTS, type ViewFields, type ViewKey } from './viewSchema'
 import { patcher, type SliceSet } from './slice'
 

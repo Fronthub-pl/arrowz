@@ -7,8 +7,8 @@ import {
   generate,
   type Params,
   type Recipe,
-} from '@arrowz/engine'
-import { boardId, DEFAULT_VIEW } from '@arrowz/engine/command'
+} from '@fronthub/arrowz-engine'
+import { boardId, DEFAULT_VIEW } from '@fronthub/arrowz-engine/command'
 
 /**
  * A stored board as the store would hold it: a real carve, its file, and a meta

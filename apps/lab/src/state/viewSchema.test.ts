@@ -1,5 +1,5 @@
-import { DEFAULT_PAD, DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS } from '@arrowz/board-element'
-import { DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
+import { DEFAULT_PAD, DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS } from '@fronthub/arrowz-board'
+import { DEFAULT_VIEW, VIEW_RANGE } from '@fronthub/arrowz-engine/command'
 import { describe, expect, test } from 'vitest'
 import { PALETTE_CAP, pickView, readPatch, readView, VIEW_DEFAULTS, VIEW_KEYS, VIEW_SCHEMA } from './viewSchema'
 

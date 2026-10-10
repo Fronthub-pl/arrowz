@@ -11,8 +11,8 @@
 // runs it in plain Node (measured 2026-09-17).
 import { readdirSync } from 'node:fs'
 import process from 'node:process'
-import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate, toSvg } from '@arrowz/engine'
-import { DEFAULT_VIEW, svgOptions } from '@arrowz/engine/command'
+import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate, toSvg } from '@fronthub/arrowz-engine'
+import { DEFAULT_VIEW, svgOptions } from '@fronthub/arrowz-engine/command'
 
 const assets = new URL('../dist/assets/', import.meta.url)
 // The chunk's name carries a content hash, so it is found by prefix. Exactly

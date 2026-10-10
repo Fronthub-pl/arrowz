@@ -3,7 +3,7 @@
  * ported from and its licence — the attribution the element's README carries,
  * here with the colours themselves. No description column: a theme is its colours.
  */
-import { THEMES } from '@arrowz/engine'
+import { THEMES } from '@fronthub/arrowz-engine'
 import type { ReactElement } from 'react'
 import { Mono } from './TokenSpans'
 import { useDocs } from './useDocs'

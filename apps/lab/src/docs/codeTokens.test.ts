@@ -1,4 +1,4 @@
-import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS } from '@arrowz/engine/docs'
+import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS } from '@fronthub/arrowz-engine/docs'
 import { describe, expect, test } from 'vitest'
 import type { Code, Nodes } from 'mdast'
 import {
@@ -53,7 +53,13 @@ describe('the example', () => {
     expect(inColour(tokens, 'kw')).toEqual(['import', 'import', 'from', 'const'])
     expect(inColour(tokens, 'fn')).toEqual(['getElementById', 'generate', 'defaultParams', 'addEventListener', 'log'])
     expect(inColour(tokens, 'str')).toEqual(
-      expect.arrayContaining(["'@arrowz/board-element'", "'@arrowz/engine'", "'board'", "'piece-click'", "'piece'"]),
+      expect.arrayContaining([
+        "'@fronthub/arrowz-board'",
+        "'@fronthub/arrowz-engine'",
+        "'board'",
+        "'piece-click'",
+        "'piece'",
+      ]),
     )
     expect(inColour(tokens, 'num')).toEqual(['50', '50', '7'])
   })
@@ -177,7 +183,7 @@ describe.each(DOCS_PAGES)('every block of the %s page', (page) => {
 
 describe('a TypeScript block', () => {
   const TS = [
-    "import type { BoardData } from '@arrowz/engine'",
+    "import type { BoardData } from '@fronthub/arrowz-engine'",
     "declare module 'react' {",
     '  interface X { board?: BoardData | null }',
     '}',
@@ -202,7 +208,7 @@ describe('a TypeScript block', () => {
     ])
     expect(inColour(tokens, 'type')).toEqual(['BoardData', 'X', 'BoardData'])
     expect(inColour(tokens, 'num')).toEqual(['null', 'true'])
-    expect(inColour(tokens, 'str')).toEqual(["'@arrowz/engine'", "'react'"])
+    expect(inColour(tokens, 'str')).toEqual(["'@fronthub/arrowz-engine'", "'react'"])
   })
 })
 

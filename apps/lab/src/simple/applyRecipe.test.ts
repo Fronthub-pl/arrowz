@@ -1,5 +1,5 @@
-import { defaultParams } from '@arrowz/engine'
-import { exportCell, simpleParams } from '@arrowz/engine/simple'
+import { defaultParams } from '@fronthub/arrowz-engine'
+import { exportCell, simpleParams } from '@fronthub/arrowz-engine/simple'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useStore } from '../state/store'
 import { applyRecipe } from './applyRecipe'

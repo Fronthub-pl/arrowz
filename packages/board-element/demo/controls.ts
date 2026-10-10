@@ -11,7 +11,7 @@ import {
   DEFAULT_VIEW,
   PAD_RANGE,
 } from '../src/mod.ts'
-import { VIEW_RANGE } from '@arrowz/engine/command'
+import { VIEW_RANGE } from '@fronthub/arrowz-engine/command'
 
 /** What a control holds: a flag, a number, or a string (colour or language). */
 export type ControlValue = boolean | number | string

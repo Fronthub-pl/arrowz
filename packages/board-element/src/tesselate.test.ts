@@ -1,5 +1,5 @@
-import { defaultParams, generate, pieceShape } from '@arrowz/engine'
-import type { Board, Piece } from '@arrowz/engine'
+import { defaultParams, generate, pieceShape } from '@fronthub/arrowz-engine'
+import type { Board, Piece } from '@fronthub/arrowz-engine'
 import { expect, test } from 'vitest'
 import { trackLine } from './track.ts'
 import { DEFAULT_VIEW, hueBytes } from './view.ts'

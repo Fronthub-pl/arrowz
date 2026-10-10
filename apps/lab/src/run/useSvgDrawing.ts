@@ -1,4 +1,4 @@
-import type { BoardFile, WorkerIn, WorkerOut } from '@arrowz/engine'
+import type { BoardFile, WorkerIn, WorkerOut } from '@fronthub/arrowz-engine'
 import { useEffect, useRef, useState } from 'react'
 import { downloadBlob } from './download'
 

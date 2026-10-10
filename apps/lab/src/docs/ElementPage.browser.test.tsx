@@ -1,4 +1,4 @@
-import { THEMES } from '@arrowz/engine'
+import { THEMES } from '@fronthub/arrowz-engine'
 import {
   BOARD_FILE_FIELDS,
   ELEMENT_CLASSES,
@@ -9,7 +9,7 @@ import {
   ELEMENT_PROPS,
   ELEMENT_SLOTS,
   ELEMENT_TYPES,
-} from '@arrowz/engine/docs'
+} from '@fronthub/arrowz-engine/docs'
 import type { Code, Nodes } from 'mdast'
 import { act } from 'react'
 import { MemoryRouter } from 'react-router'

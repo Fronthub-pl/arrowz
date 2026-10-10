@@ -1,5 +1,5 @@
-import { PARAM_SPEC } from '@arrowz/engine'
-import { dictionary } from '@arrowz/engine/i18n'
+import { PARAM_SPEC } from '@fronthub/arrowz-engine'
+import { dictionary } from '@fronthub/arrowz-engine/i18n'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'

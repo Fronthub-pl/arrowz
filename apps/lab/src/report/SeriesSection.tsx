@@ -1,4 +1,4 @@
-import { summariseSeries, type SeriesSummary } from '@arrowz/engine/report'
+import { summariseSeries, type SeriesSummary } from '@fronthub/arrowz-engine/report'
 import type { ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useDictionary } from '../i18n'

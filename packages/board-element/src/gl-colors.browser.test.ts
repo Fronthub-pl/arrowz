@@ -4,7 +4,7 @@
 // `hasColorsForTest` beside it — spying on the module would not work, because
 // `gl-layer.ts` binds `tesselateBoard` at import.
 import { expect, test } from 'vitest'
-import { defaultParams, generate } from '@arrowz/engine'
+import { defaultParams, generate } from '@fronthub/arrowz-engine'
 import { GlLayer } from './gl-layer.ts'
 import { fit } from './viewport.ts'
 import { DEFAULT_VIEW } from './view.ts'

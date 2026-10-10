@@ -11,8 +11,8 @@
 // display, and a CI runner without a GPU rasterises WebGL2 on the CPU. The SVG
 // layer's Insane pan (seed 7, M1): 83 ms a frame in the headless shell, 104 ms
 // in the real engine headless at dpr 2, 1050 ms in a foreground Chrome.
-import { defaultParams, generate, newSession, play } from '@arrowz/engine'
-import type { Board } from '@arrowz/engine'
+import { defaultParams, generate, newSession, play } from '@fronthub/arrowz-engine'
+import type { Board } from '@fronthub/arrowz-engine'
 import { expect, test } from 'vitest'
 import './mod.ts'
 import { MIN_POINT_CELL_PX } from './mod.ts'

@@ -5,7 +5,7 @@
  * purpose: the route imports it eagerly, while the parser and the pages load
  * as a chunk of their own (`DocsRoute`).
  */
-import type { UiKey } from '@arrowz/engine/i18n'
+import type { UiKey } from '@fronthub/arrowz-engine/i18n'
 
 export const DOCS_PAGES = ['arrowz', 'lab', 'cli', 'element'] as const
 

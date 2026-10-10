@@ -1,4 +1,4 @@
-import type { BoardSize } from '@arrowz/engine'
+import type { BoardSize } from '@fronthub/arrowz-engine'
 
 /**
  * Which listed size an address is about, and whether the listing holds it. The

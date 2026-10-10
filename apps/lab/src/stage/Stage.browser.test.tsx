@@ -1,4 +1,4 @@
-import { defaultParams } from '@arrowz/engine'
+import { defaultParams } from '@fronthub/arrowz-engine'
 import { MemoryRouter } from 'react-router'
 import { act } from 'react'
 import { expect, test } from 'vitest'

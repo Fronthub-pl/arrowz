@@ -1,4 +1,4 @@
-import type { Params, WorkerIn, WorkerOut } from '@arrowz/engine'
+import type { Params, WorkerIn, WorkerOut } from '@fronthub/arrowz-engine'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useStore } from '../state/store'
 import { poolSize, seriesSeeds } from './seeds'

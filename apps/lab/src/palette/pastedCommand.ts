@@ -6,8 +6,8 @@ import {
   parseArgs,
   type ParsedArgs,
   splitCommand,
-} from '@arrowz/engine/command'
-import type { Dict } from '@arrowz/engine/i18n'
+} from '@fronthub/arrowz-engine/command'
+import type { Dict } from '@fronthub/arrowz-engine/i18n'
 import { useStore } from '../state/store'
 import { viewFieldsOf } from '../state/view.slice'
 import type { Command, CommandDeps } from './commands'

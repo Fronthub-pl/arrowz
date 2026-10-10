@@ -5,9 +5,9 @@ import {
   PAD_RANGE,
   POINT_RADIUS_RANGE,
   themeOf,
-} from '@arrowz/board-element'
-import { buildCommand, VIEW_RANGE } from '@arrowz/engine/command'
-import { dictionary } from '@arrowz/engine/i18n'
+} from '@fronthub/arrowz-board'
+import { buildCommand, VIEW_RANGE } from '@fronthub/arrowz-engine/command'
+import { dictionary } from '@fronthub/arrowz-engine/i18n'
 import { beforeEach, expect, test } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'

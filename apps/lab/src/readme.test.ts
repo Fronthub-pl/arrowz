@@ -7,7 +7,7 @@
 //
 // Prose around the tables is not checked; the tables are found by their
 // section heading and the first cell of their header row.
-import { dictionary } from '@arrowz/engine/i18n'
+import { dictionary } from '@fronthub/arrowz-engine/i18n'
 import { beforeEach, expect, test } from 'vitest'
 import labConfig from '../vite.config.ts'
 import { LAB_SERVER } from '../vite.proxy.ts'

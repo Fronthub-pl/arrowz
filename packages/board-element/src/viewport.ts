@@ -2,7 +2,7 @@
 // are cells; the host is in CSS pixels; `cellPx` ties the two together, and
 // the layer turns the three numbers into the uniforms it draws the board
 // with. Nothing here knows what draws it.
-import type { Cell } from '@arrowz/engine'
+import type { Cell } from '@fronthub/arrowz-engine'
 
 export interface ViewportInput {
   W: number

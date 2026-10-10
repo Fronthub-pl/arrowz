@@ -1,7 +1,13 @@
-import { PARAM_SPEC } from '@arrowz/engine'
-import { ENV_VARS, flagOf, KNOB_ROWS, type KnobRow, RULE_ROWS } from '@arrowz/engine/command'
-import { BOARD_FILE_FIELDS, ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS, ELEMENT_SLOTS } from '@arrowz/engine/docs'
-import type { Dict } from '@arrowz/engine/i18n'
+import { PARAM_SPEC } from '@fronthub/arrowz-engine'
+import { ENV_VARS, flagOf, KNOB_ROWS, type KnobRow, RULE_ROWS } from '@fronthub/arrowz-engine/command'
+import {
+  BOARD_FILE_FIELDS,
+  ELEMENT_EVENTS,
+  ELEMENT_MEMBERS,
+  ELEMENT_PROPS,
+  ELEMENT_SLOTS,
+} from '@fronthub/arrowz-engine/docs'
+import type { Dict } from '@fronthub/arrowz-engine/i18n'
 import type { ReactElement } from 'react'
 import { useDictionary } from '../i18n'
 import { docsPaletteRows } from '../palette/commands'

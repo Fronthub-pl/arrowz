@@ -3,8 +3,8 @@
 // with a map from piece id to its slice of each buffer, so a removal or a
 // ride touches one piece and never the board. Knows neither DOM nor WebGL, so
 // it is tested in Node like viewport.ts and track.ts.
-import { DIRS, pieceShape } from '@arrowz/engine'
-import type { BoardData, Piece } from '@arrowz/engine'
+import { DIRS, pieceShape } from '@fronthub/arrowz-engine'
+import type { BoardData, Piece } from '@fronthub/arrowz-engine'
 import { trackLine, trackPoint } from './track.ts'
 import type { BoardView } from './view.ts'
 

@@ -1,4 +1,4 @@
-import { recipeOf } from '@arrowz/engine/simple'
+import { recipeOf } from '@fronthub/arrowz-engine/simple'
 import { expect, test } from 'vitest'
 import { page } from 'vitest/browser'
 import { createUiSlice, type UiState } from './ui.slice'

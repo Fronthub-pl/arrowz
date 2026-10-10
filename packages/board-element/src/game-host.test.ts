@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { BoardData, Piece } from '@arrowz/engine'
+import type { BoardData, Piece } from '@fronthub/arrowz-engine'
 import { type GameEvent, GameHost, type GameTarget, MIN_SHAKE_CELLS } from './game-host.ts'
 
 function board(W: number, H: number, owner: number[], pieces: Piece[]): BoardData {

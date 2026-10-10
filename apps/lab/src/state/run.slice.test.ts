@@ -1,4 +1,4 @@
-import { defaultParams } from '@arrowz/engine'
+import { defaultParams } from '@fronthub/arrowz-engine'
 import { beforeEach, expect, test } from 'vitest'
 import { finishedRun } from './result.fixtures'
 import { useStore } from './store'

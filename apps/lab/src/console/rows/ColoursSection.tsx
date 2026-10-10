@@ -1,4 +1,4 @@
-import { DEFAULT_VIEW } from '@arrowz/board-element'
+import { DEFAULT_VIEW } from '@fronthub/arrowz-board'
 import type { ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useDictionary } from '../../i18n'

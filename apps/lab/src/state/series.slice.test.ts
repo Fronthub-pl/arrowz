@@ -1,5 +1,5 @@
-import { defaultParams } from '@arrowz/engine'
-import type { SeedRun } from '@arrowz/engine'
+import { defaultParams } from '@fronthub/arrowz-engine'
+import type { SeedRun } from '@fronthub/arrowz-engine'
 import { beforeEach, expect, test } from 'vitest'
 import { useStore } from './store'
 

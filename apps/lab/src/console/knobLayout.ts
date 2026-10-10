@@ -1,5 +1,5 @@
-import type { InactiveKey, ParamGroup, ParamKey } from '@arrowz/engine'
-import type { Dictionary, UiKey } from '@arrowz/engine/i18n'
+import type { InactiveKey, ParamGroup, ParamKey } from '@fronthub/arrowz-engine'
+import type { Dictionary, UiKey } from '@fronthub/arrowz-engine/i18n'
 
 /** A unit word, keyed as the dictionary's `units` section is. */
 export type UnitKey = keyof Dictionary['units']

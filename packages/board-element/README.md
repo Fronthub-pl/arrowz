@@ -1,4 +1,4 @@
-# @arrowz/board-element
+# @fronthub/arrowz-board
 
 `<arrowz-board>`: the board view of Arrowz as a web component (Lit 3). It
 draws a `BoardData` (the engine's `Board` is one), owns zoom and pan, animates the two
@@ -10,8 +10,8 @@ HTML, React, Angular, Svelte or Vue.
 ```html
 <arrowz-board id="board" interactive lang="pl" style="width: 100%; height: 80vh"></arrowz-board>
 <script type="module">
-  import '@arrowz/board-element'
-  import { defaultParams, generate } from '@arrowz/engine'
+  import '@fronthub/arrowz-board'
+  import { defaultParams, generate } from '@fronthub/arrowz-engine'
   const el = document.getElementById('board')
   el.board = generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board
   el.addEventListener('piece-click', (e) => console.log('piece', e.detail.pieceId))
@@ -34,7 +34,7 @@ Element, has a full example for each.
 ### Board files
 
 A board stored or sent over the network is a `.board.json` (`BoardFile`), not a `BoardData`:
-decode it with `decodeBoard` from `@arrowz/engine` where the element is, catch `BoardFileError`,
+decode it with `decodeBoard` from `@fronthub/arrowz-engine` where the element is, catch `BoardFileError`,
 and assign the result to `board`.
 
 ## API
@@ -108,9 +108,9 @@ with: its own defaults, then the named theme's, then `stated`'s fields, each
 layer winning over the last.
 
 The twelve themes are light and dark ports of six open-source editor themes,
-each MIT or Apache-2.0. Arrowz itself is MIT ([LICENSE](../../LICENSE)); each
-theme keeps its own licence, recorded here and on the theme itself (`source`,
-`licence` and `url` in the engine's `look.ts`):
+each MIT or Apache-2.0. Arrowz itself is MIT ([LICENSE](LICENSE)); each theme
+keeps its own licence, recorded here, in [NOTICE](NOTICE) and on the theme
+itself (`source`, `licence` and `url` in the engine's `look.ts`):
 
 | Theme | Licence | Source |
 |---|---|---|
@@ -349,24 +349,24 @@ turn.
 
 ## Exports
 
-Everything `@arrowz/board-element` exports, by kind. Importing the package
-registers `<arrowz-board>`. Types marked `@arrowz/engine` are re-exported from
+Everything `@fronthub/arrowz-board` exports, by kind. Importing the package
+registers `<arrowz-board>`. Types marked `@fronthub/arrowz-engine` are re-exported from
 the engine, so a consumer needs no second import for them.
 
 | Type | From | Shape |
 |---|---|---|
-| `BoardData` | `@arrowz/engine` | { `W`: number, `H`: number, `owner`: Int32Array (the piece id per cell; -1 an uncarved cell, -2 a void), `pieces`: Piece[] } — `Piece` is the engine's (`id`, `cells`, `dir`), not exported here |
+| `BoardData` | `@fronthub/arrowz-engine` | { `W`: number, `H`: number, `owner`: Int32Array (the piece id per cell; -1 an uncarved cell, -2 a void), `pieces`: Piece[] } — `Piece` is the engine's (`id`, `cells`, `dir`), not exported here |
 | `BoardView` | this package | { `stroke`: number (a fraction of a cell), `headWidth`: number (cells; 0 automatic), `headHeight`: number (cells), `rounded`: boolean, `colored`: boolean, `top`: number (how many longest pieces are highlighted), `voids`: boolean, `ink`: string, `paper`: string, `highlight`: string, `palette`: readonly string[] } |
 | `BoardViewport` | this package | { `cellPx`: number, `originX`: number, `originY`: number, `fitted`: boolean, `hostWidth`: number, `hostHeight`: number } |
-| `BoardColours` | `@arrowz/engine` | { `paper`: string, `ink`: string, `highlight`: string, `palette`: readonly string[] } |
-| `BoardTheme` | `@arrowz/engine` | { `paper`: string, `ink`: string, `highlight`: string, `palette`: readonly string[], `source`: string, `licence`: string, `url`: string } |
+| `BoardColours` | `@fronthub/arrowz-engine` | { `paper`: string, `ink`: string, `highlight`: string, `palette`: readonly string[] } |
+| `BoardTheme` | `@fronthub/arrowz-engine` | { `paper`: string, `ink`: string, `highlight`: string, `palette`: readonly string[], `source`: string, `licence`: string, `url`: string } |
 | `BoardLabels` | this package | every visible string of the element: { `zoomIn`: string, `zoomOut`: string, `fit`: string, `dragHint`: string, `dragPlayHintMac`: string, `dragPlayHintOther`: string, `dragInspectHintMac`: string, `dragInspectHintOther`: string, `clickHintMac`: string, `clickHintOther`: string, `gesturesMac`: string, `gesturesOther`: string, `gesturesInspectMac`: string, `gesturesInspectOther`: string, `colors`: string, `noWebgl`: string } |
 | `BoardLang` | this package | `'en'` \| `'pl'` |
 | `GestureMode` | this package | `'drag'` (a plain drag pans) \| `'click'` (a drag with the modifier pans) |
 | `GameEvent` | this package | one of three `{ type, detail }` objects, `type` being `'piece-removed'`, `'life-lost'` or `'finished'`, with the `detail` of the event of that name |
 | `GameTarget` | this package | what `GameHost` drives: { `animateExit`: (pieceId, dir) => Promise<void>, `shake`: (pieceId, distance) => Promise<void>, `emit`: (event: GameEvent) => void } |
-| `Session` | `@arrowz/engine` | a game in progress: { `board`: BoardData, `gone`: Uint8Array (1 per piece id that has left), `index`: Int32Array (an internal lookup, not to be read), `left`: number, `status`: 'playing' or 'won' } |
-| `SessionSnapshot` | `@arrowz/engine` | a saved game: { `v`: 1, `board`: { W, H, pieces, fingerprint } (the board it belongs to), `removed`: number[], `colored`: boolean } |
+| `Session` | `@fronthub/arrowz-engine` | a game in progress: { `board`: BoardData, `gone`: Uint8Array (1 per piece id that has left), `index`: Int32Array (an internal lookup, not to be read), `left`: number, `status`: 'playing' or 'won' } |
+| `SessionSnapshot` | `@fronthub/arrowz-engine` | a saved game: { `v`: 1, `board`: { W, H, pieces, fingerprint } (the board it belongs to), `removed`: number[], `colored`: boolean } |
 | `PieceClickEvent` | this package | `CustomEvent` with detail { `pieceId`: number } |
 | `PieceRemovedEvent` | this package | `CustomEvent` with detail { `pieceId`: number, `left`: number } |
 | `LifeLostEvent` | this package | `CustomEvent` with detail { `pieceId`: number, `blockerId`: number, `distance`: number } |

@@ -1,5 +1,5 @@
-import type { Dict } from '@arrowz/engine/i18n'
-import { genSeconds } from '@arrowz/engine/report'
+import type { Dict } from '@fronthub/arrowz-engine/i18n'
+import { genSeconds } from '@fronthub/arrowz-engine/report'
 import type { SaveOutcome } from '../api/boards'
 import { useDictionary } from '../i18n'
 import { useInLibrary } from '../library/useInLibrary'

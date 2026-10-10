@@ -1,4 +1,4 @@
-import { defaultChoice, type Recipe, recipeOf } from '@arrowz/engine/simple'
+import { defaultChoice, type Recipe, recipeOf } from '@fronthub/arrowz-engine/simple'
 import { readStored, writeStored } from './storage'
 import type { SliceSet } from './slice'
 

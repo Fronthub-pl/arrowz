@@ -1,11 +1,11 @@
-import { ArrowzBoard } from '@arrowz/board-element'
+import { ArrowzBoard } from '@fronthub/arrowz-board'
 import type {
   ColoredChangeEvent,
   FinishedEvent,
   LifeLostEvent,
   PieceClickEvent,
   PieceRemovedEvent,
-} from '@arrowz/board-element'
+} from '@fronthub/arrowz-board'
 import { createComponent, type EventName } from '@lit/react'
 import * as React from 'react'
 

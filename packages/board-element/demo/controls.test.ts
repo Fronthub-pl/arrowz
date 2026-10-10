@@ -1,4 +1,4 @@
-import { VIEW_RANGE } from '@arrowz/engine/command'
+import { VIEW_RANGE } from '@fronthub/arrowz-engine/command'
 import { expect, test } from 'vitest'
 import { DEFAULT_VIEW } from '../src/mod.ts'
 import { ATTRIBUTES, type Control, type NumberControl, VIEW_CONTROLS, viewRecord, withField } from './controls.ts'

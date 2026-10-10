@@ -1,4 +1,4 @@
-import type { InactiveKey, ParamSpec } from '@arrowz/engine'
+import type { InactiveKey, ParamSpec } from '@fronthub/arrowz-engine'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { rowState, rowTitle } from './KnobRow'

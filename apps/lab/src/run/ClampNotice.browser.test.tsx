@@ -1,4 +1,4 @@
-import { dictionary } from '@arrowz/engine/i18n'
+import { dictionary } from '@fronthub/arrowz-engine/i18n'
 import { act, useRef } from 'react'
 import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'

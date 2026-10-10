@@ -1,6 +1,6 @@
 /// <reference types="node" />
-import { defaultParams, encodeBoard, generate } from '@arrowz/engine'
-import { DEFAULT_VIEW, storeRequest } from '@arrowz/engine/command'
+import { defaultParams, encodeBoard, generate } from '@fronthub/arrowz-engine'
+import { DEFAULT_VIEW, storeRequest } from '@fronthub/arrowz-engine/command'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'

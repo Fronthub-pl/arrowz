@@ -1,5 +1,5 @@
-import type { ViewNumber } from '@arrowz/engine'
-import { viewNumberOf } from '@arrowz/engine/command'
+import type { ViewNumber } from '@fronthub/arrowz-engine'
+import { viewNumberOf } from '@fronthub/arrowz-engine/command'
 import type { ReactElement } from 'react'
 import { ColoursSection } from '../console/rows/ColoursSection'
 import { FieldFlagRow } from '../console/rows/FlagRow'

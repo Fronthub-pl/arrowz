@@ -9,13 +9,19 @@
 // `mod.ts`, at the end of this file.
 //
 // The API is read from the TypeScript checker, not from text: re-exports from
-// @arrowz/engine resolve to their declarations, and a type's fields are the
+// @fronthub/arrowz-engine resolve to their declarations, and a type's fields are the
 // ones the compiler sees. Constant values come from importing mod.ts, which
 // works in Node for the reason given in mod.test.ts.
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ELEMENT_CLASSES, ELEMENT_CONSTANTS, ELEMENT_FUNCTIONS, ELEMENT_TYPES, spellValue } from '@arrowz/engine/docs'
+import {
+  ELEMENT_CLASSES,
+  ELEMENT_CONSTANTS,
+  ELEMENT_FUNCTIONS,
+  ELEMENT_TYPES,
+  spellValue,
+} from '@fronthub/arrowz-engine/docs'
 import ts from 'typescript'
 import { expect, test } from 'vitest'
 import * as api from './mod.ts'
@@ -403,8 +409,8 @@ test('the Docs tab lists every export once, in the table of its kind, and nothin
 /** The package a type is declared in: the engine's resolve to its emitted declarations. */
 function packageOf(symbol: ts.Symbol): string {
   const file = symbol.declarations?.[0]?.getSourceFile().fileName ?? ''
-  if (file.includes('/engine/dist/')) return '@arrowz/engine'
-  if (file.startsWith(`${srcDir}/`)) return '@arrowz/board-element'
+  if (file.includes('/engine/dist/')) return '@fronthub/arrowz-engine'
+  if (file.startsWith(`${srcDir}/`)) return '@fronthub/arrowz-board'
   throw new Error(`${symbol.name} is declared in ${file}, neither package`)
 }
 

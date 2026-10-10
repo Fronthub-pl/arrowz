@@ -2,7 +2,7 @@
 // driving `tesselatePiece` once a frame into its rider's own triangles and
 // discs. The layer owns the GPU and the frame, so a ride reaches either only
 // through its host.
-import type { BoardData, Piece } from '@arrowz/engine'
+import type { BoardData, Piece } from '@fronthub/arrowz-engine'
 import type { Rgba } from './gl-color.ts'
 import {
   FLOATS_PER_DISC,

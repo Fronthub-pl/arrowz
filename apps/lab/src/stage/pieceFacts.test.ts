@@ -1,4 +1,4 @@
-import { type BoardData, newSession, play } from '@arrowz/engine'
+import { type BoardData, newSession, play } from '@fronthub/arrowz-engine'
 import { expect, test } from 'vitest'
 import { pieceFacts } from './pieceFacts'
 import { threeDominoes } from './pieces.fixtures'

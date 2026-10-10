@@ -1,6 +1,6 @@
-import { decodeBoard, encodeBoard, GenerateAbort, generate, toSvg } from '@arrowz/engine'
-import type { WorkerIn, WorkerOut } from '@arrowz/engine'
-import { seedRunOf } from '@arrowz/engine/report'
+import { decodeBoard, encodeBoard, GenerateAbort, generate, toSvg } from '@fronthub/arrowz-engine'
+import type { WorkerIn, WorkerOut } from '@fronthub/arrowz-engine'
+import { seedRunOf } from '@fronthub/arrowz-engine/report'
 
 // The engine's own protocol, against the engine the CLI carves with. The
 // finished board crosses as its board file (one packed record instead of

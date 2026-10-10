@@ -1,4 +1,4 @@
-import { isStartChoice, START, START_CHOICES, startChoiceOf } from '@arrowz/engine/command'
+import { isStartChoice, START, START_CHOICES, startChoiceOf } from '@fronthub/arrowz-engine/command'
 import { useDictionary } from '../i18n'
 import { specOf } from '../state/params.slice'
 import { useStore } from '../state/store'

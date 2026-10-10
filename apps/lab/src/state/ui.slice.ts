@@ -1,4 +1,4 @@
-import { type ParamGroup, PARAM_SPEC } from '@arrowz/engine'
+import { type ParamGroup, PARAM_SPEC } from '@fronthub/arrowz-engine'
 import { type DocsTabs, docsTabsOf, type TabGroup } from '../docs/tabs'
 import { narrow, readBand } from './band'
 import { readStored, writeStored } from './storage'

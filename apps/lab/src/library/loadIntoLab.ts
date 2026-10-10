@@ -1,4 +1,4 @@
-import { type BoardMeta, readParams } from '@arrowz/engine'
+import { type BoardMeta, readParams } from '@fronthub/arrowz-engine'
 import type { RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
 import { viewFieldsOf } from '../state/view.slice'

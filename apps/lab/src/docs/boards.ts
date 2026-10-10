@@ -5,9 +5,9 @@
  * (`problemsOf` in shape.ts) runs `readBoardCmd` over every page, so a
  * command that does not parse never ships; the renderer reads it again.
  */
-import { formatViolation, type Params, validateParams, type View } from '@arrowz/engine'
-import { boardId, drawOf, parseArgs, type ParsedArgs, problemText, splitCommand } from '@arrowz/engine/command'
-import { STAT_KEYS, type StatKey } from '@arrowz/engine/report'
+import { formatViolation, type Params, validateParams, type View } from '@fronthub/arrowz-engine'
+import { boardId, drawOf, parseArgs, type ParsedArgs, problemText, splitCommand } from '@fronthub/arrowz-engine/command'
+import { STAT_KEYS, type StatKey } from '@fronthub/arrowz-engine/report'
 
 /** The longest side a board on a page generates by itself; a larger one waits for its button (`manual`). */
 export const DOCS_BOARD_MAX = 500

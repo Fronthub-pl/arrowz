@@ -1,5 +1,5 @@
-import { defaultParams } from '@arrowz/engine'
-import type { BoardFile, WorkerOut } from '@arrowz/engine'
+import { defaultParams } from '@fronthub/arrowz-engine'
+import type { BoardFile, WorkerOut } from '@fronthub/arrowz-engine'
 import { useEffect, act } from 'react'
 import { expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
