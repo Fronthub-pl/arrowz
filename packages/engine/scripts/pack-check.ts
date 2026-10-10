@@ -25,6 +25,8 @@ export interface Rule {
   budget: number
   /** The entry points the packed manifest names, and no other. */
   exports: string[]
+  /** The commands the packed manifest names, and no other. */
+  bin: Record<string, string>
   /** Whether every entry point comes with type declarations. */
   typed: boolean
 }
@@ -40,6 +42,7 @@ export const RULES: Record<string, Rule> = {
     required: [...ALWAYS, 'NOTICE'],
     budget: 200_000,
     exports: ['.', './command', './simple'],
+    bin: {},
     typed: true,
   },
   '@fronthub/arrowz-board': {
@@ -47,6 +50,7 @@ export const RULES: Record<string, Rule> = {
     required: [...ALWAYS, 'NOTICE'],
     budget: 100_000,
     exports: ['.'],
+    bin: {},
     typed: true,
   },
   '@fronthub/arrowz-cli': {
@@ -54,6 +58,7 @@ export const RULES: Record<string, Rule> = {
     required: [...ALWAYS, 'dist/arrowz.mjs'],
     budget: 30_000,
     exports: [],
+    bin: { arrowz: './dist/arrowz.mjs' },
     typed: false,
   },
 }
@@ -95,14 +100,14 @@ export function problems(packedBytes: number, entries: Entry[]): string[] {
   if (m.private) out.push('the manifest is private')
 
   for (const script of Object.keys(m.scripts ?? {})) {
-    if (/^(pre|post)?install$|^prepare$/.test(script)) {
+    if (/^(pre|post)?install$/.test(script)) {
       out.push(`the script ${script} runs at install time, which npm 12 does not allow a dependency`)
     }
   }
   for (const kind of ['dependencies', 'optionalDependencies', 'peerDependencies'] as const) {
     for (const [name, range] of Object.entries(m[kind] ?? {})) {
       if (!/^[\^~]?\d+\.\d+\.\d+(-[\w.]+)?$/.test(range)) {
-        out.push(`${kind}: ${name} is "${range}", not a version range from the registry`)
+        out.push(`${kind}: ${name} is "${range}"; a published dependency is x.y.z, ^x.y.z or ~x.y.z from the registry`)
       }
     }
   }
@@ -125,7 +130,13 @@ export function problems(packedBytes: number, entries: Entry[]): string[] {
       }
     }
   }
-  for (const [command, path] of Object.entries(m.bin ?? {})) {
+  const commands = Object.entries(m.bin ?? {})
+  const wanted = Object.entries(rule.bin)
+  if (JSON.stringify(commands) !== JSON.stringify(wanted)) {
+    const spell = (list: [string, string][]) => list.map(([c, p]) => `${c} (${p})`).join(', ') || 'no command'
+    out.push(`the manifest has ${spell(commands)}, but ${m.name} publishes ${spell(wanted)}`)
+  }
+  for (const [command, path] of commands) {
     if (!inTarball(paths, path)) out.push(`the command ${command}: ${path} is not in the tarball`)
   }
   return out
@@ -138,14 +149,24 @@ export async function untar(tgz: Uint8Array): Promise<Entry[]> {
   const text = (from: number, length: number) =>
     new TextDecoder().decode(tar.subarray(from, from + length)).replace(/\0.*$/s, '')
   const entries: Entry[] = []
+  const seen = new Set<string>()
   for (let at = 0; at + 512 <= tar.length;) {
     const name = text(at, 100)
     if (name === '') break
-    const size = parseInt(text(at + 124, 12).trim() || '0', 8)
+    const sizeField = text(at + 124, 12).trim() || '0'
+    if (!/^[0-7]+$/.test(sizeField)) {
+      throw new Error(`tar member ${name} has the size "${sizeField}", not an octal number`)
+    }
+    const size = parseInt(sizeField, 8)
+    if (at + 512 + size > tar.length) throw new Error(`tar member ${name} runs past the end of the archive`)
     const type = text(at + 156, 1)
     const prefix = text(at + 345, 155)
     if (type === '0' || type === '') {
-      const path = (prefix ? `${prefix}/${name}` : name).replace(/^package\//, '')
+      const full = prefix ? `${prefix}/${name}` : name
+      if (!full.startsWith('package/')) throw new Error(`tar member ${full} is not under package/`)
+      const path = full.slice('package/'.length)
+      if (seen.has(path)) throw new Error(`tar member ${full} appears twice`)
+      seen.add(path)
       entries.push({ path, bytes: tar.subarray(at + 512, at + 512 + size) })
     } else if (type !== '5') {
       throw new Error(`tar member ${name} has type ${type}, which the gate does not read`)
@@ -161,14 +182,35 @@ function run(command: string, args: string[], cwd: string): { ok: boolean; text:
   return { ok: r.success, text: decoder.decode(r.stdout) + decoder.decode(r.stderr) }
 }
 
+interface Manifest {
+  name: string
+  version: string
+}
+
+function removeIfThere(path: string): void {
+  try {
+    Deno.removeSync(path)
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error
+  }
+}
+
 /** Packs one package into `dest` and returns everything the gates hold against the tarball. */
-async function check(dir: string, dest: string): Promise<string[]> {
+async function check(dir: string, dest: string, manifest: Manifest): Promise<string[]> {
   const root = fromFileUrl(new URL('../../..', import.meta.url))
-  const manifest = JSON.parse(Deno.readTextFileSync(join(dir, 'package.json'))) as { name: string; version: string }
+  const file = `${manifest.name.slice(1).replace('/', '-')}-${manifest.version}.tgz`
+  const tgz = join(dest, file)
+  // A tarball left by an earlier run must not pass for one this run packed.
+  removeIfThere(tgz)
   const packed = run('pnpm', ['pack', '--pack-destination', dest], dir)
   if (!packed.ok) return [`pnpm pack failed:\n${packed.text}`]
-  const tgz = join(dest, `${manifest.name.slice(1).replace('/', '-')}-${manifest.version}.tgz`)
-  const bytes = Deno.readFileSync(tgz)
+  let bytes: Uint8Array
+  try {
+    bytes = Deno.readFileSync(tgz)
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return [`pnpm pack wrote no ${file}`]
+    throw error
+  }
   const found = problems(bytes.length, await untar(bytes))
 
   const lint = run('pnpm', ['exec', 'publint', 'run', tgz, '--strict'], root)
@@ -181,20 +223,32 @@ async function check(dir: string, dest: string): Promise<string[]> {
 }
 
 if (import.meta.main) {
-  const out = Deno.args.find((a) => a.startsWith('--out='))?.slice('--out='.length)
+  const flags = Deno.args.filter((a) => a.startsWith('--'))
   const dirs = Deno.args.filter((a) => !a.startsWith('--'))
-  if (dirs.length === 0) {
+  const out = flags.find((a) => a.startsWith('--out='))?.slice('--out='.length)
+  if (dirs.length === 0 || out === '' || flags.some((a) => !a.startsWith('--out='))) {
     console.error('usage: pack-check.ts [--out=<dir>] <package dir>...')
     Deno.exit(2)
   }
   const dest = resolve(out ?? Deno.makeTempDirSync({ prefix: 'arrowz-pack-' }))
-  Deno.mkdirSync(dest, { recursive: true })
   let failed = false
-  for (const dir of dirs) {
-    const found = await check(resolve(dir), dest)
-    console.log(found.length ? `FAIL ${dir}\n${found.map((p) => `  - ${p}`).join('\n')}` : `ok   ${dir}`)
-    failed ||= found.length > 0
+  try {
+    Deno.mkdirSync(dest, { recursive: true })
+    for (const dir of dirs) {
+      let label = dir
+      let found: string[]
+      try {
+        const manifest = JSON.parse(Deno.readTextFileSync(join(resolve(dir), 'package.json'))) as Manifest
+        label = manifest.name
+        found = await check(resolve(dir), dest, manifest)
+      } catch (error) {
+        found = [error instanceof Error ? error.message : String(error)]
+      }
+      console.log(found.length ? `FAIL ${label}\n${found.map((p) => `  - ${p}`).join('\n')}` : `ok   ${label}`)
+      failed ||= found.length > 0
+    }
+  } finally {
+    if (out === undefined) Deno.removeSync(dest, { recursive: true })
   }
-  if (!out) Deno.removeSync(dest, { recursive: true })
   Deno.exit(failed ? 1 : 0)
 }

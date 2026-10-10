@@ -80,7 +80,7 @@ Deno.test('before its first release a package has no changelog to ship', () => {
 })
 
 Deno.test('a manifest that npm 12 would not install as it is gets refused', () => {
-  for (const script of ['preinstall', 'install', 'postinstall', 'prepare']) {
+  for (const script of ['preinstall', 'install', 'postinstall']) {
     const found = problems(1, engine({ scripts: { [script]: 'node x.js' } }))
     assertEquals(found, [`the script ${script} runs at install time, which npm 12 does not allow a dependency`])
   }
@@ -90,11 +90,19 @@ Deno.test('a manifest that npm 12 would not install as it is gets refused', () =
     'git+https://github.com/lit/lit.git',
     'https://x.test/lit.tgz',
     'file:../lit',
+    'npm:lit@^3.0.0',
+    '*',
+    'latest',
+    '>=1.0.0',
+    'link:../lit',
+    'catalog:',
   ]
   for (const spec of specs) {
     for (const kind of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
       const found = problems(1, packed(BOARD, BOARD_FILES, { [kind]: { lit: spec } }))
-      assertEquals(found, [`${kind}: lit is "${spec}", not a version range from the registry`], `${kind} ${spec}`)
+      assertEquals(found, [
+        `${kind}: lit is "${spec}"; a published dependency is x.y.z, ^x.y.z or ~x.y.z from the registry`,
+      ], `${kind} ${spec}`)
     }
   }
 })
@@ -111,6 +119,9 @@ Deno.test('an entry point without its file or without its types is named', () =>
   ])
   const untyped = { ...ENGINE.exports, './command': { default: './dist/command.js' } }
   assertEquals(problems(1, engine({ exports: untyped })), ['./command names no types'])
+  assertEquals(problems(1, engine({}, without(ENGINE_FILES, 'dist/command.js'))), [
+    './command: ./dist/command.js is not in the tarball',
+  ])
   // Neither lint tool objects to types that point at JavaScript.
   const mistyped = { ...ENGINE.exports, './command': { types: './dist/command.js', default: './dist/command.js' } }
   assertEquals(problems(1, engine({ exports: mistyped })), [
@@ -123,6 +134,22 @@ Deno.test('the command needs the file it runs', () => {
     'dist/arrowz.mjs is missing',
     'the command arrowz: ./dist/arrowz.mjs is not in the tarball',
   ])
+})
+
+Deno.test('the manifest names the commands the package ships and nothing else', () => {
+  const nobin = { ...CLI, bin: undefined }
+  assertEquals(problems(1, packed(CLI, CLI_FILES, nobin)), [
+    'the manifest has no command, but @fronthub/arrowz-cli publishes arrowz (./dist/arrowz.mjs)',
+  ])
+  const renamed = problems(1, packed(CLI, CLI_FILES, { bin: { arrows: './dist/arrowz.mjs' } }))
+  assertEquals(renamed.length, 1)
+  assert(renamed[0]?.includes('arrows'), renamed[0])
+  const wrong = problems(1, packed(CLI, CLI_FILES, { bin: { arrowz: './README.md' } }))
+  assertEquals(wrong.length, 1)
+  assert(wrong[0]?.includes('./README.md'), wrong[0])
+  const extra = problems(1, engine({ bin: { engine: './dist/mod.js' } }))
+  assertEquals(extra.length, 1)
+  assert(extra[0]?.includes('engine'), extra[0])
 })
 
 Deno.test('a private manifest, an unknown package and a tarball without a manifest are refused', () => {
@@ -164,4 +191,23 @@ Deno.test('untar lists the files of a tarball without the package/ prefix', asyn
 Deno.test('untar stops at a member it cannot read instead of skipping it', async () => {
   // A link or an extended header could hide a file from the list the gate judges.
   await assertRejects(async () => await untar(await gzip(member('package/link', '', '2'))), Error, 'type 2')
+})
+
+Deno.test('untar refuses a size it cannot read, data past the end, a path outside package/ and a repeated path', async () => {
+  const sized = (size: string) => {
+    const m = member('package/a.txt', 'x')
+    m.set(enc.encode(size.padEnd(12, '\0')), 124)
+    return m
+  }
+  await assertRejects(async () => await untar(await gzip(sized('zzz'))), Error, 'package/a.txt')
+  await assertRejects(async () => await untar(await gzip(sized('12abc'))), Error, 'package/a.txt')
+  const long = member('package/big.bin', 'x')
+  long.set(enc.encode('00000100000\0'), 124)
+  await assertRejects(async () => await untar(await gzip(long.subarray(0, 512 + 512))), Error, 'package/big.bin')
+  await assertRejects(async () => await untar(await gzip(member('other/a.txt', 'x'))), Error, 'other/a.txt')
+  await assertRejects(
+    async () => await untar(await gzip(member('package/a.txt', 'x'), member('package/a.txt', 'y'))),
+    Error,
+    'package/a.txt',
+  )
 })
