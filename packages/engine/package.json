@@ -1,6 +1,6 @@
 {
   "name": "@fronthub/arrowz-engine",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "The Arrowz board generator: its parameters and safe limits, the board file, the game rules and the SVG export.",
   "keywords": ["arrowz", "puzzle", "board", "generator", "procedural-generation", "svg"],
   "license": "MIT",
