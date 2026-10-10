@@ -1,13 +1,13 @@
 name: Release
 
 # Stages on npm every package whose version is not there yet; a maintainer then
-# approves each stage on npmjs.com. docs/releasing.md has the whole procedure.
+# approves each staged version on npmjs.com. docs/releasing.md has the whole procedure.
 on:
   push:
     branches: [main]
     paths: ['packages/*/CHANGELOG.md']
   workflow_dispatch:
-  # A change to the release itself is rehearsed: everything up to the stage, on all three packages.
+  # A change to the release itself gets a dry run: everything up to the stage, on all three packages.
   pull_request:
     paths:
       - .github/workflows/release.yml
@@ -106,6 +106,27 @@ jobs:
             sha256sum tarballs/*.tgz
             echo 'SUMS_END'
           } >> "$GITHUB_OUTPUT"
+
+      # The stage job runs only on main, so the dry run reads the digests back
+      # here: the list, the check and the count meet the real output of the runner.
+      - name: Read the digests back
+        env:
+          SUMS: ${{ steps.sums.outputs.sums }}
+        run: |
+          if printf '%s\n' "$SUMS" | grep -Evq '^[0-9a-f]{64}  tarballs/fronthub-arrowz-(engine|board|cli)-[0-9A-Za-z.+-]+\.tgz$'; then
+            echo "::error::the digest list names something that is not one of the three tarballs"
+            exit 1
+          fi
+          if ! printf '%s\n' "$SUMS" | sha256sum --check --strict; then
+            echo "::error::the tarballs do not match their digests"
+            exit 1
+          fi
+          judged=$(printf '%s\n' "$SUMS" | grep -c .)
+          received=$(find tarballs -mindepth 1 | wc -l)
+          if [ "$received" -ne "$judged" ]; then
+            echo "::error::the artifact holds $received files, the gates judged $judged"
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -227,7 +248,10 @@ jobs:
             echo "::error::the digest list names something that is not one of the three tarballs"
             exit 1
           fi
-          printf '%s\n' "$SUMS" | sha256sum --check --strict
+          if ! printf '%s\n' "$SUMS" | sha256sum --check --strict; then
+            echo "::error::the tarballs do not match their digests"
+            exit 1
+          fi
           judged=$(printf '%s\n' "$SUMS" | grep -c .)
           received=$(find tarballs -mindepth 1 | wc -l)
           if [ "$received" -ne "$judged" ]; then

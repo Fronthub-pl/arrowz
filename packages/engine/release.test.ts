@@ -3,6 +3,7 @@
 // that the workflow file keeps the shape that makes the release safe.
 import { assert, assertEquals, assertThrows } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
+import { parse } from '@std/yaml'
 import { defaultParams, fingerprint, generate, layoutHash } from './mod.ts'
 import {
   changedSince,
@@ -228,255 +229,293 @@ Deno.test('the goldens of the consumer smoke are what the engine lays today', as
   assertEquals(await layoutHash(generate({ ...defaultParams(), W: 25, H: 25, seed: 7 }).board), golden.layout)
 })
 
-const workflow = (): string => Deno.readTextFileSync(join(here, '..', '..', '.github', 'workflows', 'release.yml'))
-const workflowLines = (): string[] => workflow().split('\n')
+type Obj = Record<string, unknown>
 
-/** One job, from its key line to the next line indented by exactly two spaces that is not a comment. */
-function job(name: string): string {
-  const lines = workflowLines()
-  const from = lines.indexOf(`  ${name}:`)
-  assert(from >= 0, `release.yml has no job ${name}`)
-  let to = lines.findIndex((line, i) => i > from && /^ {2}[^ #]/.test(line))
-  if (to < 0) to = lines.length
-  return lines.slice(from, to).join('\n')
+function obj(value: unknown, what = 'value'): Obj {
+  assert(typeof value === 'object' && value !== null && !Array.isArray(value), `${what} is not a mapping`)
+  return value as Obj
 }
 
-const trimmed = (name: string): string[] => job(name).split('\n').map((line) => line.trim())
-
-/** The lines of a top-level block: from its key to the next top-level line that is not a comment. */
-function topLevel(key: string): string[] {
-  const lines = workflowLines()
-  const from = lines.indexOf(`${key}:`)
-  assert(from >= 0, `release.yml has no ${key} block`)
-  const to = lines.findIndex((line, i) => i > from && /^[^ #]/.test(line))
-  return lines.slice(from + 1, to < 0 ? lines.length : to)
+const workflowDir = join(here, '..', '..', '.github', 'workflows')
+// A duplicated key or a syntax error throws here, and fails every guard that reads the workflow.
+const load = (file: string): Obj => obj(parse(Deno.readTextFileSync(join(workflowDir, file))), file)
+const jobsOf = (doc: Obj): Obj => obj(doc.jobs, 'jobs')
+const stepsOf = (job: Obj): Obj[] => {
+  assert(Array.isArray(job.steps), 'steps is not a list')
+  return job.steps.map((step, i) => obj(step, `step ${i}`))
 }
+const allSteps = (doc: Obj): Obj[] => Object.values(jobsOf(doc)).flatMap((job) => stepsOf(obj(job)))
 
-const ONLY_MAIN = "if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'"
+const SHA = /^[0-9a-f]{40}$/
+const ACTIONS = [
+  'actions/checkout',
+  'actions/setup-node',
+  'denoland/setup-deno',
+  'pnpm/action-setup',
+  'actions/upload-artifact',
+  'actions/download-artifact',
+]
 
-Deno.test('the workflow starts only on push, a manual run and a pull request', () => {
-  const keys = topLevel('on').filter((line) => /^ {2}[^ #]/.test(line))
-  assertEquals(keys, ['  push:', '  workflow_dispatch:', '  pull_request:'])
-  for (const word of ['pull_request_target', 'schedule', 'workflow_run', 'workflow_call']) {
-    assert(!workflow().includes(word), `release.yml mentions ${word}`)
-  }
-})
-
-Deno.test('the jobs are exactly tag-published, plan, build, smoke and stage, in that order', () => {
-  const keys = topLevel('jobs').filter((line) => /^ {2}[^ #]/.test(line))
-  assertEquals(keys, ['  tag-published:', '  plan:', '  build:', '  smoke:', '  stage:'])
-})
-
-Deno.test('permissions are none by default, only tag-published writes contents and only stage asks for an identity', () => {
-  const lines = workflowLines()
-  assertEquals(
-    lines.filter((line) => line.includes('permissions')),
-    ['permissions: {}', ...Array(5).fill('    permissions:')],
-  )
-  const granted: string[] = []
-  lines.forEach((line, i) => {
-    if (line !== '    permissions:') return
-    for (const next of lines.slice(i + 1)) {
-      if (!next.startsWith('      ')) break
-      granted.push(next.trim())
-    }
+/** A copy of a job or step in which each `uses` keeps the action name and any 40-hex commit becomes `@pinned`. */
+function pinned<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value), (_key, v) => {
+    if (typeof v !== 'object' || v === null || Array.isArray(v) || typeof (v as Obj).uses !== 'string') return v
+    const [name, ref] = ((v as Obj).uses as string).split('@')
+    assert(SHA.test(ref ?? ''), `${name} is not pinned to a commit`)
+    return { ...v, uses: `${name}@pinned` }
   })
-  for (const line of granted) {
-    assert(['contents: read', 'contents: write', 'id-token: write'].includes(line), `permission ${line}`)
+}
+
+const ONLY_MAIN = "github.event_name != 'pull_request' && github.ref == 'refs/heads/main'"
+
+Deno.test('the workflow starts only on push to main, a manual run and a pull request that touches the release', () => {
+  const doc = load('release.yml')
+  assertEquals(Object.keys(doc), ['name', 'on', 'permissions', 'concurrency', 'jobs'])
+  assertEquals(doc.name, 'Release')
+  assertEquals(doc.permissions, {})
+  assertEquals(doc.concurrency, {
+    group: 'release-${{ github.ref }}',
+    'cancel-in-progress': "${{ github.event_name == 'pull_request' }}",
+  })
+  assertEquals(doc.on, {
+    push: { branches: ['main'], paths: ['packages/*/CHANGELOG.md'] },
+    workflow_dispatch: null,
+    pull_request: {
+      paths: [
+        '.github/workflows/release.yml',
+        'packages/engine/scripts/release.ts',
+        'packages/engine/scripts/pack-check.ts',
+        'packages/engine/scripts/consumer-smoke.mjs',
+        'packages/engine/scripts/consumer-golden.json',
+      ],
+    },
+  })
+})
+
+Deno.test('the jobs, their keys and their permissions are exactly the expected ones', () => {
+  const jobs = jobsOf(load('release.yml'))
+  assertEquals(Object.keys(jobs), ['tag-published', 'plan', 'build', 'smoke', 'stage'])
+  const expected: Record<string, [string[], Obj]> = {
+    'tag-published': [['if', 'runs-on', 'permissions', 'steps'], { contents: 'write' }],
+    plan: [['runs-on', 'permissions', 'outputs', 'steps'], { contents: 'read' }],
+    build: [['needs', 'if', 'runs-on', 'permissions', 'outputs', 'steps'], { contents: 'read' }],
+    smoke: [['needs', 'strategy', 'runs-on', 'permissions', 'steps'], { contents: 'read' }],
+    stage: [['needs', 'if', 'runs-on', 'environment', 'permissions', 'steps'], {
+      'id-token': 'write',
+      contents: 'read',
+    }],
   }
-  assertEquals(granted.filter((line) => line === 'contents: write').length, 1)
-  assertEquals(granted.filter((line) => line === 'id-token: write').length, 1)
-  assert(trimmed('tag-published').includes('contents: write'))
-  assert(trimmed('stage').includes('id-token: write'))
-  const scope =
-    /^\s*(actions|packages|pull-requests|security-events|attestations|checks|deployments|issues|statuses|pages|discussions):/
-  assertEquals(lines.filter((line) => scope.test(line)), [])
-  assert(!/write-all|read-all/.test(workflow()))
+  for (const [name, [keys, permissions]] of Object.entries(expected)) {
+    const job = obj(jobs[name], name)
+    assertEquals(Object.keys(job).sort(), [...keys].sort(), `${name} keys`)
+    assertEquals(job.permissions, permissions, `${name} permissions`)
+  }
+  assertEquals(obj(jobs.build).needs, 'plan')
+  assertEquals(obj(jobs.smoke).needs, 'build')
 })
 
-Deno.test('only the stage job names an environment, and it is npm', () => {
-  assertEquals(workflowLines().filter((line) => line.includes('environment:')), ['    environment: npm'])
-  assert(trimmed('stage').includes('environment: npm'))
+const SETUP_DENO = { uses: 'denoland/setup-deno@pinned', with: { 'deno-version': '~2.9' } }
+const DOWNLOAD = { uses: 'actions/download-artifact@pinned', with: { name: 'tarballs', path: 'tarballs' } }
+
+Deno.test('tag-published is exactly the job that tags what is live, on main only', () => {
+  assertEquals(pinned(jobsOf(load('release.yml'))['tag-published']), {
+    if: ONLY_MAIN,
+    'runs-on': 'ubuntu-latest',
+    permissions: { contents: 'write' },
+    steps: [
+      { uses: 'actions/checkout@pinned', with: { 'fetch-depth': 0 } },
+      SETUP_DENO,
+      { run: 'deno run --allow-read --allow-run --allow-env packages/engine/scripts/release.ts tags' },
+    ],
+  })
 })
 
-Deno.test('tag-published runs only on main and never on a pull request, and a release run is never cancelled', () => {
-  assertEquals(trimmed('tag-published').filter((line) => line.startsWith('if:')), [ONLY_MAIN])
-  assertEquals(topLevel('concurrency'), [
-    '  group: release-${{ github.ref }}',
-    "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
-    '',
+Deno.test('plan is exactly the job that reads the whole history and names the directories to release', () => {
+  assertEquals(pinned(jobsOf(load('release.yml')).plan), {
+    'runs-on': 'ubuntu-latest',
+    permissions: { contents: 'read' },
+    outputs: { dirs: '${{ steps.plan.outputs.dirs }}' },
+    steps: [
+      { uses: 'actions/checkout@pinned', with: { 'fetch-depth': 0, 'persist-credentials': false } },
+      SETUP_DENO,
+      {
+        id: 'plan',
+        run:
+          "deno run --allow-read --allow-write --allow-run --allow-env packages/engine/scripts/release.ts plan ${{ github.event_name == 'pull_request' && '--all' || '' }}",
+      },
+    ],
+  })
+})
+
+// The same text runs in the build job (on every dry run) and in the stage job; the two must not drift.
+const CHECK = `
+if printf '%s\\n' "$SUMS" | grep -Evq '^[0-9a-f]{64}  tarballs/fronthub-arrowz-(engine|board|cli)-[0-9A-Za-z.+-]+\\.tgz$'; then
+  echo "::error::the digest list names something that is not one of the three tarballs"
+  exit 1
+fi
+if ! printf '%s\\n' "$SUMS" | sha256sum --check --strict; then
+  echo "::error::the tarballs do not match their digests"
+  exit 1
+fi
+judged=$(printf '%s\\n' "$SUMS" | grep -c .)
+received=$(find tarballs -mindepth 1 | wc -l)
+if [ "$received" -ne "$judged" ]; then
+  echo "::error::the artifact holds $received files, the gates judged $judged"
+  exit 1
+fi
+`.slice(1)
+
+const STAGE_HEAD = `
+version=$(npm --version)
+echo "npm $version"
+major=\${version%%.*}
+rest=\${version#*.}
+minor=\${rest%%.*}
+case "$version" in
+  *.*.*) ;;
+  *)
+    echo "::error::cannot read the npm version '$version'"
+    exit 1
+    ;;
+esac
+for part in "$major" "$minor"; do
+  case "$part" in
+    '' | *[!0-9]*)
+      echo "::error::cannot read the npm version '$version'"
+      exit 1
+      ;;
+  esac
+done
+if [ "$major" -lt 11 ] || { [ "$major" -eq 11 ] && [ "$minor" -lt 15 ]; }; then
+  echo "::error::npm $version cannot stage: staged publishing needs 11.15 or newer"
+  exit 1
+fi
+# Only the files the gates judged, and all of them.
+if [ -z "$SUMS" ]; then
+  echo "::error::the build job handed over no digests"
+  exit 1
+fi
+`.slice(1)
+
+const STAGE_TAIL = `
+# Dependencies first. Every tarball is tried: after a partial failure a
+# re-run must still reach the packages npm has not staged yet.
+failed=0
+handed=0
+for name in engine board cli; do
+  for tgz in tarballs/fronthub-arrowz-"$name"-*.tgz; do
+    if [ -e "$tgz" ]; then
+      handed=$((handed + 1))
+      if ! npm stage publish --ignore-scripts "$tgz"; then
+        echo "::error::npm did not stage $tgz"
+        failed=1
+      fi
+    fi
+  done
+done
+if [ "$handed" -ne "$judged" ]; then
+  echo "::error::$handed of $judged judged tarballs were handed to npm"
+  exit 1
+fi
+exit "$failed"
+`.slice(1)
+
+Deno.test('stage is exactly the job that hands the judged tarballs to npm, and nothing else', () => {
+  assertEquals(pinned(jobsOf(load('release.yml')).stage), {
+    needs: ['plan', 'build', 'smoke'],
+    if: ONLY_MAIN,
+    'runs-on': 'ubuntu-latest',
+    environment: 'npm',
+    permissions: { 'id-token': 'write', contents: 'read' },
+    steps: [
+      {
+        uses: 'actions/setup-node@pinned',
+        with: {
+          'node-version': '24.21.0',
+          'registry-url': 'https://registry.npmjs.org',
+          'package-manager-cache': false,
+        },
+      },
+      DOWNLOAD,
+      {
+        name: 'Stage on npm',
+        env: { SUMS: '${{ needs.build.outputs.sums }}' },
+        run: STAGE_HEAD + CHECK + STAGE_TAIL,
+      },
+    ],
+  })
+})
+
+Deno.test('every step is a pinned action from the allowed set or a script, and none can go on after a failure', () => {
+  const doc = load('release.yml')
+  for (const [name, job] of Object.entries(jobsOf(doc))) {
+    const conditions = [obj(job).if, ...stepsOf(obj(job)).map((step) => step.if)]
+    for (const condition of conditions) assert(!/always\(\)|failure\(\)|cancelled\(\)/.test(String(condition)), name)
+    const runsOn = obj(job)['runs-on']
+    assert(runsOn === 'ubuntu-latest' || runsOn === '${{ matrix.os }}', `${name} runs on ${runsOn}`)
+  }
+  for (const step of allSteps(doc)) {
+    assertEquals(Object.keys(step).filter((key) => key === 'uses' || key === 'run').length, 1, JSON.stringify(step))
+    assert(!('continue-on-error' in step))
+    if (typeof step.uses !== 'string') continue
+    const [name, ref] = step.uses.split('@')
+    assert(ACTIONS.includes(name ?? ''), `${name} is not an allowed action`)
+    assert(SHA.test(ref ?? ''), `${step.uses} is not pinned to a commit`)
+    const input = obj(step.with ?? {}, 'with')
+    if (name === 'actions/setup-node') {
+      assertEquals(input['package-manager-cache'], false)
+      assert(!('cache' in input))
+    }
+  }
+})
+
+Deno.test('checkouts keep no token, except where tags are pushed, and the ones that read history fetch all of it', () => {
+  const jobs = jobsOf(load('release.yml'))
+  for (const [name, job] of Object.entries(jobs)) {
+    for (const step of stepsOf(obj(job)).filter((s) => String(s.uses).startsWith('actions/checkout@'))) {
+      const input = obj(step.with, 'with')
+      if (name !== 'tag-published') assertEquals(input['persist-credentials'], false, name)
+      assert(!('filter' in input), `${name} fetches a partial clone`)
+      // release.ts refuses a shallow clone: a grafted tip would pass for the commit that set a version.
+      if (name === 'plan' || name === 'tag-published') assertEquals(input['fetch-depth'], 0, name)
+    }
+  }
+})
+
+Deno.test('the digests are taken from the packed files, read back on the runner, and only then uploaded', () => {
+  const build = obj(jobsOf(load('release.yml')).build)
+  assertEquals(build.outputs, { sums: '${{ steps.sums.outputs.sums }}' })
+  const steps = stepsOf(build)
+  const pack = steps.findIndex((step) =>
+    String(step.run).includes('pack-check.ts') && String(step.run).includes('--out=tarballs')
+  )
+  assert(pack >= 0, 'no step packs into tarballs')
+  assertEquals(pinned(steps.slice(pack, pack + 4)), [
+    {
+      run:
+        'deno run --allow-read --allow-write --allow-run --allow-env packages/engine/scripts/pack-check.ts --out=tarballs $DIRS',
+      env: { DIRS: '${{ needs.plan.outputs.dirs }}' },
+    },
+    {
+      id: 'sums',
+      run: "{\n  echo 'sums<<SUMS_END'\n  sha256sum tarballs/*.tgz\n  echo 'SUMS_END'\n} >> \"$GITHUB_OUTPUT\"\n",
+    },
+    { name: 'Read the digests back', env: { SUMS: '${{ steps.sums.outputs.sums }}' }, run: CHECK },
+    {
+      uses: 'actions/upload-artifact@pinned',
+      with: { name: 'tarballs', path: 'tarballs/*.tgz', 'if-no-files-found': 'error', 'retention-days': 7 },
+    },
   ])
-  assertEquals(workflow().match(/concurrency/g)?.length, 1)
-})
-
-Deno.test('no condition can run a job after a failure and nothing continues on error', () => {
-  for (const line of workflowLines().filter((l) => l.includes('if:'))) {
-    assert(!/always\(\)|failure\(\)|cancelled\(\)/.test(line), line)
-  }
-  assert(!workflow().includes('continue-on-error'))
-})
-
-Deno.test('the workflow has no anchors, aliases, containers or services, and runs on GitHub-hosted runners', () => {
-  const anchor = /(^|[\s,[{])[&*][A-Za-z_][\w-]*/
-  assert(anchor.test('      - &extra run: echo') && anchor.test('      - *extra'), 'the pattern must catch both')
-  assertEquals(workflowLines().filter((line) => anchor.test(line)), [])
-  for (const word of ['container:', 'services:']) assert(!workflow().includes(word), word)
-  for (const line of workflowLines().filter((l) => l.includes('runs-on:'))) {
-    assert(['runs-on: ubuntu-latest', 'runs-on: ${{ matrix.os }}'].includes(line.trim()), line)
-  }
+  // Without this, the stage job could keep a weaker copy of the check.
+  const stage = stepsOf(obj(jobsOf(load('release.yml')).stage)).map((step) => String(step.run))
+  assert(stage.some((script) => script.includes(CHECK)))
 })
 
 Deno.test('the repository has two workflows, and the other one asks for neither an identity nor an environment', () => {
-  const names = [...Deno.readDirSync(join(here, '..', '..', '.github', 'workflows'))].map((e) => e.name).sort()
+  const names = [...Deno.readDirSync(workflowDir)].map((e) => e.name).filter((n) => !n.startsWith('.')).sort()
   assertEquals(names, ['ci.yml', 'release.yml'])
-  const ci = Deno.readTextFileSync(join(here, '..', '..', '.github', 'workflows', 'ci.yml'))
-  assert(!ci.includes('id-token') && !ci.includes('environment:'))
-})
-
-Deno.test('the stage job has no checkout and only the two actions that fetch Node and the tarballs', () => {
-  const uses = job('stage').split('\n').filter((line) => line.includes('uses:')).map((line) => line.trim())
-  assertEquals(uses, [
-    '- uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0',
-    '- uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2',
-  ])
-  assert(!job('stage').includes('checkout'))
-})
-
-// The whole job is written out: a change to what npm is trusted with is a change to this text, in the same review.
-const STAGE = `
-  stage:
-    needs: [plan, build, smoke]
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: npm
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      # An exact Node, so the npm that stages is the one this file names (24.21.0 bundles npm 11.19.0).
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24.21.0
-          registry-url: https://registry.npmjs.org
-          package-manager-cache: false
-
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: tarballs
-          path: tarballs
-
-      - name: Stage on npm
-        env:
-          SUMS: \${{ needs.build.outputs.sums }}
-        run: |
-          version=$(npm --version)
-          echo "npm $version"
-          major=\${version%%.*}
-          rest=\${version#*.}
-          minor=\${rest%%.*}
-          case "$version" in
-            *.*.*) ;;
-            *)
-              echo "::error::cannot read the npm version '$version'"
-              exit 1
-              ;;
-          esac
-          for part in "$major" "$minor"; do
-            case "$part" in
-              '' | *[!0-9]*)
-                echo "::error::cannot read the npm version '$version'"
-                exit 1
-                ;;
-            esac
-          done
-          if [ "$major" -lt 11 ] || { [ "$major" -eq 11 ] && [ "$minor" -lt 15 ]; }; then
-            echo "::error::npm $version cannot stage: staged publishing needs 11.15 or newer"
-            exit 1
-          fi
-          # Only the files the gates judged, and all of them.
-          if [ -z "$SUMS" ]; then
-            echo "::error::the build job handed over no digests"
-            exit 1
-          fi
-          if printf '%s\\n' "$SUMS" | grep -Evq '^[0-9a-f]{64}  tarballs/fronthub-arrowz-(engine|board|cli)-[0-9A-Za-z.+-]+\\.tgz$'; then
-            echo "::error::the digest list names something that is not one of the three tarballs"
-            exit 1
-          fi
-          printf '%s\\n' "$SUMS" | sha256sum --check --strict
-          judged=$(printf '%s\\n' "$SUMS" | grep -c .)
-          received=$(find tarballs -mindepth 1 | wc -l)
-          if [ "$received" -ne "$judged" ]; then
-            echo "::error::the artifact holds $received files, the gates judged $judged"
-            exit 1
-          fi
-          # Dependencies first. Every tarball is tried: after a partial failure a
-          # re-run must still reach the packages npm has not staged yet.
-          failed=0
-          handed=0
-          for name in engine board cli; do
-            for tgz in tarballs/fronthub-arrowz-"$name"-*.tgz; do
-              if [ -e "$tgz" ]; then
-                handed=$((handed + 1))
-                if ! npm stage publish --ignore-scripts "$tgz"; then
-                  echo "::error::npm did not stage $tgz"
-                  failed=1
-                fi
-              fi
-            done
-          done
-          if [ "$handed" -ne "$judged" ]; then
-            echo "::error::$handed of $judged judged tarballs were handed to npm"
-            exit 1
-          fi
-          exit "$failed"
-`
-
-Deno.test('the stage job is exactly what it must be', () => {
-  assertEquals(job('stage'), STAGE.slice(1))
-})
-
-Deno.test('the digests are taken from the files the gates judged, right before they are uploaded', () => {
-  const lines = trimmed('build')
-  const pack = lines.findIndex((line) => line.includes('pack-check.ts') && line.includes('--out=tarballs'))
-  const sums = lines.indexOf('- id: sums')
-  const upload = lines.findIndex((line) => line.includes('actions/upload-artifact@'))
-  assert(pack >= 0 && pack < sums && sums < upload, 'pack, then digests, then upload')
-  const end = lines.indexOf('} >> "$GITHUB_OUTPUT"', sums)
-  assertEquals(lines.slice(sums, end + 1), [
-    '- id: sums',
-    'run: |',
-    '{',
-    "echo 'sums<<SUMS_END'",
-    'sha256sum tarballs/*.tgz',
-    "echo 'SUMS_END'",
-    '} >> "$GITHUB_OUTPUT"',
-  ])
-  for (const line of lines.slice(end + 1, upload)) {
-    assert(!/run:|uses:/.test(line), `between digests and upload: ${line}`)
-  }
-  assert(lines.includes('sums: ${{ steps.sums.outputs.sums }}'))
-})
-
-Deno.test('every action is pinned to a commit, nothing is cached and no token stays on disk', () => {
-  const uses = workflowLines().filter((line) => line.includes('uses:'))
-  assert(uses.length > 0)
-  for (const line of uses) assert(/uses: [\w./-]+@[0-9a-f]{40} # v\d/.test(line), line)
-  assert(!workflow().includes('actions/cache'))
-  assert(!workflowLines().some((line) => /^\s*(- )?cache:/.test(line)), 'a cache: key')
-  assertEquals(
-    workflow().match(/setup-node@/g)?.length,
-    workflow().match(/package-manager-cache: false/g)?.length,
-    'every setup-node turns its cache off',
-  )
-  for (const name of ['plan', 'build', 'smoke']) {
-    assert(job(name).includes('persist-credentials: false'), `${name} keeps the checkout token`)
-  }
-})
-
-Deno.test('the jobs that read the history fetch all of it', () => {
-  // release.ts refuses a shallow clone: a grafted tip would pass for the commit that set a version.
-  for (const name of ['plan', 'tag-published']) {
-    assert(job(name).includes('fetch-depth: 0'), name)
-    assert(!job(name).includes('filter:'), `${name} fetches a partial clone`)
-  }
+  const ci = load('ci.yml')
+  const maps = [ci.permissions, ...Object.values(jobsOf(ci)).map((job) => obj(job).permissions)]
+  for (const map of maps) assert(!(typeof map === 'object' && map !== null && 'id-token' in map))
+  for (const job of Object.values(jobsOf(ci))) assert(!('environment' in obj(job)))
 })
