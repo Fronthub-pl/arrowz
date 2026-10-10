@@ -9,6 +9,8 @@
 // With --out the tarballs stay in that directory: the release stages those
 // very files, so the gates have judged exactly what npm receives.
 
+import { fromFileUrl, join, resolve } from '@std/path'
+
 export interface Entry {
   path: string
   bytes: Uint8Array
@@ -151,4 +153,48 @@ export async function untar(tgz: Uint8Array): Promise<Entry[]> {
     at += 512 + Math.ceil(size / 512) * 512
   }
   return entries
+}
+
+function run(command: string, args: string[], cwd: string): { ok: boolean; text: string } {
+  const r = new Deno.Command(command, { args, cwd, stdout: 'piped', stderr: 'piped' }).outputSync()
+  const decoder = new TextDecoder()
+  return { ok: r.success, text: decoder.decode(r.stdout) + decoder.decode(r.stderr) }
+}
+
+/** Packs one package into `dest` and returns everything the gates hold against the tarball. */
+async function check(dir: string, dest: string): Promise<string[]> {
+  const root = fromFileUrl(new URL('../../..', import.meta.url))
+  const manifest = JSON.parse(Deno.readTextFileSync(join(dir, 'package.json'))) as { name: string; version: string }
+  const packed = run('pnpm', ['pack', '--pack-destination', dest], dir)
+  if (!packed.ok) return [`pnpm pack failed:\n${packed.text}`]
+  const tgz = join(dest, `${manifest.name.slice(1).replace('/', '-')}-${manifest.version}.tgz`)
+  const bytes = Deno.readFileSync(tgz)
+  const found = problems(bytes.length, await untar(bytes))
+
+  const lint = run('pnpm', ['exec', 'publint', 'run', tgz, '--strict'], root)
+  if (!lint.ok) found.push(`publint:\n${lint.text}`)
+  if (RULES[manifest.name]?.typed) {
+    const types = run('pnpm', ['exec', 'attw', tgz, '--profile', 'esm-only'], root)
+    if (!types.ok) found.push(`Are The Types Wrong:\n${types.text}`)
+  }
+  return found
+}
+
+if (import.meta.main) {
+  const out = Deno.args.find((a) => a.startsWith('--out='))?.slice('--out='.length)
+  const dirs = Deno.args.filter((a) => !a.startsWith('--'))
+  if (dirs.length === 0) {
+    console.error('usage: pack-check.ts [--out=<dir>] <package dir>...')
+    Deno.exit(2)
+  }
+  const dest = resolve(out ?? Deno.makeTempDirSync({ prefix: 'arrowz-pack-' }))
+  Deno.mkdirSync(dest, { recursive: true })
+  let failed = false
+  for (const dir of dirs) {
+    const found = await check(resolve(dir), dest)
+    console.log(found.length ? `FAIL ${dir}\n${found.map((p) => `  - ${p}`).join('\n')}` : `ok   ${dir}`)
+    failed ||= found.length > 0
+  }
+  if (!out) Deno.removeSync(dest, { recursive: true })
+  Deno.exit(failed ? 1 : 0)
 }

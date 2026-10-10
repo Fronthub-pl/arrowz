@@ -9,10 +9,12 @@
     "graph": "nx graph"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^3.0.3",
     "@types/node": "^26.5.1",
     "nx": "^23.2.0",
+    "publint": "^0.3.25",
     "typescript": "^5.9.3"
   }
 }

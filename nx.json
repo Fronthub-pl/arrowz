@@ -71,6 +71,17 @@
         "^production"
       ]
     },
+    "pack-check": {
+      "cache": true,
+      "dependsOn": [
+        "build"
+      ],
+      "inputs": [
+        "default",
+        "^production",
+        "{workspaceRoot}/pnpm-lock.yaml"
+      ]
+    },
     "verify": {
       "dependsOn": [
         "check",
