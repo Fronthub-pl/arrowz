@@ -495,7 +495,7 @@ function rangeText(key: ParamKey): string {
  * One row of the knob table: the flag, the values it takes, the step between
  * them, the default spelled the way the flag spells it, and the help line.
  * `--help=knobs` prints it and packages/cli/README.md tabulates it, so the two cannot say
- * different things (readme.test.ts holds them together).
+ * different things (packages/cli/guard-readme.test.ts holds them together).
  */
 export interface KnobRow {
   group: ParamGroup
@@ -653,7 +653,7 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
 /**
  * The variables `carve` and `report` read, in the order `--help` names them,
  * each as the help writes it. The tasks' `--allow-env` grants are these names
- * (packages/cli/readme.test.ts), and the Docs page's table lists them.
+ * (packages/cli/guard-readme.test.ts), and the Docs page's table lists them.
  */
 export const ENV_VARS = [
   { name: 'ARROWZ_BOARDS_DIR', usage: 'ARROWZ_BOARDS_DIR (board store)' },

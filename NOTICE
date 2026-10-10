@@ -1,0 +1,17 @@
+Arrowz
+Copyright (c) 2026 Tomasz Janiszewski
+
+Arrowz is released under the MIT licence (see LICENSE).
+
+The built-in colour themes are light and dark ports of six open-source editor
+themes. Each keeps its own licence:
+
+  Catppuccin    MIT          https://github.com/catppuccin/catppuccin
+  gruvbox       MIT          https://github.com/morhetz/gruvbox
+  Tokyo Night   Apache-2.0   https://github.com/folke/tokyonight.nvim
+  Everforest    MIT          https://github.com/sainnhe/everforest
+  Rosé Pine     MIT          https://github.com/rose-pine/rose-pine-theme
+  Ayu           MIT          https://github.com/ayu-theme/ayu-colors
+
+The text of the Apache License, Version 2.0:
+https://www.apache.org/licenses/LICENSE-2.0

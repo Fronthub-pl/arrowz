@@ -553,9 +553,9 @@ knob has: a value that lands between two of them is refused, the same as one
 outside the range, because it is a value neither the slider in the lab nor the
 printed command could reach again.
 
-This table is not copied by hand — `readme.test.ts` compares its flag, range,
-step and default against the ones the CLI prints, in both languages, so a
-knob that moves has to move here too.
+This table is not copied by hand — `guard-readme.test.ts` compares its flag,
+range, step and default against the ones the CLI prints, in both languages, so
+a knob that moves has to move here too.
 
 <!-- knob-table -->
 

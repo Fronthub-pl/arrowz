@@ -108,9 +108,9 @@ with: its own defaults, then the named theme's, then `stated`'s fields, each
 layer winning over the last.
 
 The twelve themes are light and dark ports of six open-source editor themes,
-each MIT or Apache-2.0. Arrowz itself is MIT ([LICENSE](../../LICENSE)); each
-theme keeps its own licence, recorded here and on the theme itself (`source`,
-`licence` and `url` in the engine's `look.ts`):
+each MIT or Apache-2.0. Arrowz itself is MIT ([LICENSE](LICENSE)); each theme
+keeps its own licence, recorded here, in [NOTICE](NOTICE) and on the theme
+itself (`source`, `licence` and `url` in the engine's `look.ts`):
 
 | Theme | Licence | Source |
 |---|---|---|

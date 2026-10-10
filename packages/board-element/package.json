@@ -1,8 +1,27 @@
 {
   "name": "@fronthub/arrowz-board",
-  "version": "1.0.0-alpha.1",
-  "private": true,
+  "version": "0.1.0",
+  "description": "<arrowz-board>: a web component that draws an Arrowz board on the GPU and plays it.",
+  "keywords": [
+    "arrowz",
+    "puzzle",
+    "board",
+    "web-component",
+    "custom-element",
+    "lit",
+    "webgl"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fronthub-pl/arrowz.git",
+    "directory": "packages/board-element"
+  },
+  "homepage": "https://github.com/Fronthub-pl/arrowz/tree/main/packages/board-element#readme",
   "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
   "exports": {
     ".": {
       "types": "./dist/mod.d.ts",
@@ -13,8 +32,13 @@
     "./dist/arrowz-board.js",
     "./dist/mod.js"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "check": "tsc -p tsconfig.json --noEmit",
@@ -23,7 +47,7 @@
     "serve": "vite"
   },
   "dependencies": {
-    "@fronthub/arrowz-engine": "workspace:*",
+    "@fronthub/arrowz-engine": "workspace:^",
     "lit": "^3.3.3"
   },
   "devDependencies": {

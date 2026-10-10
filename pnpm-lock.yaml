@@ -219,7 +219,7 @@ importers:
   packages/board-element:
     dependencies:
       '@fronthub/arrowz-engine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../engine
       lit:
         specifier: ^3.3.3

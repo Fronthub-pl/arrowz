@@ -1,9 +1,18 @@
 {
   "name": "@fronthub/arrowz-engine",
-  "version": "1.0.0-alpha.1",
-  "private": true,
+  "version": "0.1.0",
+  "description": "The Arrowz board generator: its parameters and safe limits, the board file, the game rules and the SVG export.",
+  "keywords": ["arrowz", "puzzle", "board", "generator", "procedural-generation", "svg"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fronthub-pl/arrowz.git",
+    "directory": "packages/engine"
+  },
+  "homepage": "https://github.com/Fronthub-pl/arrowz/tree/main/packages/engine#readme",
   "type": "module",
   "sideEffects": false,
+  "engines": { "node": ">=22.12" },
   "exports": {
     ".": { "types": "./dist/mod.d.ts", "default": "./dist/mod.js" },
     "./command": { "types": "./dist/command.d.ts", "default": "./dist/command.js" },
@@ -11,10 +20,17 @@
     "./presets": { "types": "./dist/lab-presets.d.ts", "default": "./dist/lab-presets.js" },
     "./i18n": { "types": "./dist/lab-i18n.d.ts", "default": "./dist/lab-i18n.js" },
     "./report": { "types": "./dist/lab-report.d.ts", "default": "./dist/lab-report.js" },
-    "./docs": { "types": "./dist/lab-docs.d.ts", "default": "./dist/lab-docs.js" },
-    "./comment-lines": { "types": "./dist/comment-lines.d.ts", "default": "./dist/comment-lines.js" }
+    "./docs": { "types": "./dist/lab-docs.d.ts", "default": "./dist/lab-docs.js" }
   },
-  "files": ["dist"],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": { "types": "./dist/mod.d.ts", "default": "./dist/mod.js" },
+      "./command": { "types": "./dist/command.d.ts", "default": "./dist/command.js" },
+      "./simple": { "types": "./dist/lab-simple.d.ts", "default": "./dist/lab-simple.js" }
+    }
+  },
+  "files": ["dist", "LICENSE", "NOTICE"],
   "scripts": {
     "build": "pnpm -w exec tsc -p packages/engine/tsconfig.build.json",
     "smoke": "node scripts/node-smoke.mjs"

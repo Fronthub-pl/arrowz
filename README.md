@@ -156,4 +156,5 @@ and opening a pull request. Security problems go privately through
 
 ## Licence
 
-[MIT](LICENSE).
+[MIT](LICENSE). The built-in colour themes keep the licences of the editor
+themes they come from; [NOTICE](NOTICE) lists them.

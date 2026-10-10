@@ -366,6 +366,16 @@ Deno.test('package.json exports the entry points of deno.json, each from its bui
   }
 })
 
+Deno.test('the published package exposes the generator, the command line and the simple choice only', () => {
+  const pkg = readJson('package.json') as {
+    exports: Record<string, unknown>
+    publishConfig: { exports: Record<string, unknown> }
+  }
+  const published = pkg.publishConfig.exports
+  assertEquals(Object.keys(published), ['.', './command', './simple'])
+  for (const key of Object.keys(published)) assertEquals(published[key], pkg.exports[key], key)
+})
+
 // --- The exports of each entry point -------------------------------------------------
 
 /**

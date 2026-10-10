@@ -7,9 +7,9 @@ neither Deno nor the DOM, so the same code runs in the CLI, in a browser
 worker and in Node.
 
 This README is the API reference. Every entry point and every export is listed
-below, with the signature or shape the code declares; `readme.test.ts` compares
-the two both ways, so what is written here is what the package exports. The
-measurements behind the numbers are in [HISTORY.md](HISTORY.md).
+below, with the signature or shape the code declares; `guard-readme.test.ts`
+compares the two both ways, so what is written here is what the package
+exports. The measurements behind the numbers are in [HISTORY.md](HISTORY.md).
 
 ## Contents
 
@@ -80,10 +80,11 @@ board off as a good one.
 | `@fronthub/arrowz-engine/i18n` | `lab-i18n.ts` | The lab's dictionaries, English and Polish. |
 | `@fronthub/arrowz-engine/report` | `lab-report.ts` | The run report: the statistics table, its deltas and the summary of a seed series. |
 | `@fronthub/arrowz-engine/docs` | `lab-docs.ts` | The board element's documentation tables, as the lab renders them. |
-| `@fronthub/arrowz-engine/comment-lines` | `comment-lines.ts` | Comment lines of a TypeScript or CSS source, for the repository's comment guards. |
 
 `deno.json` and `package.json` export the same entry points, the second from
-`dist/`.
+`dist/`. The published package exposes only the first three
+(`publishConfig.exports` in `package.json`, which `pnpm pack` writes over
+`exports`); the other four serve this repository's lab.
 
 ## API
 
@@ -380,23 +381,6 @@ out when it fits in a line and described when it does not.
 | `SlotRow` | `{ readonly key: string }` | One slot, by name. |
 | `TypeKey` | `(typeof ELEMENT_TYPES)[number]['key']` | The name of a type row. |
 | `TypeRow` | `{ readonly key: string; readonly from: ExportSource; readonly shape: string }` | One exported type: its package, and its fields or members. |
-
-### `@fronthub/arrowz-engine/comment-lines`
-
-| Function | Signature | Behaviour |
-|---|---|---|
-| `commentBlocks` | `(source: string, css?: boolean) => CommentBlock[]` | Comment-only lines grouped into blocks, in line order; a comment after code belongs to none. |
-| `commentLines` | `(source: string, css?: boolean) => CommentLine[]` | A TypeScript source, or with `css` a CSS one, as the comment text of each line. |
-
-| Constant | Value | Meaning |
-|---|---|---|
-| `MAX_BLOCK` | `6` | The most lines a comment block may have, unless it is a header. |
-| `MAX_HEADER` | `24` | The most lines a module or API header may have. |
-
-| Type | Shape | Meaning |
-|---|---|---|
-| `CommentBlock` | `{ start: number; end: number; text: string }` | A run of consecutive comment-only lines, 1-based and inclusive. |
-| `CommentLine` | `{ line: number; text: string; alone: boolean }` | The comment on one line, and whether the line holds nothing else. |
 
 ## Development
 

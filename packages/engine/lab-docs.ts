@@ -4,10 +4,10 @@
 // code, so the compiler keeps the two languages in step.
 //
 // The machine columns — key, type, attribute, default, signature — exist once
-// and are NOT translated. That is the rule readme.test.ts states for the knob
-// tables ("the prose is translated; the machine columns are not"), and it is
-// what lets one guard check both languages at once: there is a single copy of
-// the machine data to check.
+// and are NOT translated. That is the rule the CLI's guard-readme.test.ts
+// states for the knob tables ("the prose is translated; the machine columns
+// are not"), and it is what lets one guard check both languages at once: there
+// is a single copy of the machine data to check.
 //
 // Prose in this file must not end a sentence with `document`, `window`,
 // `process` or `Deno`, and must never write the browser's key-value store by
