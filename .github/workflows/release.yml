@@ -223,9 +223,13 @@ jobs:
             echo "::error::the build job handed over no digests"
             exit 1
           fi
+          if printf '%s\n' "$SUMS" | grep -Evq '^[0-9a-f]{64}  tarballs/fronthub-arrowz-(engine|board|cli)-[0-9A-Za-z.+-]+\.tgz$'; then
+            echo "::error::the digest list names something that is not one of the three tarballs"
+            exit 1
+          fi
           printf '%s\n' "$SUMS" | sha256sum --check --strict
           judged=$(printf '%s\n' "$SUMS" | grep -c .)
-          received=$(find tarballs -type f | wc -l)
+          received=$(find tarballs -mindepth 1 | wc -l)
           if [ "$received" -ne "$judged" ]; then
             echo "::error::the artifact holds $received files, the gates judged $judged"
             exit 1
@@ -238,18 +242,15 @@ jobs:
             for tgz in tarballs/fronthub-arrowz-"$name"-*.tgz; do
               if [ -e "$tgz" ]; then
                 handed=$((handed + 1))
-                earlier=$failed
-                failed=0
-                npm stage publish --ignore-scripts "$tgz" || failed=1
-                if [ "$failed" -eq 1 ]; then
+                if ! npm stage publish --ignore-scripts "$tgz"; then
                   echo "::error::npm did not stage $tgz"
+                  failed=1
                 fi
-                failed=$((earlier + failed))
               fi
             done
           done
-          if [ "$handed" -eq 0 ]; then
-            echo "::error::no tarball was handed to npm"
+          if [ "$handed" -ne "$judged" ]; then
+            echo "::error::$handed of $judged judged tarballs were handed to npm"
             exit 1
           fi
           exit "$failed"

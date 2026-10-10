@@ -231,112 +231,230 @@ Deno.test('the goldens of the consumer smoke are what the engine lays today', as
 const workflow = (): string => Deno.readTextFileSync(join(here, '..', '..', '.github', 'workflows', 'release.yml'))
 const workflowLines = (): string[] => workflow().split('\n')
 
-/** The text of one job: from its key to the next key at the same depth. */
+/** One job, from its key line to the next line indented by exactly two spaces that is not a comment. */
 function job(name: string): string {
-  const text = workflow()
-  const from = text.indexOf(`\n  ${name}:\n`)
+  const lines = workflowLines()
+  const from = lines.indexOf(`  ${name}:`)
   assert(from >= 0, `release.yml has no job ${name}`)
-  const next = text.slice(from + 1).search(/\n {2}[a-z0-9_-]+:\n/)
-  return next < 0 ? text.slice(from) : text.slice(from, from + 1 + next)
+  let to = lines.findIndex((line, i) => i > from && /^ {2}[^ #]/.test(line))
+  if (to < 0) to = lines.length
+  return lines.slice(from, to).join('\n')
 }
 
 const trimmed = (name: string): string[] => job(name).split('\n').map((line) => line.trim())
-const NOT_ON_PULL_REQUEST_OR_BRANCH = "if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'"
+
+/** The lines of a top-level block: from its key to the next top-level line that is not a comment. */
+function topLevel(key: string): string[] {
+  const lines = workflowLines()
+  const from = lines.indexOf(`${key}:`)
+  assert(from >= 0, `release.yml has no ${key} block`)
+  const to = lines.findIndex((line, i) => i > from && /^[^ #]/.test(line))
+  return lines.slice(from + 1, to < 0 ? lines.length : to)
+}
+
+const ONLY_MAIN = "if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'"
 
 Deno.test('the workflow starts only on push, a manual run and a pull request', () => {
-  const text = workflow()
-  const block = text.slice(text.indexOf('\non:\n') + 1).split(/\n(?=\S)/)[0] ?? ''
-  const keys = block.split('\n').flatMap((line) => /^ {2}([a-z_]+):/.exec(line)?.[1] ?? [])
-  assertEquals(keys, ['push', 'workflow_dispatch', 'pull_request'])
+  const keys = topLevel('on').filter((line) => /^ {2}[^ #]/.test(line))
+  assertEquals(keys, ['  push:', '  workflow_dispatch:', '  pull_request:'])
   for (const word of ['pull_request_target', 'schedule', 'workflow_run', 'workflow_call']) {
-    assert(!text.includes(word), `release.yml mentions ${word}`)
+    assert(!workflow().includes(word), `release.yml mentions ${word}`)
   }
 })
 
 Deno.test('the jobs are exactly tag-published, plan, build, smoke and stage, in that order', () => {
-  const text = workflow()
-  const jobs = text.slice(text.indexOf('\njobs:\n'))
-  const names = jobs.split('\n').flatMap((line) => /^ {2}([a-z0-9_-]+):$/.exec(line)?.[1] ?? [])
-  assertEquals(names, ['tag-published', 'plan', 'build', 'smoke', 'stage'])
+  const keys = topLevel('jobs').filter((line) => /^ {2}[^ #]/.test(line))
+  assertEquals(keys, ['  tag-published:', '  plan:', '  build:', '  smoke:', '  stage:'])
 })
 
-Deno.test('permissions are none by default, and only tag-published writes contents and only stage asks for an identity', () => {
+Deno.test('permissions are none by default, only tag-published writes contents and only stage asks for an identity', () => {
   const lines = workflowLines()
+  assertEquals(
+    lines.filter((line) => line.includes('permissions')),
+    ['permissions: {}', ...Array(5).fill('    permissions:')],
+  )
   const granted: string[] = []
   lines.forEach((line, i) => {
-    if (line.trim() !== 'permissions:') return
-    const indent = line.length - line.trimStart().length
-    for (let j = i + 1; j < lines.length; j++) {
-      const next = lines[j] ?? ''
-      if (next.trim() === '' || next.length - next.trimStart().length <= indent) break
+    if (line !== '    permissions:') return
+    for (const next of lines.slice(i + 1)) {
+      if (!next.startsWith('      ')) break
       granted.push(next.trim())
     }
   })
   for (const line of granted) {
     assert(['contents: read', 'contents: write', 'id-token: write'].includes(line), `permission ${line}`)
   }
-  assertEquals(workflow().match(/^permissions: \{\}$/gm)?.length, 1)
   assertEquals(granted.filter((line) => line === 'contents: write').length, 1)
   assertEquals(granted.filter((line) => line === 'id-token: write').length, 1)
   assert(trimmed('tag-published').includes('contents: write'))
   assert(trimmed('stage').includes('id-token: write'))
+  const scope =
+    /^\s*(actions|packages|pull-requests|security-events|attestations|checks|deployments|issues|statuses|pages|discussions):/
+  assertEquals(lines.filter((line) => scope.test(line)), [])
   assert(!/write-all|read-all/.test(workflow()))
 })
 
 Deno.test('only the stage job names an environment, and it is npm', () => {
-  const lines = workflowLines().filter((line) => line.includes('environment:'))
-  assertEquals(lines, ['    environment: npm'])
+  assertEquals(workflowLines().filter((line) => line.includes('environment:')), ['    environment: npm'])
   assert(trimmed('stage').includes('environment: npm'))
 })
 
-Deno.test('stage waits for plan, build and smoke, and neither it nor tag-published runs off main or on a pull request', () => {
-  assertEquals(trimmed('stage').filter((line) => line.startsWith('needs:')), ['needs: [plan, build, smoke]'])
-  for (const name of ['stage', 'tag-published']) {
-    assertEquals(trimmed(name).filter((line) => line.startsWith('if:')), [NOT_ON_PULL_REQUEST_OR_BRANCH], name)
-  }
-  for (const line of workflowLines().filter((l) => l.trim().startsWith('if:'))) {
+Deno.test('tag-published runs only on main and never on a pull request, and a release run is never cancelled', () => {
+  assertEquals(trimmed('tag-published').filter((line) => line.startsWith('if:')), [ONLY_MAIN])
+  assertEquals(topLevel('concurrency'), [
+    '  group: release-${{ github.ref }}',
+    "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+    '',
+  ])
+  assertEquals(workflow().match(/concurrency/g)?.length, 1)
+})
+
+Deno.test('no condition can run a job after a failure and nothing continues on error', () => {
+  for (const line of workflowLines().filter((l) => l.includes('if:'))) {
     assert(!/always\(\)|failure\(\)|cancelled\(\)/.test(line), line)
   }
   assert(!workflow().includes('continue-on-error'))
 })
 
-Deno.test('a release run is never cancelled and a pull request shares no queue with a branch', () => {
-  const lines = workflowLines().map((line) => line.trim())
-  assert(lines.includes('group: release-${{ github.ref }}'))
-  assert(lines.includes("cancel-in-progress: ${{ github.event_name == 'pull_request' }}"))
-})
-
-Deno.test('the stage job runs nothing from the repository, installs nothing and takes the digests through the environment', () => {
-  const stage = job('stage')
-  for (
-    const word of ['checkout', 'pnpm', 'deno', 'npm install', 'npm i ', 'npm ci', 'npx', 'npm exec', 'curl', 'wget']
-  ) {
-    assert(!stage.includes(word), `the stage job mentions ${word}`)
+Deno.test('the workflow has no anchors, aliases, containers or services, and runs on GitHub-hosted runners', () => {
+  const anchor = /(^|[\s,[{])[&*][A-Za-z_][\w-]*/
+  assert(anchor.test('      - &extra run: echo') && anchor.test('      - *extra'), 'the pattern must catch both')
+  assertEquals(workflowLines().filter((line) => anchor.test(line)), [])
+  for (const word of ['container:', 'services:']) assert(!workflow().includes(word), word)
+  for (const line of workflowLines().filter((l) => l.includes('runs-on:'))) {
+    assert(['runs-on: ubuntu-latest', 'runs-on: ${{ matrix.os }}'].includes(line.trim()), line)
   }
-  assert(/node-version: 24\.\d+\.\d+\n/.test(stage), 'Node in the stage job is an exact version')
-  assertEquals(
-    stage.split('\n').filter((line) => line.includes('uses:')).map((line) => line.trim()),
-    [
-      '- uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0',
-      '- uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2',
-    ],
-  )
-  assertEquals(stage.split('\n').filter((line) => /(^|- )run:/.test(line.trim())).length, 1)
-  assertEquals(
-    stage.split('\n').filter((line) => line.includes('${{')).map((line) => line.trim()),
-    ['SUMS: ${{ needs.build.outputs.sums }}'],
-  )
 })
 
-Deno.test('the stage job stages only the files with the digests the build job took, and tries every one, the engine first', () => {
-  const lines = trimmed('stage')
-  assert(lines.includes('for name in engine board cli; do'))
-  assert(lines.includes('npm stage publish --ignore-scripts "$tgz" || failed=1'))
-  assert(lines.includes('printf \'%s\\n\' "$SUMS" | sha256sum --check --strict'))
-  assert(lines.includes('exit "$failed"'))
-  // A re-run after a partial failure must still reach the packages that were not staged.
-  assert(!/\bset -e\b|\|\| exit|&& exit/.test(job('stage')), 'the loop must not stop at the first refusal')
-  assert(trimmed('build').includes('sums: ${{ steps.sums.outputs.sums }}'))
+Deno.test('the repository has two workflows, and the other one asks for neither an identity nor an environment', () => {
+  const names = [...Deno.readDirSync(join(here, '..', '..', '.github', 'workflows'))].map((e) => e.name).sort()
+  assertEquals(names, ['ci.yml', 'release.yml'])
+  const ci = Deno.readTextFileSync(join(here, '..', '..', '.github', 'workflows', 'ci.yml'))
+  assert(!ci.includes('id-token') && !ci.includes('environment:'))
+})
+
+Deno.test('the stage job has no checkout and only the two actions that fetch Node and the tarballs', () => {
+  const uses = job('stage').split('\n').filter((line) => line.includes('uses:')).map((line) => line.trim())
+  assertEquals(uses, [
+    '- uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0',
+    '- uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2',
+  ])
+  assert(!job('stage').includes('checkout'))
+})
+
+// The whole job is written out: a change to what npm is trusted with is a change to this text, in the same review.
+const STAGE = `
+  stage:
+    needs: [plan, build, smoke]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      # An exact Node, so the npm that stages is the one this file names (24.21.0 bundles npm 11.19.0).
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tarballs
+          path: tarballs
+
+      - name: Stage on npm
+        env:
+          SUMS: \${{ needs.build.outputs.sums }}
+        run: |
+          version=$(npm --version)
+          echo "npm $version"
+          major=\${version%%.*}
+          rest=\${version#*.}
+          minor=\${rest%%.*}
+          case "$version" in
+            *.*.*) ;;
+            *)
+              echo "::error::cannot read the npm version '$version'"
+              exit 1
+              ;;
+          esac
+          for part in "$major" "$minor"; do
+            case "$part" in
+              '' | *[!0-9]*)
+                echo "::error::cannot read the npm version '$version'"
+                exit 1
+                ;;
+            esac
+          done
+          if [ "$major" -lt 11 ] || { [ "$major" -eq 11 ] && [ "$minor" -lt 15 ]; }; then
+            echo "::error::npm $version cannot stage: staged publishing needs 11.15 or newer"
+            exit 1
+          fi
+          # Only the files the gates judged, and all of them.
+          if [ -z "$SUMS" ]; then
+            echo "::error::the build job handed over no digests"
+            exit 1
+          fi
+          if printf '%s\\n' "$SUMS" | grep -Evq '^[0-9a-f]{64}  tarballs/fronthub-arrowz-(engine|board|cli)-[0-9A-Za-z.+-]+\\.tgz$'; then
+            echo "::error::the digest list names something that is not one of the three tarballs"
+            exit 1
+          fi
+          printf '%s\\n' "$SUMS" | sha256sum --check --strict
+          judged=$(printf '%s\\n' "$SUMS" | grep -c .)
+          received=$(find tarballs -mindepth 1 | wc -l)
+          if [ "$received" -ne "$judged" ]; then
+            echo "::error::the artifact holds $received files, the gates judged $judged"
+            exit 1
+          fi
+          # Dependencies first. Every tarball is tried: after a partial failure a
+          # re-run must still reach the packages npm has not staged yet.
+          failed=0
+          handed=0
+          for name in engine board cli; do
+            for tgz in tarballs/fronthub-arrowz-"$name"-*.tgz; do
+              if [ -e "$tgz" ]; then
+                handed=$((handed + 1))
+                if ! npm stage publish --ignore-scripts "$tgz"; then
+                  echo "::error::npm did not stage $tgz"
+                  failed=1
+                fi
+              fi
+            done
+          done
+          if [ "$handed" -ne "$judged" ]; then
+            echo "::error::$handed of $judged judged tarballs were handed to npm"
+            exit 1
+          fi
+          exit "$failed"
+`
+
+Deno.test('the stage job is exactly what it must be', () => {
+  assertEquals(job('stage'), STAGE.slice(1))
+})
+
+Deno.test('the digests are taken from the files the gates judged, right before they are uploaded', () => {
+  const lines = trimmed('build')
+  const pack = lines.findIndex((line) => line.includes('pack-check.ts') && line.includes('--out=tarballs'))
+  const sums = lines.indexOf('- id: sums')
+  const upload = lines.findIndex((line) => line.includes('actions/upload-artifact@'))
+  assert(pack >= 0 && pack < sums && sums < upload, 'pack, then digests, then upload')
+  const end = lines.indexOf('} >> "$GITHUB_OUTPUT"', sums)
+  assertEquals(lines.slice(sums, end + 1), [
+    '- id: sums',
+    'run: |',
+    '{',
+    "echo 'sums<<SUMS_END'",
+    'sha256sum tarballs/*.tgz',
+    "echo 'SUMS_END'",
+    '} >> "$GITHUB_OUTPUT"',
+  ])
+  for (const line of lines.slice(end + 1, upload)) {
+    assert(!/run:|uses:/.test(line), `between digests and upload: ${line}`)
+  }
+  assert(lines.includes('sums: ${{ steps.sums.outputs.sums }}'))
 })
 
 Deno.test('every action is pinned to a commit, nothing is cached and no token stays on disk', () => {
