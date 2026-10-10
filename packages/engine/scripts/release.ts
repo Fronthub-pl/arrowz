@@ -92,7 +92,10 @@ function onNpm(p: Pkg): Seen {
   return seenOnNpm(r.code, r.out, p.version)
 }
 
-/** The first-parent commit that set the package's current version: on main, the version PR's merge. It does not know what was built; `plan` checks that. */
+/**
+ * The first-parent commit that set the package's current version: on main, the version PR's merge.
+ * It does not know what was built; `plan` checks that.
+ */
 export function commitOf(p: Pkg, cwd = '.'): string {
   // A grafted tip looks like the commit that added the manifest.
   if (git(cwd, 'rev-parse', '--is-shallow-repository').trim() === 'true') {
@@ -112,7 +115,11 @@ export function commitOf(p: Pkg, cwd = '.'): string {
   return sha
 }
 
-/** The files of a package that differ between the commit that set its version and HEAD; neither tests nor anything under `scripts/` is packed or part of a build. */
+/**
+ * The files of a package that differ between the commit that set its version and HEAD; neither tests nor
+ * anything under `scripts/` is packed or part of a build. Leaving `scripts/` out rests on that: a test holds
+ * every build script and the engine's build list clear of that directory.
+ */
 export function changedSince(p: Pkg, cwd = '.'): string[] {
   const out = git(
     cwd,
@@ -144,20 +151,35 @@ export function refusalsOf(release: Pkg[], changed: (p: Pkg) => string[], commit
 const ADVICE = 'A version is released from the files of its version commit. ' +
   'If a release of it is still running or waiting for approval, let that finish; otherwise open a new version pull request.'
 
+/** What a plan run prints and how it ends: a refusal ends it with status 1 and without the list of directories. */
+export function planOutcome(
+  pkgs: Pkg[],
+  release: Pkg[],
+  refusals: string[],
+): { out: string[]; err: string[]; dirs?: string; code: 0 | 1 } {
+  if (refusals.length > 0) return { out: [], err: [...refusals, ADVICE], code: 1 }
+  return {
+    out: pkgs.map((p) => `${release.includes(p) ? 'release' : 'skip   '} ${tagOf(p)}`),
+    err: [],
+    dirs: release.map((p) => p.dir).join(' '),
+    code: 0,
+  }
+}
+
 function main(): void {
   const [command, ...flags] = Deno.args
   const pkgs = DIRS.map((dir) => manifestOf(dir, Deno.readTextFileSync(`${dir}/package.json`)))
   if (command === 'plan') {
     const release = flags.includes('--all') ? pkgs : planOf(pkgs, onNpm)
     const refusals = flags.includes('--all') ? [] : refusalsOf(release, changedSince, commitOf)
-    if (refusals.length > 0) {
-      for (const line of refusals) console.error(line)
-      console.error(ADVICE)
-      Deno.exit(1)
-    }
-    for (const p of pkgs) console.log(`${release.includes(p) ? 'release' : 'skip   '} ${tagOf(p)}`)
+    const outcome = planOutcome(pkgs, release, refusals)
+    for (const line of outcome.err) console.error(line)
+    for (const line of outcome.out) console.log(line)
     const output = Deno.env.get('GITHUB_OUTPUT')
-    if (output) Deno.writeTextFileSync(output, `dirs=${release.map((p) => p.dir).join(' ')}\n`, { append: true })
+    if (output && outcome.dirs !== undefined) {
+      Deno.writeTextFileSync(output, `dirs=${outcome.dirs}\n`, { append: true })
+    }
+    if (outcome.code !== 0) Deno.exit(outcome.code)
   } else if (command === 'tags') {
     const remote = git('.', 'ls-remote', '--tags', 'origin').split('\n').map((line) => line.split('refs/tags/')[1])
     const tags = new Set(remote.filter((tag): tag is string => tag !== undefined))

@@ -11,6 +11,7 @@ import {
   manifestOf,
   type Pkg,
   planOf,
+  planOutcome,
   refusalsOf,
   releaseCommit,
   type Seen,
@@ -201,6 +202,21 @@ Deno.test('what changed since the version commit is the package files that reach
 
 const here = dirname(fromFileUrl(import.meta.url))
 
+Deno.test('no build of a published package takes its input from a scripts/ directory', () => {
+  // changedSince leaves scripts/ out, so a build that read from there could change a released version unseen.
+  for (const dir of ['engine', 'board-element', 'cli']) {
+    const manifest = obj(JSON.parse(Deno.readTextFileSync(join(here, '..', dir, 'package.json'))), dir)
+    const build = obj(manifest.scripts, `${dir} scripts`).build
+    assert(typeof build === 'string' && build !== '', `${dir} has no build script`)
+    assert(!build.includes('scripts/'), `the build of ${dir} names scripts/: ${build}`)
+  }
+  const config = obj(JSON.parse(Deno.readTextFileSync(join(here, 'tsconfig.build.json'))), 'tsconfig.build.json')
+  assert(Array.isArray(config.include) && config.include.length > 0, 'the engine build lists no file')
+  for (const path of config.include) {
+    assert(!String(path).replace(/^\.\//, '').startsWith('scripts/'), `the engine build includes ${path}`)
+  }
+})
+
 Deno.test('a package whose files changed since its version commit is refused, one line each', () => {
   const changed = (p: Pkg) => p === ENGINE ? ['packages/engine/engine.ts', 'packages/engine/look.ts'] : []
   assertEquals(refusalsOf([ENGINE, CLI], changed, () => 'abcdef0123456789'), [
@@ -214,6 +230,45 @@ Deno.test('the commit of a package that did not change is not looked up', () => 
     throw new Error('no version commit here')
   }
   assertEquals(refusalsOf([CLI], () => [], never), [])
+})
+
+Deno.test('a refused plan prints the refusals and the advice, names no directory and ends with status 1', () => {
+  const refusal =
+    'refused @fronthub/arrowz-engine@0.1.1: packages/engine/engine.ts changed since abcdef0 set the version'
+  const outcome = planOutcome([ENGINE, BOARD, CLI], [ENGINE, CLI], [refusal])
+  assertEquals(outcome, {
+    out: [],
+    err: [
+      refusal,
+      'A version is released from the files of its version commit. If a release of it is still running or waiting for approval, let that finish; otherwise open a new version pull request.',
+    ],
+    code: 1,
+  })
+  // An empty `dirs=` would read as "nothing to release"; a refused run must write no such line.
+  assert(!('dirs' in outcome))
+})
+
+Deno.test('a plan that stands prints one line per package, names the directories to release and ends with status 0', () => {
+  assertEquals(planOutcome([ENGINE, BOARD, CLI], [ENGINE, CLI], []), {
+    out: [
+      'release @fronthub/arrowz-engine@0.1.1',
+      'skip    @fronthub/arrowz-board@0.1.0',
+      'release @fronthub/arrowz-cli@0.2.0',
+    ],
+    err: [],
+    dirs: 'packages/engine packages/cli',
+    code: 0,
+  })
+  assertEquals(planOutcome([ENGINE, BOARD, CLI], [], []), {
+    out: [
+      'skip    @fronthub/arrowz-engine@0.1.1',
+      'skip    @fronthub/arrowz-board@0.1.0',
+      'skip    @fronthub/arrowz-cli@0.2.0',
+    ],
+    err: [],
+    dirs: '',
+    code: 0,
+  })
 })
 
 Deno.test('the goldens of the consumer smoke are what the engine lays today', async () => {
