@@ -1,6 +1,6 @@
 {
   "name": "@fronthub/arrowz-board",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "<arrowz-board>: a web component that draws an Arrowz board on the GPU and plays it.",
   "keywords": [
     "arrowz",
@@ -38,7 +38,8 @@
   "files": [
     "dist",
     "LICENSE",
-    "NOTICE"
+    "NOTICE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "check": "tsc -p tsconfig.json --noEmit",

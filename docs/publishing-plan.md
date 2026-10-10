@@ -1,9 +1,11 @@
 # Arrowz: going public and publishing to npm — revised plan
 
-Date: 2026-10-09. Status: accepted plan, not yet implemented. It replaces an
-earlier, unpublished draft design (lockstep `1.0.0-alpha` versions, CLI as
-compiled binaries, JSR); §1 lists what changed and why. Every external fact was
-checked in official documentation; open points are listed in §10.
+Date: 2026-10-09. Status: accepted plan, carried out in the order of §9. Steps
+1–6 and the day-one settings of §8 are done; the release workflow with its
+gates (step 7, §3 and §5) and the rehearsal and bootstrap (§4) are not. It
+replaces an earlier, unpublished draft design (lockstep `1.0.0-alpha` versions,
+CLI as compiled binaries, JSR); §1 lists what changed and why. Every external
+fact was checked in official documentation; open points are listed in §10.
 
 Revised 2026-10-10 for two npm changes announced on 2026-07-08
 ([GitHub changelog](https://github.blog/changelog/2026-07-08-npm-install-time-security-and-gat-bypass2fa-deprecation/)):
@@ -72,14 +74,25 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
 - `.changeset/config.json`: `changelog: ["@changesets/changelog-github", {"repo": "Fronthub-pl/arrowz"}]`,
   `commit: false`, `baseBranch: "main"`, `updateInternalDependencies: "patch"`,
   private packages not versioned.
+- Until the first version PR the three manifests carry `0.0.0` and
+  `.changeset/` holds one `minor` changeset per package: `changeset version`
+  takes `0.0.0` to `0.1.0` and writes each first `CHANGELOG.md` (measured;
+  from `0.1.0` a `minor` would give `0.2.0`).
+- The advisory check is the CI job `changeset`: it warns on a pull request
+  that changes a published package without a changeset and stays green. A
+  change to a package's tests or README counts as a change (measured), which
+  is why it is a warning; `pnpm changeset --empty` answers it.
 
 ## 3. The release, step by step (normal case)
 
 1. PRs with changesets are merged to `main` as usual.
 2. When the maintainer wants a release, locally:
-   `pnpm changeset version && pnpm install --lockfile-only`, commit, open a PR
-   ("Version Packages"). It contains the new versions and changelog entries,
-   and any changesets contributors forgot. CI runs on it like on any PR.
+   `GITHUB_TOKEN=$(gh auth token) pnpm changeset version && pnpm install --lockfile-only`,
+   commit, open a PR ("Version Packages"). It contains the new versions and
+   changelog entries, and any changesets contributors forgot. CI runs on it
+   like on any PR. The changelog generator asks GitHub for the pull request
+   and the author of each changeset; without `GITHUB_TOKEN` the command stops
+   and changes no file (measured).
 3. The maintainer merges it. `release.yml` runs on a push to `main` that touches
    `packages/*/CHANGELOG.md` (only version PRs do), or on "Run workflow"
    (`workflow_dispatch`); `concurrency: release` keeps one run at a time.
@@ -167,7 +180,8 @@ the first actions that 2FA-bypass tokens lose (§8).
 
 - Rename `@arrowz/*` → `@fronthub/arrowz-engine`, `@fronthub/arrowz-board`,
   `@fronthub/arrowz-cli`, lab `@fronthub/arrowz-lab` (private). ~488 occurrences.
-- Every published `package.json`: `version: 0.1.0`, no `private`, `license: MIT`,
+- Every published `package.json`: `version` (`0.0.0` until the first version PR
+  sets `0.1.0`, §2), no `private`, `license: MIT`,
   `repository` (`git+https://github.com/Fronthub-pl/arrowz.git` + `directory`),
   `homepage`, `keywords`, `engines: { node: ">=22.12" }`,
   `publishConfig: { access: "public" }`, `files`. Copy `LICENSE` into each

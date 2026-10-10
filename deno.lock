@@ -30,6 +30,8 @@
     ],
     "packageJson": {
       "dependencies": [
+        "npm:@changesets/changelog-github@^1.0.1",
+        "npm:@changesets/cli@^3.0.3",
         "npm:@types/node@^26.5.1",
         "npm:nx@^23.2.0",
         "npm:typescript@^5.9.3"

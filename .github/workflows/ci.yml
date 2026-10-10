@@ -55,3 +55,38 @@ jobs:
       - uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5
 
       - run: pnpm nx affected -t check lint fmt test build smoke
+
+  # Advisory: a missing changeset is a warning on the pull request, never a
+  # failed check. Anything else the command fails on (a changeset naming an
+  # unknown package, a broken config) does fail the job.
+  changeset:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          filter: tree:0
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Changeset status
+        run: |
+          set +e
+          out=$(pnpm changeset status --since=origin/main 2>&1)
+          code=$?
+          set -e
+          echo "$out"
+          if [ "$code" -eq 0 ]; then exit 0; fi
+          if echo "$out" | grep -q 'no changesets were found'; then
+            echo "::warning title=No changeset::This pull request changes a published package and adds no changeset. Run 'pnpm changeset' (or 'pnpm changeset --empty' if nothing needs a release); a maintainer can also add it before the release."
+            exit 0
+          fi
+          exit "$code"
