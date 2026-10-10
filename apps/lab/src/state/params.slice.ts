@@ -10,8 +10,8 @@ import {
   straightFloor,
   validateParams,
   type Violation,
-} from '@arrowz/engine'
-import { MIX_START, START, type StartChoice } from '@arrowz/engine/command'
+} from '@fronthub/arrowz-engine'
+import { MIX_START, START, type StartChoice } from '@fronthub/arrowz-engine/command'
 import type { SliceSet } from './slice'
 
 const specByKey = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))

@@ -1,4 +1,4 @@
-import { THEMES, themeOf } from '@arrowz/board-element'
+import { THEMES, themeOf } from '@fronthub/arrowz-board'
 import type { ReactElement } from 'react'
 import { useDictionary } from '../../i18n'
 import { useStore } from '../../state/store'

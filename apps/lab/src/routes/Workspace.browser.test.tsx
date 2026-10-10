@@ -1,5 +1,5 @@
-import { decodeBoard, layoutHash, type StoreRequest } from '@arrowz/engine'
-import { exportCell } from '@arrowz/engine/simple'
+import { decodeBoard, layoutHash, type StoreRequest } from '@fronthub/arrowz-engine'
+import { exportCell } from '@fronthub/arrowz-engine/simple'
 import { act, StrictMode } from 'react'
 import { expect, test, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'

@@ -1,4 +1,4 @@
-import type { BoardFile } from '@arrowz/engine'
+import type { BoardFile } from '@fronthub/arrowz-engine'
 import { useEffect, useRef } from 'react'
 import { useStore } from '../state/store'
 import { postShown } from './saveShown'

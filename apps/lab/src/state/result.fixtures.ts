@@ -1,4 +1,4 @@
-import { defaultParams, encodeBoard, generate, type Params } from '@arrowz/engine'
+import { defaultParams, encodeBoard, generate, type Params } from '@fronthub/arrowz-engine'
 import { type FinishedRun, useStore } from './store'
 
 /** A finished run as `completeRun` takes it, with the parameters it was started from. */

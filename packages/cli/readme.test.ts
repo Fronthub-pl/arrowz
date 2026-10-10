@@ -5,7 +5,7 @@
 // nor the column names are part of what is checked.
 import { assert, assertEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
-import { formatViolation, generate, layoutHash, PARAM_SPEC, validateParams } from '@arrowz/engine'
+import { formatViolation, generate, layoutHash, PARAM_SPEC, validateParams } from '@fronthub/arrowz-engine'
 import {
   CARVE_FLAGS,
   COMMAND_PREFIX,
@@ -17,9 +17,9 @@ import {
   RETIRED_FLAGS,
   RULE_ROWS,
   VIEW_RANGE,
-} from '@arrowz/engine/command'
+} from '@fronthub/arrowz-engine/command'
 import { REPORT_FLAGS } from './report-flags.ts'
-import { BUNDLES, defaultChoice, exportCell, simpleParams } from '@arrowz/engine/simple'
+import { BUNDLES, defaultChoice, exportCell, simpleParams } from '@fronthub/arrowz-engine/simple'
 
 const root = join(dirname(fromFileUrl(import.meta.url)), '..', '..')
 const READMES = ['packages/cli/README.md'] as const

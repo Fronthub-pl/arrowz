@@ -18,7 +18,7 @@
 // envelope (validateParams) are refused by name with exit code 2, before any generation. A board that does
 // not close is stored too (its preview draws the holes) and the exit code is 1; CARVE_TIMEOUT_S=N aborts a
 // run after N seconds and stores what was carved.
-import type { BoardMeta, GenerateOptions, ParamKey, Params, TraceInfo, Violation } from '@arrowz/engine'
+import type { BoardMeta, GenerateOptions, ParamKey, Params, TraceInfo, Violation } from '@fronthub/arrowz-engine'
 import {
   encodeBoard,
   fingerprint,
@@ -31,7 +31,7 @@ import {
   RULE_REASONS,
   toSvg,
   validateParams,
-} from '@arrowz/engine'
+} from '@fronthub/arrowz-engine'
 import {
   buildCommand,
   drawnViolations,
@@ -42,9 +42,9 @@ import {
   knobFlag,
   parseArgs,
   svgOptions,
-} from '@arrowz/engine/command'
-import { BUNDLES } from '@arrowz/engine/simple'
-import type { Move } from '@arrowz/engine/simple'
+} from '@fronthub/arrowz-engine/command'
+import { BUNDLES } from '@fronthub/arrowz-engine/simple'
+import type { Move } from '@fronthub/arrowz-engine/simple'
 import { saveBoard, type SaveResult } from './store.ts'
 
 // The CLI is a program, not a module: nothing imports it (the tests spawn it).

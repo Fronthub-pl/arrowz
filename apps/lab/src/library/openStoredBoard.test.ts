@@ -1,4 +1,4 @@
-import { type BoardSize, decodeBoard, encodeBoard } from '@arrowz/engine'
+import { type BoardSize, decodeBoard, encodeBoard } from '@fronthub/arrowz-engine'
 import { beforeEach, expect, test } from 'vitest'
 import type { FileOutcome } from '../api/boards'
 import { storedFixture } from '../state/library.fixtures'

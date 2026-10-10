@@ -1,4 +1,4 @@
-import { type ParamGroup, type ParamKey, PARAM_SPEC, type Violation } from '@arrowz/engine'
+import { type ParamGroup, type ParamKey, PARAM_SPEC, type Violation } from '@fronthub/arrowz-engine'
 
 const groupByKey = new Map<ParamKey, ParamGroup>(PARAM_SPEC.map((s) => [s.key, s.group]))
 

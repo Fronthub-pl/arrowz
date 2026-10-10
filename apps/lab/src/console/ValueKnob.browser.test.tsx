@@ -1,5 +1,5 @@
-import { PARAM_SPEC } from '@arrowz/engine'
-import { dictionary } from '@arrowz/engine/i18n'
+import { PARAM_SPEC } from '@fronthub/arrowz-engine'
+import { dictionary } from '@fronthub/arrowz-engine/i18n'
 import { act } from 'react'
 import { expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'

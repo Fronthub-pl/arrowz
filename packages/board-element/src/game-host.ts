@@ -5,8 +5,8 @@
 //
 // Not a Lit ReactiveController: nothing here needs a render pass, and a plain
 // class with an injected target is what makes the Node tests possible.
-import { goneIds, loadSession, newSession, play, saveSession } from '@arrowz/engine'
-import type { BoardData, Session, SessionSnapshot } from '@arrowz/engine'
+import { goneIds, loadSession, newSession, play, saveSession } from '@fronthub/arrowz-engine'
+import type { BoardData, Session, SessionSnapshot } from '@fronthub/arrowz-engine'
 
 export type GameEvent =
   | { type: 'piece-removed'; detail: { pieceId: number; left: number } }

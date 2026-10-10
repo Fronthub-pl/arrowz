@@ -1,4 +1,4 @@
-import { reportDelta, reportRows, type StatKey, type StatRow } from '@arrowz/engine/report'
+import { reportDelta, reportRows, type StatKey, type StatRow } from '@fronthub/arrowz-engine/report'
 import { Fragment, type ReactElement, useId } from 'react'
 import { useKnobHelp } from '../console/KnobRow'
 import { useDictionary } from '../i18n'

@@ -1,5 +1,5 @@
 {
-  "name": "@arrowz/lab",
+  "name": "@fronthub/arrowz-lab",
   "version": "1.0.0-alpha.1",
   "private": true,
   "type": "module",
@@ -14,10 +14,10 @@
     "fmt": "prettier --check ."
   },
   "dependencies": {
-    "@arrowz/board-element": "workspace:*",
-    "@arrowz/engine": "workspace:*",
     "@fontsource-variable/archivo": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fronthub/arrowz-board": "workspace:*",
+    "@fronthub/arrowz-engine": "workspace:*",
     "@lit/react": "^1.0.8",
     "mdast-util-directive": "^3.1.1",
     "mdast-util-from-markdown": "^2.1.0",

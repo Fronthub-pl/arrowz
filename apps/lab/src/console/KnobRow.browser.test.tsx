@@ -1,4 +1,4 @@
-import { PARAM_SPEC } from '@arrowz/engine'
+import { PARAM_SPEC } from '@fronthub/arrowz-engine'
 import { describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'

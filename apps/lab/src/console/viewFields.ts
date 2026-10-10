@@ -1,5 +1,5 @@
-import { autoHeadWidth, type ViewNumber } from '@arrowz/engine'
-import type { Dictionary, UiKey } from '@arrowz/engine/i18n'
+import { autoHeadWidth, type ViewNumber } from '@fronthub/arrowz-engine'
+import type { Dictionary, UiKey } from '@fronthub/arrowz-engine/i18n'
 import type { ViewFlag } from '../state/view.slice'
 import type { UnitKey } from './knobLayout'
 

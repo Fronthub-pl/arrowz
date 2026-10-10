@@ -20,7 +20,7 @@ import {
   RULE_REASONS,
   toSvg,
   validateParams,
-} from '@arrowz/engine'
+} from '@fronthub/arrowz-engine'
 import {
   buildCommand,
   COMMAND_PREFIX,
@@ -28,9 +28,9 @@ import {
   flagViolation,
   splitCommand,
   svgOptions,
-} from '@arrowz/engine/command'
-import { defaultChoice, exportCell, simpleParams, simpleRanges } from '@arrowz/engine/simple'
-import type { BoardMeta, ParamKey, Params, SimpleChoice, View } from '@arrowz/engine'
+} from '@fronthub/arrowz-engine/command'
+import { defaultChoice, exportCell, simpleParams, simpleRanges } from '@fronthub/arrowz-engine/simple'
+import type { BoardMeta, ParamKey, Params, SimpleChoice, View } from '@fronthub/arrowz-engine'
 
 const here = dirname(fromFileUrl(import.meta.url))
 const carve = join(here, 'carve.ts')

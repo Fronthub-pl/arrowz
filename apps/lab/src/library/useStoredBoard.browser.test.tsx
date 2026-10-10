@@ -1,4 +1,4 @@
-import { type BoardMeta, decodeBoard, encodeBoard } from '@arrowz/engine'
+import { type BoardMeta, decodeBoard, encodeBoard } from '@fronthub/arrowz-engine'
 import { type ReactNode, useEffect } from 'react'
 import { expect, test, vi, beforeEach, afterEach } from 'vitest'
 import { render, renderHook } from 'vitest-browser-react'

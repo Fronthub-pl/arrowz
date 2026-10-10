@@ -8,8 +8,8 @@
 // makes that measure free of any segment arithmetic.
 //
 // Knows no DOM, so it is tested in Node, like viewport.ts.
-import { DIRS } from '@arrowz/engine'
-import type { Cell } from '@arrowz/engine'
+import { DIRS } from '@fronthub/arrowz-engine'
+import type { Cell } from '@fronthub/arrowz-engine'
 
 /** How many cells a leaving piece covers per second. */
 export const EXIT_SPEED = 32

@@ -1,4 +1,4 @@
-import { PARAM_SPEC } from '@arrowz/engine'
+import { PARAM_SPEC } from '@fronthub/arrowz-engine'
 import { afterEach, describe, expect, it, test, vi } from 'vitest'
 import { createUiSlice, modeOf, RAIL_GROUPS, type UiState } from './ui.slice'
 import { useStore } from './store'

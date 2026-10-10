@@ -1,4 +1,4 @@
-import { THEMES } from '@arrowz/engine'
+import { THEMES } from '@fronthub/arrowz-engine'
 import { act } from 'react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'

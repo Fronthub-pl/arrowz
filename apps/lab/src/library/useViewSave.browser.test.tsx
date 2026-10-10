@@ -1,4 +1,4 @@
-import { decodeBoard, type View } from '@arrowz/engine'
+import { decodeBoard, type View } from '@fronthub/arrowz-engine'
 import { act, useState, type ReactNode } from 'react'
 import { MemoryRouter } from 'react-router'
 import { userEvent } from 'vitest/browser'

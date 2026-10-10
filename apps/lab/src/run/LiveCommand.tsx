@@ -1,4 +1,4 @@
-import { buildCommand } from '@arrowz/engine/command'
+import { buildCommand } from '@fronthub/arrowz-engine/command'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'

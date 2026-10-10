@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { defaultParams, generate } from '@arrowz/engine'
+import { defaultParams, generate } from '@fronthub/arrowz-engine'
 import './mod.ts'
 import type { ArrowzBoard } from './mod.ts'
 import type { GlLayer } from './gl-layer.ts'

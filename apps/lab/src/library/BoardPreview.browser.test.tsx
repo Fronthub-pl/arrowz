@@ -1,5 +1,5 @@
-import { decodeBoard } from '@arrowz/engine'
-import { VIEW_RANGE } from '@arrowz/engine/command'
+import { decodeBoard } from '@fronthub/arrowz-engine'
+import { VIEW_RANGE } from '@fronthub/arrowz-engine/command'
 import { act } from 'react'
 import { userEvent } from 'vitest/browser'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'

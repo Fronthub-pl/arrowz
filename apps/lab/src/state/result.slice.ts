@@ -1,5 +1,5 @@
-import type { BoardData, BoardFile, BoardMeta, Params, View } from '@arrowz/engine'
-import type { ReportInput } from '@arrowz/engine/report'
+import type { BoardData, BoardFile, BoardMeta, Params, View } from '@fronthub/arrowz-engine'
+import type { ReportInput } from '@fronthub/arrowz-engine/report'
 import type { SaveOutcome } from '../api/boards'
 import type { SliceSet } from './slice'
 

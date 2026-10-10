@@ -1,5 +1,5 @@
-import { type BoardData, longestSummary } from '@arrowz/engine'
-import { pct } from '@arrowz/engine/report'
+import { type BoardData, longestSummary } from '@fronthub/arrowz-engine'
+import { pct } from '@fronthub/arrowz-engine/report'
 import { type ReactElement, useMemo } from 'react'
 import { useKnobHelp } from '../console/KnobRow'
 import { useDictionary } from '../i18n'

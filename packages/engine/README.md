@@ -1,4 +1,4 @@
-# @arrowz/engine
+# @fronthub/arrowz-engine
 
 The Arrowz board generator and everything that surrounds it: the parameter
 table and its safe envelope, the board file, the game rules, the SVG export,
@@ -21,12 +21,12 @@ measurements behind the numbers are in [HISTORY.md](HISTORY.md).
 
 ## Usage
 
-Inside this repository Deno resolves `@arrowz/engine` through the workspace.
+Inside this repository Deno resolves `@fronthub/arrowz-engine` through the workspace.
 A Node project gets the compiled package from `dist/`, which
 `pnpm nx build engine` emits; it never imports the `.ts` sources.
 
 ```ts
-import { encodeBoard, generate, newSession, play, presetParams, toSvg } from '@arrowz/engine'
+import { encodeBoard, generate, newSession, play, presetParams, toSvg } from '@fronthub/arrowz-engine'
 
 // The recommended entry point: a board in the CLI's vocabulary.
 const params = presetParams({ W: 40, H: 40, seed: 7, length: 0.5 })
@@ -73,14 +73,14 @@ board off as a good one.
 
 | Entry | Source | What it is for |
 |---|---|---|
-| `@arrowz/engine` | `mod.ts` | The generator, the parameter table, the board file, the game, the look and the SVG export. |
-| `@arrowz/engine/command` | `command.ts` | The command line: parsing argv, writing a command back, the knob and rule tables `--help` prints. |
-| `@arrowz/engine/simple` | `lab-simple.ts` | The everyday choice (size, lengths, winding, skeleton) and the parameters drawn from it. |
-| `@arrowz/engine/presets` | `lab-presets.ts` | The lab's preset boards, by difficulty. |
-| `@arrowz/engine/i18n` | `lab-i18n.ts` | The lab's dictionaries, English and Polish. |
-| `@arrowz/engine/report` | `lab-report.ts` | The run report: the statistics table, its deltas and the summary of a seed series. |
-| `@arrowz/engine/docs` | `lab-docs.ts` | The board element's documentation tables, as the lab renders them. |
-| `@arrowz/engine/comment-lines` | `comment-lines.ts` | Comment lines of a TypeScript or CSS source, for the repository's comment guards. |
+| `@fronthub/arrowz-engine` | `mod.ts` | The generator, the parameter table, the board file, the game, the look and the SVG export. |
+| `@fronthub/arrowz-engine/command` | `command.ts` | The command line: parsing argv, writing a command back, the knob and rule tables `--help` prints. |
+| `@fronthub/arrowz-engine/simple` | `lab-simple.ts` | The everyday choice (size, lengths, winding, skeleton) and the parameters drawn from it. |
+| `@fronthub/arrowz-engine/presets` | `lab-presets.ts` | The lab's preset boards, by difficulty. |
+| `@fronthub/arrowz-engine/i18n` | `lab-i18n.ts` | The lab's dictionaries, English and Polish. |
+| `@fronthub/arrowz-engine/report` | `lab-report.ts` | The run report: the statistics table, its deltas and the summary of a seed series. |
+| `@fronthub/arrowz-engine/docs` | `lab-docs.ts` | The board element's documentation tables, as the lab renders them. |
+| `@fronthub/arrowz-engine/comment-lines` | `comment-lines.ts` | Comment lines of a TypeScript or CSS source, for the repository's comment guards. |
 
 `deno.json` and `package.json` export the same entry points, the second from
 `dist/`.
@@ -91,7 +91,7 @@ Each entry point has a table per kind: functions, classes, constants and
 types. A signature or a shape is written as TypeScript; a constant is spelled
 out when it fits in a line and described when it does not.
 
-### `@arrowz/engine`
+### `@fronthub/arrowz-engine`
 
 | Function | Signature | Behaviour |
 |---|---|---|
@@ -206,7 +206,7 @@ out when it fits in a line and described when it does not.
 | `WorkerIn` | `{ type: 'generate'; params: Params; stop?: Int32Array } \| { type: 'svg'; board: BoardFile; options: SvgOptions } \| { type: 'seed'; params: Params; stop?: Int32Array }` | A message to the lab's generator worker: carve a board, draw an SVG, or run one seed of a series. `stop` is a shared flag that asks the run to stop. |
 | `WorkerOut` | `{ type: 'progress'; info: TraceInfo } \| { type: 'error'; message: string } \| { type: 'svg'; svg: string } \| { type: 'done'; ok: boolean; metrics: Metrics \| null; backtracks: number; restartsUsed: number; genMs: number; metricsMs: number; totalMs: number; stuck: Stuck \| null; deadlock: boolean; aborted: boolean; pieces: number; stats: CarverStats; board: BoardFile } \| { type: 'seedDone'; run: SeedRun }` | A message from the worker: progress, an error, a drawn SVG, a finished board as its file, or a finished seed. |
 
-### `@arrowz/engine/command`
+### `@fronthub/arrowz-engine/command`
 
 | Function | Signature | Behaviour |
 |---|---|---|
@@ -254,7 +254,7 @@ out when it fits in a line and described when it does not.
 | `RetiredWhy` | `'oneMode' \| 'boardAlways' \| 'spacingFixed'` | Which explanation a retired flag's replacement carries, for a translation. |
 | `StartChoice` | `keyof typeof START.words \| 'mixing'` | How a surface names the start: a word of `START`, or `mixing`. |
 
-### `@arrowz/engine/simple`
+### `@fronthub/arrowz-engine/simple`
 
 | Function | Signature | Behaviour |
 |---|---|---|
@@ -262,7 +262,7 @@ out when it fits in a line and described when it does not.
 | `drawParams` | `(choice: SimpleChoice, rng?: (() => number) \| null, pins?: Partial<Record<ParamKey, number>>) => { params: Params; moved: Move[] }` | `simpleParams`, plus the values the draw had to move to keep a rule. |
 | `exportCell` | `(W: number, H: number) => number` | The cell size of an exported SVG: 1600 px on the longer side, between 1 and 18 px. |
 | `normalizeChoice` | `(raw: unknown) => SimpleChoice` | A choice with every field valid: old names become slider positions, numbers are clamped, anything else is the default. |
-| `presetParams` | `({ W, H, seed, length, winding, skeleton, rng }: { W: number; H: number; seed?: number; length?: number; winding?: number; skeleton?: boolean; rng?: () => number }) => Params` | The same function as in `@arrowz/engine`. |
+| `presetParams` | `({ W, H, seed, length, winding, skeleton, rng }: { W: number; H: number; seed?: number; length?: number; winding?: number; skeleton?: boolean; rng?: () => number }) => Params` | The same function as in `@fronthub/arrowz-engine`. |
 | `recipeOf` | `(raw: unknown) => Recipe` | The stored recipe of a choice: normalised, without its seed, with `random` settled. |
 | `simpleParams` | `(choice: SimpleChoice, rng?: (() => number) \| null, pins?: Partial<Record<ParamKey, number>>) => Params` | The parameter set a choice draws, with `pins` written over it; without `rng` each knob takes the middle of its range. |
 | `simpleRanges` | `(choice: SimpleChoice) => Partial<Record<ParamKey, Range>>` | The ranges a choice's sliders give each knob they control. |
@@ -276,11 +276,11 @@ out when it fits in a line and described when it does not.
 
 | Type | Shape | Meaning |
 |---|---|---|
-| `Move` | `{ key: ParamKey; from: number; to: number; rule: RuleKey }` | A value the draw moved to keep a rule, and which rule. Not the game's `Move` of `@arrowz/engine`. |
-| `Recipe` | `Omit<SimpleChoice, 'seed' \| 'random'> & { random: boolean }` | A stored choice: without its seed, which lives in the knobs, and with `random` settled. Not the store's `Recipe` of `@arrowz/engine`. |
+| `Move` | `{ key: ParamKey; from: number; to: number; rule: RuleKey }` | A value the draw moved to keep a rule, and which rule. Not the game's `Move` of `@fronthub/arrowz-engine`. |
+| `Recipe` | `Omit<SimpleChoice, 'seed' \| 'random'> & { random: boolean }` | A stored choice: without its seed, which lives in the knobs, and with `random` settled. Not the store's `Recipe` of `@fronthub/arrowz-engine`. |
 | `Size` | `{ id: string; W: number; H: number }` | A preset size and the id the lab shows for it, such as `'25x25'`. |
 
-### `@arrowz/engine/presets`
+### `@fronthub/arrowz-engine/presets`
 
 | Function | Signature | Behaviour |
 |---|---|---|
@@ -290,7 +290,7 @@ out when it fits in a line and described when it does not.
 |---|---|---|
 | `PRESETS` | 7 `PresetLevel`s, from easy to insane | The lab's preset boards by difficulty, three or four per level. |
 
-### `@arrowz/engine/i18n`
+### `@fronthub/arrowz-engine/i18n`
 
 | Function | Signature | Behaviour |
 |---|---|---|
@@ -313,7 +313,7 @@ out when it fits in a line and described when it does not.
 | `UiKey` | `keyof Dictionary['ui']` | The key of a UI string. |
 | `Widen` | `<T> T extends string ? string : T extends (...args: infer A) => string ? (...args: A) => string : { [K in keyof T]: Widen<T[K]> }` | A string leaf stays a string; a function leaf keeps its exact parameters. |
 
-### `@arrowz/engine/report`
+### `@fronthub/arrowz-engine/report`
 
 | Function | Signature | Behaviour |
 |---|---|---|
@@ -336,7 +336,7 @@ out when it fits in a line and described when it does not.
 | `StatKey` | `(typeof STAT_KEYS)[number]` | What a row is, in any language: a surface picks rows by it rather than by position. |
 | `StatRow` | `{ readonly kind: 'row' \| 'separator'; readonly key: StatKey \| null; readonly label: string; readonly value: string; readonly help: string; readonly num: number \| undefined }` | One row of the statistics table, or a separator between groups; `num` is the number compared with the previous run. |
 
-### `@arrowz/engine/docs`
+### `@fronthub/arrowz-engine/docs`
 
 | Function | Signature | Behaviour |
 |---|---|---|
@@ -365,7 +365,7 @@ out when it fits in a line and described when it does not.
 | `Docs` | `{ readonly props: Record<PropKey, string>; readonly members: Record<MemberKey, string>; readonly events: Record<EventKey, string>; readonly slots: Record<SlotKey, string>; readonly keys: Record<LabKey, string>; readonly palette: Record<PaletteId, string>; readonly linkFields: Record<LinkField, string>; readonly env: Record<EnvVar, string>; readonly types: Record<TypeKey, string>; readonly functions: Record<FunctionKey, string>; readonly constants: Record<ConstantKey, string>; readonly classes: Record<ClassKey, string>; readonly boardFile: Record<BoardFileField, string>; readonly colProp: string; readonly colType: string; readonly colAttr: string; readonly colDefault: string; readonly colMember: string; readonly colSignature: string; readonly colEvent: string; readonly colSlot: string; readonly colKey: string; readonly colCommand: string; readonly colSection: string; readonly colField: string; readonly colGroup: string; readonly colFlag: string; readonly colRange: string; readonly colStep: string; readonly colFlags: string; readonly colVariable: string; readonly colDetail: string; readonly colFrom: string; readonly colShape: string; readonly colFunction: string; readonly colConstant: string; readonly colValue: string; readonly colClass: string; readonly colCreate: string; readonly colMembers: string; readonly colTheme: string; readonly colColours: string; readonly colSource: string; readonly colLicence: string; readonly colDescription: string; readonly infoLabel: string; readonly frameworkLabel: string }` | What the Docs tab's reference tables need in one language: a description per row, the column names, the name of a page's note and of its framework tabs. |
 | `EventKey` | `(typeof ELEMENT_EVENTS)[number]['key']` | The name of an event row. |
 | `EventRow` | `{ readonly key: string; readonly detail: string }` | One event and the type of its detail. |
-| `ExportSource` | `'@arrowz/board-element' \| '@arrowz/engine'` | The package an exported type is declared in. |
+| `ExportSource` | `'@fronthub/arrowz-board' \| '@fronthub/arrowz-engine'` | The package an exported type is declared in. |
 | `FieldRow` | `{ readonly key: keyof BoardFile; readonly type: string }` | One field of the board file and its type. |
 | `FunctionKey` | `(typeof ELEMENT_FUNCTIONS)[number]['key']` | The name of a function row. |
 | `FunctionRow` | `{ readonly key: string; readonly signature: string }` | One exported function and its signature. |
@@ -381,7 +381,7 @@ out when it fits in a line and described when it does not.
 | `TypeKey` | `(typeof ELEMENT_TYPES)[number]['key']` | The name of a type row. |
 | `TypeRow` | `{ readonly key: string; readonly from: ExportSource; readonly shape: string }` | One exported type: its package, and its fields or members. |
 
-### `@arrowz/engine/comment-lines`
+### `@fronthub/arrowz-engine/comment-lines`
 
 | Function | Signature | Behaviour |
 |---|---|---|

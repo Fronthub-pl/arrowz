@@ -1,4 +1,4 @@
-import { defaultParams, validateParams, type Violation } from '@arrowz/engine'
+import { defaultParams, validateParams, type Violation } from '@fronthub/arrowz-engine'
 import { expect, test } from 'vitest'
 import { countsByGroup } from './violationCounts'
 

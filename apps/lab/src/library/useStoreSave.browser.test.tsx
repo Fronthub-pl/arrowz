@@ -1,4 +1,4 @@
-import type { StoreRequest } from '@arrowz/engine'
+import type { StoreRequest } from '@fronthub/arrowz-engine'
 import { act } from 'react'
 import { afterEach, beforeEach, expect, type MockInstance, test, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'

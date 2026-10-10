@@ -1,4 +1,4 @@
-import { exportCell, simpleParams } from '@arrowz/engine/simple'
+import { exportCell, simpleParams } from '@fronthub/arrowz-engine/simple'
 import { useStore } from '../state/store'
 
 /**

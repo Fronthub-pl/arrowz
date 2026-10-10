@@ -1,10 +1,10 @@
 import { assert, assertEquals, assertMatch } from '@std/assert'
 import { dirname } from '@std/path'
-import { defaultParams, encodeBoard, THEMES } from '@arrowz/engine'
-import { COMMAND_PREFIX, DEFAULT_VIEW } from '@arrowz/engine/command'
+import { defaultParams, encodeBoard, THEMES } from '@fronthub/arrowz-engine'
+import { COMMAND_PREFIX, DEFAULT_VIEW } from '@fronthub/arrowz-engine/command'
 import { API_CSP, createStoreServer, MAX_BODY, STORE_CSP } from './store-server.ts'
 import { saveBoard } from './store.ts'
-import type { BoardMeta, BoardSize } from '@arrowz/engine'
+import type { BoardMeta, BoardSize } from '@fronthub/arrowz-engine'
 
 /** One server per test on a fresh, empty store; shut down before the sanitizers look. */
 async function withServer(fn: (base: string) => Promise<void>) {

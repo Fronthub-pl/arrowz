@@ -1,4 +1,4 @@
-import type { Lang } from '@arrowz/engine/i18n'
+import type { Lang } from '@fronthub/arrowz-engine/i18n'
 import { useEffect, useMemo, useRef } from 'react'
 import { useLocation } from 'react-router'
 import type { RunControl } from '../run/useRun'

@@ -1,4 +1,4 @@
-import type { BoardMeta, BoardSize, StoreRequest } from '@arrowz/engine'
+import type { BoardMeta, BoardSize, StoreRequest } from '@fronthub/arrowz-engine'
 
 export type SaveOutcome =
   | { ok: true; meta: BoardMeta; layoutExisted: boolean; recipeExisted: boolean }

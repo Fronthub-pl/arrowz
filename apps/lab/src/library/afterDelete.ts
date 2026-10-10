@@ -1,4 +1,4 @@
-import type { BoardSize } from '@arrowz/engine'
+import type { BoardSize } from '@fronthub/arrowz-engine'
 
 /**
  * Where a delete lands, read off the listing as it stood before the delete: the

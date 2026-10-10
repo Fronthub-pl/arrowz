@@ -1,7 +1,7 @@
 import { act } from 'react'
 import { beforeEach, expect, test } from 'vitest'
 import { contrast, shown } from '../design/contrast'
-import { decodeBoard, fingerprint } from '@arrowz/engine'
+import { decodeBoard, fingerprint } from '@fronthub/arrowz-engine'
 import { renderAt } from '../harness/renderAt'
 import { storedFixture } from '../state/library.fixtures'
 import { finish, finishedRun, stoppedRun } from '../state/result.fixtures'

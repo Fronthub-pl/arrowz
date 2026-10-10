@@ -71,8 +71,8 @@ export function snippet(state: SnippetState): string {
   const lines = [
     tag(state.attrs),
     '<script type="module">',
-    "  import '@arrowz/board-element'",
-    "  import { defaultParams, generate } from '@arrowz/engine'",
+    "  import '@fronthub/arrowz-board'",
+    "  import { defaultParams, generate } from '@fronthub/arrowz-engine'",
     "  const el = document.querySelector('arrowz-board')",
   ]
   const board = state.board

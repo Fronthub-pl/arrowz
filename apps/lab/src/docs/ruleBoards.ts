@@ -4,7 +4,7 @@
  * empty. An empty cell (-1) blocks nothing (`scan` in the engine's
  * `game.ts`), so an arrow's fate depends only on the arrows drawn.
  */
-import type { BoardData, Piece } from '@arrowz/engine'
+import type { BoardData, Piece } from '@fronthub/arrowz-engine'
 
 export const RULE_BOARD_NAMES = ['rule-free', 'rule-blocked', 'rule-shape'] as const
 

@@ -1,4 +1,4 @@
-import type { BoardFile } from '@arrowz/engine'
+import type { BoardFile } from '@fronthub/arrowz-engine'
 import type { ReactElement } from 'react'
 import { useKnobHelp } from '../console/KnobRow'
 import { useDictionary } from '../i18n'

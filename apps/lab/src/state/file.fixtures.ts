@@ -1,5 +1,5 @@
-import { type BoardMeta, defaultParams, encodeBoard, generate, layoutHash } from '@arrowz/engine'
-import { DEFAULT_VIEW } from '@arrowz/engine/command'
+import { type BoardMeta, defaultParams, encodeBoard, generate, layoutHash } from '@fronthub/arrowz-engine'
+import { DEFAULT_VIEW } from '@fronthub/arrowz-engine/command'
 
 /** A board file and its meta as a person would pick them from a store folder: a real carve, a real layout hash. */
 export async function fileFixture(

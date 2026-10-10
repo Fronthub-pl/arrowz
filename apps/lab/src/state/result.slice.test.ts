@@ -1,5 +1,5 @@
 import { beforeEach, expect, test } from 'vitest'
-import { decodeBoard } from '@arrowz/engine'
+import { decodeBoard } from '@fronthub/arrowz-engine'
 import { finish, finishedRun, stoppedRun } from './result.fixtures'
 import { storedFixture } from './library.fixtures'
 import { useStore } from './store'

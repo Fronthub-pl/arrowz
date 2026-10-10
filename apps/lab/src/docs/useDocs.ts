@@ -1,4 +1,4 @@
-import { type Docs, docsFor } from '@arrowz/engine/docs'
+import { type Docs, docsFor } from '@fronthub/arrowz-engine/docs'
 import { useStore } from '../state/store'
 
 /**

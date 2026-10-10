@@ -1,4 +1,4 @@
-import { type Dict, dictionary, type Lang } from '@arrowz/engine/i18n'
+import { type Dict, dictionary, type Lang } from '@fronthub/arrowz-engine/i18n'
 import { useStore } from './state/store'
 
 /**

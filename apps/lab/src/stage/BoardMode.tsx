@@ -4,9 +4,9 @@ import type {
   LifeLostEvent,
   PieceClickEvent,
   PieceRemovedEvent,
-} from '@arrowz/board-element'
-import { type BoardData, newSession, play, type Session } from '@arrowz/engine'
-import type { Dict } from '@arrowz/engine/i18n'
+} from '@fronthub/arrowz-board'
+import { type BoardData, newSession, play, type Session } from '@fronthub/arrowz-engine'
+import type { Dict } from '@fronthub/arrowz-engine/i18n'
 import { type ReactElement, type RefObject, useMemo, useState } from 'react'
 import { useDictionary } from '../i18n'
 import { Segmented } from '../shell/Segmented'
@@ -14,7 +14,7 @@ import { useStore } from '../state/store'
 import type { BoardMode } from '../state/ui.slice'
 import { pieceFacts } from './pieceFacts'
 
-/** The engine's `DIRS` glyphs, which `@arrowz/engine` does not export; indexed by `Piece.dir`. */
+/** The engine's `DIRS` glyphs, which `@fronthub/arrowz-engine` does not export; indexed by `Piece.dir`. */
 const GLYPHS = ['↑', '→', '↓', '←'] as const
 const DIR_WORDS = ['dirUp', 'dirRight', 'dirDown', 'dirLeft'] as const
 

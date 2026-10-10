@@ -1,5 +1,5 @@
-import { defaultParams, generate, pieceShape, voidStrips } from '@arrowz/engine'
-import type { Board, Cell, Piece } from '@arrowz/engine'
+import { defaultParams, generate, pieceShape, voidStrips } from '@fronthub/arrowz-engine'
+import type { Board, Cell, Piece } from '@fronthub/arrowz-engine'
 import { afterEach, beforeEach, expect, test } from 'vitest'
 import { GlLayer } from './gl-layer.ts'
 import { MIN_CORNER_PX } from './gl-passes.ts'

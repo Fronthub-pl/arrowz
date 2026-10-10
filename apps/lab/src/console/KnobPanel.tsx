@@ -1,4 +1,4 @@
-import { type ParamGroup, type ParamKey, PARAM_SPEC } from '@arrowz/engine'
+import { type ParamGroup, type ParamKey, PARAM_SPEC } from '@fronthub/arrowz-engine'
 import type { ReactElement } from 'react'
 import { useDictionary } from '../i18n'
 import { specOf } from '../state/params.slice'

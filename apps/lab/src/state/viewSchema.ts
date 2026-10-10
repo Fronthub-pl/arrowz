@@ -5,9 +5,9 @@ import {
   PAD_RANGE,
   POINT_RADIUS_RANGE,
   themeOf,
-} from '@arrowz/board-element'
-import { isHexColour, PALETTE_CAP, type ViewNumber } from '@arrowz/engine'
-import { DEFAULT_VIEW, viewNumberOf } from '@arrowz/engine/command'
+} from '@fronthub/arrowz-board'
+import { isHexColour, PALETTE_CAP, type ViewNumber } from '@fronthub/arrowz-engine'
+import { DEFAULT_VIEW, viewNumberOf } from '@fronthub/arrowz-engine/command'
 
 /**
  * The lab's view: the one list of its fields. `VIEW_SCHEMA` is typed over it,
@@ -53,7 +53,7 @@ export interface ViewFields {
 export type ViewKey = keyof ViewFields
 
 /** The engine's cap, shared with the CLI and the store. */
-export { PALETTE_CAP } from '@arrowz/engine'
+export { PALETTE_CAP } from '@fronthub/arrowz-engine'
 
 interface FieldSpec<T> {
   def: T

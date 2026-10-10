@@ -1,4 +1,4 @@
-import type { BoardSize } from '@arrowz/engine'
+import type { BoardSize } from '@fronthub/arrowz-engine'
 import type { OpenProblem } from '../library/readBoardFiles'
 import { patcher, type SliceSet } from './slice'
 

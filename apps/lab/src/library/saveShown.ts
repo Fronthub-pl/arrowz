@@ -1,5 +1,5 @@
-import { storeRequest } from '@arrowz/engine/command'
-import { exportCell } from '@arrowz/engine/simple'
+import { storeRequest } from '@fronthub/arrowz-engine/command'
+import { exportCell } from '@fronthub/arrowz-engine/simple'
 import { saveBoard } from '../api/boards'
 import type { ShownResult } from '../state/result.slice'
 import { type Store, useStore } from '../state/store'

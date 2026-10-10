@@ -15,9 +15,9 @@
 ## Packages
 
 - The engine and the CLI are TypeScript on Deno 2.9 in `packages/engine`
-  (`@arrowz/engine`) and `packages/cli`: `deno task test` must pass after
-  every change, and `deno task verify` (check, lint, fmt, test) before a PR.
-  The whole repository, Node projects included, is verified with
+  (`@fronthub/arrowz-engine`) and `packages/cli`: `deno task test` must pass
+  after every change, and `deno task verify` (check, lint, fmt, test) before a
+  PR. The whole repository, Node projects included, is verified with
   `pnpm nx run-many -t verify`; pnpm comes from its standalone installer
   (CONTRIBUTING.md), not Corepack.
 - The engine (`packages/engine/engine.ts`) knows neither Deno nor the DOM, and

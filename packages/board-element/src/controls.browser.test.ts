@@ -1,4 +1,4 @@
-import { defaultParams, generate } from '@arrowz/engine'
+import { defaultParams, generate } from '@fronthub/arrowz-engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { cdp, userEvent } from 'vitest/browser'
 import { type ArrowzBoard, DEFAULT_PAD, GESTURE_STORAGE_KEY, ZOOM_STEP } from './arrowz-board.ts'

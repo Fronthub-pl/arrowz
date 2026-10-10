@@ -1,5 +1,5 @@
-import { decodeBoard } from '@arrowz/engine'
-import type { BoardData, Params, WorkerIn, WorkerOut } from '@arrowz/engine'
+import { decodeBoard } from '@fronthub/arrowz-engine'
+import type { BoardData, Params, WorkerIn, WorkerOut } from '@fronthub/arrowz-engine'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { RunIntent } from '../state/run.slice'
 import { useStore } from '../state/store'

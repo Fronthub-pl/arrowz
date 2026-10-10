@@ -1,4 +1,4 @@
-import { defaultParams } from '@arrowz/engine'
+import { defaultParams } from '@fronthub/arrowz-engine'
 import { afterEach, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'

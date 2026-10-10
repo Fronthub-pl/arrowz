@@ -1,9 +1,9 @@
 import { assert, assertEquals, assertMatch, assertNotEquals, assertRejects, assertThrows } from '@std/assert'
 import { join } from '@std/path'
-import { decodeBoard, defaultParams, encodeBoard, layoutHash } from '@arrowz/engine'
-import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW } from '@arrowz/engine/command'
+import { decodeBoard, defaultParams, encodeBoard, layoutHash } from '@fronthub/arrowz-engine'
+import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW } from '@fronthub/arrowz-engine/command'
 import { deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
-import type { BoardFile, BoardMeta, ParamKey } from '@arrowz/engine'
+import type { BoardFile, BoardMeta, ParamKey } from '@fronthub/arrowz-engine'
 
 /** A fresh, empty store for one test: the store reads ARROWZ_BOARDS_DIR at call time. */
 function freshDir(): string {

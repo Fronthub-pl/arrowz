@@ -1,4 +1,4 @@
-// Public surface of @arrowz/board-element. Importing this module registers
+// Public surface of @fronthub/arrowz-board. Importing this module registers
 // <arrowz-board>; the types make the tag and its events known to TypeScript.
 import type {
   ArrowzBoard,
@@ -36,12 +36,12 @@ export type {
 export type { GestureMode } from './gestures.ts'
 export { GameHost, MIN_SHAKE_CELLS } from './game-host.ts'
 export type { GameEvent, GameTarget } from './game-host.ts'
-export type { BoardData, Session, SessionSnapshot } from '@arrowz/engine'
+export type { BoardData, Session, SessionSnapshot } from '@fronthub/arrowz-engine'
 export { boardViewOf, DEFAULT_VIEW, hueBytes, hueDegrees, hueOf, SHAKE_MS } from './view.ts'
 export type { BoardView } from './view.ts'
 export { resolveColours, themeOf, THEMES } from './themes.ts'
 export type { BoardColours, BoardTheme } from './themes.ts'
-export { assignPalette } from '@arrowz/engine'
+export { assignPalette } from '@fronthub/arrowz-engine'
 export { BOARD_LABELS, labelsFor } from './i18n.ts'
 export type { BoardLabels, BoardLang } from './i18n.ts'
 export { EXIT_MAX_MS, EXIT_MIN_MS, EXIT_SPEED } from './track.ts'

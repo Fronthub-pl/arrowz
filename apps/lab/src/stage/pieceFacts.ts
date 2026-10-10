@@ -1,4 +1,4 @@
-import { play, type Session } from '@arrowz/engine'
+import { play, type Session } from '@fronthub/arrowz-engine'
 
 /** What the inspect card says about one piece. `dir`: 0 up, 1 right, 2 down, 3 left. */
 export interface PieceFacts {

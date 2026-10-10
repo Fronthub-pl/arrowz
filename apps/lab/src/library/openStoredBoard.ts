@@ -1,4 +1,4 @@
-import { type BoardSize, decodeBoardFile } from '@arrowz/engine'
+import { type BoardSize, decodeBoardFile } from '@fronthub/arrowz-engine'
 import { type FileOutcome, readStoredBoard } from '../api/boards'
 import { useStore } from '../state/store'
 

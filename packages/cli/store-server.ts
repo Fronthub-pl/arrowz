@@ -21,9 +21,9 @@ import {
   themeOf,
   THEMES,
   validateParams,
-} from '@arrowz/engine'
-import type { Params, View, ViewNumber } from '@arrowz/engine'
-import { DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
+} from '@fronthub/arrowz-engine'
+import type { Params, View, ViewNumber } from '@fronthub/arrowz-engine'
+import { DEFAULT_VIEW, VIEW_RANGE } from '@fronthub/arrowz-engine/command'
 import { boardsDir, deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
 
 /** The largest POST body read. The lab posts no SVG, and a 1000×1000 board file is about a megabyte. */

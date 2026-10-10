@@ -118,18 +118,18 @@ importers:
 
   apps/lab:
     dependencies:
-      '@arrowz/board-element':
-        specifier: workspace:*
-        version: link:../../packages/board-element
-      '@arrowz/engine':
-        specifier: workspace:*
-        version: link:../../packages/engine
       '@fontsource-variable/archivo':
         specifier: ^5.3.0
         version: 5.3.0
       '@fontsource-variable/jetbrains-mono':
         specifier: ^5.3.0
         version: 5.3.0
+      '@fronthub/arrowz-board':
+        specifier: workspace:*
+        version: link:../../packages/board-element
+      '@fronthub/arrowz-engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       '@lit/react':
         specifier: ^1.0.8
         version: 1.0.8(@types/react@19.3.0)
@@ -218,7 +218,7 @@ importers:
 
   packages/board-element:
     dependencies:
-      '@arrowz/engine':
+      '@fronthub/arrowz-engine':
         specifier: workspace:*
         version: link:../engine
       lit:

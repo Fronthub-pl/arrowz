@@ -110,9 +110,10 @@ interface DocJson {
   nodes: Record<string, { symbols: DocSymbol[] }>
 }
 
-/** The entry points, keyed by the specifier a consumer imports: `.` is `@arrowz/engine`. */
+/** The entry points, keyed by the specifier a consumer imports: `.` is `@fronthub/arrowz-engine`. */
 const denoExports = (readJson('deno.json') as { exports: Record<string, string> }).exports
-const specifierOf = (key: string): string => key === '.' ? '@arrowz/engine' : `@arrowz/engine${key.slice(1)}`
+const specifierOf = (key: string): string =>
+  key === '.' ? '@fronthub/arrowz-engine' : `@fronthub/arrowz-engine${key.slice(1)}`
 const ENTRIES = Object.entries(denoExports).map(([key, path]) => ({
   key,
   specifier: specifierOf(key),
@@ -433,7 +434,7 @@ for (const entry of ENTRIES) {
 Deno.test("the Docs tab's board-file table is BoardFile's fields, in order, with their types", () => {
   const symbol = symbolsOf('mod.ts').find((s) => s.name === 'BoardFile')
   const decl = symbol === undefined ? undefined : only(symbol)
-  if (decl?.kind !== 'interface') throw new Error('@arrowz/engine exports no interface BoardFile')
+  if (decl?.kind !== 'interface') throw new Error('@fronthub/arrowz-engine exports no interface BoardFile')
   const declared = (decl.def.properties ?? []).map((p) =>
     `${p.name}: ${p.tsType === undefined ? '' : render(p.tsType)}`
   )

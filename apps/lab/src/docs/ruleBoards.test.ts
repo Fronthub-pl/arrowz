@@ -1,5 +1,5 @@
-import { newSession, play } from '@arrowz/engine'
-import type { BoardData } from '@arrowz/engine'
+import { newSession, play } from '@fronthub/arrowz-engine'
+import type { BoardData } from '@fronthub/arrowz-engine'
 import { describe, expect, test } from 'vitest'
 import { isRuleBoard, RULE_BOARD_NAMES, RULE_BOARDS } from './ruleBoards'
 

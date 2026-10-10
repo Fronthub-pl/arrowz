@@ -1,5 +1,5 @@
-import { buildCommand } from '@arrowz/engine/command'
-import { dictionary } from '@arrowz/engine/i18n'
+import { buildCommand } from '@fronthub/arrowz-engine/command'
+import { dictionary } from '@fronthub/arrowz-engine/i18n'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { RunControl } from '../run/useRun'
 import { useStore } from '../state/store'

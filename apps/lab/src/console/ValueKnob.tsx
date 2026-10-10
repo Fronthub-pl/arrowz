@@ -1,5 +1,5 @@
-import type { InactiveKey, ParamSpec } from '@arrowz/engine'
-import { wordFor } from '@arrowz/engine/command'
+import type { InactiveKey, ParamSpec } from '@fronthub/arrowz-engine'
+import { wordFor } from '@fronthub/arrowz-engine/command'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { DraftNumber } from './DraftNumber'

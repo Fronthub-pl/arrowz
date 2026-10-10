@@ -1,4 +1,4 @@
-import type { BoardMeta } from '@arrowz/engine'
+import type { BoardMeta } from '@fronthub/arrowz-engine'
 import { type ReactElement } from 'react'
 import { useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'

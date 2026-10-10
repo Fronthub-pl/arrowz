@@ -50,7 +50,7 @@ jobs:
 
       # The full Chromium, not `--only-shell`: vitest.config.ts runs the browser
       # project on the real Chrome engine, which the headless shell is not.
-      - run: pnpm --filter @arrowz/board-element exec playwright install --with-deps chromium
+      - run: pnpm --filter @fronthub/arrowz-board exec playwright install --with-deps chromium
 
       - uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5
 

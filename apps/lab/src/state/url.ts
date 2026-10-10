@@ -1,5 +1,5 @@
-import type { Lang } from '@arrowz/engine/i18n'
-import { type ParamKey, type Params, readParams } from '@arrowz/engine'
+import type { Lang } from '@fronthub/arrowz-engine/i18n'
+import { type ParamKey, type Params, readParams } from '@fronthub/arrowz-engine'
 import { isLang } from './lang.slice'
 import { pickView, readView, VIEW_KEYS, type ViewFields } from './viewSchema'
 

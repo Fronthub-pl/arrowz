@@ -1,6 +1,6 @@
-import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate, toSvg } from '@arrowz/engine'
-import type { WorkerIn, WorkerOut } from '@arrowz/engine'
-import { DEFAULT_VIEW, svgOptions } from '@arrowz/engine/command'
+import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate, toSvg } from '@fronthub/arrowz-engine'
+import type { WorkerIn, WorkerOut } from '@fronthub/arrowz-engine'
+import { DEFAULT_VIEW, svgOptions } from '@fronthub/arrowz-engine/command'
 import { expect, test } from 'vitest'
 
 // The same protocol over the engine as Vitest transforms it, which the app's

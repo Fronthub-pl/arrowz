@@ -1,4 +1,4 @@
-import type { BoardData } from '@arrowz/engine'
+import type { BoardData } from '@fronthub/arrowz-engine'
 
 /**
  * Three vertical pieces on a 3×3 board, built by hand so the facts are read

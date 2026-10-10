@@ -3,7 +3,7 @@
  * chunk loads: they are fixed for the life of the page, and the renderer and
  * the navigation column read them on every render.
  */
-import type { Lang } from '@arrowz/engine/i18n'
+import type { Lang } from '@fronthub/arrowz-engine/i18n'
 import type { Root } from 'mdast'
 import { type DocsSection, parseDocs, sectionsOf } from './markdown'
 import type { DocsPage } from './pages'

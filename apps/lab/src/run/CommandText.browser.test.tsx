@@ -1,4 +1,4 @@
-import { COMMAND_PREFIX } from '@arrowz/engine/command'
+import { COMMAND_PREFIX } from '@fronthub/arrowz-engine/command'
 import { render } from 'vitest-browser-react'
 import { expect, test } from 'vitest'
 import { CommandText } from './CommandText'

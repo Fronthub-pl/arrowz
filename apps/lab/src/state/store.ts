@@ -1,4 +1,4 @@
-import type { BoardData, BoardFile } from '@arrowz/engine'
+import type { BoardData, BoardFile } from '@fronthub/arrowz-engine'
 import { create } from 'zustand'
 import { createLangSlice, type LangState } from './lang.slice'
 import { createLibrarySlice, type LibraryState } from './library.slice'

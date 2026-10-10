@@ -1,4 +1,4 @@
-import { layoutHash } from '@arrowz/engine'
+import { layoutHash } from '@fronthub/arrowz-engine'
 import { useEffect } from 'react'
 import { useStore } from '../state/store'
 

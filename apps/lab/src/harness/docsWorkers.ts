@@ -4,7 +4,7 @@
  * answers. A real board, from the engine's `generate`, so what the element
  * draws and what the stats read is what the worker would have posted.
  */
-import { encodeBoard, generate, type Params, type WorkerIn, type WorkerOut } from '@arrowz/engine'
+import { encodeBoard, generate, type Params, type WorkerIn, type WorkerOut } from '@fronthub/arrowz-engine'
 import { createDocsQueue, type DocsQueue, type WorkerLike } from '../docs/docsQueue'
 
 export function doneMessage(params: Params, ok = true): WorkerOut {

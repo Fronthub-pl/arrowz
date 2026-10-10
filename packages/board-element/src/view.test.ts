@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { DEFAULT_VIEW as CLI_VIEW } from '@arrowz/engine/command'
+import { DEFAULT_VIEW as CLI_VIEW } from '@fronthub/arrowz-engine/command'
 import { boardViewOf, DEFAULT_VIEW, hueBytes, hueDegrees, hueOf } from './view.ts'
 
 test('hueOf is unchanged: the golden angle over the id, at fixed saturation and lightness', () => {

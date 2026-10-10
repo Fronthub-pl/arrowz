@@ -1,5 +1,5 @@
-import { newSession, PARAM_SPEC, type Params, play } from '@arrowz/engine'
-import { findPreset, PRESETS } from '@arrowz/engine/presets'
+import { newSession, PARAM_SPEC, type Params, play } from '@fronthub/arrowz-engine'
+import { findPreset, PRESETS } from '@fronthub/arrowz-engine/presets'
 import { act } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'

@@ -1,4 +1,4 @@
-import { MIX_START, START } from '@arrowz/engine/command'
+import { MIX_START, START } from '@fronthub/arrowz-engine/command'
 import { expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'

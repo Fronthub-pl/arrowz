@@ -1,6 +1,6 @@
 // Generation off the main thread: Insane takes tens of seconds.
-import { defaultParams, encodeBoard, generate } from '@arrowz/engine'
-import type { BoardFile, ParamKey } from '@arrowz/engine'
+import { defaultParams, encodeBoard, generate } from '@fronthub/arrowz-engine'
+import type { BoardFile, ParamKey } from '@fronthub/arrowz-engine'
 
 export interface DemoRequest {
   overrides: Partial<Record<ParamKey, number>>

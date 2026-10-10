@@ -1,5 +1,5 @@
-import type { View } from '@arrowz/engine'
-import { storeRequest } from '@arrowz/engine/command'
+import type { View } from '@fronthub/arrowz-engine'
+import { storeRequest } from '@fronthub/arrowz-engine/command'
 import { saveBoard } from '../api/boards'
 import type { StoredBoard } from '../state/result.slice'
 import { useStore } from '../state/store'

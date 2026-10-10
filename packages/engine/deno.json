@@ -1,5 +1,5 @@
 {
-  "name": "@arrowz/engine",
+  "name": "@fronthub/arrowz-engine",
   "version": "1.0.0-alpha.1",
   "exports": {
     ".": "./mod.ts",

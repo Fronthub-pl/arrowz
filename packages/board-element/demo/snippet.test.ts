@@ -17,7 +17,7 @@ test('a board at its defaults is a bare tag and no assignments', () => {
   expect(tagOf(text)).toBe('<arrowz-board></arrowz-board>')
   expect(text).not.toContain('el.view')
   expect(text).not.toContain('el.board')
-  expect(text).toContain("import '@arrowz/board-element'")
+  expect(text).toContain("import '@fronthub/arrowz-board'")
 })
 
 test('a flag prints bare, a value prints quoted', () => {

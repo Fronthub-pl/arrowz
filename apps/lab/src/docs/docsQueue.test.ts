@@ -1,5 +1,5 @@
-import { defaultParams, type Params } from '@arrowz/engine'
-import { boardId } from '@arrowz/engine/command'
+import { defaultParams, type Params } from '@fronthub/arrowz-engine'
+import { boardId } from '@fronthub/arrowz-engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { doneMessage, fakeWorkers } from '../harness/docsWorkers'
 import { createDocsQueue, type DocsJob, type DocsRun } from './docsQueue'

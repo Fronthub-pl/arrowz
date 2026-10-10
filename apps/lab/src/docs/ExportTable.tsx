@@ -4,7 +4,7 @@
  * holds to its `mod.ts` both ways; a constant's value is read from the package
  * itself and spelled as its README spells it, so the page cannot drift from it.
  */
-import * as boardElement from '@arrowz/board-element'
+import * as boardElement from '@fronthub/arrowz-board'
 import {
   type ConstantKey,
   ELEMENT_CLASSES,
@@ -12,7 +12,7 @@ import {
   ELEMENT_FUNCTIONS,
   ELEMENT_TYPES,
   spellValue,
-} from '@arrowz/engine/docs'
+} from '@fronthub/arrowz-engine/docs'
 import type { ReactElement, ReactNode } from 'react'
 import { NONE } from './codeTokens'
 import type { ExportOf } from './exportTables'

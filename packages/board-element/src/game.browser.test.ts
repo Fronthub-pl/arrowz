@@ -1,5 +1,5 @@
-import { defaultParams, DIRS, generate } from '@arrowz/engine'
-import type { Board, BoardData, SessionSnapshot } from '@arrowz/engine'
+import { defaultParams, DIRS, generate } from '@fronthub/arrowz-engine'
+import type { Board, BoardData, SessionSnapshot } from '@fronthub/arrowz-engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ArrowzBoard } from './arrowz-board.ts'
 import type { ColoredChangeEvent } from './arrowz-board.ts'

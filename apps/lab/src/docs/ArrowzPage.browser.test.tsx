@@ -1,4 +1,4 @@
-import type { ArrowzBoard } from '@arrowz/board-element'
+import type { ArrowzBoard } from '@fronthub/arrowz-board'
 import { act } from 'react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'

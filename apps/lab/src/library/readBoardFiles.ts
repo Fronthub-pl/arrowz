@@ -1,4 +1,11 @@
-import { type BoardData, type BoardFile, type BoardMeta, decodeBoard, encodeBoard, layoutHash } from '@arrowz/engine'
+import {
+  type BoardData,
+  type BoardFile,
+  type BoardMeta,
+  decodeBoard,
+  encodeBoard,
+  layoutHash,
+} from '@fronthub/arrowz-engine'
 
 /** Why an open failed, worded by the dictionary (`open_<problem>`). A decode failure keeps the decoder's own words. */
 export type OpenProblem = 'notJson' | 'noBoard' | 'twoBoards' | 'metaOther' | 'notMeta'

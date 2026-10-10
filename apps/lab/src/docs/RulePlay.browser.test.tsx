@@ -1,4 +1,4 @@
-import { type ArrowzBoard, GESTURE_STORAGE_KEY } from '@arrowz/board-element'
+import { type ArrowzBoard, GESTURE_STORAGE_KEY } from '@fronthub/arrowz-board'
 import { act } from 'react'
 import { afterEach, beforeEach, expect, test } from 'vitest'
 import { renderAt } from '../harness/renderAt'

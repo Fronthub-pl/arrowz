@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { Cell } from '@arrowz/engine'
+import type { Cell } from '@fronthub/arrowz-engine'
 import {
   EXIT_MAX_MS,
   EXIT_MIN_MS,

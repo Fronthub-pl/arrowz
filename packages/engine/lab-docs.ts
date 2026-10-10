@@ -105,7 +105,7 @@ export type EventKey = (typeof ELEMENT_EVENTS)[number]['key']
 export type SlotKey = (typeof ELEMENT_SLOTS)[number]['key']
 
 /** The package an exported type is declared in: the element's own, or the engine, which it re-exports. */
-export type ExportSource = '@arrowz/board-element' | '@arrowz/engine'
+export type ExportSource = '@fronthub/arrowz-board' | '@fronthub/arrowz-engine'
 
 /** One exported type: where it is declared, and its fields — or, for a union, its members as literals. */
 export interface TypeRow {
@@ -133,44 +133,44 @@ export interface ClassRow {
 }
 
 export const ELEMENT_TYPES = [
-  { key: 'BoardData', from: '@arrowz/engine', shape: 'W, H, owner, pieces' },
+  { key: 'BoardData', from: '@fronthub/arrowz-engine', shape: 'W, H, owner, pieces' },
   {
     key: 'BoardView',
-    from: '@arrowz/board-element',
+    from: '@fronthub/arrowz-board',
     shape: 'stroke, headWidth, headHeight, rounded, colored, top, voids, ink, paper, highlight, palette',
   },
   {
     key: 'BoardViewport',
-    from: '@arrowz/board-element',
+    from: '@fronthub/arrowz-board',
     shape: 'cellPx, originX, originY, fitted, hostWidth, hostHeight',
   },
-  { key: 'BoardColours', from: '@arrowz/engine', shape: 'paper, ink, highlight, palette' },
-  { key: 'BoardTheme', from: '@arrowz/engine', shape: 'paper, ink, highlight, palette, source, licence, url' },
+  { key: 'BoardColours', from: '@fronthub/arrowz-engine', shape: 'paper, ink, highlight, palette' },
+  { key: 'BoardTheme', from: '@fronthub/arrowz-engine', shape: 'paper, ink, highlight, palette, source, licence, url' },
   {
     key: 'BoardLabels',
-    from: '@arrowz/board-element',
+    from: '@fronthub/arrowz-board',
     shape:
       'zoomIn, zoomOut, fit, dragHint, dragPlayHintMac, dragPlayHintOther, dragInspectHintMac, dragInspectHintOther, clickHintMac, clickHintOther, gesturesMac, gesturesOther, gesturesInspectMac, gesturesInspectOther, colors, noWebgl',
   },
-  { key: 'BoardLang', from: '@arrowz/board-element', shape: "'en' | 'pl'" },
-  { key: 'GestureMode', from: '@arrowz/board-element', shape: "'drag' | 'click'" },
-  { key: 'GameEvent', from: '@arrowz/board-element', shape: "'piece-removed' | 'life-lost' | 'finished'" },
-  { key: 'GameTarget', from: '@arrowz/board-element', shape: 'animateExit, shake, emit' },
-  { key: 'Session', from: '@arrowz/engine', shape: 'board, gone, index, left, status' },
-  { key: 'SessionSnapshot', from: '@arrowz/engine', shape: 'v, board, removed, colored' },
-  { key: 'PieceClickEvent', from: '@arrowz/board-element', shape: 'pieceId' },
-  { key: 'PieceRemovedEvent', from: '@arrowz/board-element', shape: 'pieceId, left' },
-  { key: 'LifeLostEvent', from: '@arrowz/board-element', shape: 'pieceId, blockerId, distance' },
-  { key: 'FinishedEvent', from: '@arrowz/board-element', shape: 'pieces' },
+  { key: 'BoardLang', from: '@fronthub/arrowz-board', shape: "'en' | 'pl'" },
+  { key: 'GestureMode', from: '@fronthub/arrowz-board', shape: "'drag' | 'click'" },
+  { key: 'GameEvent', from: '@fronthub/arrowz-board', shape: "'piece-removed' | 'life-lost' | 'finished'" },
+  { key: 'GameTarget', from: '@fronthub/arrowz-board', shape: 'animateExit, shake, emit' },
+  { key: 'Session', from: '@fronthub/arrowz-engine', shape: 'board, gone, index, left, status' },
+  { key: 'SessionSnapshot', from: '@fronthub/arrowz-engine', shape: 'v, board, removed, colored' },
+  { key: 'PieceClickEvent', from: '@fronthub/arrowz-board', shape: 'pieceId' },
+  { key: 'PieceRemovedEvent', from: '@fronthub/arrowz-board', shape: 'pieceId, left' },
+  { key: 'LifeLostEvent', from: '@fronthub/arrowz-board', shape: 'pieceId, blockerId, distance' },
+  { key: 'FinishedEvent', from: '@fronthub/arrowz-board', shape: 'pieces' },
   {
     key: 'ViewportChangeEvent',
-    from: '@arrowz/board-element',
+    from: '@fronthub/arrowz-board',
     shape: 'cellPx, originX, originY, fitted, hostWidth, hostHeight',
   },
-  { key: 'ColoredChangeEvent', from: '@arrowz/board-element', shape: 'colored' },
-  { key: 'ColoredChangeDetail', from: '@arrowz/board-element', shape: 'colored' },
-  { key: 'GesturesChangeEvent', from: '@arrowz/board-element', shape: 'mode' },
-  { key: 'GesturesChangeDetail', from: '@arrowz/board-element', shape: 'mode' },
+  { key: 'ColoredChangeEvent', from: '@fronthub/arrowz-board', shape: 'colored' },
+  { key: 'ColoredChangeDetail', from: '@fronthub/arrowz-board', shape: 'colored' },
+  { key: 'GesturesChangeEvent', from: '@fronthub/arrowz-board', shape: 'mode' },
+  { key: 'GesturesChangeDetail', from: '@fronthub/arrowz-board', shape: 'mode' },
 ] as const satisfies readonly TypeRow[]
 
 export const ELEMENT_FUNCTIONS = [

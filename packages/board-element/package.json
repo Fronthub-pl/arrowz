@@ -1,5 +1,5 @@
 {
-  "name": "@arrowz/board-element",
+  "name": "@fronthub/arrowz-board",
   "version": "1.0.0-alpha.1",
   "private": true,
   "type": "module",
@@ -23,7 +23,7 @@
     "serve": "vite"
   },
   "dependencies": {
-    "@arrowz/engine": "workspace:*",
+    "@fronthub/arrowz-engine": "workspace:*",
     "lit": "^3.3.3"
   },
   "devDependencies": {

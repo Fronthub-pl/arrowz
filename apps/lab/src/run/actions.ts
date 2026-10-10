@@ -1,5 +1,5 @@
-import { PARAM_SPEC, type Params } from '@arrowz/engine'
-import { exportCell } from '@arrowz/engine/simple'
+import { PARAM_SPEC, type Params } from '@fronthub/arrowz-engine'
+import { exportCell } from '@fronthub/arrowz-engine/simple'
 import { drawIfRandom, resetRecipeIfSimple } from '../simple/applyRecipe'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'

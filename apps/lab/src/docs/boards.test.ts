@@ -1,4 +1,4 @@
-import { boardId } from '@arrowz/engine/command'
+import { boardId } from '@fronthub/arrowz-engine/command'
 import { describe, expect, test } from 'vitest'
 import { aboutOf, aboutProblem, readBoardCmd, statKeysOf, statsProblem } from './boards'
 

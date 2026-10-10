@@ -1,5 +1,5 @@
-import type { Params, PresetMode } from '@arrowz/engine'
-import { findPreset, PRESETS } from '@arrowz/engine/presets'
+import type { Params, PresetMode } from '@fronthub/arrowz-engine'
+import { findPreset, PRESETS } from '@fronthub/arrowz-engine/presets'
 import { type ReactElement, useEffect, useId, useRef, useState } from 'react'
 import { useDictionary } from '../i18n'
 import { useDismiss } from '../shell/useDismiss'

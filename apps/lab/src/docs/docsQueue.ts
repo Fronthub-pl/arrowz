@@ -14,8 +14,8 @@
  * one answers. `dispose` terminates the worker and forgets every job, and the
  * next request starts a new worker, as StrictMode's remount needs.
  */
-import { type BoardData, decodeBoard, type Params, type WorkerIn, type WorkerOut } from '@arrowz/engine'
-import type { ReportInput } from '@arrowz/engine/report'
+import { type BoardData, decodeBoard, type Params, type WorkerIn, type WorkerOut } from '@fronthub/arrowz-engine'
+import type { ReportInput } from '@fronthub/arrowz-engine/report'
 
 export interface DocsRun {
   readonly board: BoardData

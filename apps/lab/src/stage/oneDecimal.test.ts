@@ -1,4 +1,4 @@
-import { dictionary } from '@arrowz/engine/i18n'
+import { dictionary } from '@fronthub/arrowz-engine/i18n'
 import { expect, test } from 'vitest'
 import { oneDecimal } from './useRunState'
 

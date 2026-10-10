@@ -1,5 +1,5 @@
-import { pieceShape } from '@arrowz/engine'
-import { VIEW_RANGE } from '@arrowz/engine/command'
+import { pieceShape } from '@fronthub/arrowz-engine'
+import { VIEW_RANGE } from '@fronthub/arrowz-engine/command'
 import { expect, test } from 'vitest'
 import { VIEW_KEYS } from '../state/viewSchema'
 import { autoHeadChip, VIEW_FLAGS, VIEW_NUMBERS, VIEW_ROWS } from './viewFields'

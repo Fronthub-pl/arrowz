@@ -1,6 +1,6 @@
 import { renderHook } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defaultParams } from '@arrowz/engine'
+import { defaultParams } from '@fronthub/arrowz-engine'
 import type { GeneratorHandle } from '../worker/useGenerator'
 import type { SeriesHandle } from '../series/useSeries'
 import { useStore } from '../state/store'

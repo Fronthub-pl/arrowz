@@ -2,8 +2,8 @@
 // panel is the only thing that drives the element, so what it shows — the
 // controls, the markup, the events — is the element's actual state, not a
 // second copy of it kept in step by hand.
-import { decodeBoard } from '@arrowz/engine'
-import { PRESETS } from '@arrowz/engine/presets'
+import { decodeBoard } from '@fronthub/arrowz-engine'
+import { PRESETS } from '@fronthub/arrowz-engine/presets'
 import '../src/mod.ts'
 import { type ArrowzBoard, type BoardView, DEFAULT_VIEW, type SessionSnapshot } from '../src/mod.ts'
 import { ATTRIBUTES, type Control, type ControlValue, VIEW_CONTROLS, viewRecord, withField } from './controls.ts'

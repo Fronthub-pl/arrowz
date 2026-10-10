@@ -14,11 +14,19 @@
 // first run of a level up to 40 wide. A parameter outside the safe envelope
 // is refused before the first level, exit code 2; CARVE_TIMEOUT_S=N aborts
 // a run after N seconds, same as carve.ts.
-import type { CarverStats, GenerateOptions, Metrics, ParamKey, Params, TraceInfo, Violation } from '@arrowz/engine'
-import { GenerateAbort, validateParams } from '@arrowz/engine'
-import { flagViolation, parseArgs } from '@arrowz/engine/command'
+import type {
+  CarverStats,
+  GenerateOptions,
+  Metrics,
+  ParamKey,
+  Params,
+  TraceInfo,
+  Violation,
+} from '@fronthub/arrowz-engine'
+import { GenerateAbort, validateParams } from '@fronthub/arrowz-engine'
+import { flagViolation, parseArgs } from '@fronthub/arrowz-engine/command'
 import { REPORT_FLAGS } from './report-flags.ts'
-import { simpleParams } from '@arrowz/engine/simple'
+import { simpleParams } from '@fronthub/arrowz-engine/simple'
 // The report and bench sections build a carver by hand; those four are engine
 // internals, not part of its public surface, so they come from its sources.
 import { analyse, Carver, mulberry32, render } from '../engine/engine.ts'

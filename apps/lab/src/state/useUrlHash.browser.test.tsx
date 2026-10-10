@@ -1,4 +1,4 @@
-import { defaultParams } from '@arrowz/engine'
+import { defaultParams } from '@fronthub/arrowz-engine'
 import { StrictMode } from 'react'
 import { BrowserRouter, useNavigate } from 'react-router'
 import { render } from 'vitest-browser-react'

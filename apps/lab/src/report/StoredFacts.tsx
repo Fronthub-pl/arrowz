@@ -1,5 +1,5 @@
-import type { BoardMeta } from '@arrowz/engine'
-import { genSeconds, pct, type StatKey } from '@arrowz/engine/report'
+import type { BoardMeta } from '@fronthub/arrowz-engine'
+import { genSeconds, pct, type StatKey } from '@fronthub/arrowz-engine/report'
 import type { ReactElement } from 'react'
 import { useDictionary } from '../i18n'
 import { StatRowView } from './StatRowView'

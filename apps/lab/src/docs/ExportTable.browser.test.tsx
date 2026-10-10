@@ -1,4 +1,4 @@
-import * as boardElement from '@arrowz/board-element'
+import * as boardElement from '@fronthub/arrowz-board'
 import {
   docsFor,
   ELEMENT_CLASSES,
@@ -6,7 +6,7 @@ import {
   ELEMENT_FUNCTIONS,
   ELEMENT_TYPES,
   spellValue,
-} from '@arrowz/engine/docs'
+} from '@fronthub/arrowz-engine/docs'
 import { act } from 'react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'
@@ -63,7 +63,7 @@ test('the four export tables, each a row per export, under their headers', async
 test('a type row names its package and its shape', async () => {
   const screen = await show()
   const row = rows(tables(screen.container)[0]).find((tr) => tr.children[0]?.textContent === 'GestureMode')
-  expect(row && texts(row).slice(0, 3)).toEqual(['GestureMode', '@arrowz/board-element', "'drag' | 'click'"])
+  expect(row && texts(row).slice(0, 3)).toEqual(['GestureMode', '@fronthub/arrowz-board', "'drag' | 'click'"])
 })
 
 test('every constant shows the value the package exports', async () => {

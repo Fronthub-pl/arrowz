@@ -1,4 +1,4 @@
-import type { Lang } from '@arrowz/engine/i18n'
+import type { Lang } from '@fronthub/arrowz-engine/i18n'
 import { readStored, writeStored } from './storage'
 import type { SliceSet } from './slice'
 

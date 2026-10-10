@@ -9,8 +9,8 @@
 // given up, the board and view it draws, and the order of a frame. What a
 // frame draws is gl-passes.ts, the GL objects are gl-resources.ts, and a ride
 // is rides.ts.
-import { assignPalette, voidStrips } from '@arrowz/engine'
-import type { BoardData } from '@arrowz/engine'
+import { assignPalette, voidStrips } from '@fronthub/arrowz-engine'
+import type { BoardData } from '@fronthub/arrowz-engine'
 import { type Rgba, rgbaOf } from './gl-color.ts'
 import { drawDots, drawPaper, drawPieces, drawRiders, drawVoids, setView } from './gl-passes.ts'
 import { GlResources } from './gl-resources.ts'

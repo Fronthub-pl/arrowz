@@ -1,5 +1,5 @@
-import { type ParamKey, PARAM_SPEC } from '@arrowz/engine'
-import { dictionary } from '@arrowz/engine/i18n'
+import { type ParamKey, PARAM_SPEC } from '@fronthub/arrowz-engine'
+import { dictionary } from '@fronthub/arrowz-engine/i18n'
 import { act } from 'react'
 import { beforeEach, describe, expect, it, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'

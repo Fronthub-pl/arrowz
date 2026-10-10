@@ -1,4 +1,4 @@
-import { defaultChoice, recipeOf } from '@arrowz/engine/simple'
+import { defaultChoice, recipeOf } from '@fronthub/arrowz-engine/simple'
 import { describe, expect, it } from 'vitest'
 import { createRecipeSlice, type RecipeState } from './recipe.slice'
 

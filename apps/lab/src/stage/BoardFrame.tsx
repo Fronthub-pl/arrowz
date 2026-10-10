@@ -1,4 +1,4 @@
-import { type ArrowzBoard, boardViewOf, type ColoredChangeEvent } from '@arrowz/board-element'
+import { type ArrowzBoard, boardViewOf, type ColoredChangeEvent } from '@fronthub/arrowz-board'
 import { type ReactElement, useLayoutEffect, useMemo, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { useInLibrary } from '../library/useInLibrary'
