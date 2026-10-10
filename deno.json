@@ -16,6 +16,7 @@
     "lineWidth": 120,
     "exclude": [
       "**/*.md",
+      ".changeset/*.md",
       "packages/board-element/demo/index.html",
       "packages/cli/boards/",
       "**/dist/",
