@@ -64,7 +64,8 @@ A few things the checks hold you to:
   and build again.
 
 On Windows, `deno task store` (the board store the lab reads) runs a shell
-script, so for now it needs Git Bash or WSL.
+script, so for now it needs Git Bash or WSL. `deno task test` needs them too:
+some tests start `mktemp` and `rm`.
 
 ## Writing the change
 

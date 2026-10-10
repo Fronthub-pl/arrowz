@@ -124,7 +124,8 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
      full verify, build, `pnpm pack` the planned packages, run the gates (§5) on
      the tarballs, upload the tarballs as an artifact. It records the SHA-256
      of every tarball as a job output, then reads the digests back with the
-     same checks `stage` applies, so the dry run exercises them too.
+     same three checks `stage` applies (the pattern of the list, the digests,
+     the count), so the dry run exercises them too.
    - **`smoke`**: matrix ubuntu / macOS / Windows (+ the free ARM runners) ×
      Node 22 and 24, plus Node 22.12.0 (the floor), npm 12 and Deno (16 legs),
      installing only the tarballs (§5 gate 3).
@@ -155,7 +156,7 @@ a trusted-publisher entry expires if no publish uses it within 2 days of
 its creation. Order:
 
 0. Before bootstrap day: while the manifests carry `0.0.0` nothing is planned
-   and `stage` is skipped. A run by hand on `main` is green too, but plans
+   and `stage` is skipped. A run by hand on `main` is green then, and plans
    nothing; the only run that exercises `build` and `smoke` is the dry run on a
    pull request. The whole flow is to be rehearsed once on a throwaway package (e.g.
    `@fronthub/arrowz-rehearsal`), which is then deprecated. The workflow as it
@@ -175,7 +176,7 @@ its creation. Order:
 
 If the trusted-publisher entry expires (its first publish did not succeed
 within 2 days), delete it and create it again: npm does not let you use or edit
-an expired entry, while a valid one can be edited.
+an expired entry.
 
 Every step of this section is done by the maintainer, in the browser or in a
 terminal logged in with 2FA. None of it can be scripted with a token: changing
@@ -362,6 +363,12 @@ bootstrap.
   writes for `registry-url` (the workflow follows npm's own example).
 - What `npm view <name>@<version>` answers for a version that is staged and not
   yet approved. If it says the version is missing, a second run before the
-  approval plans the same version again and npm refuses it.
+  approval plans the same version again and npm refuses it. If it answers with
+  the version, `tag-published` gives that version its tag before the approval,
+  and the tag stays even if the staged version is then rejected (§8 blocks
+  deleting it); `plan` also skips the version, so a package of the next
+  release that depends on it cannot be installed in `smoke` (ETARGET).
+  releasing.md therefore says to approve or reject every staged version before
+  the next version PR is merged.
 - Whether npm runs a lifecycle script when it stages a tarball (the workflow
   passes `--ignore-scripts`, so it does not depend on the answer).
