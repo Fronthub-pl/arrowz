@@ -57,10 +57,11 @@ A few things the checks hold you to:
 - **Pictures.** The images in the READMEs are drawn from commands listed in
   `docs/images/manifest.json`; `deno task docs` draws them again.
 - **Package contents.** CI packs each published package and checks the
-  tarball: only the files on the package's list, a size budget, and what
-  `publint` and Are The Types Wrong say. `pnpm nx run-many -t pack-check` runs
-  it locally. A stale file in a `dist/` directory fails it; delete `dist/` and
-  build again.
+  tarball: only the files on the package's list, a size budget, what `publint`
+  says and, for the two packages with types, what Are The Types Wrong says.
+  `pnpm nx run-many -t pack-check` runs it locally. If it names a file you do
+  not know, it is probably left from an old build: delete the package's `dist/`
+  and build again.
 
 On Windows, `deno task store` (the board store the lab reads) runs a shell
 script, so for now it needs Git Bash or WSL.
