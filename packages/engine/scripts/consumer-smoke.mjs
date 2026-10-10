@@ -119,6 +119,12 @@ document.body.firstElementChild.board = generate({ ...defaultParams(), W: 12, H:
   check(built.includes('#version 300 es'), 'Vite bundles the element of the board package')
 }
 
-rmSync(project, { recursive: true, force: true })
+// On Windows a binary that has just run can still hold a handle. The directory is the runner's to
+// clean, and the result of the smoke is its checks, so a removal that fails does not fail the leg.
+try {
+  rmSync(project, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 })
+} catch (error) {
+  console.log(`left ${project} behind: ${error instanceof Error ? error.message : String(error)}`)
+}
 console.log(failures ? `${failures} FAILED` : 'all ok')
 process.exitCode = failures ? 1 : 0

@@ -195,10 +195,16 @@ function removeIfThere(path: string): void {
   }
 }
 
-/** Packs one package into `dest` and returns everything the gates hold against the tarball. */
-async function check(dir: string, dest: string, manifest: Manifest): Promise<string[]> {
-  const root = fromFileUrl(new URL('../../..', import.meta.url))
+/** The file `pnpm pack` writes for a manifest; throws when the name or the version would make it a path. */
+export function tarballName(dir: string, manifest: Manifest): string {
   const file = `${manifest.name.slice(1).replace('/', '-')}-${manifest.version}.tgz`
+  if (/[/\\]/.test(file)) throw new Error(`the name or version in ${dir}/package.json does not make a file name`)
+  return file
+}
+
+/** Packs one package into `dest` as `file` and returns everything the gates hold against the tarball. */
+async function check(dir: string, dest: string, manifest: Manifest, file: string): Promise<string[]> {
+  const root = fromFileUrl(new URL('../../..', import.meta.url))
   const tgz = join(dest, file)
   // A tarball left by an earlier run must not pass for one this run packed.
   removeIfThere(tgz)
@@ -240,7 +246,7 @@ if (import.meta.main) {
       try {
         const manifest = JSON.parse(Deno.readTextFileSync(join(resolve(dir), 'package.json'))) as Manifest
         label = manifest.name
-        found = await check(resolve(dir), dest, manifest)
+        found = await check(resolve(dir), dest, manifest, tarballName(dir, manifest))
       } catch (error) {
         found = [error instanceof Error ? error.message : String(error)]
       }

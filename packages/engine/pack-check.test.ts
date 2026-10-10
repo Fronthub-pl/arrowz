@@ -1,6 +1,6 @@
 // The gate on the packed tarballs: what it lets through and what it names.
-import { assert, assertEquals, assertRejects } from '@std/assert'
-import { type Entry, problems, RULES, untar } from './scripts/pack-check.ts'
+import { assert, assertEquals, assertRejects, assertThrows } from '@std/assert'
+import { type Entry, problems, RULES, tarballName, untar } from './scripts/pack-check.ts'
 
 const enc = new TextEncoder()
 const file = (path: string, text = ''): Entry => ({ path, bytes: enc.encode(text) })
@@ -158,6 +158,16 @@ Deno.test('a private manifest, an unknown package and a tarball without a manife
     '@fronthub/arrowz-lab is not a package this repository publishes',
   ])
   assertEquals(problems(1, [file('README.md')]), ['the tarball has no package.json'])
+})
+
+Deno.test('the tarball is named after the scope, the name and the version, and its name is never a path', () => {
+  const engine = { name: '@fronthub/arrowz-engine', version: '0.1.0' }
+  assertEquals(tarballName('packages/engine', engine), 'fronthub-arrowz-engine-0.1.0.tgz')
+  // The gate removes a file of this name before it packs: a path would reach outside the destination.
+  const refused = 'the name or version in packages/engine/package.json does not make a file name'
+  assertThrows(() => tarballName('packages/engine', { ...engine, version: '../../../victim' }), Error, refused)
+  assertThrows(() => tarballName('packages/engine', { ...engine, name: '@fronthub/../../victim' }), Error, refused)
+  assertThrows(() => tarballName('packages/engine', { ...engine, version: '..\\victim' }), Error, refused)
 })
 
 /** One 512-byte tar header and its padded content, the way a packer writes a member. */
