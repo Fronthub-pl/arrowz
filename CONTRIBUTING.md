@@ -76,6 +76,25 @@ apply to people and coding agents alike. In short:
 How the puzzle and the generator work is in [docs/design.md](docs/design.md),
 and the words the lab and the docs use are in [docs/glossary.md](docs/glossary.md).
 
+## Changesets
+
+The engine, the board element and the command line are published to npm, each
+with its own version. When your change alters one of them, add a changeset:
+
+```sh
+pnpm changeset
+```
+
+Pick the packages you changed and the bump: `patch` for a fix or an addition,
+`minor` for a breaking change (the packages are in `0.x`). Then write one
+sentence a user of the package would understand. The command writes a small
+file in `.changeset/`; commit it with your change. If the change needs no
+release (tests, an internal refactoring), `pnpm changeset --empty` says so.
+
+CI looks for the changeset and only warns: a pull request without one is still
+welcome, and a maintainer adds it before the release. Changes to the lab, the
+docs or the repository's tooling need none.
+
 ## Pull requests
 
 - Keep a pull request to one change, and describe what a user or a developer

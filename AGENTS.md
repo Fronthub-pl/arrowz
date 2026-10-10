@@ -44,6 +44,11 @@
   and so do `deno task check` and `deno task test`: Deno checks the CLI's
   `node:` imports against `@types/node` from `node_modules`. `deno task lint`
   and `deno task fmt` pass without it.
+- A change to a published package (`packages/engine`, `packages/board-element`,
+  `packages/cli`) carries a changeset: a file in `.changeset/` written by
+  `pnpm changeset`, `patch` for a fix or an addition and `minor` for a breaking
+  change while the packages are in `0.x` (`--empty` when nothing needs a
+  release). Never edit a version or a `CHANGELOG.md` by hand.
 - No attribution lines in commit messages or PR descriptions.
 
 ## Comments
