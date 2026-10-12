@@ -64,7 +64,9 @@ check(install.status === 0, `npm ${npm} installs the packages and Vite with inst
 
 if (install.status === 0) {
   // A tarball that npm quietly replaced with the registry's copy would test the wrong files.
-  const lock = JSON.parse(readFileSync(join(project, 'package-lock.json'), 'utf8')).packages
+  // Without a lock that lists the packages, each check below fails with its message.
+  const lockFile = join(project, 'package-lock.json')
+  const lock = (existsSync(lockFile) ? jsonOf(readFileSync(lockFile, 'utf8')).packages : undefined) ?? {}
   for (const name of PACKAGES) {
     const from = String(lock[`node_modules/${name}`]?.resolved)
     check(from.startsWith('file:') === packed.includes(name), `${name} comes from ${from.split('/').pop()}`)
