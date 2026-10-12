@@ -117,7 +117,7 @@ interface Packed {
   engines?: unknown
   sideEffects?: unknown
   scripts?: Record<string, string>
-  exports?: Record<string, unknown>
+  exports?: unknown
   bin?: Record<string, string>
   dependencies?: Record<string, string>
   optionalDependencies?: Record<string, string>
@@ -128,6 +128,8 @@ interface Packed {
 const UNRELEASED = '0.0.0'
 const inTarball = (paths: Set<string>, target: string) => paths.has(target.replace(/^\.\//, ''))
 const spell = (value: unknown): string => value === undefined ? 'nothing' : JSON.stringify(value)
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** What is wrong with a packed tarball, one sentence per fault; empty when a user can receive it. */
 export function problems(packedBytes: number, entries: Entry[]): string[] {
@@ -185,8 +187,11 @@ export function problems(packedBytes: number, entries: Entry[]): string[] {
     }
   }
 
-  const named = Object.keys(m.exports ?? {})
-  if (named.join(' ') !== rule.exports.join(' ')) {
+  const exported = isRecord(m.exports) ? m.exports : {}
+  const named = Object.keys(exported)
+  if (m.exports !== undefined && !isRecord(m.exports)) {
+    out.push(`exports is ${spell(m.exports)}, not a set of entry points`)
+  } else if (named.join(' ') !== rule.exports.join(' ')) {
     out.push(
       `the manifest exports ${named.join(', ') || 'nothing'}, but ${m.name} publishes ${
         rule.exports.join(', ') || 'no entry point'
@@ -194,12 +199,11 @@ export function problems(packedBytes: number, entries: Entry[]): string[] {
     )
   }
   const conditions = rule.typed ? ['types', 'default'] : ['default']
-  for (const [name, target] of Object.entries(m.exports ?? {})) {
-    if (typeof target !== 'object' || target === null || Array.isArray(target)) {
-      out.push(`${name} is ${spell(target)}, not a set of conditions`)
+  for (const [name, entry] of Object.entries(exported)) {
+    if (!isRecord(entry)) {
+      out.push(`${name} is ${spell(entry)}, not a set of conditions`)
       continue
     }
-    const entry = target as Record<string, unknown>
     let complete = true
     for (const kind of conditions) {
       const path = entry[kind]
@@ -212,10 +216,10 @@ export function problems(packedBytes: number, entries: Entry[]): string[] {
       }
     }
     // Node takes the first condition that matches, so the order is part of the entry.
-    const named = Object.keys(entry)
-    if (complete && named.join(' ') !== conditions.join(' ')) {
+    const given = Object.keys(entry)
+    if (complete && given.join(' ') !== conditions.join(' ')) {
       out.push(
-        `${name} has the conditions ${named.join(', ')}, and ${m.name} publishes ${
+        `${name} has the conditions ${given.join(', ')}, and ${m.name} publishes ${
           conditions.join(', ')
         } in that order`,
       )
