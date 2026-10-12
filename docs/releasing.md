@@ -155,12 +155,17 @@ not on npm yet needs a few steps by hand first, once. They are in
    with those commits, still tags everything else that is due, and is red in
    every run until you push that tag yourself. A version that has its tag is
    never looked at again, so tag before you revert a version pull request;
-   the versions of a pull request that was reverted and merged again are
-   tagged by hand once they are live. The first version of a package is the
-   exception: its revert brings back the placeholder `0.0.0`, where the job
-   stops reading the history, so after the second merge that version counts
-   as set once and is tagged at the second merge, also when the tarball on
-   npm was staged from the first.
+   of the versions of a pull request that was reverted and merged again,
+   those that have no tag are tagged by hand once they are live. The first
+   version of a package is the exception: its revert brings back the
+   placeholder `0.0.0`, where the job stops reading the history, so after
+   the second merge that version counts as set once and is tagged at the
+   second merge, also when the tarball on npm was staged from the first. If
+   the tarball you approve was staged by the run of the first merge (the run
+   of the second merge then shows the notice of `stage` for it), push the
+   tag at the first merge yourself, with the last command of
+   [A tag made by hand](#a-tag-made-by-hand), right after approving and
+   before any run of the workflow.
    Still start the workflow before you merge anything that changes a file
    under `.github/workflows/` (a Dependabot bump of an action counts): GitHub
    refuses the workflow's push of a tag when a workflow file differs between
@@ -316,7 +321,7 @@ nothing.
 | Every `smoke` leg is red at `FAIL Vite bundles the element of the board package`, and the checks above that line are `ok`, among them `the engine lays the golden 40×40 board …` and `arrowz carve names the golden layout …` | The smoke installs the newest Vite 8, and that release may be at fault, not the packages | Read Vite's error in the log. If the fault is Vite's, wait for its fix and use "Re-run failed jobs", or pin a Vite version in `consumer-smoke.mjs` by pull request, merge it and start the workflow by hand on `main`. |
 | `tag-published` is red (the job could not read npm, or a tag was refused for a reason other than the next row) | It does not stop the release. If a tag was refused, every other tag that was due was still tried; if npm could not be read, none was | Approve what is staged as usual, then find the cause in its log and start the workflow again on `main`. |
 | `tag-published` is red with `not tagged <name>@<version>: <files> changed since <sha7> set the version, and the workflow's token cannot push a tag across a workflow change` | The workflow files the line names differ between the commit that set the version and the commit the run is on, and GitHub refuses the workflow's token a tag on such a commit. The line above it is git's own message (``refusing to allow a GitHub App to create or update workflow`` … ``without `workflows` permission``), which may name another workflow file. Starting the workflow again does not help | Approve what is staged as usual. In the repository root, on an up-to-date `main` whose `origin` is this repository, with `deno` and `npm` on your `PATH`, run the command the log ends with: `deno run --allow-read --allow-run --allow-env packages/engine/scripts/release.ts tags`. It pushes the tag with your own git credentials and prints `tagged <name>@<version> at <sha7>`. This worked over HTTPS with the credential of `gh`, whose token has the `workflow` scope; a credential without that scope has not been tried. |
-| `tag-published` is red with `not tagged <name>@<version>: the version was set more than once on main (<sha7>, <sha7>); tag it by hand` | The version is live on npm, has no tag, and `main` set it more than once: a version pull request was reverted, or reverted and merged again. The line lists the commit that began each stretch of the version, oldest first, and the history does not say which of them the version was released from. Every other tag that was due was still tried. Starting the workflow again does not help | Find the commit and push the tag yourself: [A tag made by hand](#a-tag-made-by-hand). The next run no longer names the version. |
+| `tag-published` is red with `not tagged <name>@<version>: the version was set more than once on main (<sha7>, <sha7>); tag it by hand` | The version is live on npm, has no tag, and `main` set it more than once: a version pull request was reverted, or reverted and merged again. The line lists the commit that set the version each time, oldest first, and the history does not say which of them the version was released from. Every other tag that was due was still tried. It does not stop the release. Starting the workflow again does not help | Approve what is staged as usual. Then find the commit and push the tag yourself: [A tag made by hand](#a-tag-made-by-hand). The next run no longer names the version. |
 | `stage` fails with `npm error code E401` and `Unable to authenticate, your authentication token seems to be invalid.` | npm did not accept the workflow's identity: the package does not exist on npm yet and so has no trusted publisher, or a field of the trusted publisher is wrong. The log is the same for both. What an expired entry prints has not been tried | If the package does not exist on npm yet, do steps 1 and 2 of the first release. Otherwise compare the trusted-publisher fields with the table of the first release; to correct a wrong field, edit the entry if it is the environment name, and otherwise delete the entry and create it again. If the entry expired (its first publish did not succeed within two days), delete it and create it again; npm does not let you use or edit an expired entry. Then use "Re-run failed jobs" (the run keeps its tarballs for 7 days), or start the workflow on `main`. A re-run shows a notice for every package the first attempt staged, and the line `+ <name>@<version> (staged with id …)` for the others. |
 | `stage` fails with `npm error code E403` and `403 Forbidden - PUT https://registry.npmjs.org/<name> - OIDC permission denied for this action` (the name appears as `@fronthub%2farrowz-engine`) | The job ran `npm publish`, and the trusted publisher allows staging only. Nothing was published | Fix `release.yml` by pull request: the job must run `npm stage publish`. Do not tick "Allow npm publish". |
 | `stage` fails with `cannot read the npm version '<version>'` or `npm <version> cannot stage: staged publishing needs 11.15 or newer` | The npm in the job is not one that can stage | Fix `release.yml` by pull request. Nothing was staged. |
@@ -350,16 +355,22 @@ For `@fronthub/arrowz-engine@0.1.0` it prints
 `8b71d1b99120399d532f52b2ae4876775d7ce49e`. If it fails or prints nothing,
 the version carries no provenance and its commit cannot be read this way; the
 three `0.1.0` versions, which the workflow released, carry it. The manifest
-carried the version
-at that commit, so the tag belongs on the newest commit of the `not tagged`
-line that is that commit or an ancestor of it. On an up-to-date `main`, ask
-for each commit of the line, the last one first, until one answers:
+carried the version at that commit, so the tag belongs on the newest commit
+of the `not tagged` line that is that commit or an ancestor of it. On an
+up-to-date `main`, ask for each commit of the line, the last one first, until
+one answers:
 
 ```sh
 git merge-base --is-ancestor <sha7> <printed commit> && echo "tag this one"
 ```
 
-Then push the tag the way the job does, which leaves no tag in your checkout:
+Then push the tag the way the job does, which leaves no tag in your checkout.
+Do it in the repository root, on an up-to-date `main` whose `origin` is this
+repository, and only after `merge-base` answered for that commit: the tag
+ruleset blocks updates and deletions, so a release tag stays where it is
+pushed. A push of this form, made by the job's command from a checkout,
+worked over HTTPS with the credential of `gh`, whose token has the `workflow`
+scope; no other credential has been tried:
 
 ```sh
 git push origin <sha7>:refs/tags/<name>@<version>
