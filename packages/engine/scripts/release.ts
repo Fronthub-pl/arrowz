@@ -186,7 +186,8 @@ function versionAt(sha: string, dir: string, cwd: string): string | undefined | 
 /**
  * A manifest's history, newest first, read one commit at a time: nothing below the commit that ends the walk
  * is read. A commit whose manifest is not JSON is left out, so the stretch of a version closes over it; no
- * release run passes on such a commit, so a version that is live was released from the commit that set it.
+ * release run passes while such a commit lies in the current version's stretch (`commitOf` throws), so a
+ * version that is live was released from the commit that set it.
  */
 function* historyOf(dir: string, cwd: string): Generator<{ sha: string; version: string | undefined }> {
   for (const sha of manifestCommits(dir, cwd)) {
@@ -195,7 +196,7 @@ function* historyOf(dir: string, cwd: string): Generator<{ sha: string; version:
   }
 }
 
-/** Every version of a package since its placeholder, oldest first, with the commit that set it. */
+/** Every version of a package since its placeholder, oldest first by its newest stretch; see `Release`. */
 export function releasedOf(p: Pkg, cwd = '.'): Release[] {
   return releasesIn(historyOf(p.dir, cwd)).reverse().map(({ version, sha, earlier }) => ({
     pkg: { ...p, version },
