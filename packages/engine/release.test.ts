@@ -340,6 +340,8 @@ Deno.test('in a repository the releases of a package are its versions since the 
       { pkg: { ...engine, version: '0.1.0' }, sha: first },
       { pkg: engine, sha: second },
     ])
+    // `plan` refuses against the commit `commitOf` finds and `tags` tags the one `releasedOf` finds: they must be one.
+    assertEquals(releasedOf(engine, repo).at(-1)?.sha, commitOf(engine, repo))
   } finally {
     removeDir(repo)
   }
@@ -636,10 +638,15 @@ Deno.test('the workspace dependencies of a manifest are the names whose range st
   const manifest = JSON.stringify({
     dependencies: { '@fronthub/arrowz-engine': 'workspace:^', lit: '^3.3.3' },
     peerDependencies: { '@fronthub/arrowz-board': 'workspace:*', '@fronthub/arrowz-engine': 'workspace:^' },
+    optionalDependencies: { '@fronthub/arrowz-lab': 'workspace:~' },
     devDependencies: { '@fronthub/arrowz-cli': 'workspace:^' },
   })
   // A development dependency is not installed with the package, so its version does not reach a user.
-  assertEquals(workspaceDepsOf(manifest), ['@fronthub/arrowz-engine', '@fronthub/arrowz-board'])
+  assertEquals(workspaceDepsOf(manifest), [
+    '@fronthub/arrowz-engine',
+    '@fronthub/arrowz-board',
+    '@fronthub/arrowz-lab',
+  ])
   assertEquals(workspaceDepsOf('{"name":"n"}'), [])
 })
 
@@ -1086,7 +1093,10 @@ const NPM_REFUSALS: Record<string, string[]> = {
     'npm error code E409',
     'npm error 409 Conflict - POST https://registry.npmjs.org/-/stage/package/@fronthub%2farrowz-x - Cannot stage previously published version "0.1.0".',
   ],
-  conflict: ['npm error code E409', 'npm error 409 Conflict - another conflict'],
+  conflict: [
+    'npm error code E409',
+    'npm error 409 Conflict - POST https://registry.npmjs.org/-/stage/package/@fronthub%2farrowz-x - Cannot stage version "0.1.0": another conflict',
+  ],
   sentence: ['npm error code E403', 'npm error 403 Cannot stage previously published version "0.1.0".'],
   down: ['npm error code E500'],
 }
