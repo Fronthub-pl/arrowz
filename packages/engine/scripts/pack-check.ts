@@ -29,12 +29,31 @@ export interface Rule {
   bin: Record<string, string>
   /** Whether every entry point comes with type declarations. */
   typed: boolean
+  /** What the manifest says about side effects; undefined for a package that says nothing. */
+  sideEffects: false | string[] | undefined
+  /** The registry packages the manifest depends on, and no other. */
+  dependencies: string[]
 }
 
 const DOCS = /^(package\.json|README\.md|LICENSE|CHANGELOG\.md)$/
 /** tsc emits one flat directory: a nested path or another extension is not ours. */
 const FLAT_DIST = /^dist\/[a-z0-9-]+\.(js|d\.ts)$/
 const ALWAYS = ['package.json', 'README.md', 'LICENSE']
+/** The oldest Node the three packages promise; the smoke matrix has a leg on it. */
+const NODE = '>=22.12'
+/** Keys that change how a package resolves or where it installs; `exports` and `bin` are the only doors here. */
+const FOREIGN = [
+  'main',
+  'module',
+  'browser',
+  'types',
+  'typings',
+  'os',
+  'cpu',
+  'libc',
+  'bundledDependencies',
+  'bundleDependencies',
+]
 
 /**
  * The engine modules a published entry point reaches. The build also emits the ones the lab alone
@@ -65,6 +84,8 @@ export const RULES: Record<string, Rule> = {
     exports: ['.', './command', './simple'],
     bin: {},
     typed: true,
+    sideEffects: false,
+    dependencies: [],
   },
   '@fronthub/arrowz-board': {
     files: [DOCS, /^NOTICE$/, FLAT_DIST],
@@ -73,6 +94,8 @@ export const RULES: Record<string, Rule> = {
     exports: ['.'],
     bin: {},
     typed: true,
+    sideEffects: ['./dist/arrowz-board.js', './dist/mod.js'],
+    dependencies: ['@fronthub/arrowz-engine', 'lit'],
   },
   '@fronthub/arrowz-cli': {
     files: [DOCS, /^dist\/arrowz\.mjs$/],
@@ -81,6 +104,8 @@ export const RULES: Record<string, Rule> = {
     exports: [],
     bin: { arrowz: './dist/arrowz.mjs' },
     typed: false,
+    sideEffects: undefined,
+    dependencies: ['@fronthub/arrowz-engine'],
   },
 }
 
@@ -88,8 +113,11 @@ interface Packed {
   name?: string
   version?: string
   private?: boolean
+  type?: unknown
+  engines?: unknown
+  sideEffects?: unknown
   scripts?: Record<string, string>
-  exports?: Record<string, { types?: string; default?: string }>
+  exports?: Record<string, unknown>
   bin?: Record<string, string>
   dependencies?: Record<string, string>
   optionalDependencies?: Record<string, string>
@@ -99,6 +127,7 @@ interface Packed {
 /** The value a manifest carries until its first version PR. */
 const UNRELEASED = '0.0.0'
 const inTarball = (paths: Set<string>, target: string) => paths.has(target.replace(/^\.\//, ''))
+const spell = (value: unknown): string => value === undefined ? 'nothing' : JSON.stringify(value)
 
 /** What is wrong with a packed tarball, one sentence per fault; empty when a user can receive it. */
 export function problems(packedBytes: number, entries: Entry[]): string[] {
@@ -119,6 +148,19 @@ export function problems(packedBytes: number, entries: Entry[]): string[] {
   for (const path of required) if (!paths.has(path)) out.push(`${path} is missing`)
   if (packedBytes > rule.budget) out.push(`the tarball is ${packedBytes} B, over the budget of ${rule.budget} B`)
   if (m.private) out.push('the manifest is private')
+  if (m.type !== 'module') out.push(`the manifest has the type ${spell(m.type)}, not "module"`)
+  if (spell(m.engines) !== spell({ node: NODE })) {
+    out.push(`engines is ${spell(m.engines)}, not ${spell({ node: NODE })}`)
+  }
+  for (const key of FOREIGN) {
+    if (key in m) out.push(`the manifest has ${key}, which no package of this repository publishes`)
+  }
+  if (spell(m.sideEffects) !== spell(rule.sideEffects)) {
+    out.push(`sideEffects is ${spell(m.sideEffects)}, but ${m.name} publishes ${spell(rule.sideEffects)}`)
+  }
+  for (const path of Array.isArray(m.sideEffects) ? m.sideEffects : []) {
+    if (typeof path === 'string' && !inTarball(paths, path)) out.push(`sideEffects: ${path} is not in the tarball`)
+  }
 
   for (const script of Object.keys(m.scripts ?? {})) {
     if (/^(pre|post)?install$/.test(script)) {
@@ -130,6 +172,16 @@ export function problems(packedBytes: number, entries: Entry[]): string[] {
       if (!/^[\^~]?\d+\.\d+\.\d+(-[\w.]+)?$/.test(range)) {
         out.push(`${kind}: ${name} is "${range}"; a published dependency is x.y.z, ^x.y.z or ~x.y.z from the registry`)
       }
+      if (kind !== 'dependencies') out.push(`${kind}: ${name} is listed, and ${m.name} publishes none`)
+    }
+  }
+  const depends = Object.keys(m.dependencies ?? {})
+  for (const name of rule.dependencies) {
+    if (!depends.includes(name)) out.push(`dependencies: ${name} is missing`)
+  }
+  for (const name of depends) {
+    if (!rule.dependencies.includes(name)) {
+      out.push(`dependencies: ${name} is not a dependency ${m.name} publishes (add it to the rule if it is meant)`)
     }
   }
 
@@ -141,21 +193,39 @@ export function problems(packedBytes: number, entries: Entry[]): string[] {
       } (pack with pnpm: it applies publishConfig.exports)`,
     )
   }
+  const conditions = rule.typed ? ['types', 'default'] : ['default']
   for (const [name, target] of Object.entries(m.exports ?? {})) {
-    for (const kind of rule.typed ? ['types', 'default'] as const : ['default'] as const) {
-      const path = target[kind]
-      if (!path) out.push(`${name} names no ${kind}`)
-      else if (!inTarball(paths, path)) out.push(`${name}: ${path} is not in the tarball`)
+    if (typeof target !== 'object' || target === null || Array.isArray(target)) {
+      out.push(`${name} is ${spell(target)}, not a set of conditions`)
+      continue
+    }
+    const entry = target as Record<string, unknown>
+    let complete = true
+    for (const kind of conditions) {
+      const path = entry[kind]
+      if (typeof path !== 'string' || path === '') {
+        out.push(`${name} names no ${kind}`)
+        complete = false
+      } else if (!inTarball(paths, path)) out.push(`${name}: ${path} is not in the tarball`)
       else if (kind === 'types' && !path.endsWith('.d.ts')) {
         out.push(`${name}: the types ${path} are not a declaration file`)
       }
+    }
+    // Node takes the first condition that matches, so the order is part of the entry.
+    const named = Object.keys(entry)
+    if (complete && named.join(' ') !== conditions.join(' ')) {
+      out.push(
+        `${name} has the conditions ${named.join(', ')}, and ${m.name} publishes ${
+          conditions.join(', ')
+        } in that order`,
+      )
     }
   }
   const commands = Object.entries(m.bin ?? {})
   const wanted = Object.entries(rule.bin)
   if (JSON.stringify(commands) !== JSON.stringify(wanted)) {
-    const spell = (list: [string, string][]) => list.map(([c, p]) => `${c} (${p})`).join(', ') || 'no command'
-    out.push(`the manifest has ${spell(commands)}, but ${m.name} publishes ${spell(wanted)}`)
+    const list = (pairs: [string, string][]) => pairs.map(([c, p]) => `${c} (${p})`).join(', ') || 'no command'
+    out.push(`the manifest has ${list(commands)}, but ${m.name} publishes ${list(wanted)}`)
   }
   for (const [command, path] of commands) {
     if (!inTarball(paths, path)) out.push(`the command ${command}: ${path} is not in the tarball`)

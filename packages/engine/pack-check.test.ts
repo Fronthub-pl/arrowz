@@ -8,9 +8,14 @@ const file = (path: string, text = ''): Entry => ({ path, bytes: enc.encode(text
 const entry = (name: string) => ({ types: `./dist/${name}.d.ts`, default: `./dist/${name}.js` })
 const dist = (...names: string[]) => names.flatMap((n) => [`dist/${n}.js`, `dist/${n}.d.ts`])
 
+/** What the three manifests share. */
+const COMMON = { type: 'module', engines: { node: '>=22.12' } }
+
 const ENGINE = {
   name: '@fronthub/arrowz-engine',
   version: '0.1.0',
+  ...COMMON,
+  sideEffects: false,
   exports: { '.': entry('mod'), './command': entry('command'), './simple': entry('lab-simple') },
   scripts: { build: 'tsc', smoke: 'node scripts/node-smoke.mjs' },
 }
@@ -24,6 +29,8 @@ const ENGINE_FILES = [
 const BOARD = {
   name: '@fronthub/arrowz-board',
   version: '0.1.0',
+  ...COMMON,
+  sideEffects: ['./dist/arrowz-board.js', './dist/mod.js'],
   exports: { '.': entry('mod') },
   dependencies: { '@fronthub/arrowz-engine': '^0.1.0', lit: '^3.3.3' },
 }
@@ -31,6 +38,7 @@ const BOARD_FILES = ['README.md', 'LICENSE', 'NOTICE', 'CHANGELOG.md', ...dist('
 const CLI = {
   name: '@fronthub/arrowz-cli',
   version: '0.1.0',
+  ...COMMON,
   bin: { arrowz: './dist/arrowz.mjs' },
   dependencies: { '@fronthub/arrowz-engine': '^0.1.0' },
 }
@@ -143,13 +151,93 @@ Deno.test('a manifest that npm 12 would not install as it is gets refused', () =
     'catalog:',
   ]
   for (const spec of specs) {
-    for (const kind of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
+    const range = (kind: string) =>
+      `${kind}: lit is "${spec}"; a published dependency is x.y.z, ^x.y.z or ~x.y.z from the registry`
+    const own = problems(1, packed(BOARD, BOARD_FILES, { dependencies: { ...BOARD.dependencies, lit: spec } }))
+    assertEquals(own, [range('dependencies')], spec)
+    for (const kind of ['optionalDependencies', 'peerDependencies']) {
       const found = problems(1, packed(BOARD, BOARD_FILES, { [kind]: { lit: spec } }))
-      assertEquals(found, [
-        `${kind}: lit is "${spec}"; a published dependency is x.y.z, ^x.y.z or ~x.y.z from the registry`,
-      ], `${kind} ${spec}`)
+      assertEquals(found, [range(kind), `${kind}: lit is listed, and @fronthub/arrowz-board publishes none`], spec)
     }
   }
+})
+
+Deno.test('the manifest is an ES module package for the Node the packages promise', () => {
+  assertEquals(problems(1, engine({ type: undefined })), ['the manifest has the type nothing, not "module"'])
+  assertEquals(problems(1, engine({ type: 'commonjs' })), ['the manifest has the type "commonjs", not "module"'])
+  assertEquals(problems(1, engine({ engines: undefined })), ['engines is nothing, not {"node":">=22.12"}'])
+  assertEquals(problems(1, packed(CLI, CLI_FILES, { engines: { node: '>=20' } })), [
+    'engines is {"node":">=20"}, not {"node":">=22.12"}',
+  ])
+  assertEquals(problems(1, engine({ engines: { node: '>=22.12', npm: '>=11' } })), [
+    'engines is {"node":">=22.12","npm":">=11"}, not {"node":">=22.12"}',
+  ])
+})
+
+Deno.test('a key that changes how a package resolves or where it installs is named', () => {
+  const keys = [
+    'main',
+    'module',
+    'browser',
+    'types',
+    'typings',
+    'os',
+    'cpu',
+    'libc',
+    'bundledDependencies',
+    'bundleDependencies',
+  ]
+  for (const key of keys) {
+    assertEquals(problems(1, packed(BOARD, BOARD_FILES, { [key]: './dist/mod.js' })), [
+      `the manifest has ${key}, which no package of this repository publishes`,
+    ])
+  }
+})
+
+Deno.test('sideEffects is what the package publishes, and names files of the tarball', () => {
+  assertEquals(problems(1, engine({ sideEffects: undefined })), [
+    'sideEffects is nothing, but @fronthub/arrowz-engine publishes false',
+  ])
+  assertEquals(problems(1, packed(CLI, CLI_FILES, { sideEffects: false })), [
+    'sideEffects is false, but @fronthub/arrowz-cli publishes nothing',
+  ])
+  // Without the list a bundler drops the import that registers the element.
+  assertEquals(problems(1, packed(BOARD, BOARD_FILES, { sideEffects: false })), [
+    'sideEffects is false, but @fronthub/arrowz-board publishes ["./dist/arrowz-board.js","./dist/mod.js"]',
+  ])
+  assertEquals(problems(1, packed(BOARD, without(BOARD_FILES, 'dist/arrowz-board.js'))), [
+    'sideEffects: ./dist/arrowz-board.js is not in the tarball',
+  ])
+})
+
+Deno.test('an entry point has exactly the conditions types and default, in that order', () => {
+  const extra = { ...ENGINE.exports, './command': { ...entry('command'), require: './dist/command.js' } }
+  assertEquals(problems(1, engine({ exports: extra })), [
+    './command has the conditions types, default, require, and @fronthub/arrowz-engine publishes types, default in that order',
+  ])
+  // Node takes the first condition that matches: with default first, the types are never read.
+  const swapped = { ...ENGINE.exports, '.': { default: './dist/mod.js', types: './dist/mod.d.ts' } }
+  assertEquals(problems(1, engine({ exports: swapped })), [
+    '. has the conditions default, types, and @fronthub/arrowz-engine publishes types, default in that order',
+  ])
+  const bare = { ...ENGINE.exports, './command': './dist/command.js' }
+  assertEquals(problems(1, engine({ exports: bare })), ['./command is "./dist/command.js", not a set of conditions'])
+})
+
+Deno.test('the dependencies are exactly the ones the package publishes', () => {
+  assertEquals(RULES['@fronthub/arrowz-engine']?.dependencies, [])
+  assertEquals(RULES['@fronthub/arrowz-board']?.dependencies, ['@fronthub/arrowz-engine', 'lit'])
+  assertEquals(RULES['@fronthub/arrowz-cli']?.dependencies, ['@fronthub/arrowz-engine'])
+  // The smoke installs the three packages together, so only the gate sees a dependency that is not named.
+  assertEquals(problems(1, packed(CLI, CLI_FILES, { dependencies: undefined })), [
+    'dependencies: @fronthub/arrowz-engine is missing',
+  ])
+  assertEquals(problems(1, packed(BOARD, BOARD_FILES, { dependencies: { lit: '^3.3.3' } })), [
+    'dependencies: @fronthub/arrowz-engine is missing',
+  ])
+  assertEquals(problems(1, engine({ dependencies: { lit: '^3.3.3' } })), [
+    'dependencies: lit is not a dependency @fronthub/arrowz-engine publishes (add it to the rule if it is meant)',
+  ])
 })
 
 Deno.test('the manifest names the published entry points and nothing else', () => {
