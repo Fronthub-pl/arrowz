@@ -12,12 +12,16 @@ import {
   type Pkg,
   planOf,
   planOutcome,
+  pushTag,
   refusalsOf,
   releaseCommit,
   type Seen,
   seenOnNpm,
   tagOf,
+  TAGS_COMMAND,
   tagsDue,
+  tagsOutcome,
+  workflowsChangedSince,
 } from './scripts/release.ts'
 
 const pkg = (short: string, version: string): Pkg => ({
@@ -96,6 +100,65 @@ Deno.test('the tag goes on the commit of main that set the version', () => {
   assertEquals(releaseCommit(history, '0.1.1'), 'version-pr')
   assertEquals(releaseCommit(history, '0.3.0'), undefined)
   assertEquals(releaseCommit([], '0.1.1'), undefined)
+})
+
+const shaOf = (p: Pkg): string => p === ENGINE ? '1a2b3c4d5e6f' : p === BOARD ? '5e6f7a8b9c0d' : '9c0d1e2f3a4b'
+const refusing = (...refused: Pkg[]) => (p: Pkg): void => {
+  if (refused.includes(p)) throw new Error(`git push: remote rejected ${tagOf(p)}\n`)
+}
+const WORKFLOW = '.github/workflows/release.yml'
+const explained = (p: Pkg): string =>
+  `not tagged ${tagOf(p)}: ${WORKFLOW} changed since ${shaOf(p).slice(0, 7)} set the version, ` +
+  "and the workflow's token cannot push a tag across a workflow change"
+
+Deno.test('every tag is pushed at the commit of its version, and the run ends with status 0', () => {
+  const pushed: string[] = []
+  const push = (p: Pkg, sha: string) => void pushed.push(`${tagOf(p)} ${sha}`)
+  assertEquals(tagsOutcome([ENGINE, BOARD], shaOf, push, () => [], true), {
+    out: ['tagged @fronthub/arrowz-engine@0.1.1 at 1a2b3c4', 'tagged @fronthub/arrowz-board@0.1.0 at 5e6f7a8'],
+    err: [],
+    code: 0,
+  })
+  assertEquals(pushed, ['@fronthub/arrowz-engine@0.1.1 1a2b3c4d5e6f', '@fronthub/arrowz-board@0.1.0 5e6f7a8b9c0d'])
+})
+
+Deno.test('a run with no tag due says so and ends with status 0', () => {
+  assertEquals(tagsOutcome([], shaOf, refusing(), () => [], true), {
+    out: ['no version went live since the last run'],
+    err: [],
+    code: 0,
+  })
+})
+
+Deno.test('on the runner a refused tag whose workflow files changed is explained, and the command is given once', () => {
+  const outcome = tagsOutcome([ENGINE, BOARD, CLI], shaOf, refusing(ENGINE, CLI), () => [WORKFLOW], true)
+  assertEquals(outcome, {
+    out: ['tagged @fronthub/arrowz-board@0.1.0 at 5e6f7a8'],
+    err: [
+      'error: git push: remote rejected @fronthub/arrowz-engine@0.1.1',
+      explained(ENGINE),
+      'error: git push: remote rejected @fronthub/arrowz-cli@0.2.0',
+      explained(CLI),
+      `From an up-to-date checkout of main, run: ${TAGS_COMMAND}`,
+    ],
+    code: 1,
+  })
+})
+
+Deno.test('a refused tag whose workflow files are the same keeps the message of git and gets no advice', () => {
+  assertEquals(tagsOutcome([ENGINE, BOARD], shaOf, refusing(ENGINE), () => [], true), {
+    out: ['tagged @fronthub/arrowz-board@0.1.0 at 5e6f7a8'],
+    err: ['error: git push: remote rejected @fronthub/arrowz-engine@0.1.1'],
+    code: 1,
+  })
+})
+
+Deno.test('from a checkout a refused tag is never answered with the command that was just run', () => {
+  assertEquals(tagsOutcome([ENGINE], shaOf, refusing(ENGINE), () => [WORKFLOW], false), {
+    out: [],
+    err: ['error: git push: remote rejected @fronthub/arrowz-engine@0.1.1'],
+    code: 1,
+  })
 })
 
 /** Runs git in a scratch repository, with an identity of its own and without the caller's signing setup. */
@@ -197,6 +260,48 @@ Deno.test('what changed since the version commit is the package files that reach
     assertEquals(changedSince(engine, repo), ['packages/engine/engine.ts'])
   } finally {
     removeDir(repo)
+  }
+})
+
+Deno.test('the workflow files that changed since a commit are named, and no other file is', async () => {
+  const repo = scratchDir()
+  try {
+    await scratch(repo, ['init', '-q', '-b', 'main'])
+    await commitFile(repo, '.github/workflows/ci.yml', 'ci', 'the workflows')
+    const version = await commitManifest(repo, '0.2.0', 'version packages')
+    assertEquals(workflowsChangedSince(version, repo), [])
+
+    await commitFile(repo, 'packages/engine/engine.ts', 'source', 'engine change')
+    await commitFile(repo, '.github/dependabot.yml', 'bumps', 'not a workflow')
+    assertEquals(workflowsChangedSince(version, repo), [])
+
+    await commitFile(repo, '.github/workflows/ci.yml', 'ci, bumped', 'an action bump')
+    await commitFile(repo, '.github/workflows/release.yml', 'release', 'a new workflow')
+    assertEquals(workflowsChangedSince(version, repo), ['.github/workflows/ci.yml', '.github/workflows/release.yml'])
+  } finally {
+    removeDir(repo)
+  }
+})
+
+Deno.test('a tag is pushed to origin at the given commit and leaves no tag in the checkout', async () => {
+  const repo = scratchDir()
+  const origin = scratchDir()
+  // Outside the protected pattern of release tags, and on a commit only the scratch repository has.
+  const tag = 'scratch-engine@0.2.0'
+  try {
+    await scratch(origin, ['init', '-q', '-b', 'main'])
+    await scratch(repo, ['init', '-q', '-b', 'main'])
+    await scratch(repo, ['remote', 'add', 'origin', origin])
+    const version = await commitManifest(repo, '0.2.0', 'version packages')
+    await commitManifest(repo, '0.2.0', 'a new keyword')
+
+    pushTag(tag, version, repo)
+    assertEquals(await scratch(origin, ['rev-parse', `refs/tags/${tag}`]), version)
+    // A local tag would stop the next try after a refused push.
+    assertEquals(await scratch(repo, ['tag', '--list']), '')
+  } finally {
+    removeDir(repo)
+    removeDir(origin)
   }
 })
 
@@ -389,6 +494,11 @@ Deno.test('tag-published is exactly the job that tags what is live, on main only
       { run: 'deno run --allow-read --allow-run --allow-env packages/engine/scripts/release.ts tags' },
     ],
   })
+})
+
+Deno.test('the command a refused tag is answered with is the one the tag-published job runs', () => {
+  const steps = stepsOf(obj(jobsOf(load('release.yml'))['tag-published']))
+  assertEquals(steps.at(-1), { run: TAGS_COMMAND })
 })
 
 Deno.test('plan is exactly the job that reads the whole history and names the directories to release', () => {
