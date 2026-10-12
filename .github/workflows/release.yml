@@ -268,6 +268,8 @@ jobs:
             for tgz in tarballs/fronthub-arrowz-"$name"-*.tgz; do
               if [ -e "$tgz" ]; then
                 handed=$((handed + 1))
+                # npm's lines appear only when it has exited: this one shows which tarball a hung call is on.
+                echo "handing ./$tgz to npm"
                 # npm takes `tarballs/x.tgz` for a GitHub repository; a path that starts with ./ is a file.
                 if log=$(npm stage publish --ignore-scripts "./$tgz" 2>&1); then
                   printf '%s\n' "$log"
