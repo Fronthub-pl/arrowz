@@ -5,3 +5,21 @@ updates:
     directory: /
     schedule:
       interval: weekly
+
+  # The pnpm workspace, read from its root. A minor or patch update changes
+  # the lockfile only, so the range a published package asks for is raised by
+  # hand, with a changeset. Major updates come one by one.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    versioning-strategy: increase-if-necessary
+    groups:
+      development:
+        dependency-type: development
+        update-types: [minor, patch]
+      production:
+        dependency-type: production
+        update-types: [minor, patch]
