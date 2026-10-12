@@ -347,6 +347,85 @@ Deno.test('in a repository the releases of a package are its versions since the 
   }
 })
 
+Deno.test('a commit that deleted the manifest ends the walk, so the versions below it are not releases', async () => {
+  const repo = scratchDir()
+  try {
+    await scratch(repo, ['init', '-q', '-b', 'main'])
+    await commitManifest(repo, '0.1.0', 'a number from before the package was removed')
+    await scratch(repo, ['update-index', '--force-remove', 'packages/engine/package.json'])
+    await scratch(repo, ['commit', '-q', '-m', 'the package is removed'])
+    const first = await commitManifest(repo, '0.2.0', 'version packages')
+
+    assertEquals(releasedOf(engine, repo), [{ pkg: engine, sha: first }])
+  } finally {
+    removeDir(repo)
+  }
+})
+
+Deno.test('a manifest that is not JSON is left out of the walk, so the tag stays on the commit that set the version', async () => {
+  const repo = scratchDir()
+  try {
+    await scratch(repo, ['init', '-q', '-b', 'main'])
+    await commitManifest(repo, '0.0.0', 'the placeholder')
+    const before = await commitManifest(repo, '0.1.0', 'version packages')
+    const first = await commitManifest(repo, '0.2.0', 'version packages')
+    await commitFile(repo, 'packages/engine/package.json', '{ "name": <<<<<<< main', 'a merge left its markers')
+    await commitFile(repo, 'packages/engine/package.json', '', 'an empty manifest')
+    await commitManifest(repo, '0.2.0', 'the manifest is repaired')
+
+    // Ending the walk at the broken commit would tag 0.2.0 at the repair and never offer 0.1.0 a tag.
+    assertEquals(releasedOf(engine, repo), [
+      { pkg: { ...engine, version: '0.1.0' }, sha: before },
+      { pkg: engine, sha: first },
+    ])
+  } finally {
+    removeDir(repo)
+  }
+})
+
+Deno.test('a manifest that is JSON and names no version ends the walk, whatever its shape', async () => {
+  for (const unnamed of ['{"name":"@fronthub/arrowz-engine"}', '{"version":""}', 'null', '[]']) {
+    const repo = scratchDir()
+    try {
+      await scratch(repo, ['init', '-q', '-b', 'main'])
+      await commitManifest(repo, '0.1.0', 'a number from before the first version pull request')
+      await commitFile(repo, 'packages/engine/package.json', unnamed, 'a manifest without a version')
+      const first = await commitManifest(repo, '0.2.0', 'version packages')
+
+      assertEquals(releasedOf(engine, repo), [{ pkg: engine, sha: first }], unnamed)
+    } finally {
+      removeDir(repo)
+    }
+  }
+})
+
+/** Removes the blob of a commit's manifest from the object store, as a damaged checkout has it. */
+async function loseManifest(repo: string, sha: string): Promise<void> {
+  const blob = await scratch(repo, ['rev-parse', `${sha}:packages/engine/package.json`])
+  const object = join(repo, '.git', 'objects', blob.slice(0, 2), blob.slice(2))
+  if (!new Deno.Command('rm', { args: [object] }).outputSync().success) throw new Error(`no loose object ${blob}`)
+}
+
+Deno.test('a manifest git cannot read stops the run, and one below the placeholder is never read', async () => {
+  const repo = scratchDir()
+  try {
+    await scratch(repo, ['init', '-q', '-b', 'main'])
+    const early = await commitManifest(repo, '0.1.0', 'a number from before the placeholder')
+    await commitManifest(repo, '0.0.0', 'the placeholder')
+    const first = await commitManifest(repo, '0.2.0', 'version packages')
+    const keyword = await commitManifest(repo, '0.2.0', 'a new keyword')
+
+    await loseManifest(repo, early)
+    assertEquals(releasedOf(engine, repo), [{ pkg: engine, sha: first }])
+
+    // Read as "no version", this would cut the stretch and offer no release at all.
+    await loseManifest(repo, keyword)
+    assertThrows(() => releasedOf(engine, repo), Error, 'git show')
+  } finally {
+    removeDir(repo)
+  }
+})
+
 Deno.test('what changed since the version commit is the package files that reach the tarball', async () => {
   const repo = scratchDir()
   try {

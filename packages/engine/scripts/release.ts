@@ -80,7 +80,7 @@ export function tagsDue(
  * manifest carried before its first version pull request is never a release.
  */
 export function releasesIn(
-  history: { sha: string; version: string | undefined }[],
+  history: Iterable<{ sha: string; version: string | undefined }>,
 ): { version: string; sha: string }[] {
   const found: { version: string; sha: string }[] = []
   let stretch: string | undefined
@@ -145,22 +145,43 @@ function manifestCommits(dir: string, cwd: string): string[] {
   return log.trim().split('\n').filter((line) => line !== '')
 }
 
-/** The version a manifest carried at a commit; undefined when the commit has no manifest or it names none. */
-function versionAt(sha: string, dir: string, cwd: string): string | undefined {
-  const shown = sh('git', ['show', `${sha}:${dir}/package.json`], cwd)
-  if (shown.code !== 0) return undefined
+/** What `versionAt` answers for a manifest that is not JSON. */
+const NOT_JSON = Symbol('not JSON')
+
+/**
+ * The version a manifest carried at a commit. Undefined when the commit has no manifest or its manifest names
+ * no version: there the walk ends. `NOT_JSON` for a manifest that cannot be parsed. A git failure throws.
+ */
+function versionAt(sha: string, dir: string, cwd: string): string | undefined | typeof NOT_JSON {
+  const path = `${dir}/package.json`
+  // `git show` fails alike for a path the commit lacks and for an object that is gone; `ls-tree` prints nothing for the first.
+  if (git(cwd, 'ls-tree', sha, '--', path).trim() === '') return undefined
+  let manifest: unknown
   try {
-    const { version } = JSON.parse(shown.out) as { version?: unknown }
-    return typeof version === 'string' && version !== '' ? version : undefined
-  } catch {
-    return undefined
+    manifest = JSON.parse(git(cwd, 'show', `${sha}:${path}`))
+  } catch (error) {
+    if (error instanceof SyntaxError) return NOT_JSON
+    throw error
+  }
+  if (typeof manifest !== 'object' || manifest === null || !('version' in manifest)) return undefined
+  return typeof manifest.version === 'string' && manifest.version !== '' ? manifest.version : undefined
+}
+
+/**
+ * A manifest's history, newest first, read one commit at a time: nothing below the commit that ends the walk
+ * is read. A commit whose manifest is not JSON is left out, so the stretch of a version closes over it; no
+ * release run passes on such a commit, so a version that is live was released from the commit that set it.
+ */
+function* historyOf(dir: string, cwd: string): Generator<{ sha: string; version: string | undefined }> {
+  for (const sha of manifestCommits(dir, cwd)) {
+    const version = versionAt(sha, dir, cwd)
+    if (version !== NOT_JSON) yield { sha, version }
   }
 }
 
 /** Every version of a package since its placeholder, oldest first, with the commit that set it. */
 export function releasedOf(p: Pkg, cwd = '.'): Release[] {
-  const history = manifestCommits(p.dir, cwd).map((sha) => ({ sha, version: versionAt(sha, p.dir, cwd) }))
-  return releasesIn(history).reverse().map(({ version, sha }) => ({ pkg: { ...p, version }, sha }))
+  return releasesIn(historyOf(p.dir, cwd)).reverse().map(({ version, sha }) => ({ pkg: { ...p, version }, sha }))
 }
 
 /**
