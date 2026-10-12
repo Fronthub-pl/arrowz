@@ -104,16 +104,18 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
    run per group, so a newer run can replace a waiting one, which loses nothing
    because it plans from the same `main`.
    npm does not accept a version that already exists as a staged version:
-   `npm stage publish` ends with `E409` and status 1, and the job is red. A
+   `npm stage publish` ends with `E409` and status 1. `stage` answers that
+   refusal, and no other, with a notice and stays green. A
    pull request that changes the workflow
    or one of its programs runs it as a dry run: plan, build and smoke on all
    three packages, never tag or stage. A run started by hand on another branch
    never tags and never stages either.
    - **`tag-published`** (`contents: write`; only on `main`): for each package,
-     if its current version is on npm but has no git tag yet, create the tag.
-     (Tags are created only for versions that really went live; see step 5. If
-     a package is released again before a run has seen the earlier version
-     live, the earlier version gets no tag.) The tag goes on the first-parent
+     every version its manifest has had on `main` since the placeholder
+     `0.0.0`: if it is on npm but has no git tag yet, create the tag.
+     (Tags are created only for versions that really went live; see step 5. A
+     version that was replaced before a run saw it live gets its tag from a
+     later run.) The tag goes on the first-parent
      commit of `main` that set the version, the merge of the version PR.
      `0.0.0` is never tagged.
    - **`plan`** (`contents: read`): for each package, `npm view <name>@<version>`;
@@ -123,7 +125,10 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
      whose files differ from those of the commit that set its version (a file
      in the package's `scripts/` directory, `*.test.ts` and `*.test.tsx` are
      left out; everything else counts) is refused, so a version is released only from
-     the files that were reviewed as that version.
+     the files that were reviewed as that version. A package is refused, too,
+     when a workspace dependency of it (the engine, for the board and the CLI)
+     has another version than at that commit: `pnpm pack` would write the
+     newer range into the tarball.
    - **`build`** (`contents: read`, `persist-credentials: false`, no caches):
      full verify, build, `pnpm pack` the planned packages, run the gates (§5) on
      the tarballs, upload the tarballs as an artifact. It records the SHA-256
@@ -141,7 +146,8 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
      `npm stage publish --ignore-scripts <tgz>` for each planned
      tarball, dependencies first (engine → board → CLI). Every tarball is tried
      even after one is refused, so a re-run after a partial failure reaches the
-     rest. Authentication is OIDC
+     rest, and a tarball whose version is already staged counts as done.
+     Authentication is OIDC
      trusted publishing: no token is stored anywhere. npm signs a provenance
      statement and publishes it to the transparency log.
 4. The maintainer looks at the workflow run and at the **Staged Packages** tab
@@ -222,6 +228,13 @@ the first actions that 2FA-bypass tokens lose (§8).
    about a package without types), and a released tarball ships its
    `CHANGELOG.md`. The CLI's manifest must name exactly the `arrowz` command,
    and a dependency is `x.y.z`, `^x.y.z` or `~x.y.z`.
+   The manifest is also held to what the three packages publish: `type` is
+   `module`, `engines` is Node 22.12 or newer and nothing else, no `main`,
+   `module`, `browser`, `types`, `os`, `cpu`, `libc` or bundled dependencies,
+   `sideEffects` as each package sets it (and the files it lists are in the
+   tarball), every entry point with exactly `types` then `default`, and the
+   dependencies exactly the ones of the package's rule, so a dependency that
+   went missing or a new one is named.
 2. **`publint --strict`** on every tarball and, for the engine and the board
    (the packages with types), **`attw <tarball> --profile esm-only`** (the
    default profile wrongly fails an ESM-only package).
@@ -345,8 +358,10 @@ bootstrap.
 
 ## 10. Still unverified (check during the first release)
 
-- Whether the package page shows a provenance badge once the staged version is
-  approved.
+- The notice of `stage` on a real `E409`: the job was tried with a stand-in for
+  npm, and the two lines it looks for were read in the log of the rehearsal.
+- A tag for an earlier version pushed by the workflow's token: no run has had
+  an earlier version to tag.
 - Whether a valid trusted-publisher entry still expires after two days
   without an approval (staging alone turns "Pending validation" into "Valid";
   the plan avoids depending on it: §4 runs it same day).
