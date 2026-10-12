@@ -150,6 +150,7 @@ Deno.test('every version since the placeholder is a release, with the commit tha
     { sha: 'second', version: '0.1.1' },
     { sha: 'readme', version: '0.1.0' },
     { sha: 'first', version: '0.1.0' },
+    { sha: 'slim', version: '0.0.0' },
     { sha: 'placeholder', version: '0.0.0' },
     { sha: 'early', version: '0.1.0' },
     { sha: 'alpha', version: '1.0.0-alpha.1' },
@@ -178,7 +179,7 @@ Deno.test('every version since the placeholder is a release, with the commit tha
   assertEquals(releasesIn([{ sha: 'placeholder', version: '0.0.0' }]), [])
 })
 
-Deno.test('a commit whose manifest names no version ends the walk as the placeholder does', () => {
+Deno.test('a commit whose manifest names no version counts as a placeholder', () => {
   const history = [
     { sha: 'second', version: '0.1.1' },
     { sha: 'first', version: '0.1.0' },
@@ -201,6 +202,15 @@ Deno.test('the walk ends at the oldest placeholder, so a first version set twice
     { sha: 'early', version: '0.1.0' },
   ]
   assertEquals(releasesIn(history), [{ version: '0.1.0', sha: 'again', earlier: ['first'] }])
+  const thrice = [
+    { sha: 'c', version: '0.1.0' },
+    { sha: 'reverted-b', version: '0.0.0' },
+    { sha: 'b', version: '0.1.0' },
+    { sha: 'reverted-a', version: '0.0.0' },
+    { sha: 'a', version: '0.1.0' },
+    { sha: 'placeholder', version: '0.0.0' },
+  ]
+  assertEquals(releasesIn(thrice), [{ version: '0.1.0', sha: 'c', earlier: ['b', 'a'] }])
 })
 
 Deno.test('a version between two placeholders is a release at the commit that set it', () => {
@@ -218,6 +228,15 @@ Deno.test('a version between two placeholders is a release at the commit that se
   ])
 })
 
+Deno.test('a reverted first version is a release at its commit while the placeholder is the tip', () => {
+  const history = [
+    { sha: 'reverted', version: '0.0.0' },
+    { sha: 'first', version: '0.1.0' },
+    { sha: 'placeholder', version: '0.0.0' },
+  ]
+  assertEquals(releasesIn(history), [{ version: '0.1.0', sha: 'first', earlier: [] }])
+})
+
 Deno.test('a version set on both sides of a commit without a version has two stretches', () => {
   const history = [
     { sha: 'again', version: '0.1.0' },
@@ -227,6 +246,26 @@ Deno.test('a version set on both sides of a commit without a version has two str
     { sha: 'older', version: '0.0.9' },
   ]
   assertEquals(releasesIn(history), [{ version: '0.1.0', sha: 'again', earlier: ['first'] }])
+})
+
+Deno.test('a version under the only placeholder of a history is no release, also when it was a first version', () => {
+  const history = [
+    { sha: 'again', version: '0.1.0' },
+    { sha: 'removed', version: undefined },
+    { sha: 'first', version: '0.1.0' },
+  ]
+  assertEquals(releasesIn(history), [{ version: '0.1.0', sha: 'again', earlier: [] }])
+})
+
+Deno.test('a number between a commit without a version and the placeholder reads as a first version set twice', () => {
+  const history = [
+    { sha: 'first', version: '0.1.0' },
+    { sha: 'placeholder', version: '0.0.0' },
+    { sha: 'early', version: '0.1.0' },
+    { sha: 'unnamed', version: undefined },
+  ]
+  // The same shape as a first version reverted and set again, so the walk does not choose a commit.
+  assertEquals(releasesIn(history), [{ version: '0.1.0', sha: 'first', earlier: ['early'] }])
 })
 
 Deno.test('the tag goes on the commit of main that set the version', () => {
@@ -498,7 +537,7 @@ Deno.test('in a repository a first version pull request reverted and merged agai
   }
 })
 
-Deno.test('a commit that deleted the manifest ends the walk, so the versions below it are not releases', async () => {
+Deno.test('a commit that deleted the manifest counts as a placeholder: with none below, the versions below it are not releases', async () => {
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
@@ -534,7 +573,7 @@ Deno.test('a manifest that is not JSON is left out of the walk, so the tag stays
   }
 })
 
-Deno.test('a manifest that is JSON and names no version ends the walk, whatever its shape', async () => {
+Deno.test('a manifest that is JSON and names no version counts as a placeholder, whatever its shape', async () => {
   for (const unnamed of ['{"name":"@fronthub/arrowz-engine"}', '{"version":""}', 'null', '[]']) {
     const repo = scratchDir()
     try {
@@ -574,6 +613,23 @@ Deno.test('the commit of a first version is found above a manifest that names no
   }
 })
 
+Deno.test('a version set again above a manifest that names no version has two commits, and the plan measures from the newer', async () => {
+  const repo = scratchDir()
+  try {
+    await scratch(repo, ['init', '-q', '-b', 'main'])
+    await commitManifest(repo, '0.0.0', 'the placeholder')
+    const first = await commitManifest(repo, '0.2.0', 'version packages')
+    const unnamed = '{"name":"@fronthub/arrowz-engine"}'
+    await commitFile(repo, 'packages/engine/package.json', unnamed, 'the version is lost')
+    const again = await commitManifest(repo, '0.2.0', 'the version is back')
+
+    assertEquals(commitOf(engine, repo), again)
+    assertEquals(releasedOf(engine, repo), [{ pkg: engine, sha: again, earlier: [first] }])
+  } finally {
+    removeDir(repo)
+  }
+})
+
 Deno.test('no commit is named for a version whose stretch holds a manifest that is not JSON', async () => {
   const repo = scratchDir()
   try {
@@ -601,18 +657,18 @@ async function loseManifest(repo: string, sha: string): Promise<void> {
 }
 
 Deno.test('a manifest git cannot read stops the run, below the placeholder too', async () => {
-  for (const lost of ['early', 'keyword'] as const) {
+  for (const lost of ['early', 'first'] as const) {
     const repo = scratchDir()
     try {
       await scratch(repo, ['init', '-q', '-b', 'main'])
       const early = await commitManifest(repo, '0.1.0', 'a number from before the placeholder')
       await commitManifest(repo, '0.0.0', 'the placeholder')
       const first = await commitManifest(repo, '0.2.0', 'version packages')
-      const keyword = await commitManifest(repo, '0.2.0', 'a new keyword')
+      await commitManifest(repo, '0.2.0', 'a new keyword')
       assertEquals(releasedOf(engine, repo), [{ pkg: engine, sha: first, earlier: [] }])
 
-      // Read as "no version", the lost keyword commit would cut the stretch and offer no release at all.
-      await loseManifest(repo, lost === 'early' ? early : keyword)
+      // Read as "no version", the lost version commit would move the tag to the commit above it.
+      await loseManifest(repo, lost === 'early' ? early : first)
       assertThrows(() => releasedOf(engine, repo), Error, 'git show', lost)
     } finally {
       removeDir(repo)
@@ -857,7 +913,7 @@ Deno.test('a tags run gives every live version without a tag its tag, superseded
   }
 })
 
-Deno.test('a tags run names a version main set more than once, tags the rest, and is green after the tags made by hand', async () => {
+Deno.test('a tags run names every version main set more than once, a first version too, tags the rest, and is green after the tags made by hand', async () => {
   const repo = scratchDir()
   const origin = scratchDir()
   const bin = scratchDir()
@@ -874,7 +930,12 @@ Deno.test('a tags run names a version main set more than once, tags the rest, an
     const second = await engineAt('0.1.1', 'version packages')
     const reverted = await engineAt('0.1.0', 'revert version packages')
     const again = await engineAt('0.1.1', 'version packages, again')
-    const board010 = await scratchPkg('board', 'board-element')('0.1.0', 'version packages')
+    // The board carries the first-version case: only a placeholder parts its two commits.
+    const boardAt = scratchPkg('board', 'board-element')
+    await boardAt('0.0.0', 'the placeholder')
+    const boardFirst = await boardAt('0.1.0', 'version packages')
+    await boardAt('0.0.0', 'revert version packages')
+    const boardAgain = await boardAt('0.1.0', 'version packages, again')
     const cli010 = await scratchPkg('cli', 'cli')('0.1.0', 'version packages')
     await scratch(repo, ['checkout-index', '-a'])
     stubNpm(bin, ['@scratch/engine@0.1.0', '@scratch/engine@0.1.1', '@scratch/board@0.1.0', '@scratch/cli@0.1.0'])
@@ -883,93 +944,36 @@ Deno.test('a tags run names a version main set more than once, tags the rest, an
       return refs.split('\n').sort()
     }
     const short = (sha: string) => sha.slice(0, 7)
-    const named = (version: string, older: string, newer: string) =>
-      `not tagged @scratch/engine@${version}: the version was set more than once on main (${short(older)}, ${
+    const named = (spec: string, older: string, newer: string) =>
+      `not tagged @scratch/${spec}: the version was set more than once on main (${short(older)}, ${
         short(newer)
       }); tag it by hand`
 
     assertEquals(releaseRun(repo, bin, 'tags'), {
       code: 1,
-      out: [
-        `tagged @scratch/board@0.1.0 at ${short(board010)}`,
-        `tagged @scratch/cli@0.1.0 at ${short(cli010)}`,
+      out: [`tagged @scratch/cli@0.1.0 at ${short(cli010)}`],
+      err: [
+        named('engine@0.1.0', first, reverted),
+        named('engine@0.1.1', second, again),
+        named('board@0.1.0', boardFirst, boardAgain),
       ],
-      err: [named('0.1.0', first, reverted), named('0.1.1', second, again)],
     })
-    assertEquals(await tagsOnOrigin(), [`@scratch/board@0.1.0 ${board010}`, `@scratch/cli@0.1.0 ${cli010}`])
+    assertEquals(await tagsOnOrigin(), [`@scratch/cli@0.1.0 ${cli010}`])
 
     // The maintainer's push, with the seven characters the line prints.
     await scratch(repo, ['push', '-q', 'origin', `${short(first)}:refs/tags/@scratch/engine@0.1.0`])
     await scratch(repo, ['push', '-q', 'origin', `${short(again)}:refs/tags/@scratch/engine@0.1.1`])
+    await scratch(repo, ['push', '-q', 'origin', `${short(boardFirst)}:refs/tags/@scratch/board@0.1.0`])
     assertEquals(releaseRun(repo, bin, 'tags'), {
       code: 0,
       out: ['nothing to tag: no untagged version is live on npm'],
       err: [],
     })
     assertEquals(await tagsOnOrigin(), [
-      `@scratch/board@0.1.0 ${board010}`,
+      `@scratch/board@0.1.0 ${boardFirst}`,
       `@scratch/cli@0.1.0 ${cli010}`,
       `@scratch/engine@0.1.0 ${first}`,
       `@scratch/engine@0.1.1 ${again}`,
-    ])
-  } finally {
-    removeDir(repo)
-    removeDir(origin)
-    removeDir(bin)
-  }
-})
-
-Deno.test('a tags run names a first version main set twice and is green after the tag made by hand', async () => {
-  const repo = scratchDir()
-  const origin = scratchDir()
-  const bin = scratchDir()
-  // Outside the protected pattern of release tags; main() reads the manifests of these three directories.
-  const scratchPkg = (short: string, dir: string) => (version: string, note: string) =>
-    commitFile(repo, `packages/${dir}/package.json`, JSON.stringify({ name: `@scratch/${short}`, version, note }), note)
-  const engineAt = scratchPkg('engine', 'engine')
-  try {
-    await scratch(origin, ['init', '-q', '-b', 'main'])
-    await scratch(repo, ['init', '-q', '-b', 'main'])
-    await scratch(repo, ['remote', 'add', 'origin', origin])
-    await engineAt('0.0.0', 'the placeholder')
-    const first = await engineAt('0.1.0', 'version packages')
-    await engineAt('0.0.0', 'revert version packages')
-    const again = await engineAt('0.1.0', 'version packages, again')
-    const board010 = await scratchPkg('board', 'board-element')('0.1.0', 'version packages')
-    const cli010 = await scratchPkg('cli', 'cli')('0.1.0', 'version packages')
-    await scratch(repo, ['checkout-index', '-a'])
-    stubNpm(bin, ['@scratch/engine@0.1.0', '@scratch/board@0.1.0', '@scratch/cli@0.1.0'])
-    const tagsOnOrigin = async () => {
-      const refs = await scratch(origin, ['for-each-ref', '--format=%(refname:strip=2) %(objectname)', 'refs/tags'])
-      return refs.split('\n').sort()
-    }
-    const short = (sha: string) => sha.slice(0, 7)
-
-    assertEquals(releaseRun(repo, bin, 'tags'), {
-      code: 1,
-      out: [
-        `tagged @scratch/board@0.1.0 at ${short(board010)}`,
-        `tagged @scratch/cli@0.1.0 at ${short(cli010)}`,
-      ],
-      err: [
-        `not tagged @scratch/engine@0.1.0: the version was set more than once on main (${short(first)}, ${
-          short(again)
-        }); tag it by hand`,
-      ],
-    })
-    assertEquals(await tagsOnOrigin(), [`@scratch/board@0.1.0 ${board010}`, `@scratch/cli@0.1.0 ${cli010}`])
-
-    // The maintainer's push: the tool accepts either listed commit, here the older one.
-    await scratch(repo, ['push', '-q', 'origin', `${short(first)}:refs/tags/@scratch/engine@0.1.0`])
-    assertEquals(releaseRun(repo, bin, 'tags'), {
-      code: 0,
-      out: ['nothing to tag: no untagged version is live on npm'],
-      err: [],
-    })
-    assertEquals(await tagsOnOrigin(), [
-      `@scratch/board@0.1.0 ${board010}`,
-      `@scratch/cli@0.1.0 ${cli010}`,
-      `@scratch/engine@0.1.0 ${first}`,
     ])
   } finally {
     removeDir(repo)

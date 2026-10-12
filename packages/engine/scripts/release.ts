@@ -91,7 +91,7 @@ export function tagsDue(
  * oldest commit of its newest stretch as `sha` and the oldest commit of every older stretch in `earlier`,
  * newest first. A commit without a version counts as a placeholder. What a manifest carried below the oldest
  * one, before its first version pull request, is never a release; a placeholder above it only parts two
- * stretches, so a first version that was reverted and set again has two.
+ * stretches, so a first version that was set on a placeholder, reverted and set again has two.
  */
 export function releasesIn(
   history: Iterable<{ sha: string; version: string | undefined }>,
