@@ -14,10 +14,12 @@ public issue.
 | [Git](https://git-scm.com/) | any recent | the code |
 | [Deno](https://deno.com/) | 2.9 or newer | the engine, the command line and their checks |
 | [Node.js](https://nodejs.org/) | 24 or newer | the lab and the board element |
-| [pnpm](https://pnpm.io/installation) | any; it runs the version `package.json` pins | the lab and the board element |
+| [pnpm](https://pnpm.io/installation) | 12 | the lab and the board element |
 
-Install pnpm with its standalone installer. You do not need Corepack, which
-newer Node.js releases no longer ship:
+pnpm runs as the version you installed: it does not switch to the one
+`package.json` names, which is the version CI runs. Install it with its
+standalone installer. You do not need Corepack, which newer Node.js releases no
+longer ship:
 
 ```sh
 curl -fsSL https://get.pnpm.io/install.sh | sh -                                        # macOS and Linux

@@ -4,3 +4,7 @@ packages:
 allowBuilds:
   nx: true
   esbuild: true
+# Keeps pnpm-lock.yaml one YAML document: GitHub's dependency graph reads only
+# the first, and pnpm's own entry would be that one. The cost is that pnpm no
+# longer checks its version against `packageManager`.
+pmOnFail: ignore

@@ -351,7 +351,10 @@ Day one:
   trusted owner of the npm `fronthub` org who can approve stages.
 Soon after: CodeQL default setup (JS/TS + Actions), Dependabot security updates
 and grouped npm version updates with cooldown, disable unused wiki/projects,
-keep interaction limits as an emergency switch.
+keep interaction limits as an emergency switch. GitHub's dependency graph
+reads only the first YAML document of `pnpm-lock.yaml`, so `pmOnFail: ignore`
+in `pnpm-workspace.yaml` keeps the lockfile to one document; with pnpm's own
+entry in front, alerts and security updates see direct dependencies only.
 
 ## 9. Order of work (pull requests)
 
