@@ -221,16 +221,16 @@ export function commitOf(p: Pkg, cwd = '.'): string {
 }
 
 /**
- * The files of a package that differ between the commit that set its version and HEAD; neither tests nor
- * anything under `scripts/` is packed or part of a build. Leaving `scripts/` out rests on that: tests hold
- * every build script, the engine's build list and every source file clear of that directory.
+ * The files of a package that differ between `sha`, the commit that set its version, and HEAD; neither tests
+ * nor anything under `scripts/` is packed or part of a build. Leaving `scripts/` out rests on that: tests
+ * hold every build script, the engine's build list and every source file clear of that directory.
  */
-export function changedSince(p: Pkg, cwd = '.'): string[] {
+export function changedSince(p: Pkg, sha: string, cwd = '.'): string[] {
   const out = git(
     cwd,
     'diff',
     '--name-only',
-    commitOf(p, cwd),
+    sha,
     'HEAD',
     '--',
     p.dir,
@@ -264,13 +264,12 @@ export function workspaceDepsOf(text: string): string[] {
 
 /**
  * The published packages `p` depends on through the workspace whose version at HEAD differs from the one at
- * `p`'s version commit: packed today, `p` would carry another range than the version that was reviewed.
+ * `sha`, `p`'s version commit: packed today, `p` would carry another range than the version that was reviewed.
  */
-export function depsMovedSince(p: Pkg, pkgs: Pkg[], cwd = '.'): Moved[] {
+export function depsMovedSince(p: Pkg, pkgs: Pkg[], sha: string, cwd = '.'): Moved[] {
   const names = workspaceDepsOf(git(cwd, 'show', `HEAD:${p.dir}/package.json`))
   const deps = pkgs.filter((dep) => names.includes(dep.name))
   if (deps.length === 0) return []
-  const sha = commitOf(p, cwd)
   const moved: Moved[] = []
   for (const dep of deps) {
     const then = manifestOf(dep.dir, git(cwd, 'show', `${sha}:${dep.dir}/package.json`)).version
@@ -386,8 +385,18 @@ function main(): void {
   const pkgs = DIRS.map((dir) => manifestOf(dir, Deno.readTextFileSync(`${dir}/package.json`)))
   if (command === 'plan') {
     const release = flags.includes('--all') ? pkgs : planOf(pkgs, onNpm)
-    const moved = (p: Pkg) => depsMovedSince(p, pkgs)
-    const refusals = flags.includes('--all') ? [] : refusalsOf(release, changedSince, moved, commitOf)
+    // One walk of the history per package, and none for a package no refusal is computed for.
+    const commits = new Map<string, string>()
+    const commit = (p: Pkg): string => {
+      const known = commits.get(p.dir)
+      if (known !== undefined) return known
+      const sha = commitOf(p)
+      commits.set(p.dir, sha)
+      return sha
+    }
+    const changed = (p: Pkg) => changedSince(p, commit(p))
+    const moved = (p: Pkg) => depsMovedSince(p, pkgs, commit(p))
+    const refusals = flags.includes('--all') ? [] : refusalsOf(release, changed, moved, commit)
     const outcome = planOutcome(pkgs, release, refusals)
     for (const line of outcome.err) console.error(line)
     for (const line of outcome.out) console.log(line)

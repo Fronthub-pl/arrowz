@@ -527,17 +527,17 @@ Deno.test('what changed since the version commit is the package files that reach
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
-    await commitManifest(repo, '0.2.0', 'version packages')
-    assertEquals(changedSince(engine, repo), [])
+    const version = await commitManifest(repo, '0.2.0', 'version packages')
+    assertEquals(changedSince(engine, version, repo), [])
 
     await commitFile(repo, 'packages/cli/carve.ts', 'other package', 'cli change')
     await commitFile(repo, 'packages/engine/scripts/release.ts', 'script', 'script change')
     await commitFile(repo, 'packages/engine/x.test.ts', 'test', 'test change')
     await commitFile(repo, 'packages/engine/sub/y.test.tsx', 'test', 'nested test change')
-    assertEquals(changedSince(engine, repo), [])
+    assertEquals(changedSince(engine, version, repo), [])
 
     await commitFile(repo, 'packages/engine/engine.ts', 'source', 'engine change')
-    assertEquals(changedSince(engine, repo), ['packages/engine/engine.ts'])
+    assertEquals(changedSince(engine, version, repo), ['packages/engine/engine.ts'])
   } finally {
     removeDir(repo)
   }
@@ -965,15 +965,20 @@ Deno.test('in a repository a dependency that moved after the version commit is n
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
     await commitManifest(repo, '0.1.0', 'the engine of the day')
-    await commitFile(repo, 'packages/board-element/package.json', boardManifest('0.1.1'), 'version packages')
-    assertEquals(depsMovedSince(board, [{ ...engine, version: '0.1.0' }, board], repo), [])
+    const version = await commitFile(
+      repo,
+      'packages/board-element/package.json',
+      boardManifest('0.1.1'),
+      'version packages',
+    )
+    assertEquals(depsMovedSince(board, [{ ...engine, version: '0.1.0' }, board], version, repo), [])
 
     await commitManifest(repo, '0.1.1', 'version packages')
-    assertEquals(depsMovedSince(board, [{ ...engine, version: '0.1.1' }, board], repo), [
+    assertEquals(depsMovedSince(board, [{ ...engine, version: '0.1.1' }, board], version, repo), [
       { name: '@fronthub/arrowz-engine', then: '0.1.0', now: '0.1.1' },
     ])
-    // The engine depends on nothing in the workspace, so its version commit is not even looked up.
-    assertEquals(depsMovedSince({ ...engine, version: '9.9.9' }, [board], repo), [])
+    // The engine depends on nothing in the workspace, so nothing is read at its version commit.
+    assertEquals(depsMovedSince(engine, [board], 'not a commit', repo), [])
   } finally {
     removeDir(repo)
   }
