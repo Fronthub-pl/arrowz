@@ -36,10 +36,31 @@ const DOCS = /^(package\.json|README\.md|LICENSE|CHANGELOG\.md)$/
 const FLAT_DIST = /^dist\/[a-z0-9-]+\.(js|d\.ts)$/
 const ALWAYS = ['package.json', 'README.md', 'LICENSE']
 
+/**
+ * The engine modules a published entry point reaches. The build also emits the ones the lab alone
+ * imports, which `files` in the manifest keeps out of the tarball.
+ */
+export const ENGINE_MODULES: string[] = [
+  'board-file',
+  'colors',
+  'command',
+  'engine',
+  'game',
+  'geometry',
+  'lab-i18n',
+  'lab-presets',
+  'lab-simple',
+  'look',
+  'mod',
+  'palette',
+  'types',
+]
+const ENGINE_DIST = new RegExp(`^dist/(${ENGINE_MODULES.join('|')})\\.(js|d\\.ts)$`)
+
 export const RULES: Record<string, Rule> = {
   '@fronthub/arrowz-engine': {
-    files: [DOCS, /^NOTICE$/, FLAT_DIST],
-    required: [...ALWAYS, 'NOTICE'],
+    files: [DOCS, /^NOTICE$/, ENGINE_DIST],
+    required: [...ALWAYS, 'NOTICE', ...ENGINE_MODULES.flatMap((m) => [`dist/${m}.js`, `dist/${m}.d.ts`])],
     budget: 200_000,
     exports: ['.', './command', './simple'],
     bin: {},

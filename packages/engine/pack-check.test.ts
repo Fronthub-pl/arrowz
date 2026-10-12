@@ -1,6 +1,7 @@
 // The gate on the packed tarballs: what it lets through and what it names.
 import { assert, assertEquals, assertRejects, assertThrows } from '@std/assert'
-import { type Entry, problems, RULES, tarballName, untar } from './scripts/pack-check.ts'
+import { dirname, fromFileUrl, join } from '@std/path'
+import { ENGINE_MODULES, type Entry, problems, RULES, tarballName, untar } from './scripts/pack-check.ts'
 
 const enc = new TextEncoder()
 const file = (path: string, text = ''): Entry => ({ path, bytes: enc.encode(text) })
@@ -18,7 +19,7 @@ const ENGINE_FILES = [
   'LICENSE',
   'NOTICE',
   'CHANGELOG.md',
-  ...dist('mod', 'command', 'lab-simple', 'engine'),
+  ...dist(...ENGINE_MODULES),
 ]
 const BOARD = {
   name: '@fronthub/arrowz-board',
@@ -54,6 +55,12 @@ Deno.test('a file off the package list is named', () => {
     assertEquals(found.length, 1, stray)
     assert(found[0]?.startsWith(`${stray} is not on the list`), found[0])
   }
+  // The build emits these for the lab, and no published entry point reaches them.
+  for (const lab of ['dist/lab-docs.js', 'dist/lab-docs.d.ts', 'dist/lab-report.js', 'dist/lab-report.d.ts']) {
+    const found = problems(1, engine({}, [...ENGINE_FILES, lab]))
+    assertEquals(found.length, 1, lab)
+    assert(found[0]?.startsWith(`${lab} is not on the list`), found[0])
+  }
   // The CLI ships one file of code: a second one in dist/ is a stale build.
   const stale = problems(1, packed(CLI, [...CLI_FILES, 'dist/lab-page.js']))
   assertEquals(stale.length, 1)
@@ -73,6 +80,44 @@ Deno.test('a file the package cannot go without is named', () => {
   assertEquals(problems(1, engine({}, without(ENGINE_FILES, 'LICENSE'))), ['LICENSE is missing'])
   assertEquals(problems(1, engine({}, without(ENGINE_FILES, 'NOTICE'))), ['NOTICE is missing'])
   assertEquals(problems(1, engine({}, without(ENGINE_FILES, 'CHANGELOG.md'))), ['CHANGELOG.md is missing'])
+  // No entry point names these two, so only the list of modules can miss them.
+  assertEquals(problems(1, engine({}, without(ENGINE_FILES, 'dist/lab-i18n.js'))), ['dist/lab-i18n.js is missing'])
+  assertEquals(problems(1, engine({}, without(ENGINE_FILES, 'dist/types.d.ts'))), ['dist/types.d.ts is missing'])
+})
+
+const here = dirname(fromFileUrl(import.meta.url))
+
+/** The engine modules reached from `entries` through relative imports, type-only ones included. */
+function reachedFrom(entries: string[]): string[] {
+  const seen = new Set<string>()
+  const queue = [...entries]
+  for (let module = queue.pop(); module !== undefined; module = queue.pop()) {
+    if (seen.has(module)) continue
+    seen.add(module)
+    const source = Deno.readTextFileSync(join(here, `${module}.ts`))
+    for (const found of source.matchAll(/\b(?:from\s+|import\s*\(\s*|import\s+)'\.\/([\w-]+)\.ts'/g)) {
+      if (found[1] !== undefined) queue.push(found[1])
+    }
+  }
+  return [...seen].sort()
+}
+
+Deno.test('the engine ships exactly the modules its published entry points import', () => {
+  const manifest = JSON.parse(Deno.readTextFileSync(join(here, 'package.json'))) as {
+    publishConfig: { exports: Record<string, { default: string }> }
+  }
+  const entries = Object.values(manifest.publishConfig.exports).map((e) => e.default.replace(/^\.\/dist\/|\.js$/g, ''))
+  assertEquals(entries, ['mod', 'command', 'lab-simple'])
+  assertEquals([...ENGINE_MODULES].sort(), reachedFrom(entries))
+})
+
+Deno.test('the engine manifest keeps out of the tarball the modules it builds for the lab alone', () => {
+  const { files } = JSON.parse(Deno.readTextFileSync(join(here, 'package.json'))) as { files: string[] }
+  const build = JSON.parse(Deno.readTextFileSync(join(here, 'tsconfig.build.json'))) as { include: string[] }
+  const built = reachedFrom(build.include.map((f) => f.replace(/\.ts$/, '')))
+  const labOnly = built.filter((m) => !ENGINE_MODULES.includes(m))
+  assertEquals(labOnly, ['lab-docs', 'lab-report'])
+  assertEquals(files.filter((f) => f.startsWith('!')), labOnly.map((m) => `!dist/${m}.*`))
 })
 
 Deno.test('before its first release a package has no changelog to ship', () => {
@@ -115,11 +160,13 @@ Deno.test('the manifest names the published entry points and nothing else', () =
 
 Deno.test('an entry point without its file or without its types is named', () => {
   assertEquals(problems(1, engine({}, without(ENGINE_FILES, 'dist/command.d.ts'))), [
+    'dist/command.d.ts is missing',
     './command: ./dist/command.d.ts is not in the tarball',
   ])
   const untyped = { ...ENGINE.exports, './command': { default: './dist/command.js' } }
   assertEquals(problems(1, engine({ exports: untyped })), ['./command names no types'])
   assertEquals(problems(1, engine({}, without(ENGINE_FILES, 'dist/command.js'))), [
+    'dist/command.js is missing',
     './command: ./dist/command.js is not in the tarball',
   ])
   // Neither lint tool objects to types that point at JavaScript.
