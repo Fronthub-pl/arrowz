@@ -158,10 +158,11 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
 
 ## 4. First release (bootstrap), once per new package
 
-npm lets you add a trusted publisher only to a package that already exists. At
-its first stage an entry turns from "Pending validation" to "Valid"; whether a
-valid entry can still expire has not been tried, so the steps run on one day.
-Order:
+npm lets you add a trusted publisher only to a package that already exists,
+and a new entry expires if its first publish does not succeed within 2 days.
+At its first stage an entry turns from "Pending validation" to "Valid";
+whether a valid entry can still expire has not been tried, so the steps run on
+one day. Order:
 
 0. Before bootstrap day: while the manifests carry `0.0.0` nothing is planned
    and `stage` is skipped. A run by hand on `main` is green then, and plans

@@ -117,8 +117,9 @@ here works.
    Never approve a staged version you did not start. Reject it and find out
    who did. The log of the `stage` job has the line
    `+ <name>@<version> (staged with id <stage-id>)`, and
-   `npm stage view <stage-id>` shows `staged by: GitHub Actions (trusted
-   automation)` and the shasum the `stage` step printed.
+   `npm stage view <stage-id>` shows
+   `staged by: GitHub Actions (trusted automation)` and the shasum the
+   `stage` step printed.
 
    Approve or reject every staged version of a release before you merge the
    next version pull request or start the workflow again. To `npm view`, a
@@ -180,8 +181,8 @@ npm accepts a trusted publisher only for a package that already exists, and a
 new trusted-publisher entry expires if its first publish does not succeed
 within two days. At its first stage an entry turns from "Pending validation"
 to "Valid"; whether a valid entry can still expire has not been tried, so the
-steps below happen on one day. The whole flow was rehearsed on a throwaway package in
-`Fronthub-pl/arrowz-rehearsal`, whose
+steps below happen on one day. The whole flow was rehearsed on a throwaway
+package in `Fronthub-pl/arrowz-rehearsal`, whose
 [README](https://github.com/Fronthub-pl/arrowz-rehearsal) records what was
 seen.
 
