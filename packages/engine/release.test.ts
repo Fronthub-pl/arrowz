@@ -574,7 +574,8 @@ for name in engine board cli; do
   for tgz in tarballs/fronthub-arrowz-"$name"-*.tgz; do
     if [ -e "$tgz" ]; then
       handed=$((handed + 1))
-      if ! npm stage publish --ignore-scripts "$tgz"; then
+      # npm takes \`tarballs/x.tgz\` for a GitHub repository; a path that starts with ./ is a file.
+      if ! npm stage publish --ignore-scripts "./$tgz"; then
         echo "::error::npm did not stage $tgz"
         failed=1
       fi
