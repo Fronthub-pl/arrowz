@@ -1028,6 +1028,17 @@ Deno.test('stage is exactly the job that hands the judged tarballs to npm, and n
   })
 })
 
+/** What the stub `npm` prints to stderr for each refusal; the tests expect these very lines in the log. */
+const NPM_REFUSALS: Record<string, string[]> = {
+  held: [
+    'npm error code E409',
+    'npm error 409 Conflict - POST https://registry.npmjs.org/-/stage/package/@fronthub%2farrowz-x - Cannot stage previously published version "0.1.0".',
+  ],
+  conflict: ['npm error code E409', 'npm error 409 Conflict - another conflict'],
+  sentence: ['npm error code E403', 'npm error 403 Cannot stage previously published version "0.1.0".'],
+  down: ['npm error code E500'],
+}
+
 /**
  * An `npm` for the stage loop. It takes only a tarball path that starts with ./, and answers as the
  * variable named after the package says: staged when it is empty.
@@ -1048,25 +1059,11 @@ case "$4" in
 esac
 echo "$4" >> "$(dirname "$0")/handed"
 case "$answer" in
-  held)
-    echo 'npm error code E409' >&2
-    echo 'npm error 409 Conflict - POST https://registry.npmjs.org/-/stage/package/@fronthub%2farrowz-x - Cannot stage previously published version "0.1.0".' >&2
-    exit 1
-    ;;
-  conflict)
-    echo 'npm error code E409' >&2
-    echo 'npm error 409 Conflict - another conflict' >&2
-    exit 1
-    ;;
-  sentence)
-    echo 'npm error code E403' >&2
-    echo 'npm error 403 Cannot stage previously published version "0.1.0".' >&2
-    exit 1
-    ;;
-  down)
-    echo 'npm error code E500' >&2
-    exit 1
-    ;;
+${
+  Object.entries(NPM_REFUSALS).map(([answer, lines]) =>
+    `  ${answer})\n${lines.map((line) => `    echo '${line}' >&2\n`).join('')}    exit 1\n    ;;`
+  ).join('\n')
+}
   *) echo "+ $4 (staged with id 1)" ;;
 esac
 `
@@ -1074,7 +1071,7 @@ esac
 /** Runs the loop of the stage step on three judged tarballs; the workflow's step ends with this very text. */
 function stageLoop(answers: { engine?: string; board?: string; cli?: string }): {
   code: number
-  marks: string[]
+  out: string[]
   handed: string[]
 } {
   const dir = scratchDir()
@@ -1084,17 +1081,16 @@ function stageLoop(answers: { engine?: string; board?: string; cli?: string }): 
     }
     writeFile(join(dir, 'bin', 'npm'), STUB_STAGE_NPM, '755')
     const r = new Deno.Command('bash', {
-      // The flags GitHub starts a run step with; the step itself begins after the two assignments.
-      args: ['--noprofile', '--norc', '-eo', 'pipefail', '-c', `PATH="$PWD/bin:$PATH"\njudged=3\n${STAGE_TAIL}`],
+      // A step that names no shell runs as `bash -e`, without pipefail. The two assignments stand in for the part of the step above the loop.
+      args: ['-e', '-c', `PATH="$PWD/bin:$PATH"\njudged=3\n${STAGE_TAIL}`],
       cwd: dir,
       env: { ENGINE: answers.engine ?? '', BOARD: answers.board ?? '', CLI: answers.cli ?? '' },
       stdout: 'piped',
       stderr: 'piped',
     }).outputSync()
-    const out = new TextDecoder().decode(r.stdout).split('\n')
     return {
       code: r.code,
-      marks: out.filter((line) => line.startsWith('::')),
+      out: new TextDecoder().decode(r.stdout).split('\n').filter((line) => line !== ''),
       handed: Deno.readTextFileSync(join(dir, 'bin', 'handed')).trim().split('\n'),
     }
   } finally {
@@ -1102,20 +1098,31 @@ function stageLoop(answers: { engine?: string; board?: string; cli?: string }): 
   }
 }
 
-const ALL_HANDED = ['engine', 'board', 'cli'].map((name) => `./tarballs/fronthub-arrowz-${name}-0.1.0.tgz`)
+const tarballOf = (name: string) => `tarballs/fronthub-arrowz-${name}-0.1.0.tgz`
+const ALL_HANDED = ['engine', 'board', 'cli'].map((name) => `./${tarballOf(name)}`)
 const heldNotice = (name: string) =>
-  `::notice::npm already has the version of tarballs/fronthub-arrowz-${name}-0.1.0.tgz, staged earlier or live: nothing was staged for it now`
-const notStaged = (name: string) => `::error::npm did not stage tarballs/fronthub-arrowz-${name}-0.1.0.tgz`
+  `::notice::npm already has the version of ${tarballOf(name)}, staged earlier or live: nothing was staged for it now`
+const notStaged = (name: string) => `::error::npm did not stage ${tarballOf(name)}`
+const stagedLine = (name: string) => `+ ./${tarballOf(name)} (staged with id 1)`
+const refusedLines = (answer: string) => NPM_REFUSALS[answer] ?? []
 
 Deno.test('the stage loop hands npm every tarball as a ./ path, dependencies first, and ends with status 0', () => {
-  assertEquals(stageLoop({}), { code: 0, marks: [], handed: ALL_HANDED })
+  assertEquals(stageLoop({}), {
+    code: 0,
+    out: [stagedLine('engine'), stagedLine('board'), stagedLine('cli')],
+    handed: ALL_HANDED,
+  })
 })
 
 Deno.test('a version that is already staged gets a notice and does not fail the stage loop', () => {
-  assertEquals(stageLoop({ engine: 'held' }), { code: 0, marks: [heldNotice('engine')], handed: ALL_HANDED })
+  assertEquals(stageLoop({ engine: 'held' }), {
+    code: 0,
+    out: [...refusedLines('held'), heldNotice('engine'), stagedLine('board'), stagedLine('cli')],
+    handed: ALL_HANDED,
+  })
   assertEquals(stageLoop({ engine: 'held', board: 'held', cli: 'held' }), {
     code: 0,
-    marks: [heldNotice('engine'), heldNotice('board'), heldNotice('cli')],
+    out: ['engine', 'board', 'cli'].flatMap((name) => [...refusedLines('held'), heldNotice(name)]),
     handed: ALL_HANDED,
   })
 })
@@ -1123,11 +1130,21 @@ Deno.test('a version that is already staged gets a notice and does not fail the 
 Deno.test('any other refusal fails the stage loop after every tarball was tried', () => {
   // The code without the sentence, the sentence without the code, and another error: none is a staged version.
   for (const answer of ['conflict', 'sentence', 'down']) {
-    assertEquals(stageLoop({ engine: answer }), { code: 1, marks: [notStaged('engine')], handed: ALL_HANDED }, answer)
+    assertEquals(stageLoop({ engine: answer }), {
+      code: 1,
+      out: [...refusedLines(answer), notStaged('engine'), stagedLine('board'), stagedLine('cli')],
+      handed: ALL_HANDED,
+    }, answer)
   }
   assertEquals(stageLoop({ board: 'down', cli: 'held' }), {
     code: 1,
-    marks: [notStaged('board'), heldNotice('cli')],
+    out: [
+      stagedLine('engine'),
+      ...refusedLines('down'),
+      notStaged('board'),
+      ...refusedLines('held'),
+      heldNotice('cli'),
+    ],
     handed: ALL_HANDED,
   })
 })
