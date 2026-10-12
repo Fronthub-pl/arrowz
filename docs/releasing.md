@@ -59,14 +59,14 @@ not on npm yet needs a few steps by hand first, once. They are in
      and has no tag yet: the current one, and an earlier one that no run saw
      live;
    - `plan` asks npm which of the three versions it does not have yet. It
-     also refuses a package whose files differ between the commit that set its
-     version and the commit the run is on. Only three kinds of file are left
-     out of that comparison: the package's `scripts/` directory, and files
-     named `*.test.ts` or `*.test.tsx`. Everything else under `packages/<name>/`
-     counts, including configuration, test data and shell scripts. It refuses
-     a planned board or command line, too, when the engine has another version
-     than it had at that commit: the tarball would be packed with the newer
-     range of the engine;
+     also refuses a planned package whose files differ between the commit that
+     set its version and the commit the run is on. Only three kinds of file
+     are left out of that comparison: the package's `scripts/` directory, and
+     files named `*.test.ts` or `*.test.tsx`. Everything else under
+     `packages/<name>/` counts, including configuration, test data and shell
+     scripts. It refuses a planned board or command line, too, when the engine
+     has another version than it had at that commit: the tarball would be
+     packed with the newer range of the engine;
    - `build` runs every check, packs the planned packages and judges the
      tarballs. It records the SHA-256 digest of each tarball;
    - `smoke` installs those tarballs in an empty project on Linux, macOS and
@@ -152,8 +152,8 @@ not on npm yet needs a few steps by hand first, once. They are in
    the commit that first set it (the tag goes on the oldest commit of the
    newest stretch of that version in the manifest's history). So tag before
    you revert a version pull request.
-   Still run it before you merge anything that changes a file under
-   `.github/workflows/` (a Dependabot bump of an action counts): GitHub
+   Still start the workflow before you merge anything that changes a file
+   under `.github/workflows/` (a Dependabot bump of an action counts): GitHub
    refuses the workflow's push of a tag when a workflow file differs between
    the commit that set the version and the commit the run is on, and the tag
    then needs the command from a checkout. A tag looks like
@@ -168,12 +168,11 @@ not on npm yet needs a few steps by hand first, once. They are in
    ```
 
    For a version that has no tag and that npm does not have, the log has the
-   line `not live on npm, so not tagged: <name>@<version>`. The run that
-   stages a version prints this line for it too, because `tag-published`
-   does not wait for `stage`. Otherwise that version waits for your
-   approval, or was rejected, or its release failed and the number was
-   skipped; a skipped number keeps its line in every run. When no tag was
-   due, the log ends with
+   line `not live on npm, so not tagged: <name>@<version>`. That version
+   waits for your approval (the run that stages a version prints this line
+   for it, and so does every run until you approve), or was rejected, or its
+   release failed and the number was skipped; a skipped number keeps its line
+   in every run. When no tag was due, the log ends with
    `nothing to tag: no untagged version is live on npm`, which is also what a
    run prints when every version has its tag. A run that asks before the
    approval also plans that version again, builds it and hands it to npm,
@@ -314,7 +313,7 @@ nothing.
 | `stage` fails with `the digest list names something that is not one of the three tarballs` | The list changed between the two jobs, which should never happen: `build` applies the same check to it before it can succeed. Nothing was staged | Do not re-run. Find out what changed the list before you release again. |
 | `build` fails with `the tarballs do not match their digests` or `the artifact holds <n> files, the gates judged <m>` | The digests could not be read back: a fault of the workflow. Nothing was uploaded for staging | Fix `release.yml` by pull request. |
 | `stage` fails with `the tarballs do not match their digests` (preceded by a `FAILED` line from `sha256sum`) or `the artifact holds <n> files, the gates judged <m>` | The artifact was changed after the build, which should never happen | Do not re-run. Nothing was staged. Find out which job touched the artifact before you release again. |
-| `stage` fails with `npm did not stage <file>` | npm refused that tarball for another reason than a version that is already staged; the others were still tried | Read npm's message above it. If the version is already live on npm (you approved it while this run was under way), nothing is wrong and nothing is to re-run; note what npm printed under [Not yet tried](#not-yet-tried). Otherwise remove the cause, then use "Re-run failed jobs", or start the workflow on `main` if the fix was a pull request: the tarballs npm already staged get a notice. If the message is `E409` with other words than `Cannot stage previously published version`, check on npm whether that version is staged. If it is, npm has changed its message: approve or reject the staged version as usual, and correct the strings `release.yml` looks for by pull request. If it is not, it is another conflict: the job is right to fail, and npm's message names what to remove. |
+| `stage` fails with `npm did not stage <file>` | npm refused that tarball for another reason than a version that is already staged; the others were still tried | Read npm's message above it. If the version is already live on npm (you approved it while this run was under way), nothing is wrong and nothing is to re-run; note what npm printed under [Not yet tried](#not-yet-tried). Otherwise remove the cause, then use "Re-run failed jobs", or start the workflow on `main` if the fix was a pull request that changes no counted file (step 3 of a normal release says which files count): the tarballs npm already staged get a notice. If the message is `E409` with other words than `Cannot stage previously published version`, check on npm whether that version is staged. If it is, npm has changed its message: approve or reject the staged version as usual, and correct the strings `release.yml` looks for by pull request. If it is not, it is another conflict: the job is right to fail, and npm's message names what to remove. |
 | `stage` fails with `<n> of <m> judged tarballs were handed to npm` | A judged tarball was not handed to npm: a fault of the run | Check on npm what is staged, then start the workflow again on `main`. |
 | `stage` is green and has the notice `npm already has the version of <file>, staged earlier or live: nothing was staged for it now`; the log above it has `npm error code E409` and `409 Conflict - POST https://registry.npmjs.org/-/stage/package/<name> - Cannot stage previously published version "<version>".` (the name appears as `@fronthub%2farrowz-engine`) | That version is already staged and waits for approval (the message says "previously published"). A run started before the approval planned it again, or a re-run handed npm a tarball it had already staged. This run staged nothing for it | Approve or reject the waiting staged version; if you approved it while the run was under way, nothing is left to do. Nothing else is wrong. |
 | A re-run of `stage` more than 7 days after the build fails | The artifact is deleted after 7 days | Start the workflow again on `main`. |
@@ -333,6 +332,9 @@ there. These have not been tried:
 - the notice of `stage` on a real `E409`: the loop of its step was run in a
   test with a stand-in for npm, and the two strings it looks for were read
   in the log of the rehearsal;
+- what npm answers when `stage` hands it a version that went live while the
+  run was under way: the notice is worded for both cases, and only the
+  answer for a version that is still staged has been seen;
 - a tag for an earlier version pushed by the workflow's token: the three
   `0.1.0` tags existed before `tag-published` began to catch up, so no run
   has had an earlier version to tag.

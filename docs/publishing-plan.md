@@ -124,11 +124,11 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
    - **`plan`** (`contents: read`): for each package, `npm view <name>@<version>`;
      versions not on npm form the plan. Empty plan → stop. `0.0.0` is never
      planned: it is the manifests' value before the first version PR. An
-     unclear answer from npm fails the job. A package
-     whose files differ from those of the commit that set its version (a file
-     in the package's `scripts/` directory, `*.test.ts` and `*.test.tsx` are
-     left out; everything else counts) is refused, so a version is released only from
-     the files that were reviewed as that version. A planned package is
+     unclear answer from npm fails the job. A planned package whose files
+     differ from those of the commit that set its version (a file in the
+     package's `scripts/` directory, `*.test.ts` and `*.test.tsx` are left
+     out; everything else counts) is refused, so a version is released only
+     from the files that were reviewed as that version. A planned package is
      refused, too, when a workspace dependency of it (the engine, for the
      board and the CLI) has another version than at that commit: `pnpm pack`
      would write the newer range into the tarball.
@@ -365,6 +365,9 @@ bootstrap.
 - The notice of `stage` on a real `E409`: the loop of its step was run in a
   test with a stand-in for npm, and the two strings it looks for were read in
   the log of the rehearsal.
+- What npm answers when `stage` hands it a version that went live while the
+  run was under way: the notice is worded for both cases, and only the answer
+  for a version that is still staged has been seen.
 - A tag for an earlier version pushed by the workflow's token: no run has had
   an earlier version to tag.
 - Whether a valid trusted-publisher entry still expires after two days
