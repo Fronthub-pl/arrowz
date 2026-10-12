@@ -200,13 +200,66 @@ export function changedSince(p: Pkg, cwd = '.'): string[] {
   return out.split('\n').filter((line) => line !== '')
 }
 
-/** One line per package that may not be released because its files changed since its version commit; empty when the plan stands. */
-export function refusalsOf(release: Pkg[], changed: (p: Pkg) => string[], commit: (p: Pkg) => string): string[] {
+/** A dependency inside the workspace whose version is not the one it had at a package's version commit. */
+export interface Moved {
+  name: string
+  then: string
+  now: string
+}
+
+/** The names a manifest depends on through the workspace; `pnpm pack` writes each as the version of the day. */
+export function workspaceDepsOf(text: string): string[] {
+  const manifest = JSON.parse(text) as Record<string, unknown>
+  const names: string[] = []
+  for (const kind of ['dependencies', 'peerDependencies', 'optionalDependencies']) {
+    const deps = manifest[kind]
+    if (typeof deps !== 'object' || deps === null) continue
+    for (const [name, range] of Object.entries(deps)) {
+      if (typeof range === 'string' && range.startsWith('workspace:') && !names.includes(name)) names.push(name)
+    }
+  }
+  return names
+}
+
+/**
+ * The published packages `p` depends on through the workspace whose version at HEAD differs from the one at
+ * `p`'s version commit: packed today, `p` would carry another range than the version that was reviewed.
+ */
+export function depsMovedSince(p: Pkg, pkgs: Pkg[], cwd = '.'): Moved[] {
+  const names = workspaceDepsOf(git(cwd, 'show', `HEAD:${p.dir}/package.json`))
+  const deps = pkgs.filter((dep) => names.includes(dep.name))
+  if (deps.length === 0) return []
+  const sha = commitOf(p, cwd)
+  const moved: Moved[] = []
+  for (const dep of deps) {
+    const then = manifestOf(dep.dir, git(cwd, 'show', `${sha}:${dep.dir}/package.json`)).version
+    if (then !== dep.version) moved.push({ name: dep.name, then, now: dep.version })
+  }
+  return moved
+}
+
+/**
+ * One line per reason a package may not be released: its files changed since its version commit, or a
+ * workspace dependency has another version than it had then. Empty when the plan stands.
+ */
+export function refusalsOf(
+  release: Pkg[],
+  changed: (p: Pkg) => string[],
+  moved: (p: Pkg) => Moved[],
+  commit: (p: Pkg) => string,
+): string[] {
   const lines: string[] = []
   for (const p of release) {
     const files = changed(p)
     if (files.length > 0) {
       lines.push(`refused ${tagOf(p)}: ${files.join(', ')} changed since ${commit(p).slice(0, 7)} set the version`)
+    }
+    for (const dep of moved(p)) {
+      lines.push(
+        `refused ${tagOf(p)}: ${dep.name} was ${dep.then} when ${
+          commit(p).slice(0, 7)
+        } set the version and is ${dep.now} now`,
+      )
     }
   }
   return lines
@@ -286,7 +339,8 @@ function main(): void {
   const pkgs = DIRS.map((dir) => manifestOf(dir, Deno.readTextFileSync(`${dir}/package.json`)))
   if (command === 'plan') {
     const release = flags.includes('--all') ? pkgs : planOf(pkgs, onNpm)
-    const refusals = flags.includes('--all') ? [] : refusalsOf(release, changedSince, commitOf)
+    const moved = (p: Pkg) => depsMovedSince(p, pkgs)
+    const refusals = flags.includes('--all') ? [] : refusalsOf(release, changedSince, moved, commitOf)
     const outcome = planOutcome(pkgs, release, refusals)
     for (const line of outcome.err) console.error(line)
     for (const line of outcome.out) console.log(line)

@@ -8,6 +8,7 @@ import { defaultParams, fingerprint, generate, layoutHash } from './mod.ts'
 import {
   changedSince,
   commitOf,
+  depsMovedSince,
   manifestOf,
   type Pkg,
   planOf,
@@ -25,6 +26,7 @@ import {
   tagsDue,
   tagsOutcome,
   workflowsChangedSince,
+  workspaceDepsOf,
 } from './scripts/release.ts'
 
 const pkg = (short: string, version: string): Pkg => ({
@@ -512,6 +514,39 @@ Deno.test('a tags run gives every live version without a tag its tag, superseded
   }
 })
 
+Deno.test('a plan run refuses a package whose workspace dependency moved after its version commit', async () => {
+  const repo = scratchDir()
+  const bin = scratchDir()
+  const manifest = (short: string, version: string, dependencies?: Record<string, string>) =>
+    JSON.stringify({ name: `@scratch/${short}`, version, dependencies })
+  try {
+    await scratch(repo, ['init', '-q', '-b', 'main'])
+    await commitFile(repo, 'packages/engine/package.json', manifest('engine', '0.1.0'), 'version packages')
+    await commitFile(repo, 'packages/cli/package.json', manifest('cli', '0.1.0'), 'version packages')
+    const board = manifest('board', '0.1.1', { '@scratch/engine': 'workspace:^' })
+    const boardCommit = await commitFile(repo, 'packages/board-element/package.json', board, 'version packages')
+    await commitFile(repo, 'packages/engine/package.json', manifest('engine', '0.1.1'), 'version packages')
+    await scratch(repo, ['checkout-index', '-a'])
+    stubNpm(bin, ['@scratch/cli@0.1.0'])
+
+    assertEquals(releaseRun(repo, bin, 'plan'), {
+      code: 1,
+      out: [],
+      err: [
+        `refused @scratch/board@0.1.1: @scratch/engine was 0.1.0 when ${
+          boardCommit.slice(0, 7)
+        } set the version and is 0.1.1 now`,
+        'A version is released from the files of its version commit. If a release of it is still running or waiting for approval, let that finish; otherwise open a new version pull request.',
+      ],
+    })
+    // The dry run plans all three and refuses nothing.
+    assertEquals(releaseRun(repo, bin, 'plan', '--all').code, 0)
+  } finally {
+    removeDir(repo)
+    removeDir(bin)
+  }
+})
+
 Deno.test('no build of a published package takes its input from a scripts/ directory', () => {
   // changedSince leaves scripts/ out, so a build that read from there could change a released version unseen.
   for (const dir of ['engine', 'board-element', 'cli']) {
@@ -529,17 +564,64 @@ Deno.test('no build of a published package takes its input from a scripts/ direc
 
 Deno.test('a package whose files changed since its version commit is refused, one line each', () => {
   const changed = (p: Pkg) => p === ENGINE ? ['packages/engine/engine.ts', 'packages/engine/look.ts'] : []
-  assertEquals(refusalsOf([ENGINE, CLI], changed, () => 'abcdef0123456789'), [
+  assertEquals(refusalsOf([ENGINE, CLI], changed, () => [], () => 'abcdef0123456789'), [
     'refused @fronthub/arrowz-engine@0.1.1: packages/engine/engine.ts, packages/engine/look.ts changed since abcdef0 set the version',
   ])
-  assertEquals(refusalsOf([ENGINE, CLI], () => [], () => 'abcdef0123456789'), [])
+  assertEquals(refusalsOf([ENGINE, CLI], () => [], () => [], () => 'abcdef0123456789'), [])
+})
+
+Deno.test('a package whose workspace dependency has another version than at its version commit is refused', () => {
+  const moved = (p: Pkg) => p === BOARD ? [{ name: ENGINE.name, then: '0.1.0', now: '0.1.1' }] : []
+  assertEquals(refusalsOf([ENGINE, BOARD], () => [], moved, () => 'abcdef0123456789'), [
+    'refused @fronthub/arrowz-board@0.1.0: @fronthub/arrowz-engine was 0.1.0 when abcdef0 set the version and is 0.1.1 now',
+  ])
+  // Both reasons at once give both lines.
+  const changed = (p: Pkg) => p === BOARD ? ['packages/board-element/src/mod.ts'] : []
+  assertEquals(refusalsOf([BOARD], changed, moved, () => 'abcdef0123456789').length, 2)
+})
+
+Deno.test('the workspace dependencies of a manifest are the names whose range starts with workspace:', () => {
+  const manifest = JSON.stringify({
+    dependencies: { '@fronthub/arrowz-engine': 'workspace:^', lit: '^3.3.3' },
+    peerDependencies: { '@fronthub/arrowz-board': 'workspace:*', '@fronthub/arrowz-engine': 'workspace:^' },
+    devDependencies: { '@fronthub/arrowz-cli': 'workspace:^' },
+  })
+  // A development dependency is not installed with the package, so its version does not reach a user.
+  assertEquals(workspaceDepsOf(manifest), ['@fronthub/arrowz-engine', '@fronthub/arrowz-board'])
+  assertEquals(workspaceDepsOf('{"name":"n"}'), [])
 })
 
 Deno.test('the commit of a package that did not change is not looked up', () => {
   const never = () => {
     throw new Error('no version commit here')
   }
-  assertEquals(refusalsOf([CLI], () => [], never), [])
+  assertEquals(refusalsOf([CLI], () => [], () => [], never), [])
+})
+
+Deno.test('in a repository a dependency that moved after the version commit is named with both versions', async () => {
+  const repo = scratchDir()
+  const board = { dir: 'packages/board-element', name: '@fronthub/arrowz-board', version: '0.1.1' }
+  const boardManifest = (version: string) =>
+    JSON.stringify({
+      name: board.name,
+      version,
+      dependencies: { '@fronthub/arrowz-engine': 'workspace:^', lit: '^3.3.3' },
+    })
+  try {
+    await scratch(repo, ['init', '-q', '-b', 'main'])
+    await commitManifest(repo, '0.1.0', 'the engine of the day')
+    await commitFile(repo, 'packages/board-element/package.json', boardManifest('0.1.1'), 'version packages')
+    assertEquals(depsMovedSince(board, [{ ...engine, version: '0.1.0' }, board], repo), [])
+
+    await commitManifest(repo, '0.1.1', 'version packages')
+    assertEquals(depsMovedSince(board, [{ ...engine, version: '0.1.1' }, board], repo), [
+      { name: '@fronthub/arrowz-engine', then: '0.1.0', now: '0.1.1' },
+    ])
+    // The engine depends on nothing in the workspace, so its version commit is not even looked up.
+    assertEquals(depsMovedSince({ ...engine, version: '9.9.9' }, [board], repo), [])
+  } finally {
+    removeDir(repo)
+  }
 })
 
 Deno.test('a refused plan prints the refusals and the advice, names no directory and ends with status 1', () => {
