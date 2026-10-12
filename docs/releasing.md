@@ -156,20 +156,13 @@ not on npm yet needs a few steps by hand first, once. They are in
    every run until you push that tag yourself. A version that has its tag is
    never looked at again, so tag before you revert a version pull request;
    of the versions of a pull request that was reverted and merged again,
-   those that have no tag are tagged by hand once they are live. The first
-   version of a package is the exception: its revert brings back the
-   placeholder `0.0.0`, where the job stops reading the history, so after
-   the second merge that version counts as set once and is tagged at the
-   second merge, also when the tarball on npm was staged from the first. If
-   the tarball you approve was staged by the run of the first merge, push
-   the tag at the first merge yourself, right after approving and before any
-   run of the workflow. Merging the pull request again starts a run, so if
-   you approve before the second merge, push the tag before you merge; if
-   you approve after it, the run of the second merge shows the notice of
-   `stage` for that version. Use the last command of
-   [A tag made by hand](#a-tag-made-by-hand) with the first merge as
-   `<sha7>`; the first command of that section prints the commit the tarball
-   was built on.
+   those that have no tag are tagged by hand once they are live. That holds
+   for the first version of a package as well, when its manifest carried
+   the placeholder `0.0.0` before the first version pull request, as the
+   manifests of the three packages did. The revert brings the placeholder
+   back, and the job takes a placeholder that has an older one below it for
+   a gap between two commits that set the version, not for the start of the
+   history.
    Still start the workflow before you merge anything that changes a file
    under `.github/workflows/` (a Dependabot bump of an action counts): GitHub
    refuses the workflow's push of a tag when a workflow file differs between

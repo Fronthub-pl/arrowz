@@ -111,8 +111,9 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
    three packages, never tag or stage. A run started by hand on another branch
    never tags and never stages either.
    - **`tag-published`** (`contents: write`; only on `main`): for each package,
-     every version its manifest has had on `main` since the placeholder
-     `0.0.0`: if it is on npm but has no git tag yet, create the tag.
+     every version its manifest has had on `main` since the oldest commit
+     that carries the placeholder `0.0.0` or no version: if it is on npm but
+     has no git tag yet, create the tag.
      (Tags are created only for versions that really went live; see step 5. A
      version that was replaced before a run saw it live gets its tag from a
      later run.) The tag goes on the first-parent
@@ -121,10 +122,10 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
      `main` (a version pull request reverted, or reverted and merged again),
      the history does not say which commit it was released from: the job
      creates no tag for it, names it with its commits and fails, and the
-     maintainer tags it by hand. The first version of a package is not seen
-     as set more than once, because the walk ends at the placeholder its
-     revert brings back: step 5 of `docs/releasing.md` says what to do then.
-     `0.0.0` is never tagged.
+     maintainer tags it by hand. That holds for the first version of a
+     package too, when a placeholder lies below it: the placeholder its
+     revert brings back then only parts the two commits that set the
+     version. `0.0.0` is never tagged.
    - **`plan`** (`contents: read`): for each package, `npm view <name>@<version>`;
      versions not on npm form the plan. Empty plan → stop. `0.0.0` is never
      planned: it is the manifests' value before the first version PR. An

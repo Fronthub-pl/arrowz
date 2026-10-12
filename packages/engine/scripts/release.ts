@@ -87,19 +87,25 @@ export function tagsDue(
 }
 
 /**
- * The versions in a manifest's history, newest commit first, back to the placeholder: each with the oldest
- * commit of its newest stretch as `sha` and the oldest commit of every older stretch in `earlier`, newest
- * first. A commit without a version ends the walk as the placeholder does, so what a manifest carried before
- * its first version pull request is never a release.
+ * The versions in a manifest's history, newest commit first, back to its oldest placeholder: each with the
+ * oldest commit of its newest stretch as `sha` and the oldest commit of every older stretch in `earlier`,
+ * newest first. A commit without a version counts as a placeholder. What a manifest carried below the oldest
+ * one, before its first version pull request, is never a release; a placeholder above it only parts two
+ * stretches, so a first version that was set on a placeholder, reverted and set again has two.
  */
 export function releasesIn(
   history: Iterable<{ sha: string; version: string | undefined }>,
 ): { version: string; sha: string; earlier: string[] }[] {
+  const commits = Array.from(history)
+  const oldest = commits.findLastIndex(({ version }) => version === undefined || version === UNRELEASED)
   const found: { version: string; sha: string; earlier: string[] }[] = []
   let stretch: string | undefined
   let open: { version: string; sha: string; earlier: string[] } | undefined
-  for (const { sha, version } of history) {
-    if (version === undefined || version === UNRELEASED) break
+  for (const { sha, version } of oldest === -1 ? commits : commits.slice(0, oldest)) {
+    if (version === undefined || version === UNRELEASED) {
+      stretch = undefined
+      continue
+    }
     if (version !== stretch) {
       stretch = version
       open = found.find((release) => release.version === version)
@@ -166,7 +172,7 @@ const NOT_JSON = Symbol('not JSON')
 
 /**
  * The version a manifest carried at a commit. Undefined when the commit has no manifest or its manifest names
- * no version: there the walk ends. `NOT_JSON` for a manifest that cannot be parsed. A git failure throws.
+ * no version: see `releasesIn`. `NOT_JSON` for a manifest that cannot be parsed. A git failure throws.
  */
 function versionAt(sha: string, dir: string, cwd: string): string | undefined | typeof NOT_JSON {
   const path = `${dir}/package.json`
@@ -184,10 +190,10 @@ function versionAt(sha: string, dir: string, cwd: string): string | undefined | 
 }
 
 /**
- * A manifest's history, newest first, read one commit at a time: nothing below the commit that ends the walk
- * is read. A commit whose manifest is not JSON is left out, so the stretch of a version closes over it; no
- * release run passes while such a commit lies in the current version's stretch (`commitOf` throws), so a
- * version that is live was released from the commit that set it.
+ * A manifest's history, newest first, down to the commit that added it: the oldest placeholder is only known
+ * from all of it. A commit whose manifest is not JSON is left out, so the stretch of a version closes over
+ * it; no release run passes while such a commit lies in the current version's stretch (`commitOf` throws), so
+ * a version that is live was released from the commit that set it.
  */
 function* historyOf(dir: string, cwd: string): Generator<{ sha: string; version: string | undefined }> {
   for (const sha of manifestCommits(dir, cwd)) {
@@ -196,7 +202,7 @@ function* historyOf(dir: string, cwd: string): Generator<{ sha: string; version:
   }
 }
 
-/** Every version of a package since its placeholder, oldest first by its newest stretch; see `Release`. */
+/** Every version of a package since its oldest placeholder, oldest first by its newest stretch; see `Release`. */
 export function releasedOf(p: Pkg, cwd = '.'): Release[] {
   return releasesIn(historyOf(p.dir, cwd)).reverse().map(({ version, sha, earlier }) => ({
     pkg: { ...p, version },
@@ -207,12 +213,15 @@ export function releasedOf(p: Pkg, cwd = '.'): Release[] {
 
 /**
  * The first-parent commit that set the package's current version: on main, the version PR's merge.
+ * A commit without a manifest or without a version ends the stretch as another version does.
  * It does not know what was built; `plan` checks that.
  */
 export function commitOf(p: Pkg, cwd = '.'): string {
   const history: { sha: string; version: string }[] = []
   for (const sha of manifestCommits(p.dir, cwd)) {
-    const version = manifestOf(p.dir, git(cwd, 'show', `${sha}:${p.dir}/package.json`)).version
+    const version = versionAt(sha, p.dir, cwd)
+    if (version === NOT_JSON) throw new Error(`${p.dir}/package.json is not JSON at ${sha.slice(0, 7)}`)
+    if (version === undefined) break
     history.push({ sha, version })
     if (version !== p.version) break
   }
