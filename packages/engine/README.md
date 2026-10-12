@@ -84,7 +84,10 @@ board off as a good one.
 `deno.json` and `package.json` export the same entry points, the second from
 `dist/`. The published package exposes only the first three
 (`publishConfig.exports` in `package.json`, which `pnpm pack` writes over
-`exports`); the other four serve this repository's lab.
+`exports`); the other four serve this repository's lab. Of those four, the
+modules behind `report` and `docs` are not in the published package: no
+published entry point imports them, and `files` in `package.json` leaves them
+out. The other two are there because the published entries import them.
 
 ## API
 
