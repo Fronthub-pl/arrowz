@@ -14,9 +14,10 @@ in a state nobody can install; a *staged version* is what waits there; you
 
 ## Before the first release
 
-The first release of a package needs a few steps by hand, once. They are in
-[The first release](#the-first-release) below; do them before anything else
-here works.
+The three packages had their first release, `0.1.0`, on 12 October 2026, so
+[A normal release](#a-normal-release) is all they need now. A package that is
+not on npm yet needs a few steps by hand first, once. They are in
+[The first release](#the-first-release) below.
 
 ## A normal release
 
@@ -194,8 +195,9 @@ trusts.
 
 1. **Create each package.** For each of the three packages, in a new empty
    directory outside the repository, make a `package.json` that holds only
-   the name and `"version": "0.0.0"`, and a `README.md`. Logged in to npm with
-   your second factor, pack it, stage the tarball and reject it:
+   the name and `"version": "0.0.0"`, and a `README.md`. Logged in to npm,
+   pack it, stage the tarball and reject it. npm asks for your second factor
+   at the rejection (it opens a login page), and did not ask at the stage:
 
    ```sh
    npm pack
@@ -207,7 +209,9 @@ trusts.
    The other two tarballs are `fronthub-arrowz-board-0.0.0.tgz` and
    `fronthub-arrowz-cli-0.0.0.tgz`. `npm stage publish` ends with
    `+ @fronthub/arrowz-engine@0.0.0 (staged with id <stage-id>)`: that is the
-   id to reject. Afterwards `npm stage list` prints
+   id to reject. `npm stage view <stage-id>` shows `status: validating` at
+   first and `status: staged` within about a minute. Afterwards
+   `npm stage list` prints
    `No staged versions of package name "@fronthub/arrowz-engine".`
 
    Start the path with `./`: npm takes `dir/file.tgz` for a GitHub repository.
@@ -236,12 +240,14 @@ trusts.
 
    Every field is case-sensitive, and npm checks none of them until the first
    stage. A new entry shows "Pending validation" until the first stage through
-   it, then "Valid". The provider and the required fields cannot be changed
-   once the entry is created: delete it and create it again. The environment
-   name can be edited afterwards. Then, under Settings → Publishing
-   access, choose "Require two-factor authentication and disallow bypass 2fa
-   tokens (recommended)", which is not the default, and click **Update Package
-   Settings**.
+   it, then "Valid"; while it is pending it names its deadline ("Publish once
+   before" and a time two days after it was made), and its "Permissions" line
+   reads `npm stage publish` alone. The provider and the required fields
+   cannot be changed once the entry is created: delete it and create it again.
+   The environment name can be edited afterwards. Then, under Settings →
+   Publishing access, choose "Require two-factor authentication and disallow
+   bypass 2fa tokens (recommended)", which is not the default, and click
+   **Update Package Settings**.
 
 3. **The version pull request.** Make and merge it as in a normal release. It
    takes the three packages from `0.0.0` to `0.1.0`. Approve the three staged

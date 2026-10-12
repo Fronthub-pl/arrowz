@@ -1,8 +1,9 @@
 # Arrowz: going public and publishing to npm — revised plan
 
 Date: 2026-10-09. Status: accepted plan, carried out in the order of §9. Steps
-1–7, the day-one settings of §8 and the rehearsal (§4) are done; the
-bootstrap (§4) is not. The maintainer's procedure is
+1–7, the day-one settings of §8, the rehearsal and the bootstrap (§4) are
+done: `0.1.0` of the three packages is on npm since 2026-10-12. The
+maintainer's procedure is
 [releasing.md](releasing.md). This plan replaces an earlier, unpublished
 draft design (lockstep `1.0.0-alpha` versions, CLI as compiled binaries,
 JSR); §1 lists what changed and why. Every external fact was checked in
@@ -171,7 +172,8 @@ one day. Order:
    `@fronthub/arrowz-rehearsal`, in `Fronthub-pl/arrowz-rehearsal`
    (https://github.com/Fronthub-pl/arrowz-rehearsal), whose README records
    what was seen.
-1. From the maintainer's laptop, logged in with 2FA, stage a tiny placeholder
+1. From the maintainer's laptop, logged in (npm asks for the second factor at
+   the rejection, not at the stage), stage a tiny placeholder
    tarball `0.0.0` of each of the 3 packages (README only) with
    `npm stage publish ./<tarball> --access public`, then reject it with
    `npm stage reject <stage-id>`. Staging a package that does not exist creates
