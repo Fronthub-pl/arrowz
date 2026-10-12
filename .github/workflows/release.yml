@@ -23,8 +23,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Tags each package's current version once that version is live on npm and has
-  # no tag yet; after a maintainer's approval that is the next run.
+  # Tags every version of each package that is live on npm and has no tag yet;
+  # after a maintainer's approval that is the next run.
   tag-published:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest

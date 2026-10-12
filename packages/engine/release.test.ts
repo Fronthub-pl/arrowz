@@ -14,7 +14,10 @@ import {
   planOutcome,
   pushTag,
   refusalsOf,
+  type Release,
   releaseCommit,
+  releasedOf,
+  releasesIn,
   type Seen,
   seenOnNpm,
   tagOf,
@@ -78,16 +81,65 @@ Deno.test('0.0.0 is never released', () => {
   assertEquals(planOf(before, live()), [])
 })
 
-Deno.test('a tag is due for a version that is live and has none', () => {
+const shaOf = (p: Pkg): string => p === ENGINE ? '1a2b3c4d5e6f' : p === BOARD ? '5e6f7a8b9c0d' : '9c0d1e2f3a4b'
+const released = (...pkgs: Pkg[]): Release[] => pkgs.map((p) => ({ pkg: p, sha: shaOf(p) }))
+
+Deno.test('a tag is due for a version that is live and has none, and one npm does not have waits', () => {
   const tags = new Set([tagOf(BOARD)])
   assertEquals(tagOf(ENGINE), '@fronthub/arrowz-engine@0.1.1')
-  assertEquals(tagsDue([ENGINE, BOARD, CLI], live(ENGINE, BOARD), tags), [ENGINE])
+  assertEquals(tagsDue(released(ENGINE, BOARD, CLI), live(ENGINE, BOARD), tags), {
+    due: released(ENGINE),
+    waiting: [CLI],
+  })
+})
+
+Deno.test('a version that has its tag is not asked of npm again', () => {
+  const never = (): Seen => {
+    throw new Error('npm was asked')
+  }
+  assertEquals(tagsDue(released(ENGINE, BOARD), never, new Set([tagOf(ENGINE), tagOf(BOARD)])), {
+    due: [],
+    waiting: [],
+  })
 })
 
 Deno.test('the placeholder 0.0.0 never gets a tag', () => {
   // A tag cannot be moved or deleted, so one for the placeholder would stay for good.
   const placeholder = pkg('engine', '0.0.0')
-  assertEquals(tagsDue([placeholder], live(placeholder), new Set()), [])
+  assertEquals(tagsDue(released(placeholder), live(placeholder), new Set()), { due: [], waiting: [] })
+})
+
+Deno.test('every version since the placeholder is a release, at the oldest commit of its newest stretch', () => {
+  // Newest first, as git lists it. The engine's own history has this shape below its placeholder.
+  const history = [
+    { sha: 'keyword', version: '0.1.2' },
+    { sha: 'third', version: '0.1.2' },
+    { sha: 'again', version: '0.1.1' },
+    { sha: 'reverted', version: '0.1.0' },
+    { sha: 'second', version: '0.1.1' },
+    { sha: 'readme', version: '0.1.0' },
+    { sha: 'first', version: '0.1.0' },
+    { sha: 'placeholder', version: '0.0.0' },
+    { sha: 'early', version: '0.1.0' },
+    { sha: 'alpha', version: '1.0.0-alpha.1' },
+  ]
+  assertEquals(releasesIn(history), [
+    { version: '0.1.2', sha: 'third' },
+    { version: '0.1.1', sha: 'again' },
+    { version: '0.1.0', sha: 'reverted' },
+  ])
+  assertEquals(releasesIn([]), [])
+  assertEquals(releasesIn([{ sha: 'placeholder', version: '0.0.0' }]), [])
+})
+
+Deno.test('a commit whose manifest names no version ends the walk as the placeholder does', () => {
+  const history = [
+    { sha: 'second', version: '0.1.1' },
+    { sha: 'first', version: '0.1.0' },
+    { sha: 'unnamed', version: undefined },
+    { sha: 'older', version: '0.0.9' },
+  ]
+  assertEquals(releasesIn(history), [{ version: '0.1.1', sha: 'second' }, { version: '0.1.0', sha: 'first' }])
 })
 
 Deno.test('the tag goes on the commit of main that set the version', () => {
@@ -102,7 +154,6 @@ Deno.test('the tag goes on the commit of main that set the version', () => {
   assertEquals(releaseCommit([], '0.1.1'), undefined)
 })
 
-const shaOf = (p: Pkg): string => p === ENGINE ? '1a2b3c4d5e6f' : p === BOARD ? '5e6f7a8b9c0d' : '9c0d1e2f3a4b'
 const refusing = (...refused: Pkg[]) => (p: Pkg): void => {
   if (refused.includes(p)) throw new Error(`git push: remote rejected ${tagOf(p)}\n`)
 }
@@ -114,7 +165,7 @@ const explained = (p: Pkg): string =>
 Deno.test('every tag is pushed at the commit of its version, and the run ends with status 0', () => {
   const pushed: string[] = []
   const push = (p: Pkg, sha: string) => void pushed.push(`${tagOf(p)} ${sha}`)
-  assertEquals(tagsOutcome([ENGINE, BOARD], shaOf, push, () => [], true), {
+  assertEquals(tagsOutcome(released(ENGINE, BOARD), [], push, () => [], true), {
     out: ['tagged @fronthub/arrowz-engine@0.1.1 at 1a2b3c4', 'tagged @fronthub/arrowz-board@0.1.0 at 5e6f7a8'],
     err: [],
     code: 0,
@@ -123,15 +174,34 @@ Deno.test('every tag is pushed at the commit of its version, and the run ends wi
 })
 
 Deno.test('a run with no tag due says so and ends with status 0', () => {
-  assertEquals(tagsOutcome([], shaOf, refusing(), () => [], true), {
-    out: ['no version went live since the last run'],
+  assertEquals(tagsOutcome([], [], refusing(), () => [], true), {
+    out: ['nothing to tag: no untagged version is live on npm'],
+    err: [],
+    code: 0,
+  })
+})
+
+Deno.test('a version npm does not have is named, whether or not a tag was due, and does not change the status', () => {
+  assertEquals(tagsOutcome([], [CLI], refusing(), () => [], true), {
+    out: [
+      'not live on npm, so not tagged: @fronthub/arrowz-cli@0.2.0',
+      'nothing to tag: no untagged version is live on npm',
+    ],
+    err: [],
+    code: 0,
+  })
+  assertEquals(tagsOutcome(released(ENGINE), [CLI], refusing(), () => [], true), {
+    out: [
+      'not live on npm, so not tagged: @fronthub/arrowz-cli@0.2.0',
+      'tagged @fronthub/arrowz-engine@0.1.1 at 1a2b3c4',
+    ],
     err: [],
     code: 0,
   })
 })
 
 Deno.test('on the runner a refused tag whose workflow files changed is explained, and the command is given once', () => {
-  const outcome = tagsOutcome([ENGINE, BOARD, CLI], shaOf, refusing(ENGINE, CLI), () => [WORKFLOW], true)
+  const outcome = tagsOutcome(released(ENGINE, BOARD, CLI), [], refusing(ENGINE, CLI), () => [WORKFLOW], true)
   assertEquals(outcome, {
     out: ['tagged @fronthub/arrowz-board@0.1.0 at 5e6f7a8'],
     err: [
@@ -146,7 +216,7 @@ Deno.test('on the runner a refused tag whose workflow files changed is explained
 })
 
 Deno.test('a refused tag whose workflow files are the same keeps the message of git and gets no advice', () => {
-  assertEquals(tagsOutcome([ENGINE, BOARD], shaOf, refusing(ENGINE), () => [], true), {
+  assertEquals(tagsOutcome(released(ENGINE, BOARD), [], refusing(ENGINE), () => [], true), {
     out: ['tagged @fronthub/arrowz-board@0.1.0 at 5e6f7a8'],
     err: ['error: git push: remote rejected @fronthub/arrowz-engine@0.1.1'],
     code: 1,
@@ -154,7 +224,7 @@ Deno.test('a refused tag whose workflow files are the same keeps the message of 
 })
 
 Deno.test('from a checkout a refused tag is never answered with the command that was just run', () => {
-  assertEquals(tagsOutcome([ENGINE], shaOf, refusing(ENGINE), () => [WORKFLOW], false), {
+  assertEquals(tagsOutcome(released(ENGINE), [], refusing(ENGINE), () => [WORKFLOW], false), {
     out: [],
     err: ['error: git push: remote rejected @fronthub/arrowz-engine@0.1.1'],
     code: 1,
@@ -237,9 +307,29 @@ Deno.test('a shallow clone cannot say which commit set the version', async () =>
     await scratch(shallow, ['fetch', '-q', '--depth', '1', `file://${full}`, 'main'])
     await scratch(shallow, ['update-ref', 'refs/heads/main', 'FETCH_HEAD'])
     assertThrows(() => commitOf(engine, shallow), Error, 'shallow')
+    assertThrows(() => releasedOf(engine, shallow), Error, 'shallow')
   } finally {
     removeDir(full)
     removeDir(shallow)
+  }
+})
+
+Deno.test('in a repository the releases of a package are its versions since the placeholder, oldest first', async () => {
+  const repo = scratchDir()
+  try {
+    await scratch(repo, ['init', '-q', '-b', 'main'])
+    await commitManifest(repo, '0.1.0', 'a number from before the placeholder')
+    await commitManifest(repo, '0.0.0', 'the placeholder')
+    const first = await commitManifest(repo, '0.1.0', 'version packages')
+    await commitManifest(repo, '0.1.0', 'a new keyword')
+    const second = await commitManifest(repo, '0.2.0', 'version packages')
+
+    assertEquals(releasedOf(engine, repo), [
+      { pkg: { ...engine, version: '0.1.0' }, sha: first },
+      { pkg: engine, sha: second },
+    ])
+  } finally {
+    removeDir(repo)
   }
 })
 
@@ -306,6 +396,121 @@ Deno.test('a tag is pushed to origin at the given commit and leaves no tag in th
 })
 
 const here = dirname(fromFileUrl(import.meta.url))
+
+/** An `npm` that answers `view <name>@<version> version --json` from the file `live` beside it, and nothing else. */
+const STUB_NPM = `#!/bin/sh
+if [ "$1" != view ] || [ "$3" != version ] || [ "$4" != --json ]; then
+  echo "stub npm: unexpected arguments: $*" >&2
+  exit 64
+fi
+here=$(dirname "$0")
+echo "$2" >> "$here/asked"
+if grep -qxF "$2" "$here/live"; then
+  printf '"%s"\\n' "\${2##*@}"
+else
+  printf '{\\n  "error": { "code": "E404", "summary": "No match found for version %s" }\\n}\\n' "\${2##*@}"
+  exit 1
+fi
+`
+
+/** Writes a file through the shell, its directory included, so the tests need no write access of their own. */
+function writeFile(path: string, text: string, mode = '644'): void {
+  const script = 'mkdir -p "$(dirname "$1")" && printf %s "$3" > "$1" && chmod "$2" "$1"'
+  const made = new Deno.Command('sh', { args: ['-c', script, 'sh', path, mode, text] }).outputSync()
+  if (!made.success) throw new Error(`could not write ${path}`)
+}
+
+/** The shell line that starts a command with `$1` first on PATH, outside a workflow run and outside a git hook. */
+const WITH_STUB = 'unset GITHUB_ACTIONS GITHUB_OUTPUT GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE; ' +
+  'PATH="$1:$PATH"; shift; exec "$@"'
+
+/** Runs release.ts as a process in a scratch repository, with the stub npm of `bin` first on PATH. */
+function releaseRun(repo: string, bin: string, ...args: string[]): { code: number; out: string[]; err: string[] } {
+  const permissions = ['--allow-read', '--allow-write', '--allow-run', '--allow-env']
+  const command = [Deno.execPath(), 'run', ...permissions, join(here, 'scripts', 'release.ts'), ...args]
+  const r = new Deno.Command('sh', {
+    args: ['-c', WITH_STUB, 'sh', bin, ...command],
+    cwd: repo,
+    stdout: 'piped',
+    stderr: 'piped',
+  }).outputSync()
+  const lines = (bytes: Uint8Array) => new TextDecoder().decode(bytes).split('\n').filter((line) => line !== '')
+  return { code: r.code, out: lines(r.stdout), err: lines(r.stderr) }
+}
+
+/** Puts the stub npm into `bin`, with the versions it answers as published. */
+function stubNpm(bin: string, live: string[]): void {
+  writeFile(join(bin, 'npm'), STUB_NPM, '755')
+  writeFile(join(bin, 'live'), live.map((spec) => `${spec}\n`).join(''))
+}
+
+Deno.test('a tags run gives every live version without a tag its tag, superseded ones too, and leaves the rest', async () => {
+  const repo = scratchDir()
+  const origin = scratchDir()
+  const bin = scratchDir()
+  // Outside the protected pattern of release tags; main() reads the manifests of these three directories.
+  const scratchPkg = (short: string, dir: string) => (version: string, note: string) =>
+    commitFile(repo, `packages/${dir}/package.json`, JSON.stringify({ name: `@scratch/${short}`, version }), note)
+  const engineAt = scratchPkg('engine', 'engine')
+  const boardAt = scratchPkg('board', 'board-element')
+  const cliAt = scratchPkg('cli', 'cli')
+  try {
+    await scratch(origin, ['init', '-q', '-b', 'main'])
+    await scratch(repo, ['init', '-q', '-b', 'main'])
+    await scratch(repo, ['remote', 'add', 'origin', origin])
+    await engineAt('0.0.0', 'the placeholder')
+    await boardAt('0.0.0', 'the placeholder')
+    await cliAt('0.0.0', 'the placeholder')
+    const engine010 = await engineAt('0.1.0', 'version packages')
+    const board010 = await boardAt('0.1.0', 'version packages')
+    const cli010 = await cliAt('0.1.0', 'version packages')
+    const engine011 = await engineAt('0.1.1', 'version packages')
+    await engineAt('0.1.2', 'version packages')
+    // main() reads the manifests from the working tree.
+    await scratch(repo, ['checkout-index', '-a'])
+    await scratch(repo, ['push', '-q', 'origin', `${board010}:refs/tags/@scratch/board@0.1.0`])
+
+    // 0.1.2 is staged and not approved: npm does not have it.
+    stubNpm(bin, ['@scratch/engine@0.1.0', '@scratch/engine@0.1.1', '@scratch/board@0.1.0', '@scratch/cli@0.1.0'])
+    const tagsOnOrigin = async () => {
+      const refs = await scratch(origin, ['for-each-ref', '--format=%(refname:strip=2) %(objectname)', 'refs/tags'])
+      return refs.split('\n').sort()
+    }
+
+    assertEquals(releaseRun(repo, bin, 'tags'), {
+      code: 0,
+      out: [
+        'not live on npm, so not tagged: @scratch/engine@0.1.2',
+        `tagged @scratch/engine@0.1.0 at ${engine010.slice(0, 7)}`,
+        `tagged @scratch/engine@0.1.1 at ${engine011.slice(0, 7)}`,
+        `tagged @scratch/cli@0.1.0 at ${cli010.slice(0, 7)}`,
+      ],
+      err: [],
+    })
+    assertEquals(await tagsOnOrigin(), [
+      `@scratch/board@0.1.0 ${board010}`,
+      `@scratch/cli@0.1.0 ${cli010}`,
+      `@scratch/engine@0.1.0 ${engine010}`,
+      `@scratch/engine@0.1.1 ${engine011}`,
+    ])
+    // The version that had its tag was not asked of npm.
+    assert(!Deno.readTextFileSync(join(bin, 'asked')).includes('@scratch/board@0.1.0'))
+
+    assertEquals(releaseRun(repo, bin, 'tags'), {
+      code: 0,
+      out: [
+        'not live on npm, so not tagged: @scratch/engine@0.1.2',
+        'nothing to tag: no untagged version is live on npm',
+      ],
+      err: [],
+    })
+    assertEquals((await tagsOnOrigin()).length, 4)
+  } finally {
+    removeDir(repo)
+    removeDir(origin)
+    removeDir(bin)
+  }
+})
 
 Deno.test('no build of a published package takes its input from a scripts/ directory', () => {
   // changedSince leaves scripts/ out, so a build that read from there could change a released version unseen.
