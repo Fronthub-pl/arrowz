@@ -115,7 +115,10 @@ here works.
    | `npm stage reject <stage-id>` | removes it for good (second factor) |
 
    Never approve a staged version you did not start. Reject it and find out
-   who did.
+   who did. The log of the `stage` job has the line
+   `+ <name>@<version> (staged with id <stage-id>)`, and
+   `npm stage view <stage-id>` shows `staged by: GitHub Actions (trusted
+   automation)` and the shasum the `stage` step printed.
 
    Approve or reject every staged version of a release before you merge the
    next version pull request or start the workflow again. To `npm view`, a
@@ -144,14 +147,16 @@ here works.
    tagged @fronthub/arrowz-engine@0.1.1 at 1a2b3c4
    ```
 
-   If it says `no version went live since the last run` instead, npm did not
-   show the approved version to that run yet. Wait a few minutes and start the
-   workflow again. The run that tagged nothing also plans that version again,
-   builds it and hands it to npm; its `stage` is then red with `E409`. That
-   means only that npm refused a version that is already staged.
+   If it says `no version went live since the last run` instead, that run did
+   not find the version on npm. A run that asks before the approval finds
+   nothing (`E404`); it also plans that version again, builds it and hands it
+   to npm, and its `stage` is red with `E409`, which means only that npm
+   refused a version that is already staged. Approve what is still waiting,
+   then start the workflow again.
 
-   If `tag-published` is red with `refusing to allow a GitHub App to create
-   or update workflow`, the table below has the remedy.
+   If `tag-published` is red with
+   `refusing to allow a GitHub App to create or update workflow`, the table
+   below has the remedy.
 
 6. **Check.** `npm view @fronthub/arrowz-engine dist-tags` shows the new
    version as `latest`. `npm view @fronthub/arrowz-engine@0.1.1 dist --json`
@@ -173,8 +178,9 @@ loses nothing because the newer run plans from the same `main`.
 
 npm accepts a trusted publisher only for a package that already exists, and a
 new trusted-publisher entry expires if its first publish does not succeed
-within two days. Staging counts as that first publish. So the steps below
-happen on one day. The whole flow was rehearsed on a throwaway package in
+within two days. At its first stage an entry turns from "Pending validation"
+to "Valid"; whether a valid entry can still expire has not been tried, so the
+steps below happen on one day. The whole flow was rehearsed on a throwaway package in
 `Fronthub-pl/arrowz-rehearsal`, whose
 [README](https://github.com/Fronthub-pl/arrowz-rehearsal) records what was
 seen.
@@ -185,34 +191,42 @@ it allows more, restrict it to `main` before going on. It is what stops an
 edited copy of the workflow on another branch from getting the identity npm
 trusts.
 
-1. **Create each package.** In an empty directory outside the repository,
-   make a `package.json` that holds only the name and `"version": "0.0.0"`,
-   and a `README.md`. Logged in to npm with your second factor, pack it, stage
-   the tarball and reject it:
+1. **Create each package.** For each of the three packages, in a new empty
+   directory outside the repository, make a `package.json` that holds only
+   the name and `"version": "0.0.0"`, and a `README.md`. Logged in to npm with
+   your second factor, pack it, stage the tarball and reject it:
 
    ```sh
    npm pack
    npm stage publish ./fronthub-arrowz-engine-0.0.0.tgz --access public
-   npm stage list @fronthub/arrowz-engine
    npm stage reject <stage-id>
+   npm stage list @fronthub/arrowz-engine
    ```
+
+   The other two tarballs are `fronthub-arrowz-board-0.0.0.tgz` and
+   `fronthub-arrowz-cli-0.0.0.tgz`. `npm stage publish` ends with
+   `+ @fronthub/arrowz-engine@0.0.0 (staged with id <stage-id>)`: that is the
+   id to reject. Afterwards `npm stage list` prints
+   `No staged versions of package name "@fronthub/arrowz-engine".`
 
    Start the path with `./`: npm takes `dir/file.tgz` for a GitHub repository.
    The stage creates the package, with a holding version `0.0.0-stage` of
-   npm's own that holds `latest`. npmjs.com shows the package at once; `npm
-   view` answers 404 for it for some minutes. After the rejection the package
-   and `0.0.0-stage` stay, and its Settings page offers Trusted Publisher and
-   Publishing access. Nothing is published by hand.
+   npm's own that holds `latest`. npmjs.com shows the package at once, but
+   `npm view` answers 404 for it for some minutes. After the rejection the
+   package and `0.0.0-stage` stay, and its Settings page offers Trusted
+   Publisher and Publishing access. Nothing is published by hand.
 
    Do not stage from `packages/*`: the manifests there also say `0.0.0` until
-   the first version pull request, and that would put the real code on npm by
-   hand, with no provenance.
+   the first version pull request, so that would stage the real code as
+   `0.0.0`, and an approval by mistake would put it on npm by hand, with no
+   provenance.
 
 2. **The trusted publisher, for each package.** npmjs.com → the package →
    Settings → Trusted Publisher → GitHub Actions:
 
    | Field | Value |
    |---|---|
+   | Label | leave empty |
    | Organization or user | `Fronthub-pl` |
    | Repository | `arrowz` |
    | Workflow filename | `release.yml` |
@@ -223,14 +237,15 @@ trusts.
    stage. A new entry shows "Pending validation" until the first stage through
    it, then "Valid". The provider and the required fields cannot be changed
    once the entry is created: delete it and create it again. The environment
-   name, which is optional, could be edited. Then, under Settings → Publishing
+   name can be edited afterwards. Then, under Settings → Publishing
    access, choose "Require two-factor authentication and disallow bypass 2fa
    tokens (recommended)", which is not the default, and click **Update Package
    Settings**.
 
 3. **The version pull request.** Make and merge it as in a normal release. It
    takes the three packages from `0.0.0` to `0.1.0`. Approve the three staged
-   versions, the engine first.
+   versions, the engine first. Then tag and check as in steps 5 and 6 of a
+   normal release, before anything else is merged.
 
 4. **Check `latest`.**
 
@@ -254,12 +269,11 @@ nothing.
 | `plan` fails with `refused <name>@<version>: <files> changed since <sha> set the version` | A counted file of that package changed after the commit that set its version | Let a release of that version that is still running or waiting for approval finish. Otherwise add a changeset and open a new version pull request. |
 | `build` is red | A check or a tarball gate failed; the log names the file or the rule | Fix by pull request, then see step 3 of a normal release. |
 | One `smoke` leg is red | The packed files do not work on that system | Fix by pull request. If the log shows a network failure, use "Re-run failed jobs" on the original run. |
-| Every `smoke` leg is red at `FAIL npm <version> installs the packages and Vite with install scripts off`, and npm's error above that line has the code `ETARGET` and says `No matching version found for` one of the three packages | A package of this release depends on a version that is staged and not yet approved, so npm has nothing to install for it | Approve that staged version, then use "Re-run failed jobs". |
 | Every `smoke` leg is red at `FAIL Vite bundles the element of the board package`, and the checks above that line are `ok`, among them `the engine lays the golden 40×40 board …` and `arrowz carve names the golden layout …` | The smoke installs the newest Vite 8, and that release may be at fault, not the packages | Read Vite's error in the log. If the fault is Vite's, wait for its fix and use "Re-run failed jobs", or pin a Vite version in `consumer-smoke.mjs` by pull request, merge it and start the workflow by hand on `main`. |
 | `tag-published` is red (the job could not read npm, or a tag was refused for a reason other than the next row) | It does not stop the release | Approve what is staged as usual, then find the cause in its log and start the workflow again on `main`. |
-| `tag-published` is red with ``! [remote rejected] <tag> -> <tag> (refusing to allow a GitHub App to create or update workflow `.github/workflows/release.yml` without `workflows` permission)`` | A file under `.github/workflows/` differs between the commit that set the version and the commit the run is on, and the workflow's token cannot push the tag then. Starting the workflow again does not help | Approve what is staged as usual. On an up-to-date checkout of `main`, run `deno run --allow-read --allow-run --allow-env packages/engine/scripts/release.ts tags`. It pushes the tag with your own git credentials and prints `tagged <name>@<version> at <sha7>`. |
-| `stage` fails with `npm error code E401` and `Unable to authenticate, your authentication token seems to be invalid.` | npm did not accept the workflow's identity: the package does not exist on npm yet and so has no trusted publisher, or a field of the trusted publisher is wrong, or the entry expired. The log is the same for a missing package and for a wrong field | If the package does not exist on npm yet, do steps 1 and 2 of the first release. Otherwise compare the trusted-publisher fields with the table of the first release; to correct a wrong field, edit the entry if it is the environment name, and otherwise delete the entry and create it again. If the entry expired (its first publish did not succeed within two days), delete it and create it again; npm does not let you use or edit an expired entry. Then use "Re-run failed jobs" (the run keeps its tarballs for 7 days), or start the workflow on `main`. |
-| `stage` fails with `npm error code E403` and `403 Forbidden - PUT https://registry.npmjs.org/<name> - OIDC permission denied for this action` | The job ran `npm publish`, and the trusted publisher allows staging only. Nothing was published | Fix `release.yml` by pull request: the job runs `npm stage publish`. Do not tick "Allow npm publish". |
+| `tag-published` is red with ``! [remote rejected] <tag> -> <tag> (refusing to allow a GitHub App to create or update workflow`` … ``without `workflows` permission)`` | A workflow file differs between the commit that set the version and the commit the run is on (the message names that file), and the workflow's token cannot push the tag then. Starting the workflow again does not help | Approve what is staged as usual. In the repository root, on an up-to-date `main` whose `origin` is this repository, with `deno` and `npm` on your `PATH`, run `deno run --allow-read --allow-run --allow-env packages/engine/scripts/release.ts tags`. It pushes the tag with your own git credentials and prints `tagged <name>@<version> at <sha7>`. |
+| `stage` fails with `npm error code E401` and `Unable to authenticate, your authentication token seems to be invalid.` | npm did not accept the workflow's identity: the package does not exist on npm yet and so has no trusted publisher, or a field of the trusted publisher is wrong. The log is the same for both. What an expired entry prints has not been tried | If the package does not exist on npm yet, do steps 1 and 2 of the first release. Otherwise compare the trusted-publisher fields with the table of the first release; to correct a wrong field, edit the entry if it is the environment name, and otherwise delete the entry and create it again. If the entry expired (its first publish did not succeed within two days), delete it and create it again; npm does not let you use or edit an expired entry. Then use "Re-run failed jobs" (the run keeps its tarballs for 7 days), or start the workflow on `main`. A re-run is red with `E409` for every package the first attempt staged; look in the log for `+ <name>@<version> (staged with id …)` for the others. |
+| `stage` fails with `npm error code E403` and `403 Forbidden - PUT https://registry.npmjs.org/<name> - OIDC permission denied for this action` (the name appears as `@fronthub%2farrowz-engine`) | The job ran `npm publish`, and the trusted publisher allows staging only. Nothing was published | Fix `release.yml` by pull request: the job must run `npm stage publish`. Do not tick "Allow npm publish". |
 | `stage` fails with `cannot read the npm version '<version>'` or `npm <version> cannot stage: staged publishing needs 11.15 or newer` | The npm in the job is not one that can stage | Fix `release.yml` by pull request. Nothing was staged. |
 | `stage` fails with `the build job handed over no digests` | The `build` job passed an empty list: a fault of the run, not a changed artifact | Nothing was staged. Start the workflow again on `main`. |
 | `build` fails with `the digest list names something that is not one of the three tarballs` | The `build` job wrote a line into its own list that it should not have: a fault in the workflow. Nothing was uploaded for staging | Do not re-run. Fix `release.yml` by pull request. |
@@ -268,10 +282,10 @@ nothing.
 | `stage` fails with `the tarballs do not match their digests` (preceded by a `FAILED` line from `sha256sum`) or `the artifact holds <n> files, the gates judged <m>` | The artifact was changed after the build, which should never happen | Do not re-run. Nothing was staged. Find out which job touched the artifact before you release again. |
 | `stage` fails with `npm did not stage <file>` | npm refused that tarball; the others were still tried | Read npm's message above it. If a staged version of that version number is waiting, approve or reject it. |
 | `stage` fails with `<n> of <m> judged tarballs were handed to npm` | A judged tarball was not handed to npm: a fault of the run | Check on npm what is staged, then start the workflow again on `main`. |
-| `stage` fails with `npm error code E409` and `409 Conflict - POST https://registry.npmjs.org/-/stage/package/<name> - Cannot stage previously published version "<version>".` | That version is already staged and waits for approval (the message says "previously published"). A run started before the approval planned it again | Approve or reject the waiting staged version. Nothing else is wrong. |
+| `stage` fails with `npm error code E409` and `409 Conflict - POST https://registry.npmjs.org/-/stage/package/<name> - Cannot stage previously published version "<version>".` (the name appears as `@fronthub%2farrowz-engine`) | That version is already staged and waits for approval (the message says "previously published"). A run started before the approval planned it again, or a re-run handed npm a tarball it had already staged | Approve or reject the waiting staged version. Nothing else is wrong. |
 | A re-run of `stage` more than 7 days after the build fails | The artifact is deleted after 7 days | Start the workflow again on `main`. |
 | You approved the board or the command line before the engine | Installs of it fail until the engine is live | Approve the engine. |
-| A staged version holds the wrong files | The gates missed something | Reject it (`npm stage reject <stage-id>`), fix by pull request, release a new patch version. |
+| A staged version holds the wrong files | The gates missed something | Reject it (`npm stage reject <stage-id>`), fix by pull request. If the fix changes no counted file, start the workflow again on `main`: a rejected version number can be staged again. Otherwise release a new patch version. |
 | A bad version is live | | `npm deprecate <name>@<version> "<what is wrong, which version to use>"`, then release a fix. Do not unpublish: other packages may already depend on it. |
 | The trusted publisher expired or was removed | | If it expired, delete it first; then create it again (step 2 of the first release), then use "Re-run failed jobs" or start the workflow on `main`. The release waits only when npm's trusted publishing itself is not working. Never create a token, in either case. |
 

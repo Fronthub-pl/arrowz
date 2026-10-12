@@ -2,10 +2,12 @@
 
 Date: 2026-10-09. Status: accepted plan, carried out in the order of §9. Steps
 1–7, the day-one settings of §8 and the rehearsal (§4) are done; the
-bootstrap (§4) is not. The maintainer's procedure is [releasing.md](releasing.md). This
-plan replaces an earlier, unpublished draft design (lockstep `1.0.0-alpha` versions,
-CLI as compiled binaries, JSR); §1 lists what changed and why. Every external
-fact was checked in official documentation; open points are listed in §10.
+bootstrap (§4) is not. The maintainer's procedure is
+[releasing.md](releasing.md). This plan replaces an earlier, unpublished
+draft design (lockstep `1.0.0-alpha` versions, CLI as compiled binaries,
+JSR); §1 lists what changed and why. Every external fact was checked in
+official documentation or seen in the rehearsal (§4); open points are listed
+in §10.
 
 Revised 2026-10-10 for two npm changes announced on 2026-07-08
 ([GitHub changelog](https://github.blog/changelog/2026-07-08-npm-install-time-security-and-gat-bypass2fa-deprecation/)):
@@ -101,7 +103,8 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
    run per group, so a newer run can replace a waiting one, which loses nothing
    because it plans from the same `main`.
    npm does not accept a version that already exists as a staged version:
-   `npm stage publish` ends with `E409` and status 1, and the job is red. A pull request that changes the workflow
+   `npm stage publish` ends with `E409` and status 1, and the job is red. A
+   pull request that changes the workflow
    or one of its programs runs it as a dry run: plan, build and smoke on all
    three packages, never tag or stage. A run started by hand on another branch
    never tags and never stages either.
@@ -114,7 +117,8 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
      `0.0.0` is never tagged.
    - **`plan`** (`contents: read`): for each package, `npm view <name>@<version>`;
      versions not on npm form the plan. Empty plan → stop. `0.0.0` is never
-     planned: it is the manifests' value before the first version PR. An unclear answer from npm fails the job. A package
+     planned: it is the manifests' value before the first version PR. An
+     unclear answer from npm fails the job. A package
      whose files differ from those of the commit that set its version (a file
      in the package's `scripts/` directory, `*.test.ts` and `*.test.tsx` are
      left out; everything else counts) is refused, so a version is released only from
@@ -154,9 +158,10 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
 
 ## 4. First release (bootstrap), once per new package
 
-npm lets you add a trusted publisher only to a package that already exists, and
-a trusted-publisher entry expires if no publish uses it within 2 days of
-its creation. Order:
+npm lets you add a trusted publisher only to a package that already exists. At
+its first stage an entry turns from "Pending validation" to "Valid"; whether a
+valid entry can still expire has not been tried, so the steps run on one day.
+Order:
 
 0. Before bootstrap day: while the manifests carry `0.0.0` nothing is planned
    and `stage` is skipped. A run by hand on `main` is green then, and plans
@@ -179,7 +184,8 @@ its creation. Order:
    two-factor authentication and disallow bypass 2fa tokens (recommended)".
 3. On the same day, merge the version PR that brings the packages to `0.1.0`.
    CI stages them; approve on npm. `0.1.0` becomes `latest` by itself, with
-   provenance.
+   provenance. Then tag and check as in steps 5 and 6 of releasing.md's normal
+   release, before anything else is merged.
 4. Check that `npm dist-tag ls` shows `latest` = `0.1.0`; `0.0.0-stage` stays
    in the list of versions.
 
