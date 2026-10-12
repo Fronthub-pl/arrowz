@@ -10,7 +10,7 @@
 /** The published packages, dependencies first: the order they are staged and approved in. */
 const DIRS = ['packages/engine', 'packages/board-element', 'packages/cli']
 
-/** The value a manifest carries until its first version PR; on npm it is only ever a placeholder. */
+/** The value a manifest carries until its first version PR; it is never released and never tagged. */
 const UNRELEASED = '0.0.0'
 
 export interface Pkg {
@@ -166,6 +166,56 @@ export function planOutcome(
   }
 }
 
+/** The command of the `tag-published` job; a maintainer runs the same one from a checkout of main. */
+export const TAGS_COMMAND = 'deno run --allow-read --allow-run --allow-env packages/engine/scripts/release.ts tags'
+
+/** The workflow files that differ between a commit and HEAD. */
+export function workflowsChangedSince(sha: string, cwd = '.'): string[] {
+  const out = git(cwd, 'diff', '--name-only', sha, 'HEAD', '--', '.github/workflows')
+  return out.split('\n').filter((line) => line !== '')
+}
+
+/** Creates the tag on origin alone: a local tag would stop the next try after a refused push. */
+export function pushTag(tag: string, sha: string, cwd = '.'): void {
+  git(cwd, 'push', 'origin', `${sha}:refs/tags/${tag}`)
+}
+
+/**
+ * What a tags run prints and how it ends: every due tag is tried, and one that could not be pushed ends the
+ * run with status 1. GitHub refuses a workflow's token a tag on a commit whose workflow files differ from the
+ * run's, so on the runner such a refusal is answered with the command to run from a checkout.
+ */
+export function tagsOutcome(
+  due: Pkg[],
+  commit: (p: Pkg) => string,
+  push: (p: Pkg, sha: string) => void,
+  changed: (sha: string) => string[],
+  onRunner: boolean,
+): { out: string[]; err: string[]; code: 0 | 1 } {
+  if (due.length === 0) return { out: ['no version went live since the last run'], err: [], code: 0 }
+  const out: string[] = []
+  const err: string[] = []
+  let advise = false
+  for (const p of due) {
+    const sha = commit(p)
+    try {
+      push(p, sha)
+      out.push(`tagged ${tagOf(p)} at ${sha.slice(0, 7)}`)
+    } catch (error) {
+      err.push(`error: ${(error instanceof Error ? error.message : String(error)).trimEnd()}`)
+      const files = onRunner ? changed(sha) : []
+      if (files.length === 0) continue
+      err.push(
+        `not tagged ${tagOf(p)}: ${files.join(', ')} changed since ${sha.slice(0, 7)} set the version, ` +
+          "and the workflow's token cannot push a tag across a workflow change",
+      )
+      advise = true
+    }
+  }
+  if (advise) err.push(`From an up-to-date checkout of main, run: ${TAGS_COMMAND}`)
+  return { out, err, code: err.length > 0 ? 1 : 0 }
+}
+
 function main(): void {
   const [command, ...flags] = Deno.args
   const pkgs = DIRS.map((dir) => manifestOf(dir, Deno.readTextFileSync(`${dir}/package.json`)))
@@ -183,14 +233,12 @@ function main(): void {
   } else if (command === 'tags') {
     const remote = git('.', 'ls-remote', '--tags', 'origin').split('\n').map((line) => line.split('refs/tags/')[1])
     const tags = new Set(remote.filter((tag): tag is string => tag !== undefined))
-    const due = tagsDue(pkgs, onNpm, tags)
-    for (const p of due) {
-      const sha = commitOf(p)
-      git('.', 'tag', tagOf(p), sha)
-      git('.', 'push', 'origin', `refs/tags/${tagOf(p)}`)
-      console.log(`tagged ${tagOf(p)} at ${sha.slice(0, 7)}`)
-    }
-    if (due.length === 0) console.log('no version went live since the last run')
+    const onRunner = Deno.env.get('GITHUB_ACTIONS') === 'true'
+    const push = (p: Pkg, sha: string) => pushTag(tagOf(p), sha)
+    const outcome = tagsOutcome(tagsDue(pkgs, onNpm, tags), commitOf, push, workflowsChangedSince, onRunner)
+    for (const line of outcome.out) console.log(line)
+    for (const line of outcome.err) console.error(line)
+    if (outcome.code !== 0) Deno.exit(outcome.code)
   } else {
     console.error('usage: release.ts plan [--all] | tags')
     Deno.exit(2)
