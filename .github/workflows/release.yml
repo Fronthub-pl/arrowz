@@ -269,9 +269,25 @@ jobs:
               if [ -e "$tgz" ]; then
                 handed=$((handed + 1))
                 # npm takes `tarballs/x.tgz` for a GitHub repository; a path that starts with ./ is a file.
-                if ! npm stage publish --ignore-scripts "./$tgz"; then
-                  echo "::error::npm did not stage $tgz"
-                  failed=1
+                if log=$(npm stage publish --ignore-scripts "./$tgz" 2>&1); then
+                  printf '%s\n' "$log"
+                else
+                  printf '%s\n' "$log"
+                  # A version that is already staged is refused with both of these; any other conflict is a failure.
+                  held=no
+                  case "$log" in
+                    *'npm error code E409'*)
+                      case "$log" in
+                        *'Cannot stage previously published version'*) held=yes ;;
+                      esac
+                      ;;
+                  esac
+                  if [ "$held" = yes ]; then
+                    echo "::notice::npm already has the version of $tgz, staged earlier or live: nothing was staged for it now"
+                  else
+                    echo "::error::npm did not stage $tgz"
+                    failed=1
+                  fi
                 fi
               fi
             done

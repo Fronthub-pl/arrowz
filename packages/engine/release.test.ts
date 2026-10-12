@@ -972,9 +972,25 @@ for name in engine board cli; do
     if [ -e "$tgz" ]; then
       handed=$((handed + 1))
       # npm takes \`tarballs/x.tgz\` for a GitHub repository; a path that starts with ./ is a file.
-      if ! npm stage publish --ignore-scripts "./$tgz"; then
-        echo "::error::npm did not stage $tgz"
-        failed=1
+      if log=$(npm stage publish --ignore-scripts "./$tgz" 2>&1); then
+        printf '%s\\n' "$log"
+      else
+        printf '%s\\n' "$log"
+        # A version that is already staged is refused with both of these; any other conflict is a failure.
+        held=no
+        case "$log" in
+          *'npm error code E409'*)
+            case "$log" in
+              *'Cannot stage previously published version'*) held=yes ;;
+            esac
+            ;;
+        esac
+        if [ "$held" = yes ]; then
+          echo "::notice::npm already has the version of $tgz, staged earlier or live: nothing was staged for it now"
+        else
+          echo "::error::npm did not stage $tgz"
+          failed=1
+        fi
       fi
     fi
   done
@@ -1009,6 +1025,110 @@ Deno.test('stage is exactly the job that hands the judged tarballs to npm, and n
         run: STAGE_HEAD + CHECK + STAGE_TAIL,
       },
     ],
+  })
+})
+
+/**
+ * An `npm` for the stage loop. It takes only a tarball path that starts with ./, and answers as the
+ * variable named after the package says: staged when it is empty.
+ */
+const STUB_STAGE_NPM = `#!/bin/sh
+if [ "$1" != stage ] || [ "$2" != publish ] || [ "$3" != --ignore-scripts ]; then
+  echo "stub npm: unexpected arguments: $*" >&2
+  exit 64
+fi
+case "$4" in
+  ./tarballs/*engine*) answer=$ENGINE ;;
+  ./tarballs/*board*) answer=$BOARD ;;
+  ./tarballs/*cli*) answer=$CLI ;;
+  *)
+    echo "stub npm: $4 is not a tarball path that starts with ./" >&2
+    exit 64
+    ;;
+esac
+echo "$4" >> "$(dirname "$0")/handed"
+case "$answer" in
+  held)
+    echo 'npm error code E409' >&2
+    echo 'npm error 409 Conflict - POST https://registry.npmjs.org/-/stage/package/@fronthub%2farrowz-x - Cannot stage previously published version "0.1.0".' >&2
+    exit 1
+    ;;
+  conflict)
+    echo 'npm error code E409' >&2
+    echo 'npm error 409 Conflict - another conflict' >&2
+    exit 1
+    ;;
+  sentence)
+    echo 'npm error code E403' >&2
+    echo 'npm error 403 Cannot stage previously published version "0.1.0".' >&2
+    exit 1
+    ;;
+  down)
+    echo 'npm error code E500' >&2
+    exit 1
+    ;;
+  *) echo "+ $4 (staged with id 1)" ;;
+esac
+`
+
+/** Runs the loop of the stage step on three judged tarballs; the workflow's step ends with this very text. */
+function stageLoop(answers: { engine?: string; board?: string; cli?: string }): {
+  code: number
+  marks: string[]
+  handed: string[]
+} {
+  const dir = scratchDir()
+  try {
+    for (const name of ['engine', 'board', 'cli']) {
+      writeFile(join(dir, `tarballs/fronthub-arrowz-${name}-0.1.0.tgz`), name)
+    }
+    writeFile(join(dir, 'bin', 'npm'), STUB_STAGE_NPM, '755')
+    const r = new Deno.Command('bash', {
+      // The flags GitHub starts a run step with; the step itself begins after the two assignments.
+      args: ['--noprofile', '--norc', '-eo', 'pipefail', '-c', `PATH="$PWD/bin:$PATH"\njudged=3\n${STAGE_TAIL}`],
+      cwd: dir,
+      env: { ENGINE: answers.engine ?? '', BOARD: answers.board ?? '', CLI: answers.cli ?? '' },
+      stdout: 'piped',
+      stderr: 'piped',
+    }).outputSync()
+    const out = new TextDecoder().decode(r.stdout).split('\n')
+    return {
+      code: r.code,
+      marks: out.filter((line) => line.startsWith('::')),
+      handed: Deno.readTextFileSync(join(dir, 'bin', 'handed')).trim().split('\n'),
+    }
+  } finally {
+    removeDir(dir)
+  }
+}
+
+const ALL_HANDED = ['engine', 'board', 'cli'].map((name) => `./tarballs/fronthub-arrowz-${name}-0.1.0.tgz`)
+const heldNotice = (name: string) =>
+  `::notice::npm already has the version of tarballs/fronthub-arrowz-${name}-0.1.0.tgz, staged earlier or live: nothing was staged for it now`
+const notStaged = (name: string) => `::error::npm did not stage tarballs/fronthub-arrowz-${name}-0.1.0.tgz`
+
+Deno.test('the stage loop hands npm every tarball as a ./ path, dependencies first, and ends with status 0', () => {
+  assertEquals(stageLoop({}), { code: 0, marks: [], handed: ALL_HANDED })
+})
+
+Deno.test('a version that is already staged gets a notice and does not fail the stage loop', () => {
+  assertEquals(stageLoop({ engine: 'held' }), { code: 0, marks: [heldNotice('engine')], handed: ALL_HANDED })
+  assertEquals(stageLoop({ engine: 'held', board: 'held', cli: 'held' }), {
+    code: 0,
+    marks: [heldNotice('engine'), heldNotice('board'), heldNotice('cli')],
+    handed: ALL_HANDED,
+  })
+})
+
+Deno.test('any other refusal fails the stage loop after every tarball was tried', () => {
+  // The code without the sentence, the sentence without the code, and another error: none is a staged version.
+  for (const answer of ['conflict', 'sentence', 'down']) {
+    assertEquals(stageLoop({ engine: answer }), { code: 1, marks: [notStaged('engine')], handed: ALL_HANDED }, answer)
+  }
+  assertEquals(stageLoop({ board: 'down', cli: 'held' }), {
+    code: 1,
+    marks: [notStaged('board'), heldNotice('cli')],
+    handed: ALL_HANDED,
   })
 })
 
