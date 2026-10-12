@@ -161,11 +161,15 @@ not on npm yet needs a few steps by hand first, once. They are in
    placeholder `0.0.0`, where the job stops reading the history, so after
    the second merge that version counts as set once and is tagged at the
    second merge, also when the tarball on npm was staged from the first. If
-   the tarball you approve was staged by the run of the first merge (the run
-   of the second merge then shows the notice of `stage` for it), push the
-   tag at the first merge yourself, with the last command of
-   [A tag made by hand](#a-tag-made-by-hand), right after approving and
-   before any run of the workflow.
+   the tarball you approve was staged by the run of the first merge, push
+   the tag at the first merge yourself, right after approving and before any
+   run of the workflow. Merging the pull request again starts a run, so if
+   you approve before the second merge, push the tag before you merge; if
+   you approve after it, the run of the second merge shows the notice of
+   `stage` for that version. Use the last command of
+   [A tag made by hand](#a-tag-made-by-hand) with the first merge as
+   `<sha7>`; the first command of that section prints the commit the tarball
+   was built on.
    Still start the workflow before you merge anything that changes a file
    under `.github/workflows/` (a Dependabot bump of an action counts): GitHub
    refuses the workflow's push of a tag when a workflow file differs between
@@ -370,7 +374,7 @@ repository, and only after `merge-base` answered for that commit: the tag
 ruleset blocks updates and deletions, so a release tag stays where it is
 pushed. A push of this form, made by the job's command from a checkout,
 worked over HTTPS with the credential of `gh`, whose token has the `workflow`
-scope; no other credential has been tried:
+scope; a credential without that scope has not been tried:
 
 ```sh
 git push origin <sha7>:refs/tags/<name>@<version>

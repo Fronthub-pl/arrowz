@@ -121,7 +121,9 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
      `main` (a version pull request reverted, or reverted and merged again),
      the history does not say which commit it was released from: the job
      creates no tag for it, names it with its commits and fails, and the
-     maintainer tags it by hand.
+     maintainer tags it by hand. The first version of a package is not seen
+     as set more than once, because the walk ends at the placeholder its
+     revert brings back: step 5 of `docs/releasing.md` says what to do then.
      `0.0.0` is never tagged.
    - **`plan`** (`contents: read`): for each package, `npm view <name>@<version>`;
      versions not on npm form the plan. Empty plan → stop. `0.0.0` is never
