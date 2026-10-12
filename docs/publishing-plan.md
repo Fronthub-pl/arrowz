@@ -117,6 +117,9 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
      version that was replaced before a run saw it live gets its tag from a
      later run.) The tag goes on the first-parent
      commit of `main` that set the version, the merge of the version PR.
+     When a version was set twice on `main` (a version pull request reverted
+     and merged again), the newer stretch counts, also for the version the
+     revert brought back.
      `0.0.0` is never tagged.
    - **`plan`** (`contents: read`): for each package, `npm view <name>@<version>`;
      versions not on npm form the plan. Empty plan → stop. `0.0.0` is never
@@ -125,10 +128,10 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
      whose files differ from those of the commit that set its version (a file
      in the package's `scripts/` directory, `*.test.ts` and `*.test.tsx` are
      left out; everything else counts) is refused, so a version is released only from
-     the files that were reviewed as that version. A package is refused, too,
-     when a workspace dependency of it (the engine, for the board and the CLI)
-     has another version than at that commit: `pnpm pack` would write the
-     newer range into the tarball.
+     the files that were reviewed as that version. A planned package is
+     refused, too, when a workspace dependency of it (the engine, for the
+     board and the CLI) has another version than at that commit: `pnpm pack`
+     would write the newer range into the tarball.
    - **`build`** (`contents: read`, `persist-credentials: false`, no caches):
      full verify, build, `pnpm pack` the planned packages, run the gates (§5) on
      the tarballs, upload the tarballs as an artifact. It records the SHA-256
@@ -230,11 +233,12 @@ the first actions that 2FA-bypass tokens lose (§8).
    and a dependency is `x.y.z`, `^x.y.z` or `~x.y.z`.
    The manifest is also held to what the three packages publish: `type` is
    `module`, `engines` is Node 22.12 or newer and nothing else, no `main`,
-   `module`, `browser`, `types`, `os`, `cpu`, `libc` or bundled dependencies,
-   `sideEffects` as each package sets it (and the files it lists are in the
-   tarball), every entry point with exactly `types` then `default`, and the
-   dependencies exactly the ones of the package's rule, so a dependency that
-   went missing or a new one is named.
+   `module`, `browser`, `types`, `typings`, `os`, `cpu`, `libc` or bundled
+   dependencies, `sideEffects` as each package sets it (and the files it
+   lists are in the tarball), every entry point with exactly `types` then
+   `default`, and the dependencies exactly the ones of the package's rule,
+   with no peer or optional dependency, so a dependency that went missing or
+   a new one is named.
 2. **`publint --strict`** on every tarball and, for the engine and the board
    (the packages with types), **`attw <tarball> --profile esm-only`** (the
    default profile wrongly fails an ESM-only package).
@@ -356,10 +360,11 @@ keep interaction limits as an emergency switch.
 Then §8 settings (day-one items can go first), the §4 rehearsal, then the §4
 bootstrap.
 
-## 10. Still unverified (check during the first release)
+## 10. Still unverified
 
-- The notice of `stage` on a real `E409`: the job was tried with a stand-in for
-  npm, and the two lines it looks for were read in the log of the rehearsal.
+- The notice of `stage` on a real `E409`: the loop of its step was run in a
+  test with a stand-in for npm, and the two strings it looks for were read in
+  the log of the rehearsal.
 - A tag for an earlier version pushed by the workflow's token: no run has had
   an earlier version to tag.
 - Whether a valid trusted-publisher entry still expires after two days
