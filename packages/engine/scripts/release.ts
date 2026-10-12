@@ -1,6 +1,7 @@
 // What a release run does, decided from the three manifests, their history and
 // npm: `plan` names the packages whose version npm does not have yet, and `tags`
-// gives a git tag to every released version that is live on npm and has none.
+// gives a git tag to every released version that is live on npm and has none,
+// unless main set that version more than once: then it names it and fails.
 //
 //   deno run --allow-read --allow-write --allow-run --allow-env packages/engine/scripts/release.ts plan [--all]
 //   deno run --allow-read --allow-run --allow-env packages/engine/scripts/release.ts tags
@@ -52,47 +53,62 @@ export function tagOf(p: Pkg): string {
   return `${p.name}@${p.version}`
 }
 
-/** A version a package has had on this branch, with the commit that set it. */
+/**
+ * A version a package has had on this branch, with the commit that set it. A version that left the manifest
+ * and came back (a version pull request reverted, or merged again) was set once per stretch: `sha` began the
+ * newest stretch and `earlier` lists the commits that began the older ones, newest first.
+ */
 export interface Release {
   pkg: Pkg
   sha: string
+  earlier: string[]
 }
 
-/** Of the released versions without a tag: the ones live on npm, and the ones npm does not have. */
+/**
+ * Of the released versions without a tag: the ones live on npm, the ones npm does not have, and the live
+ * ones the branch set more than once. The history does not say which of their stretches was released, so
+ * no tag is due for those.
+ */
 export function tagsDue(
   released: Release[],
   seen: (p: Pkg) => Seen,
   tags: Set<string>,
-): { due: Release[]; waiting: Pkg[] } {
+): { due: Release[]; waiting: Pkg[]; twice: Release[] } {
   const due: Release[] = []
   const waiting: Pkg[] = []
+  const twice: Release[] = []
   for (const release of released) {
     if (release.pkg.version === UNRELEASED || tags.has(tagOf(release.pkg))) continue
-    if (seen(release.pkg) === 'published') due.push(release)
-    else waiting.push(release.pkg)
+    if (seen(release.pkg) !== 'published') waiting.push(release.pkg)
+    else if (release.earlier.length > 0) twice.push(release)
+    else due.push(release)
   }
-  return { due, waiting }
+  return { due, waiting, twice }
 }
 
 /**
  * The versions in a manifest's history, newest commit first, back to the placeholder: each with the oldest
- * commit of its newest stretch. A commit without a version ends the walk as the placeholder does, so what a
- * manifest carried before its first version pull request is never a release.
+ * commit of its newest stretch as `sha` and the oldest commit of every older stretch in `earlier`, newest
+ * first. A commit without a version ends the walk as the placeholder does, so what a manifest carried before
+ * its first version pull request is never a release.
  */
 export function releasesIn(
   history: Iterable<{ sha: string; version: string | undefined }>,
-): { version: string; sha: string }[] {
-  const found: { version: string; sha: string }[] = []
+): { version: string; sha: string; earlier: string[] }[] {
+  const found: { version: string; sha: string; earlier: string[] }[] = []
   let stretch: string | undefined
-  let open: { version: string; sha: string } | undefined
+  let open: { version: string; sha: string; earlier: string[] } | undefined
   for (const { sha, version } of history) {
     if (version === undefined || version === UNRELEASED) break
     if (version !== stretch) {
       stretch = version
-      open = found.some((release) => release.version === version) ? undefined : { version, sha }
-      if (open) found.push(open)
+      open = found.find((release) => release.version === version)
+      if (open) open.earlier.push(sha)
+      else found.push(open = { version, sha, earlier: [] })
     } else if (open) {
-      open.sha = sha
+      // One commit further down the stretch the walk is in: the newest one, or the last of the older ones.
+      if (open.earlier.length > 0) open.earlier[open.earlier.length - 1] = sha
+      else open.sha = sha
     }
   }
   return found
@@ -181,7 +197,11 @@ function* historyOf(dir: string, cwd: string): Generator<{ sha: string; version:
 
 /** Every version of a package since its placeholder, oldest first, with the commit that set it. */
 export function releasedOf(p: Pkg, cwd = '.'): Release[] {
-  return releasesIn(historyOf(p.dir, cwd)).reverse().map(({ version, sha }) => ({ pkg: { ...p, version }, sha }))
+  return releasesIn(historyOf(p.dir, cwd)).reverse().map(({ version, sha, earlier }) => ({
+    pkg: { ...p, version },
+    sha,
+    earlier,
+  }))
 }
 
 /**
@@ -320,21 +340,27 @@ export function pushTag(tag: string, sha: string, cwd = '.'): void {
 
 /**
  * What a tags run prints and how it ends: every due tag is tried, and one that could not be pushed ends the
- * run with status 1. GitHub refuses a workflow's token a tag on a commit whose workflow files differ from the
+ * run with status 1, as does a version of `twice`, which is named with its commits, oldest first, for a tag
+ * made by hand. GitHub refuses a workflow's token a tag on a commit whose workflow files differ from the
  * run's, so on the runner such a refusal is answered with the command to run from a checkout.
  */
 export function tagsOutcome(
   due: Release[],
   waiting: Pkg[],
+  twice: Release[],
   push: (p: Pkg, sha: string) => void,
   changed: (sha: string) => string[],
   onRunner: boolean,
 ): { out: string[]; err: string[]; code: 0 | 1 } {
   const out = waiting.map((p) => `not live on npm, so not tagged: ${tagOf(p)}`)
-  if (due.length === 0) {
+  if (due.length === 0 && twice.length === 0) {
     return { out: [...out, 'nothing to tag: no untagged version is live on npm'], err: [], code: 0 }
   }
-  const err: string[] = []
+  // Named before any refused push: a log that carries the command to run from a checkout ends with it.
+  const err = twice.map(({ pkg: p, sha, earlier }) => {
+    const commits = [...earlier.toReversed(), sha].map((commit) => commit.slice(0, 7)).join(', ')
+    return `not tagged ${tagOf(p)}: the version was set more than once on main (${commits}); tag it by hand`
+  })
   let advise = false
   for (const { pkg: p, sha } of due) {
     try {
@@ -375,8 +401,8 @@ function main(): void {
     const tags = new Set(remote.filter((tag): tag is string => tag !== undefined))
     const onRunner = Deno.env.get('GITHUB_ACTIONS') === 'true'
     const push = (p: Pkg, sha: string) => pushTag(tagOf(p), sha)
-    const { due, waiting } = tagsDue(pkgs.flatMap((p) => releasedOf(p)), onNpm, tags)
-    const outcome = tagsOutcome(due, waiting, push, workflowsChangedSince, onRunner)
+    const { due, waiting, twice } = tagsDue(pkgs.flatMap((p) => releasedOf(p)), onNpm, tags)
+    const outcome = tagsOutcome(due, waiting, twice, push, workflowsChangedSince, onRunner)
     for (const line of outcome.out) console.log(line)
     for (const line of outcome.err) console.error(line)
     if (outcome.code !== 0) Deno.exit(outcome.code)
