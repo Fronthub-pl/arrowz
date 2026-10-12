@@ -587,7 +587,10 @@ Deno.test('a tag is pushed to origin at the given commit and leaves no tag in th
 
 const here = dirname(fromFileUrl(import.meta.url))
 
-/** An `npm` that answers `view <name>@<version> version --json` from the file `live` beside it, and nothing else. */
+/**
+ * An `npm` that answers `view <name>@<version> version --json` from the files `live` and `unclear` beside it,
+ * and nothing else. For a spec in `unclear` it answers as a network failure does: no JSON, status 1.
+ */
 const STUB_NPM = `#!/bin/sh
 if [ "$1" != view ] || [ "$3" != version ] || [ "$4" != --json ]; then
   echo "stub npm: unexpected arguments: $*" >&2
@@ -595,6 +598,10 @@ if [ "$1" != view ] || [ "$3" != version ] || [ "$4" != --json ]; then
 fi
 here=$(dirname "$0")
 echo "$2" >> "$here/asked"
+if grep -qxF "$2" "$here/unclear"; then
+  echo 'npm error network timeout'
+  exit 1
+fi
 if grep -qxF "$2" "$here/live"; then
   printf '"%s"\\n' "\${2##*@}"
 else
@@ -614,10 +621,15 @@ function writeFile(path: string, text: string, mode = '644'): void {
 const WITH_STUB = 'unset GITHUB_ACTIONS GITHUB_OUTPUT GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE; ' +
   'PATH="$1:$PATH"; shift; exec "$@"'
 
+/** What a command of release.ts may do: `tags` gets what `TAGS_COMMAND` grants, so a tags run that starts to write fails here. */
+const permissionsOf = (command: string | undefined): string[] =>
+  command === 'tags'
+    ? TAGS_COMMAND.split(' ').filter((word) => word.startsWith('--allow-'))
+    : ['--allow-read', '--allow-write', '--allow-run', '--allow-env']
+
 /** Runs release.ts as a process in a scratch repository, with the stub npm of `bin` first on PATH. */
 function releaseRun(repo: string, bin: string, ...args: string[]): { code: number; out: string[]; err: string[] } {
-  const permissions = ['--allow-read', '--allow-write', '--allow-run', '--allow-env']
-  const command = [Deno.execPath(), 'run', ...permissions, join(here, 'scripts', 'release.ts'), ...args]
+  const command = [Deno.execPath(), 'run', ...permissionsOf(args[0]), join(here, 'scripts', 'release.ts'), ...args]
   const r = new Deno.Command('sh', {
     args: ['-c', WITH_STUB, 'sh', bin, ...command],
     cwd: repo,
@@ -628,11 +640,57 @@ function releaseRun(repo: string, bin: string, ...args: string[]): { code: numbe
   return { code: r.code, out: lines(r.stdout), err: lines(r.stderr) }
 }
 
-/** Puts the stub npm into `bin`, with the versions it answers as published. */
-function stubNpm(bin: string, live: string[]): void {
+/** Puts the stub npm into `bin`, with the versions it answers as published and the ones it gives no clear answer for. */
+function stubNpm(bin: string, live: string[], unclear: string[] = []): void {
   writeFile(join(bin, 'npm'), STUB_NPM, '755')
   writeFile(join(bin, 'live'), live.map((spec) => `${spec}\n`).join(''))
+  writeFile(join(bin, 'unclear'), unclear.map((spec) => `${spec}\n`).join(''))
 }
+
+Deno.test('the stand-in for the tags run is granted what the workflow grants, and no write access', () => {
+  assertEquals(permissionsOf('tags'), ['--allow-read', '--allow-run', '--allow-env'])
+  assert(permissionsOf('plan').includes('--allow-write'))
+})
+
+Deno.test('a tags run stops at an unclear answer of npm before it pushes any tag', async () => {
+  const repo = scratchDir()
+  const origin = scratchDir()
+  const bin = scratchDir()
+  const versionOf = (short: string, dir: string) =>
+    commitFile(
+      repo,
+      `packages/${dir}/package.json`,
+      JSON.stringify({ name: `@scratch/${short}`, version: '0.1.0' }),
+      'version packages',
+    )
+  try {
+    await scratch(origin, ['init', '-q', '-b', 'main'])
+    await scratch(repo, ['init', '-q', '-b', 'main'])
+    await scratch(repo, ['remote', 'add', 'origin', origin])
+    await versionOf('engine', 'engine')
+    await versionOf('board', 'board-element')
+    await versionOf('cli', 'cli')
+    await scratch(repo, ['checkout-index', '-a'])
+    // The engine is asked first and is live, so its tag is due when the answer for the command line comes.
+    stubNpm(bin, ['@scratch/engine@0.1.0', '@scratch/board@0.1.0'], ['@scratch/cli@0.1.0'])
+
+    assertEquals(releaseRun(repo, bin, 'tags'), {
+      code: 1,
+      out: [],
+      err: ['error: npm view did not say whether 0.1.0 is published (status 1): npm error network timeout'],
+    })
+    assertEquals(Deno.readTextFileSync(join(bin, 'asked')).trim().split('\n'), [
+      '@scratch/engine@0.1.0',
+      '@scratch/board@0.1.0',
+      '@scratch/cli@0.1.0',
+    ])
+    assertEquals(await scratch(origin, ['for-each-ref', 'refs/tags']), '')
+  } finally {
+    removeDir(repo)
+    removeDir(origin)
+    removeDir(bin)
+  }
+})
 
 Deno.test('a tags run gives every live version without a tag its tag, superseded ones too, and leaves the rest', async () => {
   const repo = scratchDir()
