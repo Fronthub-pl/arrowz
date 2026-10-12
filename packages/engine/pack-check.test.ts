@@ -210,6 +210,28 @@ Deno.test('sideEffects is what the package publishes, and names files of the tar
   ])
 })
 
+Deno.test('a sideEffects list in another order, or with an entry that is no path, is refused as it is spelled', () => {
+  const swapped = ['./dist/mod.js', './dist/arrowz-board.js']
+  assertEquals(problems(1, packed(BOARD, BOARD_FILES, { sideEffects: swapped })), [
+    'sideEffects is ["./dist/mod.js","./dist/arrowz-board.js"], but @fronthub/arrowz-board publishes ["./dist/arrowz-board.js","./dist/mod.js"]',
+  ])
+  assertEquals(problems(1, packed(BOARD, BOARD_FILES, { sideEffects: ['./dist/arrowz-board.js', 1] })), [
+    'sideEffects is ["./dist/arrowz-board.js",1], but @fronthub/arrowz-board publishes ["./dist/arrowz-board.js","./dist/mod.js"]',
+  ])
+})
+
+Deno.test('exports that is not a set of entry points is named in one sentence', () => {
+  assertEquals(problems(1, engine({ exports: './dist/mod.js' })), [
+    'exports is "./dist/mod.js", not a set of entry points',
+  ])
+  assertEquals(problems(1, engine({ exports: ['./dist/mod.js'] })), [
+    'exports is ["./dist/mod.js"], not a set of entry points',
+  ])
+  assertEquals(problems(1, packed(CLI, CLI_FILES, { exports: null })), [
+    'exports is null, not a set of entry points',
+  ])
+})
+
 Deno.test('an entry point has exactly the conditions types and default, in that order', () => {
   const extra = { ...ENGINE.exports, './command': { ...entry('command'), require: './dist/command.js' } }
   assertEquals(problems(1, engine({ exports: extra })), [
@@ -222,6 +244,15 @@ Deno.test('an entry point has exactly the conditions types and default, in that 
   ])
   const bare = { ...ENGINE.exports, './command': './dist/command.js' }
   assertEquals(problems(1, engine({ exports: bare })), ['./command is "./dist/command.js", not a set of conditions'])
+})
+
+Deno.test('an entry point with an extra condition and a missing file is named for both', () => {
+  const extra = { ...ENGINE.exports, './command': { ...entry('command'), require: './dist/command.js' } }
+  assertEquals(problems(1, engine({ exports: extra }, without(ENGINE_FILES, 'dist/command.js'))), [
+    'dist/command.js is missing',
+    './command: ./dist/command.js is not in the tarball',
+    './command has the conditions types, default, require, and @fronthub/arrowz-engine publishes types, default in that order',
+  ])
 })
 
 Deno.test('the dependencies are exactly the ones the package publishes', () => {

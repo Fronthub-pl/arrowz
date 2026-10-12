@@ -75,7 +75,10 @@ not on npm yet needs a few steps by hand first, once. They are in
    - `stage` checks the tarballs against the digests and their count, then
      hands them to npm as staged versions. It tries every tarball, even after
      npm refuses one. A tarball whose version is already staged gets a notice
-     and does not fail the job.
+     and does not fail the job. Before each tarball the log has the line
+     `handing ./<file> to npm`. npm's own lines for a tarball appear only
+     once npm has answered, so when the job hangs, the last such line names
+     the tarball npm has not answered for.
 
    Only a push to `main` or a run started by hand on `main` tags and stages.
    A run started on another branch never tags and never stages.

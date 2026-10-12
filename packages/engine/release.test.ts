@@ -1510,6 +1510,8 @@ for name in engine board cli; do
   for tgz in tarballs/fronthub-arrowz-"$name"-*.tgz; do
     if [ -e "$tgz" ]; then
       handed=$((handed + 1))
+      # npm's lines appear only when it has exited: this one shows which tarball a hung call is on.
+      echo "handing ./$tgz to npm"
       # npm takes \`tarballs/x.tgz\` for a GitHub repository; a path that starts with ./ is a file.
       if log=$(npm stage publish --ignore-scripts "./$tgz" 2>&1); then
         printf '%s\\n' "$log"
@@ -1647,11 +1649,16 @@ const heldNotice = (name: string) =>
 const notStaged = (name: string) => `::error::npm did not stage ${tarballOf(name)}`
 const stagedLine = (name: string) => `+ ./${tarballOf(name)} (staged with id 1)`
 const refusedLines = (answer: string) => NPM_REFUSALS[answer] ?? []
+/** What the loop prints for one tarball: the line that names it, npm's own lines, then the loop's verdict. */
+const handing = (name: string) => `handing ./${tarballOf(name)} to npm`
+const staged = (name: string) => [handing(name), stagedLine(name)]
+const held = (name: string) => [handing(name), ...refusedLines('held'), heldNotice(name)]
+const refused = (name: string, answer: string) => [handing(name), ...refusedLines(answer), notStaged(name)]
 
 Deno.test('the stage loop hands npm every tarball as a ./ path, dependencies first, and ends with status 0', () => {
   assertEquals(stageLoop({}), {
     code: 0,
-    out: [stagedLine('engine'), stagedLine('board'), stagedLine('cli')],
+    out: [...staged('engine'), ...staged('board'), ...staged('cli')],
     handed: ALL_HANDED,
   })
 })
@@ -1659,12 +1666,12 @@ Deno.test('the stage loop hands npm every tarball as a ./ path, dependencies fir
 Deno.test('a version that is already staged gets a notice and does not fail the stage loop', () => {
   assertEquals(stageLoop({ engine: 'held' }), {
     code: 0,
-    out: [...refusedLines('held'), heldNotice('engine'), stagedLine('board'), stagedLine('cli')],
+    out: [...held('engine'), ...staged('board'), ...staged('cli')],
     handed: ALL_HANDED,
   })
   assertEquals(stageLoop({ engine: 'held', board: 'held', cli: 'held' }), {
     code: 0,
-    out: ['engine', 'board', 'cli'].flatMap((name) => [...refusedLines('held'), heldNotice(name)]),
+    out: ['engine', 'board', 'cli'].flatMap(held),
     handed: ALL_HANDED,
   })
 })
@@ -1674,19 +1681,13 @@ Deno.test('any other refusal fails the stage loop after every tarball was tried'
   for (const answer of ['conflict', 'sentence', 'down']) {
     assertEquals(stageLoop({ engine: answer }), {
       code: 1,
-      out: [...refusedLines(answer), notStaged('engine'), stagedLine('board'), stagedLine('cli')],
+      out: [...refused('engine', answer), ...staged('board'), ...staged('cli')],
       handed: ALL_HANDED,
     }, answer)
   }
   assertEquals(stageLoop({ board: 'down', cli: 'held' }), {
     code: 1,
-    out: [
-      stagedLine('engine'),
-      ...refusedLines('down'),
-      notStaged('board'),
-      ...refusedLines('held'),
-      heldNotice('cli'),
-    ],
+    out: [...staged('engine'), ...refused('board', 'down'), ...held('cli')],
     handed: ALL_HANDED,
   })
 })
