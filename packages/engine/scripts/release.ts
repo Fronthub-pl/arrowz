@@ -89,9 +89,10 @@ export function tagsDue(
 /**
  * The versions in a manifest's history, newest commit first, back to its oldest placeholder: each with the
  * oldest commit of its newest stretch as `sha` and the oldest commit of every older stretch in `earlier`,
- * newest first. A commit without a version counts as a placeholder. What a manifest carried below the oldest
- * one, before its first version pull request, is never a release; a placeholder above it only parts two
- * stretches, so a first version that was set on a placeholder, reverted and set again has two.
+ * newest first. A commit without a version counts as a placeholder, and a placeholder that has an older one
+ * below it only parts two stretches. What a manifest carried below the oldest one, before its first version
+ * pull request, is never a release. A stretch down there still counts for a release of the same number: the
+ * history does not tell a number from before the placeholder from a first version that was reverted.
  */
 export function releasesIn(
   history: Iterable<{ sha: string; version: string | undefined }>,
@@ -101,7 +102,7 @@ export function releasesIn(
   const found: { version: string; sha: string; earlier: string[] }[] = []
   let stretch: string | undefined
   let open: { version: string; sha: string; earlier: string[] } | undefined
-  for (const { sha, version } of oldest === -1 ? commits : commits.slice(0, oldest)) {
+  for (const [at, { sha, version }] of commits.entries()) {
     if (version === undefined || version === UNRELEASED) {
       stretch = undefined
       continue
@@ -110,7 +111,7 @@ export function releasesIn(
       stretch = version
       open = found.find((release) => release.version === version)
       if (open) open.earlier.push(sha)
-      else found.push(open = { version, sha, earlier: [] })
+      else if (oldest === -1 || at < oldest) found.push(open = { version, sha, earlier: [] })
     } else if (open) {
       // One commit further down the stretch the walk is in: the newest one, or the last of the older ones.
       if (open.earlier.length > 0) open.earlier[open.earlier.length - 1] = sha

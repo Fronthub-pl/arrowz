@@ -158,7 +158,7 @@ Deno.test('every version since the placeholder is a release, with the commit tha
   assertEquals(releasesIn(history), [
     { version: '0.1.2', sha: 'third', earlier: [] },
     { version: '0.1.1', sha: 'again', earlier: ['second'] },
-    { version: '0.1.0', sha: 'reverted', earlier: ['first'] },
+    { version: '0.1.0', sha: 'reverted', earlier: ['first', 'early'] },
   ])
   // A third stretch: the older ones are listed newest first, each at its oldest commit.
   const thrice = [
@@ -199,7 +199,7 @@ Deno.test('the walk ends at the oldest placeholder, so a first version set twice
     { sha: 'readme', version: '0.1.0' },
     { sha: 'first', version: '0.1.0' },
     { sha: 'placeholder', version: '0.0.0' },
-    { sha: 'early', version: '0.1.0' },
+    { sha: 'alpha', version: '1.0.0-alpha.1' },
   ]
   assertEquals(releasesIn(history), [{ version: '0.1.0', sha: 'again', earlier: ['first'] }])
   const thrice = [
@@ -248,13 +248,16 @@ Deno.test('a version set on both sides of a commit without a version has two str
   assertEquals(releasesIn(history), [{ version: '0.1.0', sha: 'again', earlier: ['first'] }])
 })
 
-Deno.test('a version under the only placeholder of a history is no release, also when it was a first version', () => {
+Deno.test('a release that was also set below the oldest placeholder has its older stretches there', () => {
   const history = [
     { sha: 'again', version: '0.1.0' },
     { sha: 'removed', version: undefined },
+    { sha: 'keyword', version: '0.1.0' },
     { sha: 'first', version: '0.1.0' },
+    { sha: 'alpha', version: '1.0.0-alpha.1' },
+    { sha: 'oldest', version: '0.1.0' },
   ]
-  assertEquals(releasesIn(history), [{ version: '0.1.0', sha: 'again', earlier: [] }])
+  assertEquals(releasesIn(history), [{ version: '0.1.0', sha: 'again', earlier: ['first', 'oldest'] }])
 })
 
 Deno.test('a number between a commit without a version and the placeholder reads as a first version set twice', () => {
@@ -482,7 +485,7 @@ Deno.test('in a repository the releases of a package are its versions since the 
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
-    await commitManifest(repo, '0.1.0', 'a number from before the placeholder')
+    await commitManifest(repo, '1.0.0-alpha.1', 'a number from before the placeholder')
     await commitManifest(repo, '0.0.0', 'the placeholder')
     const first = await commitManifest(repo, '0.1.0', 'version packages')
     await commitManifest(repo, '0.1.0', 'a new keyword')
@@ -494,6 +497,22 @@ Deno.test('in a repository the releases of a package are its versions since the 
     ])
     // `plan` refuses against the commit `commitOf` finds and `tags` tags the one `releasedOf` finds: they must be one.
     assertEquals(releasedOf(engine, repo).at(-1)?.sha, commitOf(engine, repo))
+  } finally {
+    removeDir(repo)
+  }
+})
+
+Deno.test('in a repository a package added with a version, removed and added again gives the version two commits', async () => {
+  const repo = scratchDir()
+  try {
+    await scratch(repo, ['init', '-q', '-b', 'main'])
+    const first = await commitManifest(repo, '0.2.0', 'the package is added')
+    await scratch(repo, ['update-index', '--force-remove', 'packages/engine/package.json'])
+    await scratch(repo, ['commit', '-q', '-m', 'revert the package'])
+    const again = await commitManifest(repo, '0.2.0', 'the package is added, again')
+
+    assertEquals(releasedOf(engine, repo), [{ pkg: engine, sha: again, earlier: [first] }])
+    assertEquals(commitOf(engine, repo), again)
   } finally {
     removeDir(repo)
   }

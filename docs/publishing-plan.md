@@ -123,9 +123,9 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
      the history does not say which commit it was released from: the job
      creates no tag for it, names it with its commits and fails, and the
      maintainer tags it by hand. That holds for the first version of a
-     package too, when a placeholder lies below it: the placeholder its
-     revert brings back then only parts the two commits that set the
-     version. `0.0.0` is never tagged.
+     package too: a commit that set its number below the placeholder of a
+     revert counts, and so does a number the manifest carried before the
+     first version pull request. `0.0.0` is never tagged.
    - **`plan`** (`contents: read`): for each package, `npm view <name>@<version>`;
      versions not on npm form the plan. Empty plan → stop. `0.0.0` is never
      planned: it is the manifests' value before the first version PR. An
