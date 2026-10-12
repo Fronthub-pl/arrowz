@@ -1,0 +1,282 @@
+name: Release
+
+# Stages on npm every package whose version is not there yet; a maintainer then
+# approves each staged version on npmjs.com. docs/releasing.md has the whole procedure.
+on:
+  push:
+    branches: [main]
+    paths: ['packages/*/CHANGELOG.md']
+  workflow_dispatch:
+  # A change to the release itself gets a dry run: everything up to the stage, on all three packages.
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - packages/engine/scripts/release.ts
+      - packages/engine/scripts/pack-check.ts
+      - packages/engine/scripts/consumer-smoke.mjs
+      - packages/engine/scripts/consumer-golden.json
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Tags each package's current version once that version is live on npm and has
+  # no tag yet; after a maintainer's approval that is the next run.
+  tag-published:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: '~2.9'
+
+      - run: deno run --allow-read --allow-run --allow-env packages/engine/scripts/release.ts tags
+
+  # The whole history is fetched: a version is released only from the files
+  # of the commit that set it, and that commit has to be found.
+  plan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      dirs: ${{ steps.plan.outputs.dirs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: '~2.9'
+
+      - id: plan
+        run: deno run --allow-read --allow-write --allow-run --allow-env packages/engine/scripts/release.ts plan ${{ github.event_name == 'pull_request' && '--all' || '' }}
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.dirs != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sums: ${{ steps.sums.outputs.sums }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: '~2.9'
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @fronthub/arrowz-board exec playwright install --with-deps chromium
+
+      - run: pnpm nx run-many -t check lint fmt test build smoke pack-check
+
+      # Packed again, into the directory the stage job receives: the gates run on those very files.
+      - run: deno run --allow-read --allow-write --allow-run --allow-env packages/engine/scripts/pack-check.ts --out=tarballs $DIRS
+        env:
+          DIRS: ${{ needs.plan.outputs.dirs }}
+
+      # The stage job accepts only the files with these digests: an artifact is
+      # found by name, and another job of the run could replace one.
+      - id: sums
+        run: |
+          {
+            echo 'sums<<SUMS_END'
+            sha256sum tarballs/*.tgz
+            echo 'SUMS_END'
+          } >> "$GITHUB_OUTPUT"
+
+      # The stage job runs only on main, so the dry run reads the digests back
+      # here: the list, the check and the count meet the real output of the runner.
+      - name: Read the digests back
+        env:
+          SUMS: ${{ steps.sums.outputs.sums }}
+        run: |
+          if printf '%s\n' "$SUMS" | grep -Evq '^[0-9a-f]{64}  tarballs/fronthub-arrowz-(engine|board|cli)-[0-9A-Za-z.+-]+\.tgz$'; then
+            echo "::error::the digest list names something that is not one of the three tarballs"
+            exit 1
+          fi
+          if ! printf '%s\n' "$SUMS" | sha256sum --check --strict; then
+            echo "::error::the tarballs do not match their digests"
+            exit 1
+          fi
+          judged=$(printf '%s\n' "$SUMS" | grep -c .)
+          received=$(find tarballs -mindepth 1 | wc -l)
+          if [ "$received" -ne "$judged" ]; then
+            echo "::error::the artifact holds $received files, the gates judged $judged"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tarballs
+          path: tarballs/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+          # A re-run of every job uploads again; the stage job trusts the digests, not the artifact's name.
+          overwrite: true
+
+  smoke:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, node: 22 }
+          - { os: ubuntu-latest, node: 24 }
+          - { os: ubuntu-24.04-arm, node: 22 }
+          - { os: ubuntu-24.04-arm, node: 24 }
+          - { os: macos-latest, node: 22 }
+          - { os: macos-latest, node: 24 }
+          - { os: macos-15-intel, node: 22 }
+          - { os: macos-15-intel, node: 24 }
+          - { os: windows-latest, node: 22 }
+          - { os: windows-latest, node: 24 }
+          - { os: windows-11-arm, node: 22 }
+          - { os: windows-11-arm, node: 24 }
+          # The oldest Node the packages promise to run on.
+          - { os: ubuntu-latest, node: 22.12.0 }
+          # npm 12 runs no install script and takes no git or URL dependency; no Node bundles it yet.
+          - { os: ubuntu-latest, node: 24, npm: 12 }
+          - { os: ubuntu-latest, node: 24, deno: true }
+          - { os: windows-latest, node: 24, deno: true }
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+
+      - if: matrix.npm
+        run: npm install --global npm@${{ matrix.npm }}
+
+      - if: matrix.deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: '~2.9'
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tarballs
+          path: tarballs
+
+      - run: ${{ matrix.deno && 'deno run --no-config --no-lock --allow-all' || 'node' }} packages/engine/scripts/consumer-smoke.mjs tarballs
+
+  # The only job npm trusts. It runs no code from the repository: it receives
+  # the tarballs the gates passed and hands them to npm, which holds them until
+  # a maintainer approves each one with a second factor.
+  stage:
+    needs: [plan, build, smoke]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      # An exact Node, so the npm that stages is the one this file names (24.21.0 bundles npm 11.19.0).
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tarballs
+          path: tarballs
+
+      - name: Stage on npm
+        env:
+          SUMS: ${{ needs.build.outputs.sums }}
+        run: |
+          version=$(npm --version)
+          echo "npm $version"
+          major=${version%%.*}
+          rest=${version#*.}
+          minor=${rest%%.*}
+          case "$version" in
+            *.*.*) ;;
+            *)
+              echo "::error::cannot read the npm version '$version'"
+              exit 1
+              ;;
+          esac
+          for part in "$major" "$minor"; do
+            case "$part" in
+              '' | *[!0-9]*)
+                echo "::error::cannot read the npm version '$version'"
+                exit 1
+                ;;
+            esac
+          done
+          if [ "$major" -lt 11 ] || { [ "$major" -eq 11 ] && [ "$minor" -lt 15 ]; }; then
+            echo "::error::npm $version cannot stage: staged publishing needs 11.15 or newer"
+            exit 1
+          fi
+          # Only the files the gates judged, and all of them.
+          if [ -z "$SUMS" ]; then
+            echo "::error::the build job handed over no digests"
+            exit 1
+          fi
+          if printf '%s\n' "$SUMS" | grep -Evq '^[0-9a-f]{64}  tarballs/fronthub-arrowz-(engine|board|cli)-[0-9A-Za-z.+-]+\.tgz$'; then
+            echo "::error::the digest list names something that is not one of the three tarballs"
+            exit 1
+          fi
+          if ! printf '%s\n' "$SUMS" | sha256sum --check --strict; then
+            echo "::error::the tarballs do not match their digests"
+            exit 1
+          fi
+          judged=$(printf '%s\n' "$SUMS" | grep -c .)
+          received=$(find tarballs -mindepth 1 | wc -l)
+          if [ "$received" -ne "$judged" ]; then
+            echo "::error::the artifact holds $received files, the gates judged $judged"
+            exit 1
+          fi
+          # Dependencies first. Every tarball is tried: after a partial failure a
+          # re-run must still reach the packages npm has not staged yet.
+          failed=0
+          handed=0
+          for name in engine board cli; do
+            for tgz in tarballs/fronthub-arrowz-"$name"-*.tgz; do
+              if [ -e "$tgz" ]; then
+                handed=$((handed + 1))
+                if ! npm stage publish --ignore-scripts "$tgz"; then
+                  echo "::error::npm did not stage $tgz"
+                  failed=1
+                fi
+              fi
+            done
+          done
+          if [ "$handed" -ne "$judged" ]; then
+            echo "::error::$handed of $judged judged tarballs were handed to npm"
+            exit 1
+          fi
+          exit "$failed"

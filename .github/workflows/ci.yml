@@ -54,7 +54,7 @@ jobs:
 
       - uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5
 
-      - run: pnpm nx affected -t check lint fmt test build smoke
+      - run: pnpm nx affected -t check lint fmt test build smoke pack-check
 
   # Advisory: a missing changeset is a warning on the pull request, never a
   # failed check. Anything else the command fails on (a changeset naming an

@@ -29,6 +29,13 @@
       "dependsOn": ["^build"],
       "options": { "cwd": "packages/board-element", "command": "pnpm run serve" }
     },
+    "pack-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/board-element",
+        "command": "deno run --allow-read --allow-write --allow-run --allow-env ../engine/scripts/pack-check.ts ."
+      }
+    },
     "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test", "build"] }
   }
 }

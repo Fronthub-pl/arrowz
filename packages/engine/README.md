@@ -397,4 +397,5 @@ Deno ones, `deno task verify` at the repository root.
 | `test` | The Deno tests, this README's guard among them; `fingerprints.json` freezes the reference boards and `svg-golden.json` their pictures. |
 | `build` | `tsc` into `dist/`, the build Node consumers import. |
 | `smoke` | `scripts/node-smoke.mjs`: the reference boards again, from `dist/` under Node. |
-| `verify` | All of the above. |
+| `pack-check` | Packs the package and judges the tarball: its files, its size, `publint` and Are The Types Wrong; CI runs it, `verify` does not. |
+| `verify` | All of the above except `pack-check`. |

@@ -20,6 +20,13 @@
     },
     "build": { "executor": "nx:run-commands", "options": { "cwd": "packages/engine", "command": "pnpm run build" } },
     "smoke": { "executor": "nx:run-commands", "options": { "cwd": "packages/engine", "command": "pnpm run smoke" } },
+    "pack-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/engine",
+        "command": "deno run --allow-read --allow-write --allow-run --allow-env ../engine/scripts/pack-check.ts ."
+      }
+    },
     "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test", "smoke"] }
   }
 }

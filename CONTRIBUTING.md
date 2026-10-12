@@ -56,9 +56,16 @@ A few things the checks hold you to:
   it describes, so update the README in the same change.
 - **Pictures.** The images in the READMEs are drawn from commands listed in
   `docs/images/manifest.json`; `deno task docs` draws them again.
+- **Package contents.** CI packs each published package and checks the
+  tarball: only the files on the package's list, a size budget, what `publint`
+  says and, for the two packages with types, what Are The Types Wrong says.
+  `pnpm nx run-many -t pack-check` runs it locally. If it names a file you do
+  not know, it is probably left from an old build: delete the package's `dist/`
+  and build again.
 
 On Windows, `deno task store` (the board store the lab reads) runs a shell
-script, so for now it needs Git Bash or WSL.
+script, so for now it needs Git Bash or WSL. `deno task test` needs them too:
+some tests start `mktemp` and `rm`.
 
 ## Writing the change
 
@@ -95,6 +102,8 @@ CI looks for the changeset and only warns: a pull request without one is still
 welcome, and a maintainer adds it before the release. Every file in a package's
 directory counts, its README and its tests included. Changes to the lab, to
 `docs/` or to the repository's tooling need none.
+
+How a release is made from the changesets is in [docs/releasing.md](docs/releasing.md).
 
 ## Pull requests
 
