@@ -151,12 +151,16 @@ not on npm yet needs a few steps by hand first, once. They are in
    version pull request does that to every version the revert brings back,
    and merging the pull request again does it to every version it sets. The
    history does not say which of its commits such a version was released
-   from, so the job gives it no tag: it names the version with those commits,
-   still tags everything else that is due, and is red in every run until you
-   push that tag yourself. A version that has its tag is never looked at
-   again, so tag before you revert a version pull request; the versions of a
-   pull request that was reverted and merged again are tagged by hand once
-   they are live.
+   from, so once it is live the job gives it no tag: it names the version
+   with those commits, still tags everything else that is due, and is red in
+   every run until you push that tag yourself. A version that has its tag is
+   never looked at again, so tag before you revert a version pull request;
+   the versions of a pull request that was reverted and merged again are
+   tagged by hand once they are live. The first version of a package is the
+   exception: its revert brings back the placeholder `0.0.0`, where the job
+   stops reading the history, so after the second merge that version counts
+   as set once and is tagged at the second merge, also when the tarball on
+   npm was staged from the first.
    Still start the workflow before you merge anything that changes a file
    under `.github/workflows/` (a Dependabot bump of an action counts): GitHub
    refuses the workflow's push of a tag when a workflow file differs between
@@ -343,7 +347,10 @@ curl -fsS "$(npm view <name>@<version> dist.attestations.url)" \
 ```
 
 For `@fronthub/arrowz-engine@0.1.0` it prints
-`8b71d1b99120399d532f52b2ae4876775d7ce49e`. The manifest carried the version
+`8b71d1b99120399d532f52b2ae4876775d7ce49e`. If it fails or prints nothing,
+the version carries no provenance and its commit cannot be read this way; the
+three `0.1.0` versions, which the workflow released, carry it. The manifest
+carried the version
 at that commit, so the tag belongs on the newest commit of the `not tagged`
 line that is that commit or an ancestor of it. On an up-to-date `main`, ask
 for each commit of the line, the last one first, until one answers:
@@ -374,10 +381,11 @@ there. These have not been tried:
 - a tag for an earlier version pushed by the workflow's token: the three
   `0.1.0` tags existed before `tag-published` began to catch up, so no run
   has had an earlier version to tag;
-- the line of `tag-published` for a version that `main` set more than once,
-  and the tag made by hand after it: both were run in a test, in a scratch
-  repository, and the command that reads the provenance was run for
-  `@fronthub/arrowz-engine@0.1.0` alone.
+- a tag made by hand for a version that `main` set more than once: the line
+  of `tag-published` and the push of the tag were run in a test, in a
+  scratch repository, and the command that reads the provenance printed the
+  commit of the tag for each of the three `0.1.0` versions; choosing between
+  two commits with `git merge-base` has not been done for a real version.
 
 [publishing-plan.md §10](publishing-plan.md) lists them.
 
