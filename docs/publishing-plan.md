@@ -117,9 +117,10 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
      version that was replaced before a run saw it live gets its tag from a
      later run.) The tag goes on the first-parent
      commit of `main` that set the version, the merge of the version PR.
-     When a version was set twice on `main` (a version pull request reverted
-     and merged again), the newer stretch counts, also for the version the
-     revert brought back.
+     When `main` set a version more than once (a version pull request
+     reverted, or reverted and merged again), the history does not say which
+     commit it was released from: the job creates no tag for it, names it
+     with its commits and fails, and the maintainer tags it by hand.
      `0.0.0` is never tagged.
    - **`plan`** (`contents: read`): for each package, `npm view <name>@<version>`;
      versions not on npm form the plan. Empty plan → stop. `0.0.0` is never
@@ -370,6 +371,8 @@ bootstrap.
   for a version that is still staged has been seen.
 - A tag for an earlier version pushed by the workflow's token: no run has had
   an earlier version to tag.
+- The line of `tag-published` for a version that `main` set more than once,
+  and the tag made by hand after it: run in a test, in a scratch repository.
 - Whether a valid trusted-publisher entry still expires after two days
   without an approval (staging alone turns "Pending validation" into "Valid";
   the plan avoids depending on it: §4 runs it same day).
