@@ -47,6 +47,16 @@ Deno.test('npm says a version is published by printing it', () => {
 
 Deno.test('npm says a version or a whole package is missing with E404', () => {
   assertEquals(seenOnNpm(1, '{\n  "error": { "code": "E404", "summary": "Not Found" }\n}\n', '0.1.0'), 'absent')
+  // npm 12.2.0, word for word, for a version a package does not have.
+  const npm12 = `{
+  "error": {
+    "code": "E404",
+    "summary": "No match found for version 9.9.9",
+    "detail": "The requested resource '@fronthub/arrowz-engine@9.9.9' could not be found or you do not have permission to access it.\\n\\nNote that you can also install from a\\ntarball, folder, http url, or git url."
+  }
+}
+`
+  assertEquals(seenOnNpm(1, npm12, '9.9.9'), 'absent')
 })
 
 Deno.test('anything but a clear answer from npm stops the run', () => {
@@ -559,6 +569,48 @@ Deno.test('no build of a published package takes its input from a scripts/ direc
   assert(Array.isArray(config.include) && config.include.length > 0, 'the engine build lists no file')
   for (const path of config.include) {
     assert(!String(path).replace(/^\.\//, '').startsWith('scripts/'), `the engine build includes ${path}`)
+  }
+})
+
+/** The module specifiers a source text imports or re-exports: static, side-effect and dynamic forms. */
+function specifiersOf(source: string): string[] {
+  const found = source.matchAll(/\b(?:from\s*|import\s*\(\s*|import\s+)(['"])([^'"\n]+)\1/g)
+  return [...found].map((match) => match[2] ?? '')
+}
+
+/** The files under a directory that are sources, not tests: `deep` also reads its subdirectories. */
+function sourcesIn(dir: string, deep: boolean): string[] {
+  const files: string[] = []
+  for (const entry of Deno.readDirSync(dir)) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory && deep) files.push(...sourcesIn(path, deep))
+    else if (entry.isFile && /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) files.push(path)
+  }
+  return files.sort()
+}
+
+Deno.test('no source of a published package imports from a scripts/ directory', () => {
+  // changedSince leaves scripts/ out, and a compiler or a bundler follows an import wherever it points.
+  assertEquals(
+    specifiersOf(`import a from './a.ts'
+import './side.ts'
+export { b } from "../scripts/b.ts"
+const c = await import('./scripts/c.ts')
+import type { D } from './d.ts'`),
+    ['./a.ts', './side.ts', '../scripts/b.ts', './scripts/c.ts', './d.ts'],
+  )
+  const packages = join(here, '..')
+  const sources = [
+    ...sourcesIn(join(packages, 'engine'), false),
+    ...sourcesIn(join(packages, 'cli'), false),
+    ...sourcesIn(join(packages, 'board-element', 'src'), true),
+  ]
+  for (const dir of ['engine', 'cli', 'board-element']) {
+    assert(sources.some((path) => path.startsWith(join(packages, dir))), `no source of ${dir} was read`)
+  }
+  for (const path of sources) {
+    const reached = specifiersOf(Deno.readTextFileSync(path)).filter((spec) => spec.split('/').includes('scripts'))
+    assertEquals(reached, [], `${path} imports from a scripts/ directory`)
   }
 })
 

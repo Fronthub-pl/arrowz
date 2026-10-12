@@ -181,8 +181,8 @@ export function commitOf(p: Pkg, cwd = '.'): string {
 
 /**
  * The files of a package that differ between the commit that set its version and HEAD; neither tests nor
- * anything under `scripts/` is packed or part of a build. Leaving `scripts/` out rests on that: a test holds
- * every build script and the engine's build list clear of that directory.
+ * anything under `scripts/` is packed or part of a build. Leaving `scripts/` out rests on that: tests hold
+ * every build script, the engine's build list and every source file clear of that directory.
  */
 export function changedSince(p: Pkg, cwd = '.'): string[] {
   const out = git(
