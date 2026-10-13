@@ -1,5 +1,11 @@
 # @fronthub/arrowz-cli
 
+## 0.1.1
+
+### Patch Changes
+
+- No change to the published files. Released to observe how the release workflow answers a version npm already holds.
+
 ## 0.1.0
 
 ### Minor Changes
