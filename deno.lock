@@ -41,7 +41,7 @@
         "npm:@types/node@^26.5.1",
         "npm:nx@^23.2.0",
         "npm:publint@~0.3.25",
-        "npm:typescript@^5.9.3"
+        "npm:typescript@^6.0.3"
       ]
     },
     "members": {
@@ -51,7 +51,7 @@
             "npm:@vitest/browser-playwright@5",
             "npm:lit@^3.3.3",
             "npm:playwright@^1.63.0",
-            "npm:typescript@^5.9.3",
+            "npm:typescript@^6.0.3",
             "npm:vite@^8.2.2",
             "npm:vitest@5"
           ]

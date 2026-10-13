@@ -64,11 +64,11 @@ test('scrolling a page of thirty boards keeps at most twelve and asks once per b
   }
   expect(most).toBeGreaterThan(0)
   expect(most).toBeLessThanOrEqual(BUDGET)
-  const asked = workers.posted.length
   box.scrollTo({ top: 0 })
   await expect.poll(() => box.querySelector<ArrowzBoard>('figure[aria-label="b0"] arrowz-board')?.board?.W).toBe(20)
-  // Coming back draws from the session's boards: not one more request.
-  expect(workers.posted.length).toBe(asked)
+  // Read with a board still in line, the list would miss a second request for it.
+  await expect.poll(() => workers.settled(), { timeout: 10_000 }).toBe(true)
+  // Coming back draws from the session's boards: no board is asked for twice.
   expect(new Set(workers.posted.map((p) => p.seed)).size).toBe(workers.posted.length)
 }, 60_000)
 

@@ -286,6 +286,8 @@ export function shapeOf(root: Root): string[] {
     if (node.type === 'list') out.push(`list ${node.ordered === true ? 'ordered' : 'bullet'} ${node.children.length}`)
     if (node.type === 'table') out.push(`table ${node.children.length}×${node.children[0]?.children.length ?? 0}`)
     if ('children' in node) for (const child of node.children) walk(child)
+    // Where a container ends is shape too: a board after a comparison is not a board in it.
+    if (node.type === 'containerDirective') out.push(`:::end ${node.name}`)
   }
   walk(root)
   return out

@@ -94,7 +94,16 @@ export function useGenerator(): GeneratorHandle {
         stop.current = crossOriginIsolated ? new Int32Array(new SharedArrayBuffer(4)) : null
         const message: WorkerIn =
           stop.current === null ? { type: 'generate', params } : { type: 'generate', params, stop: stop.current }
-        ensure().postMessage(message)
+        let made: Worker
+        try {
+          made = ensure()
+        } catch (err) {
+          // Shown, not thrown: with no worker to answer, the slice would stay in `running`.
+          busy.current = false
+          actions().failed(err instanceof Error ? err.message : String(err))
+          return
+        }
+        made.postMessage(message)
       },
       abort() {
         if (!busy.current) return

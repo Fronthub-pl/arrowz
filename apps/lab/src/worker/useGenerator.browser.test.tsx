@@ -97,6 +97,40 @@ test('a board file the codec rejects ends in error, not in a stuck run', async (
   }
 }, 15_000)
 
+test('a worker the browser will not make ends in error, and the next run starts', async () => {
+  useStore.getState().run.reset()
+  useStore.getState().result.reset()
+  const held: { generator: GeneratorHandle | null } = { generator: null }
+  const params = { ...defaultParams(), W: 16, H: 16, seed: 5 }
+  class RefusedWorker {
+    constructor() {
+      throw new Error('no worker here')
+    }
+  }
+  vi.stubGlobal('Worker', RefusedWorker)
+  try {
+    await render(
+      <Harness
+        drive={(g) => {
+          held.generator = g
+          g.start(params, DRY)
+        }}
+      />,
+    )
+    await expect.poll(() => useStore.getState().run.phase, { timeout: 5_000 }).toBe('error')
+    expect(useStore.getState().run.message).toBe('no worker here')
+    // Nothing runs, so Stop has nothing to ask and nothing to drop.
+    act(() => held.generator?.abort())
+    expect(useStore.getState().run.phase).toBe('error')
+    expect(useStore.getState().run.stopping).toBe(false)
+    vi.unstubAllGlobals()
+    act(() => held.generator?.start(params, DRY))
+    await expect.poll(() => useStore.getState().run.phase, { timeout: 20_000 }).toBe('done')
+  } finally {
+    vi.unstubAllGlobals()
+  }
+}, 35_000)
+
 // Without isolation there is no shared flag, so Stop is today's terminate.
 test('without isolation, abort terminates the worker and nothing arrives afterwards', async () => {
   useStore.getState().run.reset()
