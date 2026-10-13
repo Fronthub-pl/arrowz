@@ -1061,6 +1061,26 @@ Deno.test('no build of a published package takes its input from a scripts/ direc
   }
 })
 
+posix.test('the build of every published package empties dist/ before it writes there', () => {
+  // Nx stores dist/ as the output of a build, so a file the build left alone would come back from the cache.
+  for (const dir of ['engine', 'board-element', 'cli']) {
+    const manifest = obj(JSON.parse(Deno.readTextFileSync(join(here, '..', dir, 'package.json'))), dir)
+    const [first = '', ...rest] = String(obj(manifest.scripts, `${dir} scripts`).build).split(' && ')
+    assert(rest.length > 0, `the build of ${dir} is one command, so nothing empties dist/ before it`)
+    const scratch = scratchDir()
+    try {
+      for (const path of ['dist/left-by-an-old-build.js', 'dist/sub/deep.js', 'src/kept.ts']) {
+        writeFile(join(scratch, path), '')
+      }
+      const ran = new Deno.Command('sh', { args: ['-c', first], cwd: scratch, stderr: 'piped' }).outputSync()
+      assertEquals(ran.code, 0, `${dir}: ${new TextDecoder().decode(ran.stderr)}`)
+      assertEquals([...Deno.readDirSync(scratch)].map((entry) => entry.name), ['src'], dir)
+    } finally {
+      removeDir(scratch)
+    }
+  }
+})
+
 /** The module specifiers a source text imports or re-exports: static, side-effect and dynamic forms. */
 function specifiersOf(source: string): string[] {
   const found = source.matchAll(/\b(?:from\s*|import\s*\(\s*|import\s+)(['"])([^'"\n]+)\1/g)
