@@ -157,6 +157,43 @@ test('dispose stops the worker and forgets the queue, and the queue still works 
   expect(generated(1)).toEqual([8])
 })
 
+test('a queue disposed while a listener hears running posts nothing for the dropped board', () => {
+  const queue = createDocsQueue(workers.make, cache)
+  const a = board(6)
+  const b = board(8)
+  const dropped = heard()
+  queue.request(keyOf(a), a, (job) => {
+    dropped.listener(job)
+    if (job.state === 'running') queue.dispose()
+  })
+  expect(dropped.states).toEqual(['running'])
+  expect(workers.made).toEqual([])
+  queue.request(keyOf(b), b, () => {})
+  expect(generated()).toEqual([8])
+  workers.made[0]?.answer(doneMessage(b))
+  expect(queue.cached(keyOf(b))?.board.W).toBe(8)
+})
+
+test('a worker that cannot be made fails its board, and the queue goes on to the next request', () => {
+  let broken = true
+  const make = () => {
+    if (broken) throw new Error('no worker here')
+    return workers.make()
+  }
+  const queue = createDocsQueue(make, cache)
+  const a = board(6)
+  const b = board(8)
+  const first = heard()
+  const second = heard()
+  queue.request(keyOf(a), a, first.listener)
+  queue.request(keyOf(b), b, second.listener)
+  expect(first.states).toEqual(['running', 'failed'])
+  expect(second.states).toEqual(['running', 'failed'])
+  broken = false
+  queue.request(keyOf(a), a, () => {})
+  expect(generated()).toEqual([6])
+})
+
 test('a board that is not complete is kept as it came', () => {
   const queue = createDocsQueue(workers.make, cache)
   const a = board(6)

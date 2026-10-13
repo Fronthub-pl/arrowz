@@ -18,23 +18,35 @@ import { NEAR_MARGIN } from './useNear'
 import '../design/index.css'
 
 const COLORED = useStore.getState().view.colored
+const SERIES_PHASE = useStore.getState().series.phase
 beforeEach(() => useStore.getState().lang.setLang('en'))
 afterEach(() => {
   vi.restoreAllMocks()
   useStore.getState().view.setFlag('colored', COLORED)
+  useStore.setState((state) => ({ series: { ...state.series, phase: SERIES_PHASE } }))
 })
 
-function show(markdown: string, queue: DocsQueue) {
+/** A page of boards; `control` is the lab's run control, which a page shown on its own has none of. */
+function show(markdown: string, queue: DocsQueue, control: RunControl | null = null) {
   return render(
     <MemoryRouter initialEntries={['/docs/cli']}>
-      <div className="fw-docs-body" style={{ width: '720px' }}>
-        <DocsBoardsProvider root={null} queue={queue}>
-          <DocsMarkdown root={parseDocs(markdown)} />
-        </DocsBoardsProvider>
-      </div>
+      <RunControlContext value={control}>
+        <div className="fw-docs-body" style={{ width: '720px' }}>
+          <DocsBoardsProvider root={null} queue={queue}>
+            <DocsMarkdown root={parseDocs(markdown)} />
+          </DocsBoardsProvider>
+        </div>
+      </RunControlContext>
     </MemoryRouter>,
   )
 }
+
+const runControl = (start: RunControl['start'] = () => {}): RunControl => ({
+  start,
+  abort: () => {},
+  hold: () => {},
+  checkSeeds: () => {},
+})
 
 const BOARD = '# T\n\n## A {#a}\n\n::board[A small board]{cmd="--width=12 --height=12 --seed=7" stats="pieces avgLen"}'
 const element = (container: HTMLElement) => container.querySelector<ArrowzBoard>('arrowz-board')
@@ -277,26 +289,30 @@ test('the frame has the board’s proportions before the board exists', async ()
 
 test('Open in lab loads the command into the lab through the run control', async () => {
   const start = vi.fn()
-  const control: RunControl = { start, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
-  const screen = await render(
-    <MemoryRouter initialEntries={['/docs/cli']}>
-      <RunControlContext value={control}>
-        <div className="fw-docs-body" style={{ width: '720px' }}>
-          <DocsBoardsProvider root={null} queue={createDocsQueue(answeringWorkers().make, new Map())}>
-            <DocsMarkdown root={parseDocs(BOARD)} />
-          </DocsBoardsProvider>
-        </div>
-      </RunControlContext>
-    </MemoryRouter>,
-  )
+  const screen = await show(BOARD, createDocsQueue(answeringWorkers().make, new Map()), runControl(start))
   await screen.getByRole('button', { name: 'Open in lab: A small board' }).click()
   expect(start).toHaveBeenCalledTimes(1)
   const { values } = useStore.getState().params
   expect([values.W, values.H, values.seed]).toEqual([12, 12, 7])
 })
 
+test('Open in lab waits while a series runs', async () => {
+  const screen = await show(BOARD, createDocsQueue(answeringWorkers().make, new Map()), runControl())
+  const button = screen.getByRole('button', { name: 'Open in lab: A small board' })
+  await expect.element(button).toBeEnabled()
+  await act(async () => useStore.setState((state) => ({ series: { ...state.series, phase: 'running' } })))
+  await expect.element(button).toBeDisabled()
+})
+
+test('Open in lab is named in Polish with the board’s label', async () => {
+  const screen = await show(BOARD, createDocsQueue(answeringWorkers().make, new Map()), runControl())
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  const button = screen.getByRole('button', { name: 'Otwórz w laboratorium: A small board' })
+  await expect.element(button).toHaveTextContent('Otwórz w laboratorium')
+})
+
 test('without a run control there is no Open in lab', async () => {
   const screen = await show(BOARD, createDocsQueue(answeringWorkers().make, new Map()))
-  await expect.element(screen.getByRole('figure', { name: 'A small board' })).toBeVisible()
-  expect(screen.container.querySelector('.fw-docs-boardacts button:nth-child(2)')).toBeNull()
+  await expect.element(screen.getByRole('button', { name: 'Copy: A small board' })).toBeVisible()
+  await expect.element(screen.getByRole('button', { name: 'Open in lab: A small board' })).not.toBeInTheDocument()
 })

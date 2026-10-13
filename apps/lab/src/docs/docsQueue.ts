@@ -120,7 +120,17 @@ export function createDocsQueue(makeWorker: () => WorkerLike, cache: Map<string,
     if (job === undefined) return
     running = job
     tell(job, { state: 'running' })
-    ensure().postMessage({ type: 'generate', params: job.params })
+    // A listener may have disposed the queue: a worker made now would run a job nothing waits for.
+    if (running !== job) return
+    let made: WorkerLike
+    try {
+      made = ensure()
+    } catch (err) {
+      // Failed, not thrown: left as the running job, it would hold every later board in line.
+      finish({ state: 'failed', message: messageOf(err) })
+      return
+    }
+    made.postMessage({ type: 'generate', params: job.params })
   }
 
   return {
@@ -138,8 +148,8 @@ export function createDocsQueue(makeWorker: () => WorkerLike, cache: Map<string,
       if (job === running) listener({ state: 'running' })
       else {
         next()
-        // A job `next` has just started heard `running` from it; one still in line waits.
-        if (job !== running) listener({ state: 'waiting' })
+        // A job `next` has just started heard `running` from it, and may be over already; one still in line waits.
+        if (waiting.includes(job)) listener({ state: 'waiting' })
       }
       return () => {
         job.listeners.delete(listener)

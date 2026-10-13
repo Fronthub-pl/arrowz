@@ -59,17 +59,23 @@ export function fakeWorkers(): { make: () => FakeWorker; made: FakeWorker[] } {
   }
 }
 
-export function answeringWorkers(): { make: () => WorkerLike; posted: Params[] } {
+export function answeringWorkers(): { make: () => WorkerLike; posted: Params[]; settled: () => boolean } {
   const posted: Params[] = []
+  let answered = 0
   return {
     posted,
+    // The queue posts its next board inside an answer, so once the counts meet nothing more is on its way.
+    settled: () => answered === posted.length,
     make: () => {
       const worker = new FakeWorker()
       worker.postMessage = (message) => {
         if (message.type !== 'generate') return
         posted.push(message.params)
         // On the next task, as a real worker's answer arrives: never inside `request`.
-        setTimeout(() => worker.answer(doneMessage(message.params)), 0)
+        setTimeout(() => {
+          worker.answer(doneMessage(message.params))
+          answered++
+        }, 0)
       }
       return worker
     },

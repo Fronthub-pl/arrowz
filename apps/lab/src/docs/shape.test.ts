@@ -93,6 +93,8 @@ describe('board directives', () => {
     '::board[A board]{cmd="--width=20 --height=20"}',
     '::board[Stats]{cmd="--width=20 --height=20" stats="pieces avgLen"}',
     '::board[Big]{cmd="--width=1000 --height=1000" manual about="10"}',
+    // A palette is quoted in the command the page prints, since `#` opens a shell comment.
+    '::board[Colours]{cmd="--width=20 --height=20 --colored --palette=\'#ff0000,#00ff00\'"}',
     ':::compare{stats="pieces"}\n::board[a]{cmd="--width=20 --height=20"}\n::board[b]{cmd="--width=20 --height=20 --seed=8"}\n:::',
     ':::compare\n::board[a]{cmd="--width=20 --height=20"}\n::board[b]{cmd="--width=1000 --height=1000" manual about="10"}\n:::',
   ])('accepts %s', (md) => {
@@ -104,11 +106,18 @@ describe('board directives', () => {
     ['::board[x]', 'needs cmd'],
     ['::board[x]{cmd="arrowz carve --width=20 --height=20"}', 'cmd: holds the flags only'],
     ['::board[x]{cmd="--width=20 --height=20 --randomized"}', '--randomized'],
+    ['::board[x]{cmd="--width=20 --height=20 --dry-run"}', 'no modes on a page: --dry-run'],
+    ['::board[x]{cmd="--width=20 --height=20 --count=3"}', 'no modes on a page: --count=3'],
     ['::board[x]{cmd="--width=600 --height=20"}', 'manual'],
     ['::board[x]{cmd="--width=20 --height=20" manual}', 'about'],
     ['::board[x]{cmd="--width=20 --height=20" about="10"}', 'manual'],
     ['::board[x]{cmd="--width=20 --height=20" stats="arrows"}', 'arrows'],
     ['::board[x]{cmd="--width=20 --height=20" size="2"}', 'takes no size'],
+    ['::board[x]{cmd="--width=20 --height=20" constructor="x"}', '::board takes no constructor'],
+    [
+      ':::compare{constructor="x"}\n::board[a]{cmd="--width=20 --height=20"}\n::board[b]{cmd="--width=20 --height=20 --seed=8"}\n:::',
+      ':::compare takes no constructor',
+    ],
     ['::table[x]{of="knobs"}', 'takes no label'],
     [':::compare\n::board[a]{cmd="--width=20 --height=20"}\n:::', 'two boards'],
     [
@@ -116,6 +125,10 @@ describe('board directives', () => {
       'stats',
     ],
     [':::compare\n::board[a]{cmd="--width=20 --height=20"}\nSome prose.\n:::', 'holds boards only'],
+    [
+      ':::compare\n::board[a]{cmd="--width=20 --height=20"}\n::board[b]{cmd="--width=20 --height=20 --seed=8"}\n::table{of="keys"}\n:::',
+      'holds boards only',
+    ],
     [':::row\n::board[a]{cmd="--width=20 --height=20"}\n:::', 'not a docs directive'],
   ])('refuses %s', (md, needle) => {
     expect(inPage(md).join(' | ')).toContain(needle)
@@ -130,7 +143,15 @@ describe('board directives', () => {
       ':::compare{stats=pieces}',
       '::board{cmd=--width=20 --height=20}',
       '::board{cmd=--width=20 --height=20 --seed=8}',
+      ':::end compare',
     ])
+  })
+
+  test('the shape tells a board moved out of its comparison apart', () => {
+    const board = (seed: number) => `::board[b]{cmd="--width=20 --height=20 --seed=${seed}"}`
+    const inside = `:::compare\n${board(1)}\n${board(2)}\n${board(3)}\n:::`
+    const moved = `:::compare\n${board(1)}\n${board(2)}\n:::\n\n${board(3)}`
+    expect(shapeOf(parseDocs(`# T\n\n${moved}`))).not.toEqual(shapeOf(parseDocs(`# T\n\n${inside}`)))
   })
 })
 
