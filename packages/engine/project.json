@@ -13,9 +13,13 @@
       "inputs": [
         "default",
         "^production",
+        "{workspaceRoot}/LICENSE",
+        "{workspaceRoot}/NOTICE",
         "{workspaceRoot}/apps/lab/src/**/*",
+        "{workspaceRoot}/apps/lab/docs-content/**/*",
+        "{workspaceRoot}/packages/board-element/*",
         "{workspaceRoot}/packages/board-element/src/**/*",
-        "{workspaceRoot}/packages/cli/*.ts"
+        "{workspaceRoot}/packages/cli/**/*"
       ]
     },
     "build": { "executor": "nx:run-commands", "options": { "cwd": "packages/engine", "command": "pnpm run build" } },
