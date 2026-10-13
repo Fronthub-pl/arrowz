@@ -56,9 +56,9 @@ jobs:
 
       - run: pnpm nx affected -t check lint fmt test build smoke pack-check
 
-  # Advisory: the store starts through a Deno program so that it needs no
-  # shell, and only a Windows runner shows that it does not.
-  store-windows:
+  # Advisory: the whole test task in a plain Windows shell, which no other
+  # job is. The store's start is among its tests.
+  windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -67,9 +67,26 @@ jobs:
         with:
           deno-version: '~2.9'
 
-      # No type check: the types of `node:` imports come from node_modules,
-      # which this job does not install. The Linux job checks them.
-      - run: deno test --no-check --allow-read --allow-write --allow-env --allow-run --allow-net packages/cli/store-start.test.ts
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # Through cmd: under PowerShell the `pnpm` this action installs is a
+      # script that installs nothing, prints nothing and exits 0.
+      - run: pnpm install --frozen-lockfile
+        shell: cmd
+
+      # The hosted runner has Git's Unix tools on PATH (sh, mktemp, printf);
+      # a contributor's plain shell does not, and that is what this job is.
+      - shell: pwsh
+        run: |
+          $keep = ($env:PATH -split ';') | Where-Object { $_ -notmatch '\\Git\\(usr\\bin|bin|mingw64\\bin)\\?$' }
+          "PATH=$($keep -join ';')" >> $env:GITHUB_ENV
+
+      - run: deno task test
 
   # Advisory: a missing changeset is a warning on the pull request, never a
   # failed check. Anything else the command fails on (a changeset naming an
