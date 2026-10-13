@@ -65,9 +65,9 @@ A few things the checks hold you to:
   not know, it is probably left from an old build: delete the package's `dist/`
   and build again.
 
-On Windows, `deno task store` (the board store the lab reads) runs a shell
-script, so for now it needs Git Bash or WSL. `deno task test` needs them too:
-some tests start `mktemp` and `rm`.
+On Windows, `deno task test` needs Git Bash or WSL for now: some tests start
+`sh`, `mktemp` and `rm`. `deno task store`, the board store the lab reads, does
+not.
 
 ## Writing the change
 

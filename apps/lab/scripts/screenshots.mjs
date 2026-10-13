@@ -82,8 +82,9 @@ try {
     execFileSync('deno', ['task', 'carve', ...flags], { cwd: root, env, stdio: 'ignore' })
   }
   const storePort = await freePort()
-  // Its own process group, so that the shell and the Deno server it execs stop together.
-  store = spawn('sh', [join(root, 'packages', 'cli', 'store.sh'), String(storePort)], {
+  // Its own process group, so that the task, its launcher and the server stop together.
+  store = spawn('deno', ['task', 'store', String(storePort)], {
+    cwd: join(root, 'packages', 'cli'),
     env,
     stdio: 'ignore',
     detached: true,

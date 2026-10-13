@@ -285,8 +285,8 @@ the first actions that 2FA-bypass tokens lose (§8).
   runs inside `packages/cli`, so there it is `packages/cli/boards`);
   `buildCommand` prints `arrowz carve …` instead of `deno task carve …`; remove
   the `deno task compile` binary task.
-- Known gap: `deno task store` runs `store.sh`, which plain Windows shells cannot
-  run; port it to a Deno script or document WSL/Git Bash.
+- `deno task store` starts the store through a Deno program, not a shell script,
+  so it runs in a plain Windows shell; a Windows job in CI starts it.
 
 ## 7. Contributor-friendly repo
 

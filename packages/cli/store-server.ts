@@ -4,7 +4,7 @@
 // the lab application's library route and /boards/<size>/<id> is a board's own
 // address there; on disk the directory is still `boards/`. Nothing else is
 // served: this process has no page of its own.
-// Run: deno task store (store.sh scopes the permissions: net on 127.0.0.1,
+// Run: deno task store (`serverArgs` scopes the permissions: net on 127.0.0.1,
 // read and write of the store, one env var).
 import { extname, join, normalize, resolve, SEPARATOR } from '@std/path'
 import {

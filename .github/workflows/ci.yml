@@ -56,6 +56,21 @@ jobs:
 
       - run: pnpm nx affected -t check lint fmt test build smoke pack-check
 
+  # Advisory: the store starts through a Deno program so that it needs no
+  # shell, and only a Windows runner shows that it does not.
+  store-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: '~2.9'
+
+      # No type check: the types of `node:` imports come from node_modules,
+      # which this job does not install. The Linux job checks them.
+      - run: deno test --no-check --allow-read --allow-write --allow-env --allow-run --allow-net packages/cli/store-start.test.ts
+
   # Advisory: a missing changeset is a warning on the pull request, never a
   # failed check. Anything else the command fails on (a changeset naming an
   # unknown package, a broken config) does fail the job.
