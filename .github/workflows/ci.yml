@@ -71,21 +71,12 @@ jobs:
       # which this job does not install. The Linux job checks them.
       - run: deno test --no-check --allow-read --allow-write --allow-env --allow-run --allow-net packages/cli/store-start.test.ts
 
-  # PROBE, not for merging: what the whole test task does on Windows, with and
-  # without Git's Unix tools on PATH, and with the default and LF line endings.
-  probe-windows-tests:
-    name: probe (${{ matrix.tools }}, ${{ matrix.eol }})
+  # PROBE, not for merging: why pnpm does nothing on the Windows runner.
+  probe-windows-pnpm:
+    name: probe (pnpm)
     runs-on: windows-latest
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        tools: [git-bash, plain]
-        eol: [default, lf]
+    timeout-minutes: 20
     steps:
-      - if: matrix.eol == 'lf'
-        run: git config --global core.autocrlf false
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
@@ -97,40 +88,35 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: pnpm
 
-      - shell: pwsh
-        run: |
-          "PROBE pnpm=$(pnpm --version)"
-          pnpm install --frozen-lockfile
-          "PROBE install exit=$LASTEXITCODE"
-          "PROBE node_modules exists=$(Test-Path node_modules)"
-          "PROBE @types/node exists=$(Test-Path node_modules/@types/node)"
-          "PROBE @types/node/package.json exists=$(Test-Path node_modules/@types/node/package.json)"
-          if (Test-Path node_modules) { "PROBE node_modules entries=$((Get-ChildItem node_modules -Force | Select-Object -ExpandProperty Name) -join ',')" }
-          if (Test-Path node_modules/@types) { Get-ChildItem node_modules/@types -Force | ForEach-Object { "PROBE @types entry=$($_.Name) type=$($_.LinkType) target=$($_.Target)" } }
-
-      - if: matrix.tools == 'plain'
+      - name: What the action installed
         shell: pwsh
-        run: |
-          $keep = ($env:PATH -split ';') | Where-Object { $_ -notmatch '\\Git\\(usr\\bin|bin|mingw64\\bin)\\?$' -and $_ -notmatch 'msys' }
-          "PATH=$($keep -join ';')" >> $env:GITHUB_ENV
-
-      - shell: pwsh
-        run: |
-          "PROBE autocrlf=$(git config --get core.autocrlf)"
-          "PROBE README has CRLF=$((Get-Content -Raw README.md) -match "`r`n")"
-          foreach ($tool in 'sh', 'bash', 'mktemp', 'rm', 'git', 'printf') {
-            $found = Get-Command $tool -ErrorAction SilentlyContinue | Select-Object -First 1
-            "PROBE tool $tool=$(if ($found) { $found.Source } else { 'absent' })"
-          }
-
-      - name: The task as it is, type check included
         continue-on-error: true
-        run: deno task test
+        run: |
+          Get-Command pnpm -All | ForEach-Object { "PROBE pnpm command=$($_.Source)" }
+          Get-ChildItem "$env:PNPM_HOME" -Force | ForEach-Object { "PROBE pnpm_home entry=$($_.Name)" }
+          cmd /c "pnpm --version"
+          "PROBE cmd exit=$LASTEXITCODE"
+          cmd /c "pnpm --version 2>&1"
+          node "$env:PNPM_HOME\..\pnpm\bin\pnpm.cjs" --version
+          "PROBE node pnpm.cjs exit=$LASTEXITCODE"
+          Get-ChildItem "$env:PNPM_HOME\..\pnpm" -Force | ForEach-Object { "PROBE pnpm pkg entry=$($_.Name)" }
+          Get-ChildItem "$env:PNPM_HOME\..\@pnpm" -Force -ErrorAction SilentlyContinue | ForEach-Object { "PROBE @pnpm entry=$($_.Name)" }
 
-      - name: The tests alone, without the type check
-        run: deno test --no-check --allow-read --allow-write --allow-env --allow-run --allow-net packages/
+      - name: pnpm through npm, the same version
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          npm install --global --prefix "$env:RUNNER_TEMP\npm-pnpm" pnpm@12.3.4
+          $pnpm = "$env:RUNNER_TEMP\npm-pnpm\pnpm.cmd"
+          "PROBE npm pnpm version=$(& $pnpm --version)"
+          & $pnpm install --frozen-lockfile
+          "PROBE npm pnpm install exit=$LASTEXITCODE"
+          "PROBE @types/node exists=$(Test-Path node_modules/@types/node/package.json)"
+
+      - name: The task as it is, if the install worked
+        continue-on-error: true
+        run: deno task check
 
   # Advisory: a missing changeset is a warning on the pull request, never a
   # failed check. Anything else the command fails on (a changeset naming an
