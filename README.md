@@ -10,8 +10,8 @@ and a lab for exploring the generator's settings.
   <img src="docs/images/hero.png" alt="A 40 by 40 Arrowz board" width="560">
 </p>
 
-> **Status: alpha.** The generator is done; the tag `v1.0.0-alpha.1` marks it.
-> The playable game — tapping, lives, score — is designed but not built yet.
+> **Status: alpha.** The generator is done. The playable game — tapping, lives,
+> score — is designed but not built yet.
 
 ## Contents
 
