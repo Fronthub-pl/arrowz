@@ -17,8 +17,9 @@
  *
  * The engine is not touched.
  *
- * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r1-cost.ts [side] [seeds] [stride]
+ * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r1-cost.ts [side] [seeds] [stride] [out]
  */
+import { dirname } from '@std/path'
 import { analyse, Carver, defaultParams, mulberry32 } from '../engine.ts'
 import { at, DIRS } from '../geometry.ts'
 import type { Metrics, Params } from '../types.ts'
@@ -199,6 +200,7 @@ function main(): void {
   const seeds = Number(Deno.args[1] ?? 2)
   const stride = Number(Deno.args[2] ?? 500)
   const out = Deno.args[3] ?? `/tmp/arrowz-measure/r1-cost-${side}.jsonl`
+  Deno.mkdirSync(dirname(out), { recursive: true })
   const modes: { label: string; params: Partial<Params> }[] = [
     { label: 'square', params: { W: side, H: side } },
     { label: 'tunnels', params: { W: side, H: side, headBias: 1 } },

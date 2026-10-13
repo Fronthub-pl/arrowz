@@ -2,14 +2,13 @@
  * Two paths no other trap-lever run takes; result in
  * docs/measurements/r1-r2.md.
  *
- * A. Does trapBias shadow `--start`? The ranking branch is a chain
- *    `if (trapBias !== 0) ... else if (freeBias !== 0) ... else if (bias !== 0)`
- *    (engine.ts), and `bias` is the only place the carver reads `headBias`,
- *    and only while `mix` is below 0 (the RULES entry `startPair`). So with the
- *    lever on, `--start` should have no effect and the boards should be
- *    identical down to the fingerprint: if the three `--start` settings
- *    collapse onto one hash, the flag is provably dead. `mix` is swept too:
- *    there the draw is made and thrown away: the board id changes, the ranking not.
+ * A. Does trapBias shadow `--start`? The carver reads `headBias` in one place,
+ *    the depth ranking of the heads, and only while `mix` is below 0 (the
+ *    RULES entry `startPair`). With the lever on, the trap bit is the outer
+ *    key and that ranking orders each bucket (`carveOne`, `orderByDepth`), so
+ *    the three `--start` settings should give three boards: if they collapse
+ *    onto one fingerprint, the lever shadows the flag. `mix` is swept too: it
+ *    draws the direction of the depth ranking for each cut, lever or not.
  *
  * B. Has the undo path ever run? Ordinary runs have `backtracks: 0`, so the
  *    rebuild branch of the fold (`upTo < from`) would go unexercised. The two
@@ -22,6 +21,7 @@
  *
  * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r1-start-shadow.ts [out]
  */
+import { dirname } from '@std/path'
 import { analyse, Carver, defaultParams, fingerprint, mulberry32 } from '../engine.ts'
 import type { Params } from '../types.ts'
 
@@ -175,6 +175,7 @@ function undo(out: (row: UndoRow) => void): void {
 
 function main(): void {
   const path = Deno.args[0] ?? '/tmp/arrowz-measure/r1-start-shadow.jsonl'
+  Deno.mkdirSync(dirname(path), { recursive: true })
   const rows: string[] = []
   const emit = (row: ShadowRow | UndoRow): void => {
     rows.push(JSON.stringify(row))

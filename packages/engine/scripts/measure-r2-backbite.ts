@@ -9,6 +9,7 @@
  *
  * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r2-backbite.ts [side] [seeds] [budgetS] [out]
  */
+import { dirname } from '@std/path'
 import {
   analyse,
   Carver,
@@ -164,16 +165,19 @@ function main(): void {
   const seeds = Number(Deno.args[1] ?? 3)
   const budgetMs = Number(Deno.args[2] ?? 300) * 1000
   const out = Deno.args[3] ?? `/tmp/arrowz-measure/r2-${side}.jsonl`
+  Deno.mkdirSync(dirname(out), { recursive: true })
   const base = { W: side, H: side }
   // Four points of the envelope. `edge` is the most winding LEGAL setting at
-  // this size: warns 6 and anticoil 4 pull the straightness floor down to 0.65
-  // (straightFloor), and pStraight sits exactly on it — the corner where stalls
-  // should be densest, and where a denser tail is most likely to strand.
+  // this size: warns 6 and anticoil 4 pull the straightness floor down, and
+  // pStraight is read from `straightFloor`, so it sits exactly on it — the
+  // corner where stalls should be densest, and where a denser tail is most
+  // likely to strand.
+  const winding = { ...base, warns: 6, anticoil: 4 }
   const sets: { label: string; params: Partial<Params> }[] = [
     { label: 'square', params: { ...base } },
     { label: 'tunnels', params: { ...base, headBias: 1 } },
     { label: 'skeleton', params: { ...base, giants: 4 } },
-    { label: 'edge', params: { ...base, warns: 6, anticoil: 4, pStraight: 0.65 } },
+    { label: 'edge', params: { ...winding, pStraight: straightFloor({ ...defaultParams(), ...winding }) } },
   ]
   for (const s of sets) {
     const p: Params = { ...defaultParams(), ...s.params }

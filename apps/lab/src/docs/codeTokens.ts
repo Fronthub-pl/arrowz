@@ -27,6 +27,8 @@ export interface CodeToken {
  * What a table column holds, which only the table knows: the same word is a
  * property in one column and a type in the next. `sig` is a method's
  * signature, `expr` any other type expression (a default, an event's detail).
+ * A column of plain names borrows `slot` for the string colour, as
+ * `ThemeTable` does for a theme's name and its licence.
  */
 export type CellRole = 'prop' | 'method' | 'attr' | 'event' | 'slot' | 'type' | 'sig' | 'expr'
 
