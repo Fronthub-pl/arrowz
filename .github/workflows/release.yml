@@ -283,9 +283,13 @@ jobs:
                         *'Cannot stage previously published version'*) held=yes ;;
                       esac
                       ;;
+                    # npm refuses a live version itself, before it sends anything: one line, with no code.
+                    *'npm error You cannot publish over the previously published versions: '*) held=live ;;
                   esac
                   if [ "$held" = yes ]; then
                     echo "::notice::npm already has the version of $tgz, staged earlier or live: nothing was staged for it now"
+                  elif [ "$held" = live ]; then
+                    echo "::notice::the version of $tgz is already live on npm: nothing was staged for it now"
                   else
                     echo "::error::npm did not stage $tgz"
                     failed=1

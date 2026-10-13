@@ -1537,9 +1537,13 @@ for name in engine board cli; do
               *'Cannot stage previously published version'*) held=yes ;;
             esac
             ;;
+          # npm refuses a live version itself, before it sends anything: one line, with no code.
+          *'npm error You cannot publish over the previously published versions: '*) held=live ;;
         esac
         if [ "$held" = yes ]; then
           echo "::notice::npm already has the version of $tgz, staged earlier or live: nothing was staged for it now"
+        elif [ "$held" = live ]; then
+          echo "::notice::the version of $tgz is already live on npm: nothing was staged for it now"
         else
           echo "::error::npm did not stage $tgz"
           failed=1
@@ -1592,6 +1596,11 @@ const NPM_REFUSALS: Record<string, string[]> = {
     'npm error 409 Conflict - POST https://registry.npmjs.org/-/stage/package/@fronthub%2farrowz-x - Cannot stage version "0.1.0": another conflict',
   ],
   sentence: ['npm error code E403', 'npm error 403 Cannot stage previously published version "0.1.0".'],
+  live: ['npm error You cannot publish over the previously published versions: 0.1.0.'],
+  wrapped: [
+    'npm error code E403',
+    'npm error 403 403 Forbidden - PUT https://registry.npmjs.org/@fronthub%2farrowz-x - You cannot publish over the previously published versions: 0.1.0.',
+  ],
   down: ['npm error code E500'],
 }
 
@@ -1658,6 +1667,8 @@ const tarballOf = (name: string) => `tarballs/fronthub-arrowz-${name}-0.1.0.tgz`
 const ALL_HANDED = ['engine', 'board', 'cli'].map((name) => `./${tarballOf(name)}`)
 const heldNotice = (name: string) =>
   `::notice::npm already has the version of ${tarballOf(name)}, staged earlier or live: nothing was staged for it now`
+const liveNotice = (name: string) =>
+  `::notice::the version of ${tarballOf(name)} is already live on npm: nothing was staged for it now`
 const notStaged = (name: string) => `::error::npm did not stage ${tarballOf(name)}`
 const stagedLine = (name: string) => `+ ./${tarballOf(name)} (staged with id 1)`
 const refusedLines = (answer: string) => NPM_REFUSALS[answer] ?? []
@@ -1665,6 +1676,7 @@ const refusedLines = (answer: string) => NPM_REFUSALS[answer] ?? []
 const handing = (name: string) => `handing ./${tarballOf(name)} to npm`
 const staged = (name: string) => [handing(name), stagedLine(name)]
 const held = (name: string) => [handing(name), ...refusedLines('held'), heldNotice(name)]
+const alreadyLive = (name: string) => [handing(name), ...refusedLines('live'), liveNotice(name)]
 const refused = (name: string, answer: string) => [handing(name), ...refusedLines(answer), notStaged(name)]
 
 posix.test('the stage loop hands npm every tarball as a ./ path, dependencies first, and ends with status 0', () => {
@@ -1688,9 +1700,23 @@ posix.test('a version that is already staged gets a notice and does not fail the
   })
 })
 
+posix.test('a version that is already live gets a notice of its own and does not fail the stage loop', () => {
+  assertEquals(stageLoop({ cli: 'live' }), {
+    code: 0,
+    out: [...staged('engine'), ...staged('board'), ...alreadyLive('cli')],
+    handed: ALL_HANDED,
+  })
+  assertEquals(stageLoop({ engine: 'held', board: 'live' }), {
+    code: 0,
+    out: [...held('engine'), ...alreadyLive('board'), ...staged('cli')],
+    handed: ALL_HANDED,
+  })
+})
+
 posix.test('any other refusal fails the stage loop after every tarball was tried', () => {
-  // The code without the sentence, the sentence without the code, and another error: none is a staged version.
-  for (const answer of ['conflict', 'sentence', 'down']) {
+  // The code without the sentence, the sentence without the code, the live sentence inside a registry
+  // answer, and another error: none is an answer npm gives for a version it already has.
+  for (const answer of ['conflict', 'sentence', 'wrapped', 'down']) {
     assertEquals(stageLoop({ engine: answer }), {
       code: 1,
       out: [...refused('engine', answer), ...staged('board'), ...staged('cli')],
