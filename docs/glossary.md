@@ -104,6 +104,8 @@ player reads. It reads:
   `lab-i18n.ts`, with each template called on sample arguments;
 - the label and help of every setting in `PARAM_SPEC`, and
   `INACTIVE_REASONS`;
+- every string of the board element, `BOARD_LABELS` in
+  `packages/board-element/src/i18n.ts`, in both languages;
 - `RULE_REASONS`, which the command line prints too;
 - the command line's help, `helpText({ knobs: true })`;
 - the Docs tab: the table descriptions from `docsFor` in `lab-docs.ts` and the

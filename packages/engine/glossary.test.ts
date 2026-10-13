@@ -1,7 +1,8 @@
 // One word per concept for everything a player reads: the retired words of
 // docs/glossary.md#retired-words may not come back into the lab's
-// dictionaries, the knob texts, the CLI's help or the Docs tab. An exception
-// names its key and why (docs/glossary.md#exceptions).
+// dictionaries, the knob texts, the board element's strings, the CLI's help
+// or the Docs tab. An exception names its key and why
+// (docs/glossary.md#exceptions).
 import { assert } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { COMMAND_PREFIXES, helpText } from './command.ts'
@@ -158,6 +159,17 @@ Deno.test('the rule reasons use no retired word', () => {
 
 Deno.test('the Polish lab strings use no retired word', () => {
   refuse(leaves(PL, 'PL', []), [...PL_RETIRED, LAB_ONLY_FLAG])
+})
+
+Deno.test("the board element's strings use no retired word", async () => {
+  // Loaded by address: the element depends on the engine, not the other way round.
+  const source = new URL('../board-element/src/i18n.ts', import.meta.url).href
+  const { BOARD_LABELS } = await import(source) as { BOARD_LABELS: Record<string, unknown> }
+  const en = leaves(BOARD_LABELS.en, 'BOARD_LABELS.en', [])
+  const pl = leaves(BOARD_LABELS.pl, 'BOARD_LABELS.pl', [])
+  assert(en.length > 0 && pl.length === en.length, `${en.length} English and ${pl.length} Polish strings read`)
+  refuse(en, [...EN_RETIRED, LAB_ONLY_KNOB, LAB_ONLY_FLAG])
+  refuse(pl, [...PL_RETIRED, LAB_ONLY_FLAG])
 })
 
 Deno.test('the CLI help uses no retired word outside flag, variable and group names', () => {
