@@ -29,6 +29,18 @@ import {
   workspaceDepsOf,
 } from './scripts/release.ts'
 
+/**
+ * Where a test that builds a scratch repository or starts a shell is declared.
+ * With no write access of their own, these tests reach the disk through
+ * `mktemp`, `rm` and `sh`, so Windows skips them: the release script runs on
+ * Linux.
+ */
+const posix = {
+  test(name: string, fn: () => void | Promise<void>): void {
+    Deno.test({ name, ignore: Deno.build.os === 'windows', fn })
+  },
+}
+
 const pkg = (short: string, version: string): Pkg => ({
   dir: `packages/${short}`,
   name: `@fronthub/arrowz-${short}`,
@@ -444,7 +456,7 @@ const removeDir = (dir: string) => new Deno.Command('rm', { args: ['-rf', dir] }
 
 const engine = { dir: 'packages/engine', name: '@fronthub/arrowz-engine', version: '0.2.0' }
 
-Deno.test('in a repository the tag lands on the merge that brought the version to main', async () => {
+posix.test('in a repository the tag lands on the merge that brought the version to main', async () => {
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
@@ -463,7 +475,7 @@ Deno.test('in a repository the tag lands on the merge that brought the version t
   }
 })
 
-Deno.test('a shallow clone cannot say which commit set the version', async () => {
+posix.test('a shallow clone cannot say which commit set the version', async () => {
   const full = scratchDir()
   const shallow = scratchDir()
   try {
@@ -481,7 +493,7 @@ Deno.test('a shallow clone cannot say which commit set the version', async () =>
   }
 })
 
-Deno.test('in a repository the releases of a package are its versions since the placeholder, oldest first', async () => {
+posix.test('in a repository the releases of a package are its versions since the placeholder, oldest first', async () => {
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
@@ -502,7 +514,7 @@ Deno.test('in a repository the releases of a package are its versions since the 
   }
 })
 
-Deno.test('in a repository a package added with a version, removed and added again gives the version two commits', async () => {
+posix.test('in a repository a package added with a version, removed and added again gives the version two commits', async () => {
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
@@ -518,7 +530,7 @@ Deno.test('in a repository a package added with a version, removed and added aga
   }
 })
 
-Deno.test('in a repository a version pull request reverted and merged again gives each version two commits', async () => {
+posix.test('in a repository a version pull request reverted and merged again gives each version two commits', async () => {
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
@@ -540,7 +552,7 @@ Deno.test('in a repository a version pull request reverted and merged again give
   }
 })
 
-Deno.test('in a repository a first version pull request reverted and merged again gives the version two commits', async () => {
+posix.test('in a repository a first version pull request reverted and merged again gives the version two commits', async () => {
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
@@ -556,7 +568,7 @@ Deno.test('in a repository a first version pull request reverted and merged agai
   }
 })
 
-Deno.test('a commit that deleted the manifest counts as a placeholder: with none below, the versions below it are not releases', async () => {
+posix.test('a commit that deleted the manifest counts as a placeholder: with none below, the versions below it are not releases', async () => {
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
@@ -571,7 +583,7 @@ Deno.test('a commit that deleted the manifest counts as a placeholder: with none
   }
 })
 
-Deno.test('a manifest that is not JSON is left out of the walk, so the tag stays on the commit that set the version', async () => {
+posix.test('a manifest that is not JSON is left out of the walk, so the tag stays on the commit that set the version', async () => {
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
@@ -592,7 +604,7 @@ Deno.test('a manifest that is not JSON is left out of the walk, so the tag stays
   }
 })
 
-Deno.test('a manifest that is JSON and names no version counts as a placeholder, whatever its shape', async () => {
+posix.test('a manifest that is JSON and names no version counts as a placeholder, whatever its shape', async () => {
   for (const unnamed of ['{"name":"@fronthub/arrowz-engine"}', '{"version":""}', 'null', '[]']) {
     const repo = scratchDir()
     try {
@@ -608,7 +620,7 @@ Deno.test('a manifest that is JSON and names no version counts as a placeholder,
   }
 })
 
-Deno.test('the commit of a first version is found above a manifest that names no version and above a deleted one', async () => {
+posix.test('the commit of a first version is found above a manifest that names no version and above a deleted one', async () => {
   for (const below of ['deleted', 'unnamed'] as const) {
     const repo = scratchDir()
     try {
@@ -632,7 +644,7 @@ Deno.test('the commit of a first version is found above a manifest that names no
   }
 })
 
-Deno.test('a version set again above a manifest that names no version has two commits, and the plan measures from the newer', async () => {
+posix.test('a version set again above a manifest that names no version has two commits, and the plan measures from the newer', async () => {
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
@@ -649,7 +661,7 @@ Deno.test('a version set again above a manifest that names no version has two co
   }
 })
 
-Deno.test('no commit is named for a version whose stretch holds a manifest that is not JSON', async () => {
+posix.test('no commit is named for a version whose stretch holds a manifest that is not JSON', async () => {
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
@@ -675,7 +687,7 @@ async function loseManifest(repo: string, sha: string): Promise<void> {
   if (!new Deno.Command('rm', { args: [object] }).outputSync().success) throw new Error(`no loose object ${blob}`)
 }
 
-Deno.test('a manifest git cannot read stops the run, below the placeholder too', async () => {
+posix.test('a manifest git cannot read stops the run, below the placeholder too', async () => {
   for (const lost of ['early', 'first'] as const) {
     const repo = scratchDir()
     try {
@@ -695,7 +707,7 @@ Deno.test('a manifest git cannot read stops the run, below the placeholder too',
   }
 })
 
-Deno.test('what changed since the version commit is the package files that reach the tarball', async () => {
+posix.test('what changed since the version commit is the package files that reach the tarball', async () => {
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
@@ -715,7 +727,7 @@ Deno.test('what changed since the version commit is the package files that reach
   }
 })
 
-Deno.test('the workflow files that changed since a commit are named, and no other file is', async () => {
+posix.test('the workflow files that changed since a commit are named, and no other file is', async () => {
   const repo = scratchDir()
   try {
     await scratch(repo, ['init', '-q', '-b', 'main'])
@@ -735,7 +747,7 @@ Deno.test('the workflow files that changed since a commit are named, and no othe
   }
 })
 
-Deno.test('a tag is pushed to origin at the given commit and leaves no tag in the checkout', async () => {
+posix.test('a tag is pushed to origin at the given commit and leaves no tag in the checkout', async () => {
   const repo = scratchDir()
   const origin = scratchDir()
   // Outside the protected pattern of release tags, and on a commit only the scratch repository has.
@@ -824,7 +836,7 @@ Deno.test('the stand-in for the tags run is granted what the workflow grants, an
   assert(permissionsOf('plan').includes('--allow-write'))
 })
 
-Deno.test('a tags run stops at an unclear answer of npm before it pushes any tag', async () => {
+posix.test('a tags run stops at an unclear answer of npm before it pushes any tag', async () => {
   const repo = scratchDir()
   const origin = scratchDir()
   const bin = scratchDir()
@@ -864,7 +876,7 @@ Deno.test('a tags run stops at an unclear answer of npm before it pushes any tag
   }
 })
 
-Deno.test('a tags run gives every live version without a tag its tag, superseded ones too, and leaves the rest', async () => {
+posix.test('a tags run gives every live version without a tag its tag, superseded ones too, and leaves the rest', async () => {
   const repo = scratchDir()
   const origin = scratchDir()
   const bin = scratchDir()
@@ -932,7 +944,7 @@ Deno.test('a tags run gives every live version without a tag its tag, superseded
   }
 })
 
-Deno.test('a tags run names every version main set more than once, a first version too, tags the rest, and is green after the tags made by hand', async () => {
+posix.test('a tags run names every version main set more than once, a first version too, tags the rest, and is green after the tags made by hand', async () => {
   const repo = scratchDir()
   const origin = scratchDir()
   const bin = scratchDir()
@@ -1001,7 +1013,7 @@ Deno.test('a tags run names every version main set more than once, a first versi
   }
 })
 
-Deno.test('a plan run refuses a package whose workspace dependency moved after its version commit', async () => {
+posix.test('a plan run refuses a package whose workspace dependency moved after its version commit', async () => {
   const repo = scratchDir()
   const bin = scratchDir()
   const manifest = (short: string, version: string, dependencies?: Record<string, string>) =>
@@ -1132,7 +1144,7 @@ Deno.test('the commit of a package that did not change is not looked up', () => 
   assertEquals(refusalsOf([CLI], () => [], () => [], never), [])
 })
 
-Deno.test('in a repository a dependency that moved after the version commit is named with both versions', async () => {
+posix.test('in a repository a dependency that moved after the version commit is named with both versions', async () => {
   const repo = scratchDir()
   const board = { dir: 'packages/board-element', name: '@fronthub/arrowz-board', version: '0.1.1' }
   const boardManifest = (version: string) =>
@@ -1655,7 +1667,7 @@ const staged = (name: string) => [handing(name), stagedLine(name)]
 const held = (name: string) => [handing(name), ...refusedLines('held'), heldNotice(name)]
 const refused = (name: string, answer: string) => [handing(name), ...refusedLines(answer), notStaged(name)]
 
-Deno.test('the stage loop hands npm every tarball as a ./ path, dependencies first, and ends with status 0', () => {
+posix.test('the stage loop hands npm every tarball as a ./ path, dependencies first, and ends with status 0', () => {
   assertEquals(stageLoop({}), {
     code: 0,
     out: [...staged('engine'), ...staged('board'), ...staged('cli')],
@@ -1663,7 +1675,7 @@ Deno.test('the stage loop hands npm every tarball as a ./ path, dependencies fir
   })
 })
 
-Deno.test('a version that is already staged gets a notice and does not fail the stage loop', () => {
+posix.test('a version that is already staged gets a notice and does not fail the stage loop', () => {
   assertEquals(stageLoop({ engine: 'held' }), {
     code: 0,
     out: [...held('engine'), ...staged('board'), ...staged('cli')],
@@ -1676,7 +1688,7 @@ Deno.test('a version that is already staged gets a notice and does not fail the 
   })
 })
 
-Deno.test('any other refusal fails the stage loop after every tarball was tried', () => {
+posix.test('any other refusal fails the stage loop after every tarball was tried', () => {
   // The code without the sentence, the sentence without the code, and another error: none is a staged version.
   for (const answer of ['conflict', 'sentence', 'down']) {
     assertEquals(stageLoop({ engine: answer }), {
