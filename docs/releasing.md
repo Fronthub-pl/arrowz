@@ -145,6 +145,12 @@ not on npm yet needs a few steps by hand first, once. They are in
    notices. [When something goes wrong](#when-something-goes-wrong) has the
    row.
 
+   A version you approve while a run is under way is another case. `plan` had
+   already planned it, so `stage` hands npm a version that is live. npm
+   refuses that in other words and without `E409`, and `stage` is red with
+   `npm did not stage <file>`. Nothing is wrong and nothing is to re-run; the
+   same table has the row. To keep the run green, approve after it has ended.
+
 5. **Tag.** The `tag-published` job tags every version that is live on npm
    and has no tag. Nothing is live before you approve, so the tags come from
    the next run of the workflow: the next release, or Actions → Release → Run
@@ -330,9 +336,9 @@ nothing.
 | `stage` fails with `the digest list names something that is not one of the three tarballs` | The list changed between the two jobs, which should never happen: `build` applies the same check to it before it can succeed. Nothing was staged | Do not re-run. Find out what changed the list before you release again. |
 | `build` fails with `the tarballs do not match their digests` or `the artifact holds <n> files, the gates judged <m>` | The digests could not be read back: a fault of the workflow. Nothing was uploaded for staging | Fix `release.yml` by pull request. |
 | `stage` fails with `the tarballs do not match their digests` (preceded by a `FAILED` line from `sha256sum`) or `the artifact holds <n> files, the gates judged <m>` | The artifact was changed after the build, which should never happen | Do not re-run. Nothing was staged. Find out which job touched the artifact before you release again. |
-| `stage` fails with `npm did not stage <file>` | npm refused that tarball for another reason than a version that is already staged; the others were still tried | Read npm's message above it. If the version is already live on npm (you approved it while this run was under way), nothing is wrong and nothing is to re-run; note what npm printed under [Not yet tried](#not-yet-tried). Otherwise remove the cause, then use "Re-run failed jobs", or start the workflow on `main` if the fix was a pull request that changes no counted file (step 3 of a normal release says which files count): the tarballs npm already staged get a notice. If the message is `E409` with other words than `Cannot stage previously published version`, check on npm whether that version is staged. If it is, npm has changed its message: approve or reject the staged version as usual, and correct the strings `release.yml` looks for by pull request. If it is not, it is another conflict: the job is right to fail, and npm's message names what to remove. |
+| `stage` fails with `npm did not stage <file>` | npm refused that tarball for another reason than a version that is already staged; the others were still tried | Read npm's message above it. If the version is already live on npm (you approved it while this run was under way), npm's message is `npm error You cannot publish over the previously published versions: <version>.`, with no `E409` line and no `Staging to` line: nothing is wrong and nothing is to re-run, and the next run of the workflow tags the version. Otherwise remove the cause, then use "Re-run failed jobs", or start the workflow on `main` if the fix was a pull request that changes no counted file (step 3 of a normal release says which files count): the tarballs npm already staged get a notice. If the message is `E409` with other words than `Cannot stage previously published version`, check on npm whether that version is staged. If it is, npm has changed its message: approve or reject the staged version as usual, and correct the strings `release.yml` looks for by pull request. If it is not, it is another conflict: the job is right to fail, and npm's message names what to remove. |
 | `stage` fails with `<n> of <m> judged tarballs were handed to npm` | A judged tarball was not handed to npm: a fault of the run | Check on npm what is staged, then start the workflow again on `main`. |
-| `stage` is green and has the notice `npm already has the version of <file>, staged earlier or live: nothing was staged for it now`; the log above it has `npm error code E409` and `409 Conflict - POST https://registry.npmjs.org/-/stage/package/<name> - Cannot stage previously published version "<version>".` (the name appears as `@fronthub%2farrowz-engine`) | That version is already staged and waits for approval (the message says "previously published"). A run started before the approval planned it again, or a re-run handed npm a tarball it had already staged. This run staged nothing for it | Approve or reject the waiting staged version; if you approved it while the run was under way, nothing is left to do. Nothing else is wrong. |
+| `stage` is green and has the notice `npm already has the version of <file>, staged earlier or live: nothing was staged for it now`; the log above it has `npm error code E409` and `409 Conflict - POST https://registry.npmjs.org/-/stage/package/<name> - Cannot stage previously published version "<version>".` (the name appears as `@fronthub%2farrowz-engine`) | That version is already staged and waits for approval (the message says "previously published"). A run started before the approval planned it again, or a re-run handed npm a tarball it had already staged. This run staged nothing for it, though npm signed a provenance statement and published it to the transparency log before it refused | Approve or reject the waiting staged version; if you approved it while the run was under way, nothing is left to do. Nothing else is wrong. |
 | A re-run of `stage` more than 7 days after the build fails | The artifact is deleted after 7 days | Start the workflow again on `main`. |
 | You approved the board or the command line before the engine | Installs of it fail until the engine is live | Approve the engine. |
 | A staged version holds the wrong files | The gates missed something | Reject it (`npm stage reject <stage-id>`), fix by pull request. If the fix changes no counted file, start the workflow again on `main`: a rejected version number can be staged again. Otherwise release a new patch version. |
@@ -383,12 +389,6 @@ there. These have not been tried:
 
 - whether a trusted-publisher entry that shows "Valid" after its first stage
   still expires after two days without an approval;
-- the notice of `stage` on a real `E409`: the loop of its step was run in a
-  test with a stand-in for npm, and the two strings it looks for were read
-  in the log of the rehearsal;
-- what npm answers when `stage` hands it a version that went live while the
-  run was under way: the notice is worded for both cases, and only the
-  answer for a version that is still staged has been seen;
 - a tag for an earlier version pushed by the workflow's token: the three
   `0.1.0` tags existed before `tag-published` began to catch up, so no run
   has had an earlier version to tag;

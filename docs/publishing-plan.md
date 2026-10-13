@@ -105,7 +105,9 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
    because it plans from the same `main`.
    npm does not accept a version that already exists as a staged version:
    `npm stage publish` ends with `E409` and status 1. `stage` answers that
-   refusal, and no other, with a notice and stays green. A
+   refusal, and no other, with a notice and stays green. A version that went
+   live while the run was under way is refused in other words, without
+   `E409`, so `stage` is red for it. A
    pull request that changes the workflow
    or one of its programs runs it as a dry run: plan, build and smoke on all
    three packages, never tag or stage. A run started by hand on another branch
@@ -370,12 +372,6 @@ bootstrap.
 
 ## 10. Still unverified
 
-- The notice of `stage` on a real `E409`: the loop of its step was run in a
-  test with a stand-in for npm, and the two strings it looks for were read in
-  the log of the rehearsal.
-- What npm answers when `stage` hands it a version that went live while the
-  run was under way: the notice is worded for both cases, and only the answer
-  for a version that is still staged has been seen.
 - A tag for an earlier version pushed by the workflow's token: no run has had
   an earlier version to tag.
 - A tag made by hand for a version that `main` set more than once: the line
