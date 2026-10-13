@@ -24,7 +24,7 @@ import {
 } from '@fronthub/arrowz-engine'
 import type { Params, View, ViewNumber } from '@fronthub/arrowz-engine'
 import { DEFAULT_VIEW, VIEW_RANGE } from '@fronthub/arrowz-engine/command'
-import { boardsDir, deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
+import { boardsDir, deleteBoard, isBoardName, listBoards, saveBoard, type SaveInput } from './store.ts'
 
 /** The largest POST body read. The lab posts no SVG, and a 1000×1000 board file is about a megabyte. */
 export const MAX_BODY = 16 * 1024 * 1024
@@ -44,6 +44,15 @@ const MIME: Record<string, string> = {
 export const API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 /** Stored files are data, never a page: an SVG opened on its own runs no script and reaches nothing. */
 export const STORE_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+
+/**
+ * Keeps what went wrong in this terminal. A response says what failed in a
+ * sentence of its own, never in the error's text, which can name files of
+ * this machine.
+ */
+function report(what: string, err: unknown): void {
+  console.error(`store: ${what}:`, err)
+}
 
 function send(status: number, body: BodyInit, type = 'application/json', csp = API_CSP): Response {
   return new Response(body, {
@@ -253,7 +262,8 @@ function checkPost(v: unknown): Checked<SaveInput> {
   try {
     board = decodeBoard(v.board)
   } catch (err) {
-    return { error: `board: ${err instanceof Error ? err.message : String(err)}` }
+    report('the board file was refused', err)
+    return { error: "board: the file was refused; the store server's terminal says why" }
   }
   if (board.W !== params.ok.W || board.H !== params.ok.H) {
     return { error: `board file is ${board.W}x${board.H}, the params ask for ${params.ok.W}x${params.ok.H}` }
@@ -335,13 +345,16 @@ export function createStoreServer(): (req: Request) => Promise<Response> {
       // encoded slash cannot smuggle a directory step into a name.
       const del = req.method === 'DELETE' ? /^\/api\/boards\/([^/]+)\/([^/]+)$/.exec(url.pathname) : null
       if (del) {
-        const [, size = '', id = ''] = del
-        let ok: boolean
+        let size: string
+        let id: string
         try {
-          ok = deleteBoard(decodeURIComponent(size), decodeURIComponent(id))
-        } catch (err) {
-          return send(400, JSON.stringify({ error: err instanceof Error ? err.message : String(err) }))
+          size = decodeURIComponent(del[1] ?? '')
+          id = decodeURIComponent(del[2] ?? '')
+        } catch {
+          return send(400, '{"error":"malformed path"}')
         }
+        if (!isBoardName(size, id)) return send(400, '{"error":"invalid board name"}')
+        const ok = deleteBoard(size, id)
         return send(ok ? 200 : 404, JSON.stringify({ deleted: ok }))
       }
       if (req.method !== 'GET') return send(405, '{"error":"GET only"}')
@@ -373,7 +386,8 @@ export function createStoreServer(): (req: Request) => Promise<Response> {
       const data = await Deno.readFile(file)
       return send(200, data, MIME[extname(file)] ?? 'application/octet-stream', area.csp)
     } catch (err) {
-      return send(500, JSON.stringify({ error: err instanceof Error ? err.message : String(err) }))
+      report('a request failed', err)
+      return send(500, '{"error":"the store server failed; its terminal says why"}')
     }
   }
 }
