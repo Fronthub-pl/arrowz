@@ -71,6 +71,53 @@ jobs:
       # which this job does not install. The Linux job checks them.
       - run: deno test --no-check --allow-read --allow-write --allow-env --allow-run --allow-net packages/cli/store-start.test.ts
 
+  # PROBE, not for merging: what the whole test task does on Windows, with and
+  # without Git's Unix tools on PATH, and with the default and LF line endings.
+  probe-windows-tests:
+    name: probe (${{ matrix.tools }}, ${{ matrix.eol }})
+    runs-on: windows-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        tools: [git-bash, plain]
+        eol: [default, lf]
+    steps:
+      - if: matrix.eol == 'lf'
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: '~2.9'
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - if: matrix.tools == 'plain'
+        shell: pwsh
+        run: |
+          $keep = ($env:PATH -split ';') | Where-Object { $_ -notmatch '\\Git\\(usr\\bin|bin|mingw64\\bin)\\?$' -and $_ -notmatch 'msys' }
+          "PATH=$($keep -join ';')" >> $env:GITHUB_ENV
+
+      - shell: pwsh
+        run: |
+          "PROBE autocrlf=$(git config --get core.autocrlf)"
+          "PROBE README has CRLF=$((Get-Content -Raw README.md) -match "`r`n")"
+          foreach ($tool in 'sh', 'bash', 'mktemp', 'rm', 'git', 'printf') {
+            $found = Get-Command $tool -ErrorAction SilentlyContinue | Select-Object -First 1
+            "PROBE tool $tool=$(if ($found) { $found.Source } else { 'absent' })"
+          }
+
+      - run: deno task test
+
   # Advisory: a missing changeset is a warning on the pull request, never a
   # failed check. Anything else the command fails on (a changeset naming an
   # unknown package, a broken config) does fail the job.
