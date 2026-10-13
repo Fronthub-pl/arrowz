@@ -906,19 +906,24 @@ Deno.test('buildCommand prints the look after --sharp, in a fixed order, and not
   )
 })
 
-Deno.test('a shell hands carve the argv the command means', () => {
-  const p = { ...defaultParams(), W: 30, H: 20, seed: 3 }
-  const view = { ...DEFAULT_VIEW, ...LOOK, cell: exportCell(30, 20) }
-  const cmd = buildCommand(p, view)
-  const tail = cmd.slice(COMMAND_PREFIX.length + 1)
-  const out = new Deno.Command('sh', { args: ['-c', `printf '%s\\n' ${tail}`], stdout: 'piped' }).outputSync()
-  assert(out.success)
-  const argv = new TextDecoder().decode(out.stdout).split('\n').slice(0, -1)
-  assertEquals(splitCommand(cmd).argv, argv)
-  assert(argv.includes('--palette=#112233,#445566'))
-  const back = parseArgs(argv)
-  assertEquals(back.errors, [])
-  assertEquals(back.view, view)
+Deno.test({
+  name: 'a shell hands carve the argv the command means',
+  // The line is quoted for a POSIX shell, which a plain Windows has not got.
+  ignore: Deno.build.os === 'windows',
+  fn: () => {
+    const p = { ...defaultParams(), W: 30, H: 20, seed: 3 }
+    const view = { ...DEFAULT_VIEW, ...LOOK, cell: exportCell(30, 20) }
+    const cmd = buildCommand(p, view)
+    const tail = cmd.slice(COMMAND_PREFIX.length + 1)
+    const out = new Deno.Command('sh', { args: ['-c', `printf '%s\\n' ${tail}`], stdout: 'piped' }).outputSync()
+    assert(out.success)
+    const argv = new TextDecoder().decode(out.stdout).split('\n').slice(0, -1)
+    assertEquals(splitCommand(cmd).argv, argv)
+    assert(argv.includes('--palette=#112233,#445566'))
+    const back = parseArgs(argv)
+    assertEquals(back.errors, [])
+    assertEquals(back.view, view)
+  },
 })
 
 // --- splitCommand -------------------------------------------------------

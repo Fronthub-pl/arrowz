@@ -1,0 +1,3 @@
+# Every checkout is LF: the guards compare text read from these files, and a
+# Windows checkout would hand them CRLF.
+* text=auto eol=lf

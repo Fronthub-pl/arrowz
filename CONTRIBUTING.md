@@ -65,9 +65,10 @@ A few things the checks hold you to:
   not know, it is probably left from an old build: delete the package's `dist/`
   and build again.
 
-On Windows, `deno task test` needs Git Bash or WSL for now: some tests start
-`sh`, `mktemp` and `rm`. `deno task store`, the board store the lab reads, does
-not.
+On Windows, `deno task test` and `deno task store` run in a plain shell, without
+Git Bash or WSL. The test task skips there the tests that need a POSIX shell:
+those of the release script that build scratch repositories, and one about
+shell quoting.
 
 ## Writing the change
 
