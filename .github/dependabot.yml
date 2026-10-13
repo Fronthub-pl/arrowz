@@ -24,7 +24,9 @@ updates:
         dependency-type: production
         update-types: [minor, patch]
     # TypeScript 7.0 ships no compiler API, and typescript-eslint and the
-    # board element's README test both read the code through it.
+    # board element's README test both read the code through it. A skipped
+    # version brings no pull request, so apps/lab/src/dependabot-ignore.test.ts
+    # fails once typescript-eslint takes TypeScript 7.
     ignore:
       - dependency-name: typescript
         versions: ['>=7.0.0']
