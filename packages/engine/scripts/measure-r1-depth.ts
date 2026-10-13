@@ -17,8 +17,9 @@
  *   D        - max depth equals analyse().D (Kahn's longest path),
  *   f0       - the number of depth-0 pieces equals analyse().f0.
  *
- * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r1-depth.ts [side] [seeds]
+ * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r1-depth.ts [side] [seeds] [out] [backbite]
  */
+import { dirname } from '@std/path'
 import { analyse, Carver, defaultParams, fingerprint, generate, mulberry32 } from '../engine.ts'
 import { at, DIRS } from '../geometry.ts'
 import type { Metrics, Params } from '../types.ts'
@@ -292,6 +293,7 @@ function main(): void {
   const side = Number(Deno.args[0] ?? 1000)
   const seeds = Number(Deno.args[1] ?? 3)
   const out = Deno.args[2] ?? `/tmp/arrowz-measure/r1-${side}.jsonl`
+  Deno.mkdirSync(dirname(out), { recursive: true })
   // With the tail backbite on, the age invariant and the carve-time
   // depth must still hold — the move never touches cells[0].
   const backbite = Number(Deno.args[3] ?? 0)

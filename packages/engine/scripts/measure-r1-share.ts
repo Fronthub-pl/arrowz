@@ -10,6 +10,7 @@
  *
  * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r1-share.ts [side] [seeds] [budgetS] [out]
  */
+import { dirname } from '@std/path'
 import { analyse, Carver, defaultParams, GenerateAbort, mulberry32, validateParams } from '../engine.ts'
 import type { Metrics, Params } from '../types.ts'
 
@@ -89,6 +90,7 @@ function main(): void {
   const seeds = Number(Deno.args[1] ?? 3)
   const budgetMs = Number(Deno.args[2] ?? 300) * 1000
   const out = Deno.args[3] ?? `/tmp/arrowz-measure/r1-share-${side}.jsonl`
+  Deno.mkdirSync(dirname(out), { recursive: true })
   const points = [-1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1]
   const rows: string[] = []
   for (const trapBias of points) {

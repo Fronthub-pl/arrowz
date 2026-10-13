@@ -14,12 +14,13 @@
  * 3. The envelope corner: `edge` (warns 6, anticoil 4, pStraight on the
  *    straightness floor) for the trap lever, not only for the backbite.
  *
- * Both options are measurement only (see CarverOptions): at 0 the engine takes
- * no branch and makes no draw, so the `trap 0 / backbite 0` rows are the
- * default boards cell for cell.
+ * Both are knobs; the lever goes in through the carver's override
+ * (`CarverOptions.trapBias`). At 0 the engine takes no branch and makes no
+ * draw, so the `trap 0 / backbite 0` rows are the default boards cell for cell.
  *
  * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r1-r2-interaction.ts [side] [seeds] [budgetS] [out]
  */
+import { dirname } from '@std/path'
 import { analyse, Carver, defaultParams, GenerateAbort, mulberry32, straightFloor, validateParams } from '../engine.ts'
 import type { CarverStats, Metrics, Params } from '../types.ts'
 
@@ -129,9 +130,11 @@ function runOne(cfg: Config, seed: number, budgetMs: number): Row {
 function configs(side: number): Config[] {
   const square = { W: side, H: side }
   // The most winding LEGAL setting at this size: warns 6 and anticoil 4 pull
-  // the straightness floor down to 0.65 and pStraight sits exactly on it. Same
-  // corner as the backbite sweep, so the rows are comparable.
-  const edge = { ...square, warns: 6, anticoil: 4, pStraight: 0.65 }
+  // the straightness floor down, and pStraight is read from `straightFloor`,
+  // so it sits exactly on it. Same corner as the backbite sweep, so the rows
+  // are comparable.
+  const winding = { ...square, warns: 6, anticoil: 4 }
+  const edge = { ...winding, pStraight: straightFloor({ ...defaultParams(), ...winding }) }
   const out: Config[] = []
   for (const trapBias of [0, -1, 1]) {
     for (const backbite of [0, 8]) {
@@ -174,6 +177,7 @@ function main(): void {
   const seeds = Number(Deno.args[1] ?? 3)
   const budgetMs = Number(Deno.args[2] ?? 300) * 1000
   const out = Deno.args[3] ?? `/tmp/arrowz-measure/r1-r2-interaction-${side}.jsonl`
+  Deno.mkdirSync(dirname(out), { recursive: true })
   const all = configs(side)
   for (const set of ['square', 'edge']) {
     const first = all.find((c) => c.set === set)

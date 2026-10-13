@@ -14,6 +14,7 @@
  *
  * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-r1-levels.ts [seeds] [budgetS] [out]
  */
+import { dirname } from '@std/path'
 import { analyse, Carver, defaultParams, GenerateAbort, mulberry32, validateParams } from '../engine.ts'
 import { PRESETS } from '../lab-presets.ts'
 import type { Metrics, Params } from '../types.ts'
@@ -97,6 +98,7 @@ function main(): void {
   const seeds = Number(Deno.args[0] ?? 3)
   const budgetMs = Number(Deno.args[1] ?? 300) * 1000
   const out = Deno.args[2] ?? '/tmp/arrowz-measure/r1-levels.jsonl'
+  Deno.mkdirSync(dirname(out), { recursive: true })
   const rows: string[] = []
   for (const lvl of PRESETS) {
     for (const opt of lvl.options) {

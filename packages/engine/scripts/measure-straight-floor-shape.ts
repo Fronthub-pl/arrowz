@@ -14,8 +14,9 @@
  * The envelope is bypassed (`unchecked`), because the rule under test is the
  * one that would refuse most of these boards.
  *
- * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-straight-floor-shape.ts [seeds] [budgetS] [out]
+ * Run: deno run --allow-read --allow-write packages/engine/scripts/measure-straight-floor-shape.ts [seeds] [budgetS] [out] [labels]
  */
+import { dirname } from '@std/path'
 import { defaultParams, generate, GenerateAbort, straightFloor } from '../engine.ts'
 import type { Params } from '../types.ts'
 
@@ -76,6 +77,7 @@ function main(): void {
   const seeds = Number(Deno.args[0] ?? 3)
   const budgetMs = Number(Deno.args[1] ?? 180) * 1000
   const out = Deno.args[2] ?? '/tmp/arrowz-measure/straight-floor-shape.jsonl'
+  Deno.mkdirSync(dirname(out), { recursive: true })
   // A fourth argument runs only the named shapes, so a confirmation point can
   // be added without paying for the whole campaign again.
   const only = (Deno.args[3] ?? '').split(',').filter((s) => s.length > 0)

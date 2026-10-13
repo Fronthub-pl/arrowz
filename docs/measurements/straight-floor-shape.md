@@ -22,7 +22,6 @@ The decisive points are pairs of **equal area and different shape**, and
 rectangles whose equivalent square lands just under a step of the rule, where
 a board would get stuck if the mean were too generous.
 
-    mkdir -p /tmp/arrowz-measure
     deno run --allow-read --allow-write packages/engine/scripts/measure-straight-floor-shape.ts [seeds] [budgetS] [out] [labels]
 
 The defaults are 3 seeds, 180 s per board and
