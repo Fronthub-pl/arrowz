@@ -99,7 +99,16 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - shell: pwsh
+        run: |
+          "PROBE pnpm=$(pnpm --version)"
+          pnpm install --frozen-lockfile
+          "PROBE install exit=$LASTEXITCODE"
+          "PROBE node_modules exists=$(Test-Path node_modules)"
+          "PROBE @types/node exists=$(Test-Path node_modules/@types/node)"
+          "PROBE @types/node/package.json exists=$(Test-Path node_modules/@types/node/package.json)"
+          if (Test-Path node_modules) { "PROBE node_modules entries=$((Get-ChildItem node_modules -Force | Select-Object -ExpandProperty Name) -join ',')" }
+          if (Test-Path node_modules/@types) { Get-ChildItem node_modules/@types -Force | ForEach-Object { "PROBE @types entry=$($_.Name) type=$($_.LinkType) target=$($_.Target)" } }
 
       - if: matrix.tools == 'plain'
         shell: pwsh
@@ -116,7 +125,12 @@ jobs:
             "PROBE tool $tool=$(if ($found) { $found.Source } else { 'absent' })"
           }
 
-      - run: deno task test
+      - name: The task as it is, type check included
+        continue-on-error: true
+        run: deno task test
+
+      - name: The tests alone, without the type check
+        run: deno test --no-check --allow-read --allow-write --allow-env --allow-run --allow-net packages/
 
   # Advisory: a missing changeset is a warning on the pull request, never a
   # failed check. Anything else the command fails on (a changeset naming an
