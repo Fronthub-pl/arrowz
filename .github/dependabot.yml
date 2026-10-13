@@ -23,3 +23,8 @@ updates:
       production:
         dependency-type: production
         update-types: [minor, patch]
+    # TypeScript 7.0 ships no compiler API, and typescript-eslint and the
+    # board element's README test both read the code through it.
+    ignore:
+      - dependency-name: typescript
+        versions: ['>=7.0.0']
