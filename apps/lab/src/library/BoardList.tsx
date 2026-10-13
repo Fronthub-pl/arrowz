@@ -23,7 +23,7 @@ export function shortId(id: string): string {
  * boards it holds, Refresh — and the boards of that size as ruled rows. A row
  * is a button, because clicking it navigates: the address is the selection,
  * so the browser's back button walks the boards looked at. An unreachable
- * store asks for `store.sh`; an empty one asks for a board.
+ * store asks for `deno task store`; an empty one asks for a board.
  */
 export function BoardList({ refresh }: { refresh(): void }): ReactElement {
   const dict = useDictionary()

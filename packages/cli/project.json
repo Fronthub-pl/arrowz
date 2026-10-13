@@ -19,7 +19,7 @@
       "executor": "nx:run-commands",
       "continuous": true,
       "cache": false,
-      "options": { "cwd": "packages/cli", "command": "sh store.sh" }
+      "options": { "cwd": "packages/cli", "command": "deno task store" }
     },
     "build": { "executor": "nx:run-commands", "options": { "cwd": "packages/cli", "command": "pnpm run build" } },
     "smoke": { "executor": "nx:run-commands", "options": { "cwd": "packages/cli", "command": "pnpm run smoke" } },
