@@ -402,7 +402,7 @@ Przy powiększaniu kółko trzyma punkt pod kursorem w miejscu: to, co jest pod 
 
 Powiększanie w obrębie planszy jest dokładne, bo widok ma dla swojego środka jedną regułę: środek zostaje na planszy albo na jej marginesie. Nie wymaga, żeby plansza wypełniała widok: przy krawędzi wypełnienie widoku oznaczałoby wyciąganie planszy spod kursora.
 
-Dlatego obok planszy możesz zobaczyć puste tło, a plansza mniejsza niż komponent nie jest już trzymana pośrodku. Przywracają ją `fit()`, klawisz `0` i przycisk w rogu. `zoomBy()` powiększa wokół środka komponentu, bo przycisk nie ma kursora, w którego stronę mógłby powiększać. Powiększenie mieści się między dopasowaną planszą a `MAX_CELL_PX` pikseli na komórkę.
+Dlatego obok planszy możesz zobaczyć puste tło, a plansza mniejsza niż komponent nie jest już trzymana pośrodku. Przywracają ją `fit()`, klawisz `0` i przycisk w rogu. `zoomBy()` powiększa wokół środka komponentu, bo przycisk nie ma kursora, w którego stronę mógłby powiększać. Powiększenie mieści się między dopasowaną planszą a `MAX_CELL_PX` pikseli na komórkę, chyba że dopasowanie jest już większe.
 
 ## Rozmiar i wartości, których plansza nie narysuje {#size}
 

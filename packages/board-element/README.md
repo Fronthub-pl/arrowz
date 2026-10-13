@@ -402,7 +402,7 @@ the engine, so a consumer needs no second import for them.
 | `GESTURE_STORAGE_KEY` | `'arrowz-board.gestures'` | the `localStorage` key of the player's gesture choice |
 | `ZOOM_STEP` | `1.25` | the factor one button or key press zooms by |
 | `WHEEL_RATE` | `0.0015` | the wheel's zoom rate: each event scales by `exp(-deltaY * WHEEL_RATE)` |
-| `MAX_CELL_PX` | `48` | the closest zoom, in pixels per cell |
+| `MAX_CELL_PX` | `48` | the closest zoom, in pixels per cell, unless the fit is already closer |
 | `MIN_PAD_PX` | `16` | the narrowest margin on screen, in pixels (see [The margin](#the-margin)) |
 | `MIN_POINT_CELL_PX` | `6` | below this many pixels per cell the dot grid hides itself |
 | `EXIT_SPEED` | `32` | cells per second a leaving piece covers |

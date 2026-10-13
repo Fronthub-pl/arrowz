@@ -107,7 +107,10 @@ export type SlotKey = (typeof ELEMENT_SLOTS)[number]['key']
 /** The package an exported type is declared in: the element's own, or the engine, which it re-exports. */
 export type ExportSource = '@fronthub/arrowz-board' | '@fronthub/arrowz-engine'
 
-/** One exported type: where it is declared, and its fields — or, for a union, its members as literals. */
+/**
+ * One exported type: where it is declared, and its fields — or, for a union,
+ * its members as literals, a union of objects by the `type` of each.
+ */
 export interface TypeRow {
   readonly key: string
   readonly from: ExportSource

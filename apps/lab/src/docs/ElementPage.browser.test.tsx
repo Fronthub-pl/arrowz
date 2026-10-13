@@ -169,8 +169,13 @@ test('Copy names its section in Polish too', async () => {
   await expect.element(button).toHaveTextContent('Kopiuj')
 })
 
-test('the page no longer sends the reader to the README', async () => {
+test('the page no longer sends the reader to the README, in either language', async () => {
   const screen = await mount()
+  const english = screen.container.textContent
+  expect(screen.container.querySelector('aside.fw-docs-info')).toBeNull()
+  expect(english).not.toContain('README')
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  expect(screen.container.textContent).not.toBe(english)
   expect(screen.container.querySelector('aside.fw-docs-info')).toBeNull()
   expect(screen.container.textContent).not.toContain('README')
 })

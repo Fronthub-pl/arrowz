@@ -278,7 +278,9 @@ test('every export is in exactly one export table, and every row is an export', 
   const counts = new Map<string, number>()
   for (const name of rows) counts.set(name, (counts.get(name) ?? 0) + 1)
   expect([...counts].filter(([, n]) => n > 1).map(([name]) => name), 'documented twice').toEqual([])
-  expect(sorted(counts.keys())).toEqual(sorted(exports.keys()))
+  // By name, both ways: two arrays of fifty differ in a diff Vitest truncates to their lengths.
+  expect([...exports.keys()].filter((name) => !counts.has(name)), 'exported, in no table').toEqual([])
+  expect([...counts.keys()].filter((name) => !exports.has(name)), 'in a table, not exported').toEqual([])
 })
 
 /** What a Shape cell must list for a type: its fields, or the literals of a union. */
@@ -394,7 +396,6 @@ test('the Docs tab lists every export once, in the table of its kind, and nothin
   const listed: string[] = Object.values(DOCS_TABLES).flatMap((rows) => rows.map((row) => row.key))
   const twice = listed.filter((key, i) => listed.indexOf(key) !== i)
   expect(twice, 'listed twice').toEqual([])
-  // By name, both ways: two arrays of fifty differ in a diff Vitest truncates to their lengths.
   expect([...exports.keys()].filter((name) => !listed.includes(name)), 'exported, not listed').toEqual([])
   expect(listed.filter((key) => !exports.has(key)), 'listed, not exported').toEqual([])
   for (const [kind, rows] of Object.entries(DOCS_TABLES)) {
