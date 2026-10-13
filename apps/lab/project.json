@@ -13,7 +13,8 @@
       "executor": "nx:run-commands",
       "dependsOn": ["^build"],
       "parallelism": false,
-      "options": { "cwd": "apps/lab", "command": "pnpm run test" }
+      "options": { "cwd": "apps/lab", "command": "pnpm run test" },
+      "inputs": ["default", "^production", "{workspaceRoot}/.github/dependabot.yml"]
     },
     "build": {
       "executor": "nx:run-commands",
