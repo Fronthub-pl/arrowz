@@ -402,4 +402,13 @@ if (import.meta.main) {
     },
     createStoreServer(),
   )
+  // Asked for by `serverArgs`: the launcher holds the other end of the input
+  // and never writes, so the input ends when the launcher does. Not the rule
+  // without the argument: a server started with no input would end at once.
+  if (Deno.args.includes('--until-input-ends')) {
+    for await (const _ of Deno.stdin.readable) {
+      // Nothing is sent.
+    }
+    Deno.exit()
+  }
 }

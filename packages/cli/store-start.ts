@@ -10,7 +10,8 @@ import { boardsDir } from './store.ts'
 /**
  * What `deno` is run with to serve the store under `boards` on `port`. The
  * server gets what it serves and nothing more: this machine's network on the
- * one port it binds, and the store, which it reads and writes.
+ * one port it binds, and the store, which it reads and writes. The last
+ * argument ties its life to its input, which the launcher holds.
  */
 export function serverArgs(port: number, boards: string): string[] {
   return [
@@ -21,6 +22,7 @@ export function serverArgs(port: number, boards: string): string[] {
     '--allow-env=ARROWZ_BOARDS_DIR',
     'store-server.ts',
     String(port),
+    '--until-input-ends',
   ]
 }
 
@@ -35,10 +37,13 @@ if (import.meta.main) {
     args: serverArgs(port, boards),
     cwd: dirname(fromFileUrl(import.meta.url)),
     env: { ARROWZ_BOARDS_DIR: boards },
+    // Never written to: the system closes it when this process ends, however
+    // it ends, and the server ends with it.
+    stdin: 'piped',
   }).spawn()
-  // The server is another process, so an end sent to this one alone is passed
-  // on. On Windows Deno listens for an interrupt only: a process that is ended
-  // there is not told.
+  // An end this process is told of is passed on, so that it ends after the
+  // server and the port is free by then. On Windows Deno listens for an
+  // interrupt only.
   const ends: Deno.Signal[] = Deno.build.os === 'windows' ? ['SIGINT', 'SIGBREAK'] : ['SIGINT', 'SIGTERM']
   for (const signal of ends) {
     Deno.addSignalListener(signal, () => {
