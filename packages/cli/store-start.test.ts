@@ -90,6 +90,7 @@ Deno.test('the server is granted one port of this machine, the store and one var
     '--allow-env=ARROWZ_BOARDS_DIR',
     'store-server.ts',
     '9000',
+    '--until-input-ends',
   ])
 })
 
@@ -120,11 +121,10 @@ Deno.test('a relative store directory that does not exist yet is made, served an
   }
 })
 
-Deno.test({
-  name: 'ending the launcher ends the server it started',
-  // Windows ends a process without telling it, so there the launcher cannot pass the end on.
-  ignore: windows,
-  fn: async () => {
+// Told to end, and ended outright. Windows has only the second: a process ended there is not told.
+const ways: Deno.Signal[] = windows ? ['SIGKILL'] : ['SIGTERM', 'SIGKILL']
+for (const way of ways) {
+  Deno.test(`a launcher ended by ${way} takes the server it started with it`, async () => {
     const scratch = Deno.makeTempDirSync({ prefix: 'arrowz-start-' })
     const port = freePort()
     const child = start(scratch, port, 'boards')
@@ -132,12 +132,35 @@ Deno.test({
     try {
       assert(await settles(port, true, 30_000), 'the store never answered')
       servers = startedBy(child.pid)
-      child.kill('SIGTERM')
+      child.kill(way)
       await child.status
       assert(await settles(port, false, 5_000), 'the server outlived its launcher')
     } finally {
       await stop(child, port, servers)
       Deno.removeSync(scratch, { recursive: true })
     }
-  },
+  })
+}
+
+Deno.test('a server started on its own, with no input, keeps serving', async () => {
+  const scratch = Deno.realPathSync(Deno.makeTempDirSync({ prefix: 'arrowz-start-' }))
+  const port = freePort()
+  const server = new Deno.Command(Deno.execPath(), {
+    args: serverArgs(port, scratch).filter((arg) => arg !== '--until-input-ends'),
+    cwd: here,
+    env: { ARROWZ_BOARDS_DIR: scratch },
+    stdin: 'null',
+    stdout: 'null',
+    stderr: 'null',
+  }).spawn()
+  try {
+    assert(await settles(port, true, 30_000), 'the store never answered')
+    // An input that is not there ends at once: a second is long for a server that ends with it.
+    await new Promise((done) => setTimeout(done, 1_000))
+    assert(await answers(port), 'the server ended with its input, unasked')
+  } finally {
+    end(server.pid)
+    await server.status
+    Deno.removeSync(scratch, { recursive: true })
+  }
 })
