@@ -104,10 +104,10 @@ can already `import 'npm:@fronthub/arrowz-engine'`), binaries.
    run per group, so a newer run can replace a waiting one, which loses nothing
    because it plans from the same `main`.
    npm does not accept a version that already exists as a staged version:
-   `npm stage publish` ends with `E409` and status 1. `stage` answers that
-   refusal, and no other, with a notice and stays green. A version that went
+   `npm stage publish` ends with `E409` and status 1. A version that went
    live while the run was under way is refused in other words, without
-   `E409`, so `stage` is red for it. A
+   `E409`. `stage` answers these two refusals, and no other, with a notice
+   each and stays green. A
    pull request that changes the workflow
    or one of its programs runs it as a dry run: plan, build and smoke on all
    three packages, never tag or stage. A run started by hand on another branch
@@ -381,6 +381,8 @@ bootstrap.
 - Whether a valid trusted-publisher entry still expires after two days
   without an approval (staging alone turns "Pending validation" into "Valid";
   the plan avoids depending on it: §4 runs it same day).
+- The notice of `stage` for a version that went live during the run: npm's
+  line comes from a run; the notice has run only in a test with a stub `npm`.
 - Whether `npm trust github` takes `--allow-stage-publish` alone for "stage
   only" (npm-stage.md names `--allow-publish` and `--allow-stage-publish` for
   `npm trust <provider>`).
