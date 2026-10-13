@@ -164,6 +164,11 @@ export async function saveBoard(
   return { meta, layoutExisted: before !== null, recipeExisted: replaced !== null }
 }
 
+/** Whether a size and an id are the two parts of a stored layout's name. */
+export function isBoardName(size: string, id: string): boolean {
+  return /^\d+x\d+$/.test(size) && LAYOUT_ID.test(id)
+}
+
 /**
  * Removes one layout (board file, meta and preview) with every recipe in it.
  * Returns false when there was nothing to remove. A size directory left empty
@@ -172,7 +177,7 @@ export async function saveBoard(
  * hash is refused.
  */
 export function deleteBoard(size: string, id: string): boolean {
-  if (!/^\d+x\d+$/.test(size) || !LAYOUT_ID.test(id)) throw new Error(`invalid board name ${size}/${id}`)
+  if (!isBoardName(size, id)) throw new Error(`invalid board name ${size}/${id}`)
   const dir = join(boardsDir(), size)
   let removed = false
   for (const ext of ['.board.json', '.json', '.svg']) {

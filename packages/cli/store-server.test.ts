@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertMatch } from '@std/assert'
-import { dirname } from '@std/path'
+import { dirname, join } from '@std/path'
 import { defaultParams, encodeBoard, THEMES } from '@fronthub/arrowz-engine'
 import { COMMAND_PREFIX, DEFAULT_VIEW } from '@fronthub/arrowz-engine/command'
 import { API_CSP, createStoreServer, MAX_BODY, STORE_CSP } from './store-server.ts'
@@ -24,6 +24,19 @@ const post = (base: string, body: unknown) =>
     headers: { 'Content-Type': 'application/json' },
     body: typeof body === 'string' ? body : JSON.stringify(body),
   })
+
+/** What the server wrote to its terminal while `fn` ran; the test's own output stays clean. */
+async function terminal(fn: () => Promise<void>): Promise<unknown[]> {
+  const said: unknown[] = []
+  const write = console.error
+  console.error = (...parts: unknown[]) => void said.push(...parts)
+  try {
+    await fn()
+  } finally {
+    console.error = write
+  }
+  return said
+}
 
 /** The file of an empty board of a size: enough for the server, which decodes it before saving. */
 const emptyFile = (W: number, H: number) => encodeBoard({ W, H, owner: new Int32Array(W * H).fill(-1), pieces: [] })
@@ -268,16 +281,17 @@ Deno.test('POST without params, without a readable board file or with a board of
     const params = { ...defaultParams(), W: 10, H: 10, seed: 3 }
     const cases: [unknown, string][] = [
       [{ board: emptyFile(10, 10) }, 'params are required'],
-      [{ params }, 'board: not a board file'],
-      [{ params, board: { ...emptyFile(10, 10), fingerprint: 'x' } }, 'board: the fingerprint'],
+      [{ params }, 'board: the file was refused'],
       [{ params, board: emptyFile(12, 12) }, 'board file is 12x12'],
     ]
-    for (const [body, error] of cases) {
-      const r = await post(base, body)
-      assertEquals(r.status, 400)
-      const got: { error: string } = await r.json()
-      assert(got.error.includes(error), `${got.error} lacks ${error}`)
-    }
+    await terminal(async () => {
+      for (const [body, error] of cases) {
+        const r = await post(base, body)
+        assertEquals(r.status, 400)
+        const got: { error: string } = await r.json()
+        assert(got.error.includes(error), `${got.error} lacks ${error}`)
+      }
+    })
   }))
 
 Deno.test('stored files are served without cache; paths escaping the store are rejected', () =>
@@ -425,4 +439,47 @@ Deno.test('only the store is served, with security headers', () =>
     assertEquals(svg.headers.get('content-security-policy'), STORE_CSP)
     assert(STORE_CSP.includes('sandbox'))
     await svg.body?.cancel()
+  }))
+
+Deno.test('a board file the engine refuses is answered in one sentence, and the reason goes to the terminal', () =>
+  withServer(async (base) => {
+    const params = { ...defaultParams(), W: 10, H: 10, seed: 3 }
+    let answer: unknown
+    const said = await terminal(async () => {
+      const r = await post(base, { params, board: { ...emptyFile(10, 10), fingerprint: 'x' } })
+      assertEquals(r.status, 400)
+      answer = await r.json()
+    })
+    assertEquals(answer, { error: "board: the file was refused; the store server's terminal says why" })
+    assert(said.some((part) => part instanceof Error && part.message.includes('the fingerprint')))
+  }))
+
+Deno.test('DELETE with a name that is not a board name, or not decodable, is refused without repeating it', () =>
+  withServer(async (base) => {
+    const cases: [string, string][] = [
+      ['..%2F25x50/seed7-x', 'invalid board name'],
+      ['10x10/seed3-00000000', 'invalid board name'],
+      ['10x10/%E0', 'malformed path'],
+    ]
+    for (const [name, error] of cases) {
+      const r = await fetch(`${base}/api/boards/${name}`, { method: 'DELETE' })
+      assertEquals(r.status, 400, name)
+      assertEquals(await r.json(), { error }, name)
+    }
+  }))
+
+Deno.test('a fault of the server is answered in one sentence that names no file, and the fault goes to the terminal', () =>
+  withServer(async (base) => {
+    // A plain file where a directory is asked for: the disk refuses, and its message names the path.
+    Deno.writeTextFileSync(join(Deno.env.get('ARROWZ_BOARDS_DIR') ?? '', 'plain'), '')
+    let status = 0
+    let answer: unknown
+    const said = await terminal(async () => {
+      const r = await fetch(base + '/store/plain/under')
+      status = r.status
+      answer = await r.json()
+    })
+    assertEquals(status, 500)
+    assertEquals(answer, { error: 'the store server failed; its terminal says why' })
+    assert(said.some((part) => part instanceof Error && part.message.includes('plain')))
   }))
