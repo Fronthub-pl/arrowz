@@ -36,7 +36,7 @@
   runs the worker `vite build` emits and checks its board against the engine's,
   so what the browser loads is gated, not merely compiled.
 - The files of the published CLI (`arrowz.ts`, `carve.ts`, `store.ts`,
-  `exit.ts`) run under Node as `arrowz`, so they use `node:` built-ins and
+  `exit.ts`, `help-colour.ts`) run under Node as `arrowz`, so they use `node:` built-ins and
   never `Deno.*`, and they end through `exit()`, never `process.exit()`;
   `neutral.test.ts` greps the first rule. `report.ts`, `store-server.ts` and
   the scripts stay Deno programs.

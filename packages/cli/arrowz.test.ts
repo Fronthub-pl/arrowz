@@ -5,16 +5,21 @@ import { assert, assertEquals, assertStringIncludes } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { defaultParams, generate, layoutHash } from '@fronthub/arrowz-engine'
 import { helpText } from '@fronthub/arrowz-engine/command'
+import { stripVTControlCharacters } from 'node:util'
 
 const here = dirname(fromFileUrl(import.meta.url))
 
-/** Runs arrowz.ts in `cwd` with the environment given and nothing of the caller's store. */
+/** Runs arrowz.ts in `cwd` with the environment given and nothing of the caller's store or colour settings. */
 function arrowz(
   argv: readonly string[],
   { cwd = here, env = {} }: { cwd?: string; env?: Record<string, string> } = {},
 ) {
   const inherited = Deno.env.toObject()
   delete inherited.ARROWZ_BOARDS_DIR
+  // The caller's colour settings would colour the help the cases below compare as plain text.
+  delete inherited.FORCE_COLOR
+  delete inherited.NO_COLOR
+  delete inherited.NODE_DISABLE_COLORS
   const r = new Deno.Command(Deno.execPath(), {
     args: ['run', '--allow-read', '--allow-write', '--allow-env', join(here, 'arrowz.ts'), ...argv],
     cwd,
@@ -38,6 +43,26 @@ Deno.test('arrowz carve --help prints the help of carve and succeeds', () => {
   const r = arrowz(['carve', '--help'])
   assertEquals(r.status, 0, r.stderr)
   assertEquals(r.stdout, helpText() + '\n')
+})
+
+// FORCE_COLOR stands in for a terminal: stdout is a pipe here, and styleText colours a pipe only when told to.
+Deno.test('arrowz carve --help is in colour when colour is forced, in the columns of the plain help', () => {
+  for (const [flag, knobs] of [['--help', false], ['--help=knobs', true]] as const) {
+    const r = arrowz(['carve', flag], { env: { FORCE_COLOR: '1' } })
+    assertEquals(r.status, 0, r.stderr)
+    assertStringIncludes(r.stdout, '\x1b[1mEveryday:\x1b[22m')
+    assertStringIncludes(r.stdout, '  \x1b[36m--width=N\x1b[39m')
+    assertEquals(stripVTControlCharacters(r.stdout), helpText({ knobs }) + '\n')
+  }
+})
+
+Deno.test('arrowz --help is in colour when colour is forced, and the usage of a mistake stays plain', () => {
+  const r = arrowz(['--help'], { env: { FORCE_COLOR: '1' } })
+  assertEquals(r.status, 0, r.stderr)
+  assertStringIncludes(r.stdout, '\x1b[1mCommands:\x1b[22m')
+  const bare = arrowz([], { env: { FORCE_COLOR: '1' } })
+  assert(!bare.stderr.includes('\x1b['), bare.stderr)
+  assertEquals(stripVTControlCharacters(r.stdout), bare.stderr)
 })
 
 Deno.test('arrowz without a command says how it is called and fails', () => {

@@ -49,7 +49,7 @@ Deno.test('runtime-neutral modules use no Deno, DOM, Node or process API', () =>
 const DOM_ONLY = [/\bdocument\./, /\bwindow\./, /\blocalStorage\b/, /\bHTMLElement\b/, /\bnavigator\./]
 
 /** The files bundled into the published `arrowz`, which Node runs. */
-const NODE_PROGRAM = ['arrowz.ts', 'carve.ts', 'store.ts', 'exit.ts']
+const NODE_PROGRAM = ['arrowz.ts', 'carve.ts', 'store.ts', 'exit.ts', 'help-colour.ts']
 // `import.meta.main` is refused with the Deno API: Node has it only from 22.18.
 const DENO_ONLY = [/\bDeno\./, /\bimport\.meta\.main\b/, /from 'jsr:/]
 
