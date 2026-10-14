@@ -384,7 +384,7 @@ test.each(['en', 'pl'] as const)(
     expect(body.width).toBeCloseTo(panel.clientWidth - pad, 0)
     expect(body.width).toBeGreaterThanOrEqual(332)
     const shown = [...screen.container.querySelectorAll('.fw-docs-toc a')].filter((a) => a.getClientRects().length > 0)
-    expect(shown).toHaveLength(4 + 16)
+    expect(shown).toHaveLength(4 + 17)
     for (const a of shown) expect(a.getBoundingClientRect().height, a.textContent ?? '').toBe(44)
     const toc = box(screen.container, '.fw-docs-toc')
     expect(getComputedStyle(toc).position).toBe('static')

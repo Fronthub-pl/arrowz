@@ -60,6 +60,7 @@ const SECTIONS = [
   'size',
   'margin',
   'dots',
+  'rounded',
   'track',
   'slots',
   'play',
@@ -83,7 +84,7 @@ const DESCRIBED =
   ELEMENT_CONSTANTS.length +
   ELEMENT_CLASSES.length
 
-test('the page has its sixteen sections, in order', async () => {
+test('the page has its seventeen sections, in order', async () => {
   const screen = await mount()
   expect([...screen.container.querySelectorAll('h3')].map((h) => h.id)).toEqual(SECTIONS.map((id) => `docs-${id}`))
 })
@@ -208,7 +209,7 @@ test('the margin, the dot grid and the themes are compared on live boards', asyn
     `${base} --theme=catppuccin-latte --colored`,
     `${base} --theme=rose-pine-moon --colored`,
   ])
-  expect(screen.container.querySelectorAll('figure.fw-docs-board')).toHaveLength(8)
+  expect(screen.container.querySelectorAll('figure.fw-docs-board')).toHaveLength(10)
 })
 
 /** The computed colour of the one token of `cls` in a machine cell, and its text. */

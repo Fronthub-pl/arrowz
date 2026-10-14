@@ -446,6 +446,17 @@ Pełna plansza nie pokazuje żadnej kropki: strzałki zajmują każdą komórkę
 
 Poniżej `MIN_POINT_CELL_PX` pikseli na komórkę siatka sama się chowa, a `showPoints` pozostaje bez zmian: tak gęsto upakowane kropki tworzyłyby efekt mory, zamiast układać się w siatkę. Gdy znów powiększysz, siatka wraca.
 
+## Zaokrąglone rogi {#rounded}
+
+Z `view.rounded` plansza zaokrągla każde miejsce, w którym strzałka skręca, a jej ogon kończy się kołem. Bez tego, domyślnie, zakręty są kanciaste, a ogon jest kwadratem. Łamigłówka jest w obu przypadkach ta sama: zmienia się tylko rysunek. Wiersz poleceń rysuje to samo z `--rounded`.
+
+`board.view = { ...board.view, rounded: true }`
+
+:::compare
+::board[domyślnie]{cmd="--width=12 --height=12 --seed=7"}
+::board[`--rounded`]{cmd="--width=12 --height=12 --seed=7 --rounded"}
+:::
+
 ## Jazda po torze {#track}
 
 Strzałka nigdy nie zsuwa się bokiem ze swojego kształtu. Wyjeżdża po własnym torze: grot jedzie prosto w swoim kierunku, a każda inna komórka przechodzi przez miejsce tej przed nią, więc zgięta strzałka wyjeżdża, wyginając się po drodze, zamiast przesuwać się jako sztywny kształt. Linia, ogon i grot są rysowane od nowa w każdej klatce według jednego zegara, więc nigdy się nie rozjeżdżają.

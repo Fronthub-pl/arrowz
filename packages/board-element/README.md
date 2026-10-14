@@ -236,6 +236,17 @@ design, not a rendering fault — if the grid looks entirely absent, check
 whether a piece is covering the cell you're looking at before suspecting
 anything else.
 
+### Rounded corners
+
+With `view.rounded` the board rounds every place where an arrow turns and ends
+its tail in a disc. Without it, the default, the turns are angular and the tail
+is a square. The puzzle is the same either way: only the drawing changes. The
+CLI draws the same with `--rounded`.
+
+```js
+board.view = { ...board.view, rounded: true }
+```
+
 ### Riding the track
 
 A piece never slides sideways off its shape. It drives down its own corridor:

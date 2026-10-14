@@ -446,6 +446,17 @@ A full board shows none of its dots: the arrows cover every cell, and each dot s
 
 Below `MIN_POINT_CELL_PX` pixels per cell the grid hides itself, and `showPoints` stays as it is: packed that tightly, the dots would form a moiré pattern rather than read as a grid. Zooming back in brings it back.
 
+## Rounded corners {#rounded}
+
+With `view.rounded` the board rounds every place where an arrow turns and ends its tail in a disc. Without it, the default, the turns are angular and the tail is a square. The puzzle is the same either way: only the drawing changes. The command line draws the same with `--rounded`.
+
+`board.view = { ...board.view, rounded: true }`
+
+:::compare
+::board[default]{cmd="--width=12 --height=12 --seed=7"}
+::board[`--rounded`]{cmd="--width=12 --height=12 --seed=7 --rounded"}
+:::
+
 ## Riding the track {#track}
 
 An arrow never slides sideways off its shape. It drives out along its own track: the head runs straight out in its direction, and every other cell passes through the place of the one ahead of it, so a bent arrow bends its way out instead of moving as one rigid shape. The line, the tail and the head are redrawn every frame from one clock, so they never drift apart.
