@@ -37,9 +37,12 @@ export function boardsDir(): string {
   return resolve(process.env.ARROWZ_BOARDS_DIR || 'boards')
 }
 
+// A view saved before `rounded` existed was drawn rounded, whatever the default is now.
+const UNSTATED_ROUNDED = true
+
 /** A stored view with the fields a later knob added filled in with the defaults. */
-function fillView(view: View): View {
-  return { ...DEFAULT_VIEW, ...view }
+function fillView(view: Partial<View>): View {
+  return { ...DEFAULT_VIEW, rounded: UNSTATED_ROUNDED, ...view }
 }
 
 /**
