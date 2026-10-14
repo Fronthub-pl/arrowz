@@ -357,6 +357,9 @@ keep interaction limits as an emergency switch. GitHub's dependency graph
 reads only the first YAML document of `pnpm-lock.yaml`, so `pmOnFail: ignore`
 in `pnpm-workspace.yaml` keeps the lockfile to one document; with pnpm's own
 entry in front, alerts and security updates see direct dependencies only.
+The same file sets pnpm's `trustPolicy: no-downgrade` and a one-day
+`minimumReleaseAge`; pnpm applies both to every lockfile entry on every
+install, so a longer age would hold back fresh security fixes too.
 
 ## 9. Order of work (pull requests)
 

@@ -12,3 +12,11 @@ pmOnFail: ignore
 # selector names the pinned version, so the entry stops matching once nx moves.
 overrides:
   undici@7.29.0: 7.29.1
+# pnpm checks every lockfile entry on every install, so a longer age turns CI
+# red for each fresh transitive or security fix. One day is pnpm's default.
+minimumReleaseAge: 1440
+# Refuses a version published with weaker trust evidence than an earlier one.
+# semver 6.3.1 is a backport released without provenance after 7.5 had it.
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  - semver@6.3.1

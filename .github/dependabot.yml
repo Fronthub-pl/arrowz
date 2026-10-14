@@ -5,6 +5,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # A hijacked action tag is usually found within days; security updates skip the wait.
+    cooldown:
+      default-days: 7
 
   # The pnpm workspace, read from its root. A minor or patch update changes
   # the lockfile only, so the range a published package asks for is raised by
