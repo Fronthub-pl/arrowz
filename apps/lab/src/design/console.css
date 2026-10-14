@@ -777,10 +777,12 @@
    column and the report's handle. The drawer lies over the first track, and
    `::before` paints that track under its handle. */
 /* `--hd`, the handle track, is 44px under a finger (below), so no band's
-   template has to restate the coarse one. */
+   template has to restate the coarse one; `--rc-w`, the right column, is what
+   the open report's room is measured from (L and XL, below). */
 .fw-lab .fw-stage {
   --hd: 28px;
-  grid-template-columns: var(--hd) minmax(160px, 1fr) clamp(16rem, 22vw, 28rem) var(--hd);
+  --rc-w: clamp(16rem, 22vw, 28rem);
+  grid-template-columns: var(--hd) minmax(160px, 1fr) var(--rc-w) var(--hd);
 }
 .fw-lab .fw-stage > .fw-boardwrap {
   grid-column: 2;
@@ -802,7 +804,9 @@
    turning solo on does not animate the board's size. */
 @media (min-width: 1024px) {
   .fw-lab:not(.solo) .fw-stage > .fw-boardwrap {
-    transition: padding-left 180ms cubic-bezier(0.2, 0, 0, 1);
+    transition:
+      padding-left 180ms cubic-bezier(0.2, 0, 0, 1),
+      padding-right 180ms cubic-bezier(0.2, 0, 0, 1);
   }
   .fw-lab:not(.solo) .fw-stage.ls-open > .fw-boardwrap {
     padding-left: calc(var(--ls-w) + 16px);
@@ -887,7 +891,16 @@
 @media (min-width: 1280px) and (max-width: 1599px) {
   .fw-lab:not(.solo) .fw-stage {
     --ls-w: clamp(24rem, calc(33vw + 100px), 34rem);
-    grid-template-columns: var(--hd) minmax(160px, 1fr) 18rem var(--hd);
+    --rc-w: 18rem;
+  }
+}
+/* L and XL: the open report lies over the right column, and the board gives
+   way by what the report takes past it, the column's two 1px gaps included,
+   so the frame ends at the report's edge. No 16px gap: with both drawers open
+   at 1280 that would leave the board under 320px. */
+@media (min-width: 1280px) {
+  .fw-lab:not(.solo) .fw-stage.report-open > .fw-boardwrap {
+    padding-right: calc(var(--rp-w) - var(--rc-w) - 2px);
   }
 }
 /* M and S: the right column becomes a bar under the board. */

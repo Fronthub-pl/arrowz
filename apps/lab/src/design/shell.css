@@ -212,15 +212,19 @@ body {
   overflow: hidden;
 }
 /* The report as a drawer on the stage's right edge. Closed, only its 28px
-   handle shows, in the stage's last track; open, it slides over the board, at
-   every width. */
+   handle shows, in the stage's last track; open, it slides over the right
+   column, and from 1280 up the board gives way by the rest (console.css);
+   below 1280 it lies over the board. `--rp-w` is its width less the handle. */
+.fw-stage {
+  --rp-w: clamp(22rem, 24vw, 32rem);
+}
 .fw-drawer {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
   z-index: 5;
-  width: calc(clamp(22rem, 24vw, 32rem) + 28px);
+  width: calc(var(--rp-w) + 28px);
   max-width: calc(100% - 70px);
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
@@ -289,7 +293,7 @@ body {
   }
   .fw-drawer {
     grid-template-columns: var(--touch) minmax(0, 1fr);
-    width: calc(clamp(22rem, 24vw, 32rem) + var(--touch));
+    width: calc(var(--rp-w) + var(--touch));
     transform: translateX(calc(100% - var(--touch)));
   }
 }

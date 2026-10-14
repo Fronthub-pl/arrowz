@@ -30,7 +30,8 @@ function useFocusBackToHandle(open: boolean, panelId: string) {
  * never remounted, or the slide would not animate; closed, their contents are
  * `visibility: hidden`. The settings drawer does not cover the board: open, it
  * adds `ls-open`, which pads the board's track by the drawer's width, so a knob
- * change is always in sight.
+ * change is always in sight. The open report adds `report-open`, which from
+ * 1280 up pads it by what the report takes past the right column.
  *
  * The right column is the run column on the lab and the open board's column
  * (`side`) on the saved boards. The run column stays mounted on both, hidden by
@@ -63,7 +64,10 @@ export function Stage({
   const settingsHandle = useFocusBackToHandle(settingsOpen, SETTINGS_ID)
 
   return (
-    <div className={settingsOpen ? 'fw-stage ls-open' : 'fw-stage'} aria-busy={busy ? true : undefined}>
+    <div
+      className={`fw-stage${settingsOpen ? ' ls-open' : ''}${reportOpen ? ' report-open' : ''}`}
+      aria-busy={busy ? true : undefined}
+    >
       <div className={settingsOpen ? 'fw-ldrawer open' : 'fw-ldrawer'}>
         {settings}
         <button

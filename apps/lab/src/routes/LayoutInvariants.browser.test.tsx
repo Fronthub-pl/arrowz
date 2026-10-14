@@ -96,14 +96,7 @@ const SIZES: readonly (readonly [number, number])[] = [
  * them, and drops a key whose list is empty. The comparison is exact both
  * ways, so an entry left behind after its fix is red too.
  */
-const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
-  'report-open@1920x1080': ['board-cover'],
-  'report-open@1440x900': ['board-cover'],
-  'report-open@1280x800': ['board-cover'],
-  'report-open@1440x877': ['board-cover'],
-  'report-open@1599x900': ['board-cover'],
-  'report-open@2560x1200': ['board-cover'],
-}
+const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {}
 
 /**
  * The transitions played out, then two frames: the element takes its new size

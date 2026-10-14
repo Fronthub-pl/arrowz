@@ -44,20 +44,26 @@ test.each([[1400, 900, 'advanced']] as const)(
   40_000,
 )
 
-// Open, the report is clamp(22rem, 24vw, 32rem) wide, and it lies over the
-// board rather than moving it.
+// Open, the report is clamp(22rem, 24vw, 32rem) wide. From 1280 up it lies
+// over the right column, and the board's frame gives way by what the report
+// takes past that column: the wrap keeps its box, the frame ends at the
+// report's edge, and closing the report gives the width back.
 test.each([
   [1280, 800, 352],
+  [1440, 877, 352],
   [1920, 1080, 460.8],
   [2560, 1200, 512],
 ] as const)(
-  'at %d×%d the open report is %dpx wide, over a board that does not move',
+  'at %d×%d the open report is %dpx wide and the board ends at its edge',
   async (w, h, px) => {
     await page.viewport(w, h)
     const screen = await mountApp('advanced')
     await loadRunDone()
+    await settleTransitions()
     const before = rect(screen.container, '.fw-boardwrap')
-    await screen.getByRole('button', { name: 'report', exact: true }).click()
+    const closed = rect(screen.container, '.fw-board').width
+    const handle = screen.getByRole('button', { name: 'report', exact: true })
+    await handle.click()
     await settleTransitions()
     const report = rect(screen.container, '.fw-report')
     const stage = rect(screen.container, '.fw-stage')
@@ -68,10 +74,29 @@ test.each([
     const after = rect(screen.container, '.fw-boardwrap')
     for (const side of ['left', 'top', 'width', 'height'] as const)
       expect(after[side], side).toBeCloseTo(before[side], 1)
+    expect(rect(screen.container, '.fw-board').right).toBeCloseTo(rect(screen.container, '.fw-drawer').left, 0)
     await expect.element(screen.getByRole('region', { name: 'Report' })).toBeVisible()
+    await handle.click()
+    await settleTransitions()
+    expect(rect(screen.container, '.fw-board').width, 'closed again').toBeCloseTo(closed, 1)
   },
   40_000,
 )
+
+// Below 1280 the right column is a bar under the board, so the open report
+// lies over the board rather than moving it.
+test('at 1024×768 the open report lies over a board that does not move', async () => {
+  await page.viewport(1024, 768)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await settleTransitions()
+  const before = rect(screen.container, '.fw-board')
+  await screen.getByRole('button', { name: 'report', exact: true }).click()
+  await settleTransitions()
+  const after = rect(screen.container, '.fw-board')
+  for (const side of ['left', 'top', 'width', 'height'] as const) expect(after[side], side).toBeCloseTo(before[side], 1)
+  expect(rect(screen.container, '.fw-drawer').left).toBeLessThan(after.right)
+}, 40_000)
 
 // Closing slides the whole drawer out, report and all: the report turns hidden
 // only once the 180ms slide is over, or only the bare 28px handle would cross

@@ -166,9 +166,10 @@ function popoverFit(root: HTMLElement): Finding[] {
 }
 
 /**
- * An open drawer lies over the board, inside its stage, never past the stage's
- * edge onto the console. Open only: closed, it is translated all but its handle
- * past the stage's right edge by design, and the stage clips it.
+ * An open drawer lies inside its stage, never past the stage's edge onto the
+ * console; what it may cover is `boardCover`'s. Open only: closed, it is
+ * translated all but its handle past the stage's right edge by design, and the
+ * stage clips it.
  */
 function drawerFit(root: HTMLElement): Finding[] {
   // At XS the drawers are sheets over the viewport (`sheet-fit`).
@@ -272,15 +273,24 @@ function lowContrast(root: HTMLElement): Finding[] {
 const BOARD_FLOORS: Readonly<Record<number, number>> = { 1440: 501, 1024: 424, 768: 678 }
 
 /**
- * The board keeps a usable width: `BOARD_FLOORS` at the checkpoint sizes, at
- * least 320px at any other width from 768 up whatever the drawer does, and edge
- * to edge (less 16px) on a phone. Solo is exempt: the board takes the panel.
+ * The same with the report open beside the board too: from 1280 up the board
+ * gives the report what it takes past the right column (console.css).
+ */
+const REPORT_FLOORS: Readonly<Record<number, number>> = { 1440: 471 }
+
+/**
+ * The board keeps a usable width: `BOARD_FLOORS` at the checkpoint sizes
+ * (`REPORT_FLOORS` while the report is open beside it), at least 320px at any
+ * other width from 768 up whatever the drawers do, and edge to edge (less
+ * 16px) on a phone. Solo is exempt: the board takes the panel.
  */
 function boardWidth(root: HTMLElement, solo: boolean): Finding[] {
   const board = root.querySelector('.fw-board')
   if (board === null || !rendered(board) || solo) return []
   const w = board.getBoundingClientRect().width
-  const floor = window.innerWidth < 768 ? window.innerWidth - 16 : (BOARD_FLOORS[window.innerWidth] ?? 320)
+  const report = root.querySelector('.fw-drawer.open')
+  const floors = window.innerWidth >= 1280 && report !== null && rendered(report) ? REPORT_FLOORS : BOARD_FLOORS
+  const floor = window.innerWidth < 768 ? window.innerWidth - 16 : (floors[window.innerWidth] ?? 320)
   return w + EPS < floor ? [{ invariant: 'board-width', detail: `board ${w.toFixed(0)}px < ${floor}` }] : []
 }
 
