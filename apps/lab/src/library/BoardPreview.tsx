@@ -49,8 +49,8 @@ export function BoardPreview(): ReactElement {
               ))}
               <FieldFlagRow
                 flag="rounded"
-                on={view.rounded !== false}
-                onToggle={() => commitView({ ...view, rounded: view.rounded === false })}
+                on={view.rounded}
+                onToggle={() => commitView({ ...view, rounded: !view.rounded })}
               />
               <FieldFlagRow
                 flag="colored"

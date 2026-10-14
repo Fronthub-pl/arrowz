@@ -39,7 +39,7 @@ beforeEach(() => {
 test('the fields start where the previous lab starts them', () => {
   expect(view().cell).toBe(12)
   expect(view().stroke).toBe(DEFAULT_VIEW.stroke)
-  expect(view().rounded).toBe(true)
+  expect(view().rounded).toBe(false)
   expect(view().voids).toBe(true)
   expect(declared.colored).toBe(false)
   expect(view().top).toBe(5)

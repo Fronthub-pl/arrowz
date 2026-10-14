@@ -5,7 +5,7 @@ import { CommandText } from './CommandText'
 // The selection case measures rendered text, which needs the real cascade.
 import '../design/index.css'
 
-const COMMAND = `${COMMAND_PREFIX} --width=137 --height=251 --seed=987654 --pstraight=0.83 --colored --sharp`
+const COMMAND = `${COMMAND_PREFIX} --width=137 --height=251 --seed=987654 --pstraight=0.83 --colored --rounded`
 
 test('splits the command into the prefix and one span per flag', async () => {
   const screen = await render(
@@ -21,7 +21,7 @@ test('splits the command into the prefix and one span per flag', async () => {
     '--seed=987654',
     '--pstraight=0.83',
     '--colored',
-    '--sharp',
+    '--rounded',
   ])
   expect(lines[1]?.querySelector('.f')?.textContent).toBe('--width=')
   expect(lines[1]?.querySelector('b')?.textContent).toBe('137')

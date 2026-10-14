@@ -75,7 +75,7 @@ export function viewFieldsOf(saved: View): Partial<ViewFields> {
     stroke: saved.stroke,
     headWidth: saved.headWidth,
     headHeight: saved.headHeight,
-    rounded: saved.rounded !== false,
+    rounded: saved.rounded,
     colored: saved.colored,
     // A stored board carries no highlight, so this lands off; when one somehow does, its count comes with it.
     highlightLongest: saved.top > 0,

@@ -99,15 +99,16 @@ test('Copy writes the whole command', async () => {
 
 test('the board looks as its command says, not as the lab is set', async () => {
   useStore.getState().view.setFlag('colored', false)
+  useStore.getState().view.setFlag('rounded', false)
   const screen = await show(
-    '# T\n\n::board[Look]{cmd="--width=12 --height=12 --seed=7 --colored --line=0.9 --pad=2 --sharp"}',
+    '# T\n\n::board[Look]{cmd="--width=12 --height=12 --seed=7 --colored --line=0.9 --pad=2 --rounded"}',
     createDocsQueue(answeringWorkers().make, new Map()),
   )
   await expect.poll(() => element(screen.container)?.board?.W).toBe(12)
   const el = element(screen.container)
   expect(el?.view.colored).toBe(true)
   expect(el?.view.stroke).toBe(0.9)
-  expect(el?.view.rounded).toBe(false)
+  expect(el?.view.rounded).toBe(true)
   expect(el?.pad).toBe(2)
   expect(el?.play).toBe(false)
   expect(el?.interactive).toBe(false)

@@ -52,6 +52,7 @@ export function problemWords(dict: Dict, p: ArgProblem): string {
       if (p.why === 'oneMode') return dict.t('argRetiredOneMode', p.arg)
       if (p.why === 'boardAlways') return dict.t('argRetiredBoard', p.arg)
       if (p.why === 'spacingFixed') return dict.t('argRetiredSpacing', p.arg, or(p.use))
+      if (p.why === 'squareDefault') return dict.t('argRetiredSquare', p.arg)
       return dict.t('argRetiredUse', p.arg, or(p.use))
     case 'notStart':
       return dict.t('argNotStart', p.arg, p.words.join(', '), p.min, p.max)
