@@ -9,9 +9,9 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
-import type { BoardMeta, BoardSize, Recipe, StoreRequest, View } from '@fronthub/arrowz-engine'
+import type { BoardMeta, BoardSize, Recipe, StoreRequest } from '@fronthub/arrowz-engine'
 import { decodeBoard, defaultParams, layoutHash } from '@fronthub/arrowz-engine'
-import { boardId, DEFAULT_VIEW } from '@fronthub/arrowz-engine/command'
+import { boardId, storedView } from '@fronthub/arrowz-engine/command'
 
 /** The wire contract plus the two fields only the CLI sends. */
 export interface SaveInput extends StoreRequest {
@@ -37,14 +37,6 @@ export function boardsDir(): string {
   return resolve(process.env.ARROWZ_BOARDS_DIR || 'boards')
 }
 
-// A view saved before `rounded` existed was drawn rounded, whatever the default is now.
-const UNSTATED_ROUNDED = true
-
-/** A stored view with the fields a later knob added filled in with the defaults. */
-function fillView(view: Partial<View>): View {
-  return { ...DEFAULT_VIEW, rounded: UNSTATED_ROUNDED, ...view }
-}
-
 /**
  * The JSON of a stored layout, or null when the file is missing, broken or not
  * an object. A board saved before a knob existed lacks it in params and view:
@@ -62,7 +54,7 @@ function readMeta(file: string): BoardMeta | null {
     return {
       ...meta,
       params: { ...defaultParams(), ...meta.params },
-      view: fillView(meta.view),
+      view: storedView(meta.view),
       restarts: meta.restarts ?? null,
       backtracks: meta.backtracks ?? null,
       aborted: meta.aborted ?? false,
@@ -73,7 +65,7 @@ function readMeta(file: string): BoardMeta | null {
       sources: sources.map((r) => ({
         ...r,
         params: { ...defaultParams(), ...r.params },
-        view: fillView(r.view),
+        view: storedView(r.view),
       })),
     }
   } catch {

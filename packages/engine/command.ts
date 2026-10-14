@@ -381,6 +381,14 @@ export const DEFAULT_VIEW: View = {
   pointRadius: DEFAULT_POINT_RADIUS,
 }
 
+// A view saved before `rounded` existed was drawn rounded, whatever the default is now.
+const UNSTATED_ROUNDED = true
+
+/** A stored view with the fields a later knob added filled in: the defaults, and `rounded` as it was drawn then. */
+export function storedView(view: Partial<View>): View {
+  return { ...DEFAULT_VIEW, rounded: UNSTATED_ROUNDED, ...view }
+}
+
 /**
  * The SvgOptions a view implies: every field of the view that `toSvg` reads,
  * under the name `toSvg` reads it by — `View.stroke` is `SvgOptions.strokeRatio`.

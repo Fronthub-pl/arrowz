@@ -26,6 +26,7 @@ import {
   START_CHOICES,
   type StartChoice,
   startChoiceOf,
+  storedView,
   storeRequest,
   VIEW_FLAG,
   VIEW_RANGE,
@@ -843,6 +844,12 @@ Deno.test('every start choice has a label in both dictionaries', async () => {
     assert(EN.start.options[choice], `EN is missing ${choice}`)
     assert(PL.start.options[choice], `PL is missing ${choice}`)
   }
+})
+
+Deno.test('storedView reads a view with no rounded as rounded and keeps a stated one', () => {
+  assertEquals(storedView({}).rounded, true)
+  assertEquals(storedView({ rounded: false }).rounded, false)
+  assertEquals({ ...storedView({}), rounded: DEFAULT_VIEW.rounded }, DEFAULT_VIEW)
 })
 
 Deno.test('storeRequest builds the command from the parameters it is given', () => {

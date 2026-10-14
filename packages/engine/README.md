@@ -230,6 +230,7 @@ out when it fits in a line and described when it does not.
 | `splitCommand` | `(text: string) => { argv: string[]; problems: ArgProblem[] }` | One pasted line as the argv a shell would hand the CLI, with shell quoting and continuation lines; a leading `arrowz carve` or `deno task carve` is dropped. |
 | `startChoiceOf` | `(params: Params) => StartChoice` | Which start choice a stored `headBias` and `mix` stand for. |
 | `storeRequest` | `(board: BoardFile, params: Params, view: View, source: string, metrics?: StoreRequest['metrics']) => StoreRequest` | The body of a board-store write, with the command built here so the two agree. |
+| `storedView` | `(view: Partial<View>) => View` | A stored view with the fields a later knob added filled in: the defaults, and `rounded` on, as a view saved before that field was drawn. |
 | `svgOptions` | `(view: View) => SvgOptions` | The `SvgOptions` a view implies, with its theme resolved under the stated colours. |
 | `viewNumberOf` | `(raw: string, field: ViewNumber) => number` | A view number as a person typed it: empty or unreadable is the default, out of range is clamped, whole fields round. |
 | `wordFor` | `(key: ParamKey, value: number) => string \| null` | The word a knob's value is spelled with, or `null`: `wordFor('Lmax', 0)` is `'auto'`. |

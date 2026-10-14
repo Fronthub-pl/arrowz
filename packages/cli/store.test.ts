@@ -260,7 +260,7 @@ Deno.test('a board under an old seed name is neither listed nor deleted', async 
 })
 
 // A stored view may lack the arrowhead knobs or `rounded`: the knobs take the defaults, and a
-// missing `rounded` reads as rounded, however the default is set (see `fillView`).
+// missing `rounded` reads as rounded, however the default is set (see `storedView`).
 Deno.test('listBoards fills a legacy view without arrowhead fields with the defaults', () => {
   const dir = freshDir()
   Deno.mkdirSync(join(dir, '25x50'))

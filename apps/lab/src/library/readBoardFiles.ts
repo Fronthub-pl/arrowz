@@ -6,6 +6,7 @@ import {
   encodeBoard,
   layoutHash,
 } from '@fronthub/arrowz-engine'
+import { storedView } from '@fronthub/arrowz-engine/command'
 
 /** Why an open failed, worded by the dictionary (`open_<problem>`). A decode failure keeps the decoder's own words. */
 export type OpenProblem = 'notJson' | 'noBoard' | 'twoBoards' | 'metaOther' | 'notMeta'
@@ -29,8 +30,17 @@ function asMeta(value: unknown): BoardMeta | null {
     isObject(params) &&
     isObject(view) &&
     typeof command === 'string'
+  if (!shaped) return null
   // The store wrote it; the checks above are what this reader relies on.
-  return shaped ? (value as unknown as BoardMeta) : null
+  const meta = value as unknown as BoardMeta
+  const sources: unknown = value.sources
+  return {
+    ...meta,
+    view: storedView(meta.view),
+    sources: Array.isArray(sources)
+      ? sources.map((r: unknown) => (isObject(r) && isObject(r.view) ? { ...r, view: storedView(r.view) } : r))
+      : [],
+  } as BoardMeta
 }
 
 /**
