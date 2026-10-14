@@ -622,6 +622,10 @@ Deno.test('the command row and every parser problem have words in both languages
     PL.ui.argRetiredBoard('--board'),
     '--board już nie istnieje: plik planszy powstaje zawsze, pomiń tę flagę',
   )
+  assertEquals(
+    PL.ui.argRetiredSquare('--sharp'),
+    '--sharp już nie istnieje: rogi są teraz domyślnie kanciaste, pomiń tę flagę',
+  )
   assertEquals(PL.ui.cmdProblems(1), '1 problem')
   assertEquals(PL.ui.cmdProblems(3), '3 problemy')
   assertEquals(PL.ui.cmdProblems(5), '5 problemów')

@@ -224,6 +224,7 @@ interface Retired {
 const RETIRED: Record<string, Retired> = {
   advanced: { hint: 'the CLI has one mode now; drop --advanced', use: [], why: 'oneMode' },
   board: { hint: 'a board file is always written; drop --board', use: [], why: 'boardAlways' },
+  sharp: { hint: 'square is the default now; drop --sharp', use: [], why: 'squareDefault' },
   straight: {
     hint: 'use --winding=R (0 = straightest) or the knob --pstraight=R',
     use: ['--winding', '--pstraight'],
@@ -380,6 +381,14 @@ export const DEFAULT_VIEW: View = {
   pointRadius: DEFAULT_POINT_RADIUS,
 }
 
+// A view saved before `rounded` existed was drawn rounded, whatever the default is now.
+const UNSTATED_ROUNDED = true
+
+/** A stored view with the fields a later knob added filled in: the defaults, and `rounded` as it was drawn then. */
+export function storedView(view: Partial<View>): View {
+  return { ...DEFAULT_VIEW, rounded: UNSTATED_ROUNDED, ...view }
+}
+
 /**
  * The SvgOptions a view implies: every field of the view that `toSvg` reads,
  * under the name `toSvg` reads it by — `View.stroke` is `SvgOptions.strokeRatio`.
@@ -446,7 +455,7 @@ const PICTURE_FLAGS: readonly FlagRow[] = [
   ['--arrow-width=R|auto', 'arrowhead width in cells (default auto, from the line width)'],
   ['--arrow-height=R', `arrowhead length along the arrow, in cells (default ${DEFAULT_VIEW.headHeight})`],
   ['--colored', 'a different colour for every arrow'],
-  ['--sharp', 'square corners and a square tail (default: rounded)'],
+  ['--rounded', 'round turns and a round tail (default: square)'],
   ['--top=N', 'highlight the N longest arrows and print their stats'],
   ['--theme=NAME', 'a built-in colour theme, e.g. gruvbox-dark (an unknown name lists them all)'],
   ['--palette=#RRGGBB,...', `arrow colours while --colored is on, up to ${PALETTE_CAP}; replaces the theme's`],
@@ -723,7 +732,7 @@ export function buildCommand(params: Params, view: Partial<View> = {}): string {
   if (v.headHeight !== DEFAULT_VIEW.headHeight) parts.push(`--arrow-height=${v.headHeight}`)
   if (v.colored) parts.push('--colored')
   if (v.top > 0) parts.push(`--top=${v.top}`)
-  if (!v.rounded) parts.push('--sharp')
+  if (v.rounded) parts.push('--rounded')
   if (v.theme !== '') parts.push(`--theme=${v.theme}`)
   // `#` is a glob operator in zsh with extended_glob, so a colour is quoted for the shell.
   if (v.palette.length > 0) parts.push(`--palette='${v.palette.join(',')}'`)
@@ -753,7 +762,7 @@ export function storeRequest(
 }
 
 /** Which prose hint a retired flag's replacement carries, for a translator that cannot parse English. */
-export type RetiredWhy = 'oneMode' | 'boardAlways' | 'spacingFixed'
+export type RetiredWhy = 'oneMode' | 'boardAlways' | 'spacingFixed' | 'squareDefault'
 
 /** A refusal the parser can report, typed instead of a fixed English sentence; `problemText` is the CLI's wording of it. */
 export type ArgProblem =
@@ -831,7 +840,7 @@ const EVERYDAY_NUMBER = new Map<string, 'W' | 'H' | 'seed' | 'lengths' | 'shape'
 const SLIDERS = new Set(['length', 'winding'])
 /** The two everyday numbers that are knobs of their own, and so bounded by their own spec. */
 const SIZE_KEYS = new Map<string, ParamKey>([['width', 'W'], ['height', 'H']])
-/** Where a picture number lands in the view; the switches (--colored, --sharp) are read on their own. */
+/** Where a picture number lands in the view; the switches (--colored, --rounded) are read on their own. */
 const VIEW_NUMBER = new Map<string, ViewNumber>([
   ['cell', 'cell'],
   ['line', 'stroke'],
@@ -1106,8 +1115,8 @@ const FLAG_READERS: ReadonlyMap<string, FlagReader> = (() => {
     ['colored', (a, raw, st) => {
       if (switchOn(a, raw, st)) st.view.colored = true
     }],
-    ['sharp', (a, raw, st) => {
-      if (switchOn(a, raw, st)) st.view.rounded = false
+    ['rounded', (a, raw, st) => {
+      if (switchOn(a, raw, st)) st.view.rounded = true
     }],
     ['points', (a, raw, st) => {
       if (switchOn(a, raw, st)) st.view.showPoints = true

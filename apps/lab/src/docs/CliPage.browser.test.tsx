@@ -68,8 +68,8 @@ test('each help block copies its own text', async () => {
 test('every board on the page is a figure with its command under it', async () => {
   const screen = await mount()
   const figures = [...screen.container.querySelectorAll('figure.fw-docs-board')]
-  // One under the dry run, twenty-nine in the comparisons.
-  expect(figures).toHaveLength(30)
+  // One under the dry run, thirty-one in the comparisons.
+  expect(figures).toHaveLength(32)
   for (const figure of figures)
     expect(figure.querySelector('pre.fw-cmd')?.textContent, figure.getAttribute('aria-label') ?? '').toMatch(
       /^arrowz carve --width=\d+ --height=\d+/,

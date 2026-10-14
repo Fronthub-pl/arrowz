@@ -103,7 +103,7 @@ To buduje planszę, niczego nie zapisuje i wypisuje jeden wiersz z jej opisem, w
 
 Czytaj go tak: `ok` mówi, że plansza jest pełna, `pieces` to liczba jej strzałek, `avgLen` i `maxLen` to średnia i najdłuższa strzałka w komórkach, `solvable` mówi, że łamigłówka ma rozwiązanie, a `genMs` to liczba milisekund, które to zajęło. `command` robi tę samą planszę jeszcze raz. `pinned` wymienia pokrętła podane wprost w poleceniu — tu żadnych; zobacz [Wszystkie pokrętła](docs:cli#knobs). Oto ta plansza, zmierzona przed chwilą:
 
-::board[Plansza, którą opisuje to polecenie]{cmd="--width=30 --height=30 --seed=7" stats="pieces avgLen longest time"}
+::board[Plansza, którą opisuje to polecenie]{cmd="--width=30 --height=30 --seed=7 --rounded" stats="pieces avgLen longest time"}
 
 To najszybszy sposób, żeby wypróbować ustawienie: widzisz, ile strzałek dostajesz i ile to trwało, bez ani jednego pliku na dysku.
 
@@ -173,8 +173,8 @@ Flagi na co dzień to te, po które sięgasz najpierw: rozmiar, ziarno i cztery,
 Ile komórek w poziomie i w pionie. Obie flagi są wymagane, każda od 4 do 1000. Plansza 400×400 jest gotowa w niecałe dwie sekundy, a 1000×1000 w około dziesięć.
 
 :::compare
-::board[`--width=20 --height=40`]{cmd="--width=20 --height=40 --seed=7"}
-::board[`--width=100 --height=100`]{cmd="--width=100 --height=100 --seed=7"}
+::board[`--width=20 --height=40`]{cmd="--width=20 --height=40 --seed=7 --rounded"}
+::board[`--width=100 --height=100`]{cmd="--width=100 --height=100 --seed=7 --rounded"}
 :::
 
 ### Jak duża może być plansza
@@ -182,9 +182,9 @@ Ile komórek w poziomie i w pionie. Obie flagi są wymagane, każda od 4 do 1000
 Górna granica to 1000×1000, milion komórek. Powyżej mniej więcej dwustu komórek na bok strzałek nie widać już w tej skali pojedynczo, a plansza zamienia się w tkaninę. Powiększ ją — kółkiem z wciśniętym ⌘ albo Ctrl, albo przyciskami w jej rogu — albo otwórz ją w laboratorium, a łamigłówka jest taka sama jak na małej planszy. Plansza z milionem komórek powstaje przez około dziesięć sekund, więc czeka na swój przycisk.
 
 :::compare{stats="pieces avgLen longest time"}
-::board[200×200]{cmd="--width=200 --height=200 --seed=7"}
-::board[500×500]{cmd="--width=500 --height=500 --seed=7"}
-::board[1000×1000]{cmd="--width=1000 --height=1000 --seed=7" manual about="10"}
+::board[200×200]{cmd="--width=200 --height=200 --seed=7 --rounded"}
+::board[500×500]{cmd="--width=500 --height=500 --seed=7 --rounded"}
+::board[1000×1000]{cmd="--width=1000 --height=1000 --seed=7 --rounded" manual about="10"}
 :::
 
 Średnia strzałka prawie nie rośnie razem z planszą, więc większa plansza daje więcej strzałek, a nie dłuższe. Rośnie za to najdłuższa strzałka.
@@ -194,8 +194,8 @@ Górna granica to 1000×1000, milion komórek. Powyżej mniej więcej dwustu kom
 Liczba od 0 do 4294967295, która wybiera, jaką planszę dostajesz. Gdy reszta się nie zmienia, to samo ziarno zawsze daje tę samą planszę, a inne ziarno inną planszę o tym samym charakterze. Domyślnie: 7.
 
 :::compare
-::board[`--seed=7`]{cmd="--width=20 --height=20 --seed=7"}
-::board[`--seed=42`]{cmd="--width=20 --height=20 --seed=42"}
+::board[`--seed=7`]{cmd="--width=20 --height=20 --seed=7 --rounded"}
+::board[`--seed=42`]{cmd="--width=20 --height=20 --seed=42 --rounded"}
 :::
 
 ### Długość strzałek — `--length`
@@ -203,9 +203,9 @@ Liczba od 0 do 4294967295, która wybiera, jaką planszę dostajesz. Gdy reszta 
 Wartość od 0 do 1. Domyślnie: `0.75`. **Zmniejsz** ją, a plansza wypełni się krótkimi strzałkami. Jest ich dużo, każda ma własny grot i stoją ciasno jak pole małych haczyków. **Zwiększ** ją, a plansza złoży się z kilku długich węży, z rzadko rozsianymi grotami. Na planszy 30×30 z ziarnem 7:
 
 :::compare{stats="pieces avgLen"}
-::board[`--length=0`]{cmd="--width=30 --height=30 --seed=7 --length=0 --colored"}
-::board[domyślnie (`0.75`)]{cmd="--width=30 --height=30 --seed=7 --colored"}
-::board[`--length=1`]{cmd="--width=30 --height=30 --seed=7 --length=1 --colored"}
+::board[`--length=0`]{cmd="--width=30 --height=30 --seed=7 --length=0 --colored --rounded"}
+::board[domyślnie (`0.75`)]{cmd="--width=30 --height=30 --seed=7 --colored --rounded"}
+::board[`--length=1`]{cmd="--width=30 --height=30 --seed=7 --length=1 --colored --rounded"}
 :::
 
 Więcej strzałek nie znaczy od razu trudniej. To inny rodzaj trudności. Przy krótkich strzałkach jest wiele rzeczy do obejrzenia. Długich jest mniej, ale każda sięga dalej i więcej blokuje.
@@ -215,9 +215,9 @@ Więcej strzałek nie znaczy od razu trudniej. To inny rodzaj trudności. Przy k
 Wartość od 0 do 1. Domyślnie: `0.5`. Ustala, jak chętnie strzałka jedzie dalej prosto zamiast skręcać: `0` daje najprostszą planszę, `1` najbardziej krętą. **Zmniejsz** ją, a strzałki biegną długimi prostymi odcinkami. **Zwiększ**, a wiją się, skręcają co kilka komórek i wciskają w małe zakamarki.
 
 :::compare{stats="pieces bends"}
-::board[`--winding=0`]{cmd="--width=30 --height=30 --seed=7 --winding=0 --colored"}
-::board[domyślnie (`0.5`)]{cmd="--width=30 --height=30 --seed=7 --colored"}
-::board[`--winding=1`]{cmd="--width=30 --height=30 --seed=7 --winding=1 --colored"}
+::board[`--winding=0`]{cmd="--width=30 --height=30 --seed=7 --winding=0 --colored --rounded"}
+::board[domyślnie (`0.5`)]{cmd="--width=30 --height=30 --seed=7 --colored --rounded"}
+::board[`--winding=1`]{cmd="--width=30 --height=30 --seed=7 --winding=1 --colored --rounded"}
 :::
 
 Oba końce skali dają _mniej_ strzałek niż środek. Proste strzałki biegną dalej, zanim się zatrzymają, a kręte zajmują więcej komórek, gdy wypełniają kąty. Najgęstsze plansze są pośrodku.
@@ -227,8 +227,8 @@ Oba końce skali dają _mniej_ strzałek niż środek. Proste strzałki biegną 
 Przełącznik, domyślnie wyłączony. Gdy jest włączony, generator najpierw układa szkielet: kilka bardzo długich strzałek, które wiją się tam i z powrotem przez całą planszę. Potem wypełnia kanały między nimi zwykłymi strzałkami. To jedyny sposób na naprawdę długie strzałki: zostawiony sam sobie, generator rzadko robi strzałkę, która przechodzi przez całą planszę.
 
 :::compare{stats="pieces longest"}
-::board[bez szkieletu]{cmd="--width=60 --height=60 --seed=7 --colored"}
-::board[`--skeleton`]{cmd="--width=60 --height=60 --seed=7 --skeleton --colored"}
+::board[bez szkieletu]{cmd="--width=60 --height=60 --seed=7 --colored --rounded"}
+::board[`--skeleton`]{cmd="--width=60 --height=60 --seed=7 --skeleton --colored --rounded"}
 :::
 
 ### Za każdym razem nowe losowanie — `--randomized`
@@ -248,15 +248,15 @@ Te flagi niczego w łamigłówce nie zmieniają, tylko jej wygląd. Plansze na t
 **`--colored`** daje każdej strzałce własny kolor. W grze to nie pomaga, ale bardzo pomaga zrozumieć planszę. Większość porównań na tej stronie go używa.
 
 :::compare
-::board[zwykła]{cmd="--width=20 --height=20 --seed=7"}
-::board[`--colored`]{cmd="--width=20 --height=20 --seed=7 --colored"}
+::board[zwykła]{cmd="--width=20 --height=20 --seed=7 --rounded"}
+::board[`--colored`]{cmd="--width=20 --height=20 --seed=7 --colored --rounded"}
 :::
 
 **`--line`** to grubość linii jako część komórki. Domyślnie `0.5`: linia wypełnia połowę swojej komórki.
 
 :::compare
-::board[`--line=0.2`]{cmd="--width=20 --height=20 --seed=7 --line=0.2"}
-::board[`--line=0.9`]{cmd="--width=20 --height=20 --seed=7 --line=0.9"}
+::board[`--line=0.2`]{cmd="--width=20 --height=20 --seed=7 --line=0.2 --rounded"}
+::board[`--line=0.9`]{cmd="--width=20 --height=20 --seed=7 --line=0.9 --rounded"}
 :::
 
 Spójrz na groty. Na cienkiej linii grot jest porządnym trójkątem, szerszym od linii. Gdy linia jest gruba, na szerszy trójkąt nie ma miejsca, więc grot staje się zaostrzonym czubkiem.
@@ -264,11 +264,16 @@ Spójrz na groty. Na cienkiej linii grot jest porządnym trójkątem, szerszym o
 **`--arrow-width`** i **`--arrow-height`** ustalają rozmiar grotów ręcznie, w komórkach, i działają inaczej. `--arrow-width` ma domyślnie `auto`, czyli szerokość wyliczoną z grubości linii, a liczba to szerokość w komórkach. `--arrow-height` nie ma trybu automatycznego: zawsze działa tak, jak ją zapiszesz, a domyślnie wynosi `1`, całą komórkę. `--arrow-height=0` daje grot bez żadnej wysokości.
 
 :::compare
-::board[`--arrow-width=0.6 --arrow-height=0.6`]{cmd="--width=20 --height=20 --seed=7 --arrow-width=0.6 --arrow-height=0.6"}
-::board[`--arrow-width=0.9 --arrow-height=1.2`]{cmd="--width=20 --height=20 --seed=7 --arrow-width=0.9 --arrow-height=1.2"}
+::board[`--arrow-width=0.6 --arrow-height=0.6`]{cmd="--width=20 --height=20 --seed=7 --arrow-width=0.6 --arrow-height=0.6 --rounded"}
+::board[`--arrow-width=0.9 --arrow-height=1.2`]{cmd="--width=20 --height=20 --seed=7 --arrow-width=0.9 --arrow-height=1.2 --rounded"}
 :::
 
-**`--sharp`** zdejmuje zaokrąglenia: linia skręca pod kątem zamiast łukiem, a jej tępy koniec jest kwadratowy zamiast zaokrąglonego.
+**`--rounded`** zaokrągla rysunek: linia skręca łukiem zamiast pod kątem, a jej tępy koniec jest zaokrąglony zamiast kwadratowy. Pozostałe plansze na tej stronie go używają.
+
+:::compare
+::board[zwykła]{cmd="--width=20 --height=20 --seed=7"}
+::board[`--rounded`]{cmd="--width=20 --height=20 --seed=7 --rounded"}
+:::
 
 **`--theme`** maluje planszę jednym z dwunastu motywów kolorów laboratorium (`--theme=gruvbox-dark`, `--theme=catppuccin-latte`, …). Nieznana nazwa jest odrzucana razem z listą motywów. **`--paper`**, **`--ink`** i **`--highlight-color`** ustawiają po jednym kolorze jako `#rrggbb`: tło, strzałki i strzałki zaznaczone przez `--top`. Mają pierwszeństwo przed kolorami motywu. **`--palette`** podaje kolory strzałek dla `--colored`, najwyżej osiem, rozdzielone przecinkami.
 
@@ -358,29 +363,29 @@ Cztery pokrętła obok siebie, każde na planszy 30×30 z ziarnem 7. Trzy z nich
 **`--warns` — najpierw wypełnia trudne kąty**
 
 :::compare{stats="pieces bends"}
-::board[`--warns=2`]{cmd="--width=30 --height=30 --seed=7 --warns=2 --colored"}
-::board[`--warns=16`]{cmd="--width=30 --height=30 --seed=7 --warns=16 --colored"}
+::board[`--warns=2`]{cmd="--width=30 --height=30 --seed=7 --warns=2 --colored --rounded"}
+::board[`--warns=16`]{cmd="--width=30 --height=30 --seed=7 --warns=16 --colored --rounded"}
 :::
 
 **`--wlateral` — skręca w bok, zamiast pchać się naprzód**
 
 :::compare{stats="pieces avgLen"}
-::board[`--wlateral=0`]{cmd="--width=30 --height=30 --seed=7 --wlateral=0 --colored"}
-::board[`--wlateral=20`]{cmd="--width=30 --height=30 --seed=7 --wlateral=20 --colored"}
+::board[`--wlateral=0`]{cmd="--width=30 --height=30 --seed=7 --wlateral=0 --colored --rounded"}
+::board[`--wlateral=20`]{cmd="--width=30 --height=30 --seed=7 --wlateral=20 --colored --rounded"}
 :::
 
 **`--probe` — jedna zadana długość dla każdej strzałki**
 
 :::compare{stats="pieces longest"}
-::board[`--probe=1 --probelen=4`]{cmd="--width=30 --height=30 --seed=7 --probe=1 --probelen=4 --colored"}
-::board[`--probe=1 --probelen=200`]{cmd="--width=30 --height=30 --seed=7 --probe=1 --probelen=200 --colored"}
+::board[`--probe=1 --probelen=4`]{cmd="--width=30 --height=30 --seed=7 --probe=1 --probelen=4 --colored --rounded"}
+::board[`--probe=1 --probelen=200`]{cmd="--width=30 --height=30 --seed=7 --probe=1 --probelen=200 --colored --rounded"}
 :::
 
 **`--start` — pokrętło, którego nie widać**
 
 :::compare{stats="pieces f0"}
-::board[`--start=layers`]{cmd="--width=30 --height=30 --seed=7 --start=layers --colored"}
-::board[`--start=tunnels`]{cmd="--width=30 --height=30 --seed=7 --start=tunnels --colored"}
+::board[`--start=layers`]{cmd="--width=30 --height=30 --seed=7 --start=layers --colored --rounded"}
+::board[`--start=tunnels`]{cmd="--width=30 --height=30 --seed=7 --start=tunnels --colored --rounded"}
 :::
 
 Dwie plansze `--start` wyglądają bardzo podobnie i właśnie o to chodzi: to pokrętło prawie nie zmienia rysunku. Zmienia to, ile strzałek jest wolnych w każdej chwili, a od tego zależy, czy plansza jest łatwa, czy trudna. Domyślne `--start=random` leży między nimi. Liczba od 0,3 do 0,7 nie wybiera jednego z nich, tylko miesza `layers` i `tunnels`: to udział strzałek, które startują jako tunele.

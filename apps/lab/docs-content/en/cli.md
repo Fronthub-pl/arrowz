@@ -103,7 +103,7 @@ This builds the board, writes nothing, and prints one line describing it, in a f
 
 Read it as: `ok` says the board is complete, `pieces` is how many arrows it holds, `avgLen` and `maxLen` are the average and the longest arrow in cells, `solvable` says the puzzle has a solution, and `genMs` is how many milliseconds it took. `command` makes the same board again. `pinned` lists the knobs you named yourself — none here; see [Every knob](docs:cli#knobs). Here is that board, measured just now:
 
-::board[The board this command describes]{cmd="--width=30 --height=30 --seed=7" stats="pieces avgLen longest time"}
+::board[The board this command describes]{cmd="--width=30 --height=30 --seed=7 --rounded" stats="pieces avgLen longest time"}
 
 This is the fastest way to try a setting: you see how many arrows you get and how long it took, without a single file on disk.
 
@@ -173,8 +173,8 @@ The everyday flags are the ones you reach for first: the size, the seed, and fou
 How many cells across and down. Both are required, each anything from 4 to 1000. A 400×400 board is ready in under two seconds; 1000×1000 takes about ten.
 
 :::compare
-::board[`--width=20 --height=40`]{cmd="--width=20 --height=40 --seed=7"}
-::board[`--width=100 --height=100`]{cmd="--width=100 --height=100 --seed=7"}
+::board[`--width=20 --height=40`]{cmd="--width=20 --height=40 --seed=7 --rounded"}
+::board[`--width=100 --height=100`]{cmd="--width=100 --height=100 --seed=7 --rounded"}
 :::
 
 ### How big a board can get
@@ -182,9 +182,9 @@ How many cells across and down. Both are required, each anything from 4 to 1000.
 The ceiling is 1000×1000, a million cells. Past about two hundred cells a side the arrows stop being visible one by one at this size, and the board turns into fabric. Zoom into one — ⌘ or Ctrl with the wheel, or the buttons in its corner — or open it in the lab, and the puzzle is the same as on a small board. The million-cell board takes about ten seconds, so it waits for its button.
 
 :::compare{stats="pieces avgLen longest time"}
-::board[200×200]{cmd="--width=200 --height=200 --seed=7"}
-::board[500×500]{cmd="--width=500 --height=500 --seed=7"}
-::board[1000×1000]{cmd="--width=1000 --height=1000 --seed=7" manual about="10"}
+::board[200×200]{cmd="--width=200 --height=200 --seed=7 --rounded"}
+::board[500×500]{cmd="--width=500 --height=500 --seed=7 --rounded"}
+::board[1000×1000]{cmd="--width=1000 --height=1000 --seed=7 --rounded" manual about="10"}
 :::
 
 The average arrow barely grows with the board, so a bigger board buys you more arrows rather than longer ones. The single longest arrow does grow.
@@ -194,8 +194,8 @@ The average arrow barely grows with the board, so a bigger board buys you more a
 A number from 0 to 4294967295 that picks which board you get. With everything else unchanged, the same seed always gives the same board, and a different seed a different board of the same character. Default: 7.
 
 :::compare
-::board[`--seed=7`]{cmd="--width=20 --height=20 --seed=7"}
-::board[`--seed=42`]{cmd="--width=20 --height=20 --seed=42"}
+::board[`--seed=7`]{cmd="--width=20 --height=20 --seed=7 --rounded"}
+::board[`--seed=42`]{cmd="--width=20 --height=20 --seed=42 --rounded"}
 :::
 
 ### Arrow length — `--length`
@@ -203,9 +203,9 @@ A number from 0 to 4294967295 that picks which board you get. With everything el
 A value from 0 to 1. Default: `0.75`. Turn it **down** and the board fills with short arrows: many of them, each with its own arrowhead, packed together like a field of little hooks. Turn it **up** and the board is made of a few long snakes, their arrowheads few and far between. On a 30×30 board with seed 7:
 
 :::compare{stats="pieces avgLen"}
-::board[`--length=0`]{cmd="--width=30 --height=30 --seed=7 --length=0 --colored"}
-::board[default (`0.75`)]{cmd="--width=30 --height=30 --seed=7 --colored"}
-::board[`--length=1`]{cmd="--width=30 --height=30 --seed=7 --length=1 --colored"}
+::board[`--length=0`]{cmd="--width=30 --height=30 --seed=7 --length=0 --colored --rounded"}
+::board[default (`0.75`)]{cmd="--width=30 --height=30 --seed=7 --colored --rounded"}
+::board[`--length=1`]{cmd="--width=30 --height=30 --seed=7 --length=1 --colored --rounded"}
 :::
 
 More arrows is not automatically harder; it is a different kind of hard. Short arrows give you many things to look at; long arrows give you fewer, but each one reaches further and blocks more.
@@ -215,9 +215,9 @@ More arrows is not automatically harder; it is a different kind of hard. Short a
 A value from 0 to 1. Default: `0.5`. It sets how eagerly an arrow keeps going straight instead of turning: `0` is the straightest a board gets, `1` the most winding. Turn it **down** and arrows run in long straight strokes; turn it **up** and they wriggle, turning every few cells and worming into small nooks.
 
 :::compare{stats="pieces bends"}
-::board[`--winding=0`]{cmd="--width=30 --height=30 --seed=7 --winding=0 --colored"}
-::board[default (`0.5`)]{cmd="--width=30 --height=30 --seed=7 --colored"}
-::board[`--winding=1`]{cmd="--width=30 --height=30 --seed=7 --winding=1 --colored"}
+::board[`--winding=0`]{cmd="--width=30 --height=30 --seed=7 --winding=0 --colored --rounded"}
+::board[default (`0.5`)]{cmd="--width=30 --height=30 --seed=7 --colored --rounded"}
+::board[`--winding=1`]{cmd="--width=30 --height=30 --seed=7 --winding=1 --colored --rounded"}
 :::
 
 Pushing it to either end gives _fewer_ arrows than the middle: straight arrows run further before they stop, and winding arrows take more cells each while they fill the corners. The busiest boards are the ones in between.
@@ -227,8 +227,8 @@ Pushing it to either end gives _fewer_ arrows than the middle: straight arrows r
 An on/off switch, off by default. Switched on, the generator first lays a handful of very long arrows, the skeleton, snaking back and forth across the whole board, then fills the channels between them with ordinary arrows. It is the only way to get really long arrows: left to itself, the generator rarely makes one that crosses the whole board.
 
 :::compare{stats="pieces longest"}
-::board[without]{cmd="--width=60 --height=60 --seed=7 --colored"}
-::board[`--skeleton`]{cmd="--width=60 --height=60 --seed=7 --skeleton --colored"}
+::board[without]{cmd="--width=60 --height=60 --seed=7 --colored --rounded"}
+::board[`--skeleton`]{cmd="--width=60 --height=60 --seed=7 --skeleton --colored --rounded"}
 :::
 
 ### Fresh luck every time — `--randomized`
@@ -248,15 +248,15 @@ These flags change nothing about the puzzle, only how it looks. The boards on th
 **`--colored`** gives every arrow its own colour: no help for playing, a great help for understanding. Most comparisons on this page use it.
 
 :::compare
-::board[normal]{cmd="--width=20 --height=20 --seed=7"}
-::board[`--colored`]{cmd="--width=20 --height=20 --seed=7 --colored"}
+::board[normal]{cmd="--width=20 --height=20 --seed=7 --rounded"}
+::board[`--colored`]{cmd="--width=20 --height=20 --seed=7 --colored --rounded"}
 :::
 
 **`--line`** is how thick the lines are, as a share of one cell. Default `0.5`: a line fills half its cell.
 
 :::compare
-::board[`--line=0.2`]{cmd="--width=20 --height=20 --seed=7 --line=0.2"}
-::board[`--line=0.9`]{cmd="--width=20 --height=20 --seed=7 --line=0.9"}
+::board[`--line=0.2`]{cmd="--width=20 --height=20 --seed=7 --line=0.2 --rounded"}
+::board[`--line=0.9`]{cmd="--width=20 --height=20 --seed=7 --line=0.9 --rounded"}
 :::
 
 Look at the arrowheads. On a thin line the arrowhead is a proper triangle, wider than the line. Once the line gets thick there is no room for a wider triangle, so the arrowhead becomes a sharpened point.
@@ -264,11 +264,16 @@ Look at the arrowheads. On a thin line the arrowhead is a proper triangle, wider
 **`--arrow-width`** and **`--arrow-height`** size the arrowheads by hand, in cells, and they behave differently. `--arrow-width` defaults to `auto`, worked out from the line's thickness; a number is a width in cells. `--arrow-height` has no automatic mode: it is always taken as written, and defaults to `1`, one whole cell. `--arrow-height=0` gives an arrowhead of no height at all.
 
 :::compare
-::board[`--arrow-width=0.6 --arrow-height=0.6`]{cmd="--width=20 --height=20 --seed=7 --arrow-width=0.6 --arrow-height=0.6"}
-::board[`--arrow-width=0.9 --arrow-height=1.2`]{cmd="--width=20 --height=20 --seed=7 --arrow-width=0.9 --arrow-height=1.2"}
+::board[`--arrow-width=0.6 --arrow-height=0.6`]{cmd="--width=20 --height=20 --seed=7 --arrow-width=0.6 --arrow-height=0.6 --rounded"}
+::board[`--arrow-width=0.9 --arrow-height=1.2`]{cmd="--width=20 --height=20 --seed=7 --arrow-width=0.9 --arrow-height=1.2 --rounded"}
 :::
 
-**`--sharp`** takes the rounding off: a line turns its corners at an angle instead of in a curve, and its blunt end is square instead of a rounded cap.
+**`--rounded`** rounds the picture off: a line turns its corners in a curve instead of at an angle, and its blunt end is a rounded cap instead of a square. The other boards on this page use it.
+
+:::compare
+::board[normal]{cmd="--width=20 --height=20 --seed=7"}
+::board[`--rounded`]{cmd="--width=20 --height=20 --seed=7 --rounded"}
+:::
 
 **`--theme`** paints the board in one of the lab's twelve colour themes (`--theme=gruvbox-dark`, `--theme=catppuccin-latte`, …); an unknown name is refused with the list. **`--paper`**, **`--ink`** and **`--highlight-color`** each set one colour as `#rrggbb` — the background, the arrows, and the arrows `--top` marks — and win over the theme's. **`--palette`** gives the arrow colours for `--colored`, up to eight, separated by commas.
 
@@ -358,29 +363,29 @@ Four knobs side by side, each on a 30×30 board with seed 7. Three of them chang
 **`--warns` — filling awkward corners first**
 
 :::compare{stats="pieces bends"}
-::board[`--warns=2`]{cmd="--width=30 --height=30 --seed=7 --warns=2 --colored"}
-::board[`--warns=16`]{cmd="--width=30 --height=30 --seed=7 --warns=16 --colored"}
+::board[`--warns=2`]{cmd="--width=30 --height=30 --seed=7 --warns=2 --colored --rounded"}
+::board[`--warns=16`]{cmd="--width=30 --height=30 --seed=7 --warns=16 --colored --rounded"}
 :::
 
 **`--wlateral` — turning sideways instead of pushing on**
 
 :::compare{stats="pieces avgLen"}
-::board[`--wlateral=0`]{cmd="--width=30 --height=30 --seed=7 --wlateral=0 --colored"}
-::board[`--wlateral=20`]{cmd="--width=30 --height=30 --seed=7 --wlateral=20 --colored"}
+::board[`--wlateral=0`]{cmd="--width=30 --height=30 --seed=7 --wlateral=0 --colored --rounded"}
+::board[`--wlateral=20`]{cmd="--width=30 --height=30 --seed=7 --wlateral=20 --colored --rounded"}
 :::
 
 **`--probe` — one target length for every arrow**
 
 :::compare{stats="pieces longest"}
-::board[`--probe=1 --probelen=4`]{cmd="--width=30 --height=30 --seed=7 --probe=1 --probelen=4 --colored"}
-::board[`--probe=1 --probelen=200`]{cmd="--width=30 --height=30 --seed=7 --probe=1 --probelen=200 --colored"}
+::board[`--probe=1 --probelen=4`]{cmd="--width=30 --height=30 --seed=7 --probe=1 --probelen=4 --colored --rounded"}
+::board[`--probe=1 --probelen=200`]{cmd="--width=30 --height=30 --seed=7 --probe=1 --probelen=200 --colored --rounded"}
 :::
 
 **`--start` — the knob you cannot see**
 
 :::compare{stats="pieces f0"}
-::board[`--start=layers`]{cmd="--width=30 --height=30 --seed=7 --start=layers --colored"}
-::board[`--start=tunnels`]{cmd="--width=30 --height=30 --seed=7 --start=tunnels --colored"}
+::board[`--start=layers`]{cmd="--width=30 --height=30 --seed=7 --start=layers --colored --rounded"}
+::board[`--start=tunnels`]{cmd="--width=30 --height=30 --seed=7 --start=tunnels --colored --rounded"}
 :::
 
 The two `--start` boards look much alike, and that is the point: this knob barely touches the drawing. What it changes is how many arrows are free at any moment, and that is what makes a board easy or hard. The default, `--start=random`, sits between the two. A number from 0.3 to 0.7 mixes `layers` and `tunnels` instead of choosing one: it is the share of arrows that start as tunnels.

@@ -90,6 +90,7 @@ test('each page lists its sections, as links to that page', async () => {
       ['Size, and values the board cannot draw', '/docs/element'],
       ['The margin', '/docs/element'],
       ['The dot grid', '/docs/element'],
+      ['Rounded corners', '/docs/element'],
       ['Riding the track', '/docs/element'],
       ['Slots', '/docs/element'],
       ['Playing the board', '/docs/element'],

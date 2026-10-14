@@ -186,7 +186,8 @@ Deno.test('a posted look is stored lower-case, and a view without one takes the 
     const second = await post(base, bare)
     assertEquals(second.status, 201)
     const { meta: plain }: Answer = await second.json()
-    assertEquals(plain.view, { ...DEFAULT_VIEW, ...b.view, rounded: true })
+    // Square: the server states `rounded`, so a posted board never reaches `storedView`'s rule for old views.
+    assertEquals(plain.view, { ...DEFAULT_VIEW, ...b.view, rounded: false })
   }))
 
 Deno.test('POST accepts a stuck report whose sizes fit within remaining', () =>

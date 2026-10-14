@@ -424,9 +424,9 @@ A number or a colour the board cannot draw is replaced, silently and only in the
 The board is drawn with a margin of `pad` cells on every side, so an arrowhead in an edge cell does not end flush with the edge of the background. The margin is part of what the board is fitted into, and a leaving arrow is clipped to it: the arrow vanishes at the margin's outer edge instead of riding on into the empty background beyond. Changing `pad` fits the board again.
 
 :::compare
-::board[`--pad=0`]{cmd="--width=12 --height=12 --seed=7 --pad=0"}
-::board[default]{cmd="--width=12 --height=12 --seed=7"}
-::board[`--pad=16`]{cmd="--width=12 --height=12 --seed=7 --pad=16"}
+::board[`--pad=0`]{cmd="--width=12 --height=12 --seed=7 --pad=0 --rounded"}
+::board[default]{cmd="--width=12 --height=12 --seed=7 --rounded"}
+::board[`--pad=16`]{cmd="--width=12 --height=12 --seed=7 --pad=16 --rounded"}
 :::
 
 A margin measured in cells shrinks with them: on a large board in a small host it would come to a pixel or two. So it is widened until it is `MIN_PAD_PX` pixels on screen. A `pad` of `0` stays `0`: asking for no margin is not asking for a small one.
@@ -440,11 +440,22 @@ With `showPoints` the board draws one dot per cell under the arrows, like the ru
 A full board shows none of its dots: the arrows cover every cell, and each dot sits under a line, well inside its width. The dots appear cell by cell as arrows leave, or where the generator left a cell empty. If the grid seems to be missing, look for an arrow covering the cell before suspecting anything else. With thin lines and larger dots, they show through:
 
 :::compare
-::board[`--points`]{cmd="--width=12 --height=12 --seed=7 --points"}
-::board[`--points --line=0.2 --point-radius=0.15`]{cmd="--width=12 --height=12 --seed=7 --points --line=0.2 --point-radius=0.15"}
+::board[`--points`]{cmd="--width=12 --height=12 --seed=7 --points --rounded"}
+::board[`--points --line=0.2 --point-radius=0.15`]{cmd="--width=12 --height=12 --seed=7 --points --line=0.2 --point-radius=0.15 --rounded"}
 :::
 
 Below `MIN_POINT_CELL_PX` pixels per cell the grid hides itself, and `showPoints` stays as it is: packed that tightly, the dots would form a moiré pattern rather than read as a grid. Zooming back in brings it back.
+
+## Rounded corners {#rounded}
+
+With `view.rounded` the board rounds every place where an arrow turns and ends its tail in a disc. Without it, the default, the turns are angular and the tail is a square. The puzzle is the same either way: only the drawing changes. The command line draws the same with `--rounded`.
+
+`board.view = { ...board.view, rounded: true }`
+
+:::compare
+::board[default]{cmd="--width=12 --height=12 --seed=7"}
+::board[`--rounded`]{cmd="--width=12 --height=12 --seed=7 --rounded"}
+:::
 
 ## Riding the track {#track}
 
@@ -491,9 +502,9 @@ Assigning a different `board` starts a new game and redraws the board in full; a
 `theme` names one of the built-in themes in the table below. Each brings a background, an arrow colour, a highlight and a palette for coloured arrows. A field stated in `view` always wins over the theme's, and the theme wins over the element's own default. A theme paints the background, the arrows and the highlight with or without `enableColors`; only the palette needs that permission, since it colours the arrows one by one.
 
 :::compare
-::board[`gruvbox-dark`]{cmd="--width=12 --height=12 --seed=7 --theme=gruvbox-dark --colored"}
-::board[`catppuccin-latte`]{cmd="--width=12 --height=12 --seed=7 --theme=catppuccin-latte --colored"}
-::board[`rose-pine-moon`]{cmd="--width=12 --height=12 --seed=7 --theme=rose-pine-moon --colored"}
+::board[`gruvbox-dark`]{cmd="--width=12 --height=12 --seed=7 --theme=gruvbox-dark --colored --rounded"}
+::board[`catppuccin-latte`]{cmd="--width=12 --height=12 --seed=7 --theme=catppuccin-latte --colored --rounded"}
+::board[`rose-pine-moon`]{cmd="--width=12 --height=12 --seed=7 --theme=rose-pine-moon --colored --rounded"}
 :::
 
 The themes are light and dark versions of open-source editor themes, and the notice of where each comes from, under which licence, travels with them:

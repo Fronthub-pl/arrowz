@@ -36,6 +36,16 @@ test('a renamed pair still opens with its meta', async () => {
   expect(outcome.ok && outcome.meta?.id).toBe(metaJson.id)
 })
 
+test('a meta saved before rounded existed opens as rounded, in its view and its recipes', async () => {
+  const { board, metaJson } = await fileFixture(1)
+  const { rounded: _top, ...view } = metaJson.view
+  const recipe = { ...metaJson, id: 'r1', view }
+  const meta = json(`${metaJson.id}.json`, { ...metaJson, view, sources: [recipe] })
+  const outcome = await readBoardFiles([board, meta])
+  expect(outcome.ok && outcome.meta?.view.rounded).toBe(true)
+  expect(outcome.ok && outcome.meta?.sources[0]?.view.rounded).toBe(true)
+})
+
 test('the meta of another board is refused', async () => {
   const one = await fileFixture(1)
   const two = await fileFixture(2)

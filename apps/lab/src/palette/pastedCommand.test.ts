@@ -34,7 +34,7 @@ describe('a pasted command', () => {
     expect(isCommandQuery('-')).toBe(false)
     expect(isCommandQuery('--seed')).toBe(false)
     expect(isCommandQuery('--seed=5')).toBe(true)
-    expect(isCommandQuery('--colored --sharp')).toBe(true)
+    expect(isCommandQuery('--colored --rounded')).toBe(true)
   })
 
   it('is recognised for a line copied from a terminal, prompt and environment words included', () => {
@@ -81,6 +81,15 @@ describe('a pasted command', () => {
     )
   })
 
+  it('says why --sharp is gone, in both languages', () => {
+    const p = readCommand('--width=9 --height=9 --sharp').problems[0]
+    if (p === undefined) throw new Error('expected a retired problem')
+    expect(problemWords(dictionary('en'), p)).toBe('--sharp is gone: square is the default now, drop it')
+    expect(problemWords(dictionary('pl'), p)).toBe(
+      '--sharp już nie istnieje: rogi są teraz domyślnie kanciaste, pomiń tę flagę',
+    )
+  })
+
   it('lists every problem in Polish and cannot be chosen', () => {
     const row = pastedRow(deps('pl').d, "--width=2000 --nope --ink='#11")
     expect(row.command.disabled).toBe(true)
@@ -113,6 +122,7 @@ describe('a pasted command', () => {
       '--width=9 --height=9 --palette=red',
       `--width=9 --height=9 --palette=${Array(9).fill('#112233').join(',')}`,
       '--width=9 --height=9 --nope',
+      '--width=9 --height=9 --sharp',
       '--width=9',
       "--width=9 --height=9 --ink='#1",
     ]

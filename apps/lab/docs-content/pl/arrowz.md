@@ -2,7 +2,7 @@
 
 Arrowz to łamigłówka. Dostajesz prostokąt wypełniony strzałkami i usuwasz je po jednej, we właściwej kolejności. W laboratorium powstają jej plansze: wybierasz ustawienia, generator układa planszę, a Ty oglądasz, co z tego wyszło.
 
-::board[Plansza 40 na 40]{cmd="--width=40 --height=40 --seed=7"}
+::board[Plansza 40 na 40]{cmd="--width=40 --height=40 --seed=7 --rounded"}
 
 > Arrowz jest w wersji alfa: generator plansz jest gotowy, a sama gra — życia i wynik — jest zaprojektowana, ale jeszcze nie zbudowana. Trzy plansze w sekcji „Jedna reguła” już grają według niej.
 
@@ -12,7 +12,7 @@ Plansza to siatka komórek, a każdą komórkę zajmuje strzałka. Strzałka to 
 
 Oto mała plansza, osiem komórek na osiem, z każdą strzałką we własnym kolorze:
 
-::board[Mała plansza, każda strzałka we własnym kolorze]{cmd="--width=8 --height=8 --seed=7 --colored"}
+::board[Mała plansza, każda strzałka we własnym kolorze]{cmd="--width=8 --height=8 --seed=7 --colored --rounded"}
 
 Prawdziwa plansza rysuje wszystkie strzałki jednym kolorem, bo rozróżnianie ich na oko to właśnie gra. Małe plansze niżej pokazują tylko strzałki, o które chodzi, każdą we własnym kolorze, żeby łatwo było ją śledzić.
 

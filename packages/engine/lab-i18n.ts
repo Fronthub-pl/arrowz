@@ -321,6 +321,7 @@ export const EN = {
     argRetiredOneMode: (arg: string) => `${arg} is gone: the command has one mode now, drop it`,
     argRetiredBoard: (arg: string) => `${arg} is gone: a board file is always written, drop it`,
     argRetiredSpacing: (arg: string, use: string) => `${arg} is gone: the spacing strength is fixed now; use ${use}`,
+    argRetiredSquare: (arg: string) => `${arg} is gone: square is the default now, drop it`,
     argNotStart: (arg: string, words: string, min: number, max: number) =>
       `${arg} is not ${words} and not a number in ${min}..${max}`,
     argOutside: (arg: string, min: number, max: number) => `${arg} is outside ${min}..${max}`,
@@ -1184,6 +1185,7 @@ export const PL: Translation = {
     argRetiredOneMode: (arg) => `${arg} już nie istnieje: komenda ma teraz jeden tryb, pomiń tę flagę`,
     argRetiredBoard: (arg) => `${arg} już nie istnieje: plik planszy powstaje zawsze, pomiń tę flagę`,
     argRetiredSpacing: (arg, use) => `${arg} już nie istnieje: siła odstępu jest teraz stała; użyj ${use}`,
+    argRetiredSquare: (arg) => `${arg} już nie istnieje: rogi są teraz domyślnie kanciaste, pomiń tę flagę`,
     argNotStart: (arg, words, min, max) => `${arg} to ani ${words}, ani liczba z zakresu ${min}..${max}`,
     argOutside: (arg, min, max) => `${arg} jest poza zakresem ${min}..${max}`,
     argNotNumber: (arg) => `${arg} nie jest liczbą`,

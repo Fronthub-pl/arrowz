@@ -150,7 +150,7 @@ out when it fits in a line and described when it does not.
 | `DEFAULT_PAD` | `4` | Cells of margin unless a view says otherwise. |
 | `DEFAULT_POINT_COLOR` | `'#c9c9d6'` | The point grid's dot colour. |
 | `DEFAULT_POINT_RADIUS` | `0.06` | The point grid's dot radius, in cells. |
-| `DEFAULT_ROUNDED` | `true` | Whether turns are drawn rounded and the tail as a disc, unless a surface is told otherwise. |
+| `DEFAULT_ROUNDED` | `false` | Whether turns are drawn rounded and the tail as a disc, unless a surface is told otherwise. |
 | `DEFAULT_SHOW_POINTS` | `false` | The point grid is off unless a view asks for it. |
 | `DIRS` | the four `Dir`s: up, right, down, left | The directions, indexed by `Piece.dir`. |
 | `INACTIVE_REASONS` | a `Record<InactiveKey, string>` | The English reason a knob has no effect, keyed by what `ParamSpec.inactive` returns. |
@@ -230,6 +230,7 @@ out when it fits in a line and described when it does not.
 | `splitCommand` | `(text: string) => { argv: string[]; problems: ArgProblem[] }` | One pasted line as the argv a shell would hand the CLI, with shell quoting and continuation lines; a leading `arrowz carve` or `deno task carve` is dropped. |
 | `startChoiceOf` | `(params: Params) => StartChoice` | Which start choice a stored `headBias` and `mix` stand for. |
 | `storeRequest` | `(board: BoardFile, params: Params, view: View, source: string, metrics?: StoreRequest['metrics']) => StoreRequest` | The body of a board-store write, with the command built here so the two agree. |
+| `storedView` | `(view: Partial<View>) => View` | A stored view with the fields a later knob added filled in: the defaults, and `rounded` on, as a view saved before that field was drawn. |
 | `svgOptions` | `(view: View) => SvgOptions` | The `SvgOptions` a view implies, with its theme resolved under the stated colours. |
 | `viewNumberOf` | `(raw: string, field: ViewNumber) => number` | A view number as a person typed it: empty or unreadable is the default, out of range is clamped, whole fields round. |
 | `wordFor` | `(key: ParamKey, value: number) => string \| null` | The word a knob's value is spelled with, or `null`: `wordFor('Lmax', 0)` is `'auto'`. |
@@ -239,12 +240,12 @@ out when it fits in a line and described when it does not.
 | `CARVE_FLAGS` | 53 flags, as they are typed | Every flag the CLI takes; `-h` is the one with a single dash. |
 | `COMMAND_PREFIX` | `'arrowz carve'` | How the installed CLI is invoked; the lab prints it and the store records it. |
 | `COMMAND_PREFIXES` | `['arrowz carve', 'deno task carve']` | Every spelling a reader takes for the CLI: the installed program, and the repository task. |
-| `DEFAULT_VIEW` | a `View` | The view of a board nobody has styled: cell 12, line 0.5, automatic head width, rounded, no theme, margin 4. |
+| `DEFAULT_VIEW` | a `View` | The view of a board nobody has styled: cell 12, line 0.5, automatic head width, square corners, no theme, margin 4. |
 | `ENV_VARS` | 4 `{ name, usage }` rows | The environment variables `carve` and `report` read, each with the words `--help` prints for it. |
 | `ENV_WORD_SOURCE` | `'[A-Z_][A-Z0-9_]*=\S*'` | The pattern of a `NAME=value` environment word, shared with the lab's command palette. |
 | `KNOB_ROWS` | 27 `KnobRow`s | The knob table `--help=knobs` prints: one row per knob, with `headBias` and `mix` merged into `--start`. |
 | `MIX_START` | `0.5` | The share mixing starts from when the stored value is not a share. |
-| `RETIRED_FLAGS` | 17 retired flags, each with its replacement | The spellings the CLI refuses, each with the flag that replaced it. |
+| `RETIRED_FLAGS` | 18 retired flags, each with its replacement | The spellings the CLI refuses, each with the flag that replaced it. |
 | `RULE_ROWS` | 5 rules, each `{ key, flags, reason }` | The cross-knob rules, with the flags each is about. |
 | `START` | `{ words, mix }` | The `--start` surface: each word stores a pair of `headBias` and `mix`; a number stores the mixing share, within `mix`. |
 | `START_CHOICES` | `['layers', 'random', 'tunnels', 'mixing']` | The start choices, in the order a surface offers them. |
@@ -257,7 +258,7 @@ out when it fits in a line and described when it does not.
 | `EnvVar` | `(typeof ENV_VARS)[number]['name']` | The name of one of them. |
 | `KnobRow` | `{ group: ParamGroup; flag: string; values: string; label: string; step: string; def: string; help: string }` | One row of the knob table, every cell spelled the way the flag spells it. |
 | `ParsedArgs` | `{ params: Params; view: View; pins: ParamKey[]; choice: SimpleChoice & { random: boolean }; rest: string[]; errors: string[]; problems: ArgProblem[] }` | What one command line asked for: the knobs (the choice with the pins over it), the view, the mode flags in `rest`, and its errors, as text and typed. |
-| `RetiredWhy` | `'oneMode' \| 'boardAlways' \| 'spacingFixed'` | Which explanation a retired flag's replacement carries, for a translation. |
+| `RetiredWhy` | `'oneMode' \| 'boardAlways' \| 'spacingFixed' \| 'squareDefault'` | Which explanation a retired flag's replacement carries, for a translation. |
 | `StartChoice` | `keyof typeof START.words \| 'mixing'` | How a surface names the start: a word of `START`, or `mixing`. |
 
 ### `@fronthub/arrowz-engine/simple`

@@ -137,7 +137,7 @@ test('the line is butt at both its outer ends; merging leaves no interior join t
 })
 
 test('a one-cell piece has no line segments and still has a head and a tail', () => {
-  const scene = tesselateBoard(board(7, { pieces: [DOT] }), DEFAULT_VIEW, NONE)
+  const scene = tesselateBoard(board(7, { pieces: [DOT] }), { ...DEFAULT_VIEW, rounded: true }, NONE)
   const r = scene.rangeOf(DOT.id)
   expect(r?.line.count).toBe(0)
   const shape = pieceShape(DOT, {
@@ -246,7 +246,7 @@ test('a highlighted piece is drawn thicker, as toSvg draws it', () => {
 })
 
 test('a ridden piece follows trackLine, corners included', () => {
-  const view = DEFAULT_VIEW
+  const view = { ...DEFAULT_VIEW, rounded: true }
   const front = frontOf(BENT, view, false, BENT.dir)
   const out = new Float32Array(rideVertexBound(BENT) * 2)
   const discs = new Float32Array(rideDiscBound(BENT) * FLOATS_PER_DISC)
@@ -451,7 +451,7 @@ test("zeroing one piece's discs leaves its neighbours' discs byte for byte", () 
 })
 
 test('the colour streams carry hueBytes for every disc of a piece too', () => {
-  const scene = tesselateBoard(board(7, { pieces: [BENT] }), { ...DEFAULT_VIEW, colored: true }, NONE)
+  const scene = tesselateBoard(board(7, { pieces: [BENT] }), { ...DEFAULT_VIEW, rounded: true, colored: true }, NONE)
   const colors = tesselateColors(scene, hueBytes)
   expect(colors.discs.length).toBe((scene.discs.length / FLOATS_PER_DISC) * 4)
   const r = scene.rangeOf(BENT.id)

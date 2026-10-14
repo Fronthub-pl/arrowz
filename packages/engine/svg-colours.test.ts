@@ -37,7 +37,7 @@ Deno.test('an empty palette keeps the golden angle', () => {
 // Theme `ayu-light` has its highlight equal to its ink; the highlight group sets
 // no stroke, so a highlighted line without its own would not be drawn.
 Deno.test('a highlight equal to the ink still draws the highlighted pieces', () => {
-  const svg = toSvg(board, { top: 1, ink: '#5c6166', highlight: '#5c6166' })
+  const svg = toSvg(board, { rounded: true, top: 1, ink: '#5c6166', highlight: '#5c6166' })
   assertMatch(svg, /stroke-linejoin="round">\n<polyline points="[^"]*" stroke="#5c6166"\/>\n<\/g>/)
 })
 

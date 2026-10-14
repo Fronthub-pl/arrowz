@@ -41,7 +41,7 @@ export const DEFAULT_HEAD_HEIGHT = 1
  * here for the same reason DEFAULT_HEAD_HEIGHT does: geometry.ts is the one
  * cycle-free home command.ts, engine.ts and the board element can all reach.
  */
-export const DEFAULT_ROUNDED = true
+export const DEFAULT_ROUNDED = false
 
 export interface ShapeOptions {
   /** Size of one cell in output units. */
