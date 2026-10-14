@@ -28,7 +28,6 @@ function arrowz(argv, env = {}) {
   // The caller's colour settings would colour the help this compares as plain text.
   delete inherited.FORCE_COLOR
   delete inherited.NO_COLOR
-  delete inherited.NODE_DISABLE_COLORS
   const r = spawnSync(process.execPath, [bundle, ...argv], { cwd, env: { ...inherited, ...env }, encoding: 'utf8' })
   return { status: r.status, stdout: r.stdout, stderr: r.stderr, cwd }
 }
