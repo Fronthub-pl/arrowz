@@ -273,15 +273,17 @@ function lowContrast(root: HTMLElement): Finding[] {
 const BOARD_FLOORS: Readonly<Record<number, number>> = { 1440: 501, 1024: 424, 768: 678 }
 
 /**
- * The same with the report open beside the board too: from 1280 up the board
- * gives the report what it takes past the right column (console.css).
+ * The board's floor at the checkpoint sizes while the report is open beside
+ * it: from 1280 up the board gives the report what it takes past the right
+ * column (console.css).
  */
 const REPORT_FLOORS: Readonly<Record<number, number>> = { 1440: 471 }
 
 /**
  * The board keeps a usable width: `BOARD_FLOORS` at the checkpoint sizes
  * (`REPORT_FLOORS` while the report is open beside it), at least 320px at any
- * other width from 768 up whatever the drawers do, and edge to edge (less
+ * other width from 768 up whatever the drawers do (under a finger at 1280-1308
+ * with both drawers open it is about 301px, accepted), and edge to edge (less
  * 16px) on a phone. Solo is exempt: the board takes the panel.
  */
 function boardWidth(root: HTMLElement, solo: boolean): Finding[] {

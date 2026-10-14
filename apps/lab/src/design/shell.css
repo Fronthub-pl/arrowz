@@ -299,8 +299,9 @@ body {
 }
 /* The settings drawer: the report's, mirrored onto the stage's left edge.
    Closed, only its 28px handle keeps a column. Open by default; unlike the
-   report it does not cover the board (the board gives way, console.css), so
-   a knob change is always in sight. Its hide waits out the slide too. */
+   report below 1280 it never covers the board (the board gives way,
+   console.css), so a knob change is always in sight. Its hide waits out the
+   slide too. */
 .fw-stage {
   --ls-w: clamp(25rem, calc(33vw + 172px), 47rem);
 }

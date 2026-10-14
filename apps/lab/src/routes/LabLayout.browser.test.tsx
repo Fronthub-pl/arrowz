@@ -98,6 +98,25 @@ test('at 1024×768 the open report lies over a board that does not move', async 
   expect(rect(screen.container, '.fw-drawer').left).toBeLessThan(after.right)
 }, 40_000)
 
+// The report is remembered open, so `F` over it is an everyday state: the
+// stage keeps `report-open` in solo, yet the hidden report takes no room.
+test('at 1440×877 solo over the open report gives the board the whole lab', async () => {
+  await page.viewport(1440, 877)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await screen.getByRole('button', { name: 'report', exact: true }).click()
+  await settleTransitions()
+  await userEvent.keyboard('f')
+  await settleTransitions()
+  expect(useStore.getState().ui.solo).toBe(true)
+  const lab = rect(screen.container, '.fw-lab')
+  const board = rect(screen.container, '.fw-board')
+  expect(board.left).toBeCloseTo(lab.left + 16, 0)
+  expect(board.right).toBeCloseTo(lab.right - 16, 0)
+  await userEvent.keyboard('f')
+  expect(useStore.getState().ui.solo).toBe(false)
+}, 40_000)
+
 // Closing slides the whole drawer out, report and all: the report turns hidden
 // only once the 180ms slide is over, or only the bare 28px handle would cross
 // the board. Read on the node right after the click, and again once the
@@ -752,7 +771,8 @@ test('s toggles the settings, and a modifier, a repeat or a field does nothing',
 }, 40_000)
 
 // One layer per press, the report before the settings: the report lies over
-// the board, the settings drawer beside it. A third press has nothing left.
+// the board below 1280 and over the right column above, the settings drawer
+// beside the board. A third press has nothing left.
 test('Escape closes the report first, then the settings, one per press', async () => {
   await page.viewport(1400, 900)
   await mountApp('advanced')
@@ -788,9 +808,10 @@ test('s does nothing on the docs route', async () => {
   }
 }, 40_000)
 
-// Unlike the report, the open settings drawer does not cover the board: from
-// 1024px up the board's track gives way by the drawer's width. Closed it is its
-// 28px handle on the stage's left edge, the console hidden once the slide is over.
+// Unlike the report below 1280, the open settings drawer never covers the
+// board: from 1024px up the board's track gives way by the drawer's width.
+// Closed it is its 28px handle on the stage's left edge, the console hidden
+// once the slide is over.
 test.each([
   [1024, 768],
   [1400, 900],

@@ -72,7 +72,8 @@ describe('the switches the run column owns', () => {
     expect(store.ui.report).toBe(false)
   })
 
-  // The settings drawer opens by default, unlike the report: it does not cover the board.
+  // The settings drawer opens by default, unlike the report: it never covers
+  // the board, which the report does below 1280.
   it('keeps the settings drawer open at first, sets it as given, and toggles it', () => {
     const store = slice()
     expect(store.ui.settings).toBe(true)
