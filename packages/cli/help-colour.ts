@@ -1,7 +1,10 @@
-// The help in colour on a terminal. `styleText` decides whether stdout takes
-// colour (a TTY, NO_COLOR, NODE_DISABLE_COLORS, FORCE_COLOR), so a pipe or a
-// file gets the plain text `helpText` returns. Each escape wraps a token after
-// `padEnd` has run, so the columns stay where the plain text has them.
+// The help in colour on a terminal, so a pipe or a file gets the plain text
+// `helpText` returns. Each escape wraps a token after `padEnd` has run, so the
+// columns stay where the plain text has them.
+// The help decides from FORCE_COLOR, NO_COLOR and the terminal itself, not from
+// the runtime's own check: that one reads many more variables (TERM, CI, ...),
+// which a Deno grant would have to list. FORCE_COLOR and NO_COLOR need no grant.
+import process from 'node:process'
 import { styleText } from 'node:util'
 
 /** The two styles the help uses. */
@@ -12,8 +15,26 @@ const HEADING = /^\S.*:$/
 /** A flag row: two spaces, then a first column that starts with a dash and ends at the first double space. */
 const FLAG_ROW = /^( {2})(-.*?)(?= {2})/
 
+/** Whether to colour: FORCE_COLOR (unless 0 or false) forces it, NO_COLOR forbids it, else a terminal gets it. */
+export function colourWanted(
+  env: { readonly FORCE_COLOR?: string | undefined; readonly NO_COLOR?: string | undefined },
+  tty: boolean,
+): boolean {
+  if (env.FORCE_COLOR !== undefined) return env.FORCE_COLOR !== '0' && env.FORCE_COLOR !== 'false'
+  if (env.NO_COLOR !== undefined && env.NO_COLOR !== '') return false
+  return tty
+}
+
+function defaultStyle(): Style {
+  const on = colourWanted(
+    { FORCE_COLOR: process.env.FORCE_COLOR, NO_COLOR: process.env.NO_COLOR },
+    process.stdout.isTTY === true,
+  )
+  return on ? (format, t) => styleText(format, t, { validateStream: false }) : (_, t) => t
+}
+
 /** `text` with its headings bold and the first column of its flag rows coloured, as far as stdout takes colour. */
-export function colourHelp(text: string, style: Style = (format, t) => styleText(format, t)): string {
+export function colourHelp(text: string, style: Style = defaultStyle()): string {
   return text
     .split('\n')
     .map((line) =>

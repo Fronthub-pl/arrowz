@@ -724,9 +724,7 @@ a board, keep that line.
 | `GIANT_DEBUG` | set to `1`, prints how each very long arrow (a giant) was grown, on stderr |
 
 On a terminal, `--help` also follows the usual colour settings: `NO_COLOR`
-turns the colour off, and `FORCE_COLOR` turns it on even into a pipe. In a
-clone, the `carve` task also lets Deno read the few variables, such as `TERM`
-and `COLORTERM`, by which it tells whether the terminal shows colour.
+turns the colour off, and `FORCE_COLOR` turns it on even into a pipe.
 
 ---
 

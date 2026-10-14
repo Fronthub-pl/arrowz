@@ -277,25 +277,6 @@ const envGranted = new Set(
   ),
 )
 
-/**
- * What Deno's `styleText` reads on a terminal to tell whether it shows colour, besides
- * FORCE_COLOR and NO_COLOR, which Deno 2.9 lets a program read without a grant. The
- * `carve` task grants these so `--help` colours without a permission prompt. They are
- * the runtime's, not the CLI's, so neither the help nor the README lists them.
- */
-const STYLE_ENV = [
-  'CI',
-  'COLORTERM',
-  'NODE_DISABLE_COLORS',
-  'TEAMCITY_VERSION',
-  'TERM',
-  'TERM_PROGRAM',
-  'TF_BUILD',
-  'TMUX',
-]
-/** The grants the CLI itself reads: `ENV_VARS`. */
-const ownGranted = new Set([...envGranted].filter((name) => !STYLE_ENV.includes(name)))
-
 /** Whether the README writes `flag` as a token of its own, not inside a longer flag. */
 const names = (flag: string): boolean => new RegExp(`(?<![\\w-])${flag}(?![\\w-])`).test(cliReadme)
 
@@ -310,8 +291,8 @@ Deno.test('the CLI README names every flag report takes', () => {
 })
 
 Deno.test('the CLI README names every variable the tasks may read', () => {
-  assert(ownGranted.size > 0, 'no --allow-env grant was found in packages/cli/deno.json')
-  assertEquals([...ownGranted].filter((name) => !cliReadme.includes(name)), [])
+  assert(envGranted.size > 0, 'no --allow-env grant was found in packages/cli/deno.json')
+  assertEquals([...envGranted].filter((name) => !cliReadme.includes(name)), [])
 })
 
 Deno.test('the CLI README runs every task of the CLI', () => {
@@ -334,15 +315,8 @@ Deno.test('every variable the CLI README names is one a task may read', () => {
 })
 
 // The help and the Docs page list ENV_VARS; the runtime lets the CLI read the grant.
-Deno.test('ENV_VARS is exactly what the tasks may read, besides the colour check', () => {
-  assertEquals(ENV_VARS.map((v) => v.name).sort(), [...ownGranted].sort())
-})
-
-Deno.test('the carve task grants everything the colour check reads on a terminal', () => {
-  const carve = new Set(
-    [...(cliTasks.carve ?? '').matchAll(/--allow-env=([\w,]+)/g)].flatMap((m) => (m[1] ?? '').split(',')),
-  )
-  assertEquals(STYLE_ENV.filter((name) => !carve.has(name)), [])
+Deno.test('ENV_VARS is exactly what the tasks may read', () => {
+  assertEquals(ENV_VARS.map((v) => v.name).sort(), [...envGranted].sort())
 })
 
 Deno.test('every task the CLI README runs exists', () => {

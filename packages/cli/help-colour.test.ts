@@ -1,6 +1,6 @@
 import { assertEquals } from '@std/assert'
 import { helpText } from '@fronthub/arrowz-engine/command'
-import { colourHelp, type Style } from './help-colour.ts'
+import { colourHelp, colourWanted, type Style } from './help-colour.ts'
 
 // A visible stand-in for the escapes, so the rules are tested whatever the test's stdout is.
 const tag: Style = (format, text) => `<${format}>${text}</${format}>`
@@ -41,4 +41,19 @@ Deno.test('colourHelp keeps the columns of both helps and reaches every flag row
     const rows = plain.split('\n').filter((l) => l.startsWith('  -')).length
     assertEquals(coloured.split('\n').filter((l) => l.startsWith('  <cyan>-')).length, rows)
   }
+})
+
+Deno.test('colourWanted: FORCE_COLOR decides first, then NO_COLOR, then the terminal', () => {
+  const cases: [string, { FORCE_COLOR?: string; NO_COLOR?: string }, boolean, boolean][] = [
+    ['FORCE_COLOR=1 on a pipe', { FORCE_COLOR: '1' }, false, true],
+    ['FORCE_COLOR empty', { FORCE_COLOR: '' }, false, true],
+    ['FORCE_COLOR=0 on a terminal', { FORCE_COLOR: '0' }, true, false],
+    ['FORCE_COLOR=false on a terminal', { FORCE_COLOR: 'false' }, true, false],
+    ['NO_COLOR=1 on a terminal', { NO_COLOR: '1' }, true, false],
+    ['NO_COLOR empty on a terminal', { NO_COLOR: '' }, true, true],
+    ['both set', { FORCE_COLOR: '1', NO_COLOR: '1' }, false, true],
+    ['neither, terminal', {}, true, true],
+    ['neither, pipe', {}, false, false],
+  ]
+  for (const [name, env, tty, want] of cases) assertEquals(colourWanted(env, tty), want, name)
 })

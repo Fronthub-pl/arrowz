@@ -675,8 +675,7 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
 /**
  * The variables `carve` and `report` read, in the order `--help` names them,
  * each as the help writes it. The tasks' `--allow-env` grants are these names
- * plus what the runtime's colour check reads (`STYLE_ENV` in
- * packages/cli/guard-readme.test.ts), and the Docs page's table lists them.
+ * (packages/cli/guard-readme.test.ts), and the Docs page's table lists them.
  */
 export const ENV_VARS = [
   { name: 'ARROWZ_BOARDS_DIR', usage: 'ARROWZ_BOARDS_DIR (board store)' },

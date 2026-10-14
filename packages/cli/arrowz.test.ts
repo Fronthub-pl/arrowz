@@ -110,10 +110,9 @@ Deno.test('ARROWZ_BOARDS_DIR moves the store, and a relative one starts at the w
   assertEquals([...Deno.readDirSync(cwd)].map((e) => e.name), ['elsewhere'])
 })
 
-// The task's own grant under --no-prompt, so a missing name throws NotCapable instead
-// of asking. Forced colour makes Deno read only part of what a terminal makes it read;
-// `STYLE_ENV` in guard-readme.test.ts holds the whole list.
-Deno.test('the carve task grants what --help reads to colour itself', () => {
+// The task's own grant under --no-prompt, so a missing name throws NotCapable instead of
+// asking. The help reads only FORCE_COLOR and NO_COLOR, which need no grant.
+Deno.test('the carve task runs --help in colour under its own grant, with no prompt', () => {
   const tasks = (JSON.parse(Deno.readTextFileSync(join(here, 'deno.json'))) as { tasks: Record<string, string> })
     .tasks
   const [deno, run, ...rest] = (tasks.carve ?? '').split(' ')
@@ -121,4 +120,9 @@ Deno.test('the carve task grants what --help reads to colour itself', () => {
   const r = arrowz(['--help'], { run: ['run', '--no-prompt', ...rest], env: { FORCE_COLOR: '1' } })
   assertEquals(r.status, 0, r.stderr)
   assertStringIncludes(r.stdout, '\x1b[1mEveryday:\x1b[22m')
+})
+
+Deno.test('FORCE_COLOR=0 keeps the help plain', () => {
+  const r = arrowz(['carve', '--help'], { env: { FORCE_COLOR: '0' } })
+  assertEquals(r.stdout, helpText() + '\n')
 })
