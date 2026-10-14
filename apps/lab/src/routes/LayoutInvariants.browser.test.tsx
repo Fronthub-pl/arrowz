@@ -96,7 +96,14 @@ const SIZES: readonly (readonly [number, number])[] = [
  * them, and drops a key whose list is empty. The comparison is exact both
  * ways, so an entry left behind after its fix is red too.
  */
-const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {}
+const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
+  'report-open@1920x1080': ['board-cover'],
+  'report-open@1440x900': ['board-cover'],
+  'report-open@1280x800': ['board-cover'],
+  'report-open@1440x877': ['board-cover'],
+  'report-open@1599x900': ['board-cover'],
+  'report-open@2560x1200': ['board-cover'],
+}
 
 /**
  * The transitions played out, then two frames: the element takes its new size
@@ -256,6 +263,17 @@ test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const
 )
 
 test.each(BANDED)('the banded %s state at %d×%d keeps every layout invariant', matrixCase, 40_000)
+
+// The open report beside the board, past the matrix's sizes: a laptop's
+// window, the L band's widest (the report reaches furthest past the right
+// column there) and a width where both columns' clamps are at their maximum.
+const REPORT_CASES: readonly (readonly [State, number, number])[] = [
+  ['report-open', 1440, 877],
+  ['report-open', 1599, 900],
+  ['report-open', 2560, 1200],
+]
+
+test.each(REPORT_CASES)('the %s state at %d×%d keeps every layout invariant', matrixCase, 40_000)
 
 // The board mode's line is on screen only in Inspect and Play, so the matrix
 // above sees the control but never the line: the lab's three widths and a
@@ -567,6 +585,7 @@ test('every KNOWN_RED key names a case this file runs', () => {
   const keys = new Set([
     ...STATES.flatMap((state) => SIZES.map(([w, h]) => `${state}@${w}x${h}`)),
     ...BANDED.map(([state, w, h]) => `${state}@${w}x${h}`),
+    ...REPORT_CASES.map(([state, w, h]) => `${state}@${w}x${h}`),
     ...LANG_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),
     ...MODE_CASES.map(([state, w, h]) => `${state}@${w}x${h}`),
     ...MODE_PL_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),

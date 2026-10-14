@@ -471,10 +471,14 @@ function frameOverlap(root: HTMLElement): Finding[] {
  * The lab's controls around the board and the element's own bar leave the
  * drawn board clear at fit: a piece under one is reachable only by panning.
  * The drawn rectangle is the board's W×H through the element's `viewport`,
- * from the host's top-left.
+ * from the host's top-left. From 1280 up, where the right column stands beside
+ * the board, the open report covers none of them either: below 1280 the column
+ * is a bar under the board and the report lies over the board by design.
  */
 function boardCover(root: HTMLElement): Finding[] {
   const out: Finding[] = []
+  const open = window.innerWidth >= 1280 ? root.querySelector('.fw-drawer.open') : null
+  const report = open !== null && rendered(open) ? open : null
   for (const element of root.querySelectorAll<ArrowzBoard>('arrowz-board')) {
     const vp = element.viewport
     const board = element.board
@@ -495,8 +499,8 @@ function boardCover(root: HTMLElement): Finding[] {
     const bottom = Math.min(host.bottom, host.top + (board.H - vp.originY) * vp.cellPx)
     // The element's own bar too: its buttons and hint, in its shadow root.
     const bar = element.shadowRoot?.querySelectorAll('.chrome button, .chrome .hint') ?? []
-    for (const node of [...wrap.querySelectorAll('.fw-anno, .fw-mode, .fw-solo, .fw-modeline'), ...bar]) {
-      if (!rendered(node)) continue
+    const controls = [...wrap.querySelectorAll('.fw-anno, .fw-mode, .fw-solo, .fw-modeline'), ...bar].filter(rendered)
+    for (const node of controls) {
       const r = node.getBoundingClientRect()
       const x = Math.min(r.right, right) - Math.max(r.left, left)
       const y = Math.min(r.bottom, bottom) - Math.max(r.top, top)
@@ -504,6 +508,21 @@ function boardCover(root: HTMLElement): Finding[] {
         out.push({
           invariant: 'board-cover',
           detail: `${label(node)} [${r.left.toFixed(0)},${r.top.toFixed(0)} ${r.right.toFixed(0)},${r.bottom.toFixed(0)}] × board [${left.toFixed(0)},${top.toFixed(0)} ${right.toFixed(0)},${bottom.toFixed(0)}]`,
+        })
+    }
+    if (report === null) continue
+    const d = report.getBoundingClientRect()
+    const under: readonly (readonly [string, DOMRectReadOnly])[] = [
+      ['board', new DOMRect(left, top, right - left, bottom - top)],
+      ...controls.map((node) => [label(node), node.getBoundingClientRect()] as const),
+    ]
+    for (const [name, r] of under) {
+      const x = Math.min(r.right, d.right) - Math.max(r.left, d.left)
+      const y = Math.min(r.bottom, d.bottom) - Math.max(r.top, d.top)
+      if (x > EPS && y > EPS)
+        out.push({
+          invariant: 'board-cover',
+          detail: `${name} [${r.left.toFixed(0)},${r.top.toFixed(0)} ${r.right.toFixed(0)},${r.bottom.toFixed(0)}] under ${label(report)} from x=${d.left.toFixed(0)}`,
         })
     }
   }
