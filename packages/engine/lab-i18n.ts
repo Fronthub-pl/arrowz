@@ -445,7 +445,7 @@ export const EN = {
     stat_lengths_help: 'Share of arrows by length in cells: 2–6, 7–15, 16–49 and 50 or more.',
     stat_f0_help: 'Arrows you can remove on the very first move. Lower = harder.',
     stat_almost_help:
-      'Arrows blocked by exactly one other: they look almost free, but are not. More = more tempting mistakes.',
+      'Arrows whose path to the edge only one other arrow blocks: remove that one and they can leave. More = more arrows wait on just one other.',
     stat_D_help:
       'The longest chain of arrows waiting on one another. Even removing every free arrow at once, clearing the board takes depth + 1 rounds. Higher = harder.',
     stat_corridor_help:
@@ -848,9 +848,9 @@ export const PL: Translation = {
         'Przy starcie mieszanym: jaka część strzałek startuje w głębi (tunele), od 0,3 do 0,7; reszta od krawędzi (warstwy).',
     },
     trapBias: {
-      label: 'pułapki (strzałki, które wyglądają na wolne)',
+      label: 'pułapki (strzałki z jedną przeszkodą)',
       help:
-        'Pułapka: strzałka zablokowana przez dokładnie jedną inną, więc wygląda na wolną. „Szukaj” = o 25–60% więcej; „unikaj” = 3–8 razy mniej; „normalnie” = bez preferencji.',
+        'Pułapka: strzałka, której drogę do krawędzi zagradza tylko jedna inna. „Szukaj” = o 25–60% więcej; „unikaj” = 3–8 razy mniej; „normalnie” = bez preferencji.',
     },
     probe: {
       label: 'udział strzałek o zadanej długości',
@@ -1299,7 +1299,7 @@ export const PL: Translation = {
     stat_lengths_help: 'Udział strzałek według długości w komórkach: 2–6, 7–15, 16–49 i 50 lub więcej.',
     stat_f0_help: 'Strzałki, które można zdjąć w pierwszym ruchu. Mniej = trudniej.',
     stat_almost_help:
-      'Strzałki zablokowane przez dokładnie jedną inną: wyglądają na prawie wolne, ale nie są. Więcej = więcej kuszących pomyłek.',
+      'Strzałki, których drogę do krawędzi zagradza tylko jedna inna: wystarczy zdjąć tamtą, a odlecą. Więcej = więcej strzałek czeka tylko na jedną inną.',
     stat_D_help:
       'Najdłuższy łańcuch strzałek czekających jedna na drugą. Nawet zdejmując naraz wszystkie wolne, trzeba głębokość + 1 rund. Więcej = trudniej.',
     stat_corridor_help:

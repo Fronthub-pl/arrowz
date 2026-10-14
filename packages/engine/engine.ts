@@ -119,8 +119,8 @@ class Carver implements Board {
   /**
    * +1 prefers heads whose line prefix belongs to a single piece, -1 avoids
    * them, 0 is off, and a magnitude below 1 is the share of cuts that rank that
-   * way. Such a head becomes a piece with exactly one blocker, one that looks
-   * ready to leave (`almost`).
+   * way. Such a head becomes a piece with exactly one blocker
+   * (`Metrics.almost`).
    */
   trapBias: number
   /** Per direction and line: -1 empty prefix, -2 several owners, >= 0 the sole owner. */
@@ -2477,7 +2477,7 @@ const PARAM_TABLE = [
   },
   {
     key: 'trapBias',
-    label: 'traps (arrows that look free but are not)',
+    label: 'traps (arrows with a single blocker)',
     group: 'difficulty',
     min: -1,
     max: 1,
@@ -2492,7 +2492,7 @@ const PARAM_TABLE = [
       choices: [{ value: -1, word: 'avoid' }, { value: 0, word: 'off' }, { value: 1, word: 'seek' }],
     },
     help:
-      'A trap: an arrow blocked by exactly one other, so it looks free. Seek = 25–60% more; avoid = 3 to 8 times fewer; normal = no preference either way.',
+      'A trap: an arrow whose path to the edge only one other arrow blocks. Seek = 25–60% more; avoid = 3 to 8 times fewer; normal = no preference either way.',
   },
 
   {
