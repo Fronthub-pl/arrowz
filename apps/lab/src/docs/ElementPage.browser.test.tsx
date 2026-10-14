@@ -202,13 +202,17 @@ test('the margin, the dot grid and the themes are compared on live boards', asyn
     return out
   }
   const base = 'arrowz carve --width=12 --height=12 --seed=7'
-  expect(commands('margin')).toEqual([`${base} --pad=0`, base, `${base} --pad=16`])
-  expect(commands('dots')).toEqual([`${base} --points`, `${base} --points --line=0.2 --point-radius=0.15`])
-  expect(commands('themes')).toEqual([
-    `${base} --theme=gruvbox-dark --colored`,
-    `${base} --theme=catppuccin-latte --colored`,
-    `${base} --theme=rose-pine-moon --colored`,
+  expect(commands('margin')).toEqual([`${base} --pad=0 --rounded`, `${base} --rounded`, `${base} --pad=16 --rounded`])
+  expect(commands('dots')).toEqual([
+    `${base} --points --rounded`,
+    `${base} --points --line=0.2 --point-radius=0.15 --rounded`,
   ])
+  expect(commands('themes')).toEqual([
+    `${base} --theme=gruvbox-dark --colored --rounded`,
+    `${base} --theme=catppuccin-latte --colored --rounded`,
+    `${base} --theme=rose-pine-moon --colored --rounded`,
+  ])
+  expect(commands('rounded')).toEqual([base, `${base} --rounded`])
   expect(screen.container.querySelectorAll('figure.fw-docs-board')).toHaveLength(10)
 })
 

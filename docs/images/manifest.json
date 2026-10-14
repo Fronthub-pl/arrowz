@@ -9,138 +9,140 @@
     "and no CLI invocation reproduces them."
   ],
   "images": [
-    { "out": "hero", "flags": ["--width=40", "--height=40", "--seed=7"], "width": 700 },
+    { "out": "hero", "flags": ["--width=40", "--height=40", "--seed=7", "--rounded"], "width": 700 },
     {
       "out": "tiny-colorized",
-      "flags": ["--width=8", "--height=8", "--seed=7", "--colored"],
+      "flags": ["--width=8", "--height=8", "--seed=7", "--colored", "--rounded"],
       "width": 420
     },
-    { "out": "portrait", "flags": ["--width=20", "--height=40", "--seed=7"], "width": 420 },
-    { "out": "big", "flags": ["--width=100", "--height=100", "--seed=7"], "width": 700 },
+    { "out": "portrait", "flags": ["--width=20", "--height=40", "--seed=7", "--rounded"], "width": 420 },
+    { "out": "big", "flags": ["--width=100", "--height=100", "--seed=7", "--rounded"], "width": 700 },
     {
       "out": "scale-200",
-      "flags": ["--width=200", "--height=200", "--seed=7"],
+      "flags": ["--width=200", "--height=200", "--seed=7", "--rounded"],
       "width": 420,
       "keepSvg": false,
       "note": "3,619 arrows; the drawing is 0.9 MB, which README says is too much for the repository."
     },
     {
       "out": "scale-500",
-      "flags": ["--width=500", "--height=500", "--seed=7"],
+      "flags": ["--width=500", "--height=500", "--seed=7", "--rounded"],
       "width": 420,
       "keepSvg": false,
       "note": "21,771 arrows; the drawing is 7 MB."
     },
     {
       "out": "scale-1000",
-      "flags": ["--width=1000", "--height=1000", "--seed=7"],
+      "flags": ["--width=1000", "--height=1000", "--seed=7", "--rounded"],
       "width": 420,
       "keepSvg": false,
       "note": "85,809 arrows; the drawing is 22 MB and the run takes about twelve seconds."
     },
-    { "out": "seed-7", "flags": ["--width=20", "--height=20", "--seed=7"], "width": 420 },
-    { "out": "seed-42", "flags": ["--width=20", "--height=20", "--seed=42"], "width": 420 },
+    { "out": "seed-7", "flags": ["--width=20", "--height=20", "--seed=7", "--rounded"], "width": 420 },
+    { "out": "seed-42", "flags": ["--width=20", "--height=20", "--seed=42", "--rounded"], "width": 420 },
     {
       "out": "length-short",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--length=0", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--length=0", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "default-30",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "length-long",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--length=1", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--length=1", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "straight-winding",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--winding=1", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--winding=1", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "straight-straight",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--winding=0", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--winding=0", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "skeleton-off",
-      "flags": ["--width=60", "--height=60", "--seed=7", "--colored"],
+      "flags": ["--width=60", "--height=60", "--seed=7", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "skeleton-on",
-      "flags": ["--width=60", "--height=60", "--seed=7", "--skeleton", "--colored"],
+      "flags": ["--width=60", "--height=60", "--seed=7", "--skeleton", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "colorized",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--colored", "--rounded"],
       "width": 420,
       "note": "The same board as default-30, byte for byte; README shows it under a different heading."
     },
     {
       "out": "weight-thin",
-      "flags": ["--width=20", "--height=20", "--seed=7", "--line=0.2"],
+      "flags": ["--width=20", "--height=20", "--seed=7", "--line=0.2", "--rounded"],
       "width": 420
     },
     {
       "out": "weight-thick",
-      "flags": ["--width=20", "--height=20", "--seed=7", "--line=0.9"],
+      "flags": ["--width=20", "--height=20", "--seed=7", "--line=0.9", "--rounded"],
       "width": 420
     },
     {
       "out": "head-small",
-      "flags": ["--width=20", "--height=20", "--seed=7", "--arrow-width=0.6", "--arrow-height=0.6"],
+      "flags": ["--width=20", "--height=20", "--seed=7", "--arrow-width=0.6", "--arrow-height=0.6", "--rounded"],
       "width": 420
     },
     {
       "out": "head-big",
-      "flags": ["--width=20", "--height=20", "--seed=7", "--arrow-width=0.9", "--arrow-height=1.2"],
+      "flags": ["--width=20", "--height=20", "--seed=7", "--arrow-width=0.9", "--arrow-height=1.2", "--rounded"],
       "width": 420
     },
     {
       "out": "adv-warns-low",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--warns=2", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--warns=2", "--cell=18", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "adv-warns-high",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--warns=16", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--warns=16", "--cell=18", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "adv-lateral-0",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--wlateral=0", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--wlateral=0", "--cell=18", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "adv-lateral-20",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--wlateral=20", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--wlateral=20", "--cell=18", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "adv-probe-short",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--probe=1", "--probelen=4", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--probe=1", "--probelen=4", "--cell=18", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "adv-probe-long",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--probe=1", "--probelen=200", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--probe=1", "--probelen=200", "--cell=18", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "adv-layers",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--start=layers", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--start=layers", "--cell=18", "--colored", "--rounded"],
       "width": 420
     },
     {
       "out": "adv-tunnels",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--start=tunnels", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--start=tunnels", "--cell=18", "--colored", "--rounded"],
       "width": 420
-    }
+    },
+    { "out": "corners-square", "flags": ["--width=20", "--height=20", "--seed=7"], "width": 420 },
+    { "out": "corners-rounded", "flags": ["--width=20", "--height=20", "--seed=7", "--rounded"], "width": 420 }
   ],
   "handMade": [
     {

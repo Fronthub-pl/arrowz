@@ -2,7 +2,7 @@
 
 Arrowz is a puzzle. You get a rectangle packed with arrows, and you clear it one arrow at a time, in the right order. The lab is where its boards are made: you pick the settings, the generator lays a board, and you see what came out.
 
-::board[A 40 by 40 board]{cmd="--width=40 --height=40 --seed=7"}
+::board[A 40 by 40 board]{cmd="--width=40 --height=40 --seed=7 --rounded"}
 
 > Arrowz is in alpha: the board generator is done, and the game itself — lives and a score — is designed but not built yet. The three boards under “The one rule” already play by it.
 
@@ -12,7 +12,7 @@ A board is a grid of cells, and every cell is covered by an arrow. An arrow is a
 
 Here is a small one, eight cells by eight, with every arrow in its own colour:
 
-::board[A small board, each arrow in its own colour]{cmd="--width=8 --height=8 --seed=7 --colored"}
+::board[A small board, each arrow in its own colour]{cmd="--width=8 --height=8 --seed=7 --colored --rounded"}
 
 A real board draws every arrow in one colour, because telling the arrows apart by eye is the game. The small boards below show only the arrows that matter, each in its own colour, so it is easy to follow.
 

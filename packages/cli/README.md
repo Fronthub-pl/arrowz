@@ -416,6 +416,10 @@ and you get an arrowhead of no height at all.
 angle and its blunt end is a square; with `--rounded` the corners are curves
 and the blunt end is a rounded cap. The other pictures on this page use it.
 
+| normal | `--rounded` |
+|---|---|
+| <img src="../../docs/images/corners-square.png" width="260"> | <img src="../../docs/images/corners-rounded.png" width="260"> |
+
 **`--theme`** paints the board in one of the lab's twelve colour themes
 (`--theme=gruvbox-dark`, `--theme=catppuccin-latte`, …); an unknown name is
 refused with the list. **`--paper`**, **`--ink`** and **`--highlight-color`**

@@ -424,9 +424,9 @@ Liczbę albo kolor, których plansza nie narysuje, zastępuje się po cichu i ty
 Plansza ma z każdej strony margines szerokości `pad` komórek, więc grot w komórce przy krawędzi nie kończy się równo z krawędzią tła. Margines należy do tego, co jest dopasowywane do komponentu, a wyjeżdżająca strzałka jest do niego przycięta: znika na zewnętrznej krawędzi marginesu, zamiast jechać dalej po pustym tle. Zmiana `pad` dopasowuje planszę od nowa.
 
 :::compare
-::board[`--pad=0`]{cmd="--width=12 --height=12 --seed=7 --pad=0"}
-::board[domyślnie]{cmd="--width=12 --height=12 --seed=7"}
-::board[`--pad=16`]{cmd="--width=12 --height=12 --seed=7 --pad=16"}
+::board[`--pad=0`]{cmd="--width=12 --height=12 --seed=7 --pad=0 --rounded"}
+::board[domyślnie]{cmd="--width=12 --height=12 --seed=7 --rounded"}
+::board[`--pad=16`]{cmd="--width=12 --height=12 --seed=7 --pad=16 --rounded"}
 :::
 
 Margines liczony w komórkach maleje razem z nimi: na dużej planszy w małym komponencie wyszedłby na piksel czy dwa. Dlatego jest poszerzany, aż na ekranie ma `MIN_PAD_PX` pikseli. `pad` równe `0` zostaje `0`: prośba o brak marginesu to nie prośba o mały margines.
@@ -440,8 +440,8 @@ Z `showPoints` plansza rysuje pod strzałkami po jednej kropce na komórkę, jak
 Pełna plansza nie pokazuje żadnej kropki: strzałki zajmują każdą komórkę, a każda kropka leży pod linią i z zapasem mieści się w jej grubości. Kropki pojawiają się komórka po komórce, w miarę jak strzałki wyjeżdżają, albo tam, gdzie generator zostawił komórkę pustą. Jeśli wydaje się, że siatki brak, najpierw poszukaj strzałki, która zakrywa komórkę. Przy cienkich liniach i większych kropkach te prześwitują:
 
 :::compare
-::board[`--points`]{cmd="--width=12 --height=12 --seed=7 --points"}
-::board[`--points --line=0.2 --point-radius=0.15`]{cmd="--width=12 --height=12 --seed=7 --points --line=0.2 --point-radius=0.15"}
+::board[`--points`]{cmd="--width=12 --height=12 --seed=7 --points --rounded"}
+::board[`--points --line=0.2 --point-radius=0.15`]{cmd="--width=12 --height=12 --seed=7 --points --line=0.2 --point-radius=0.15 --rounded"}
 :::
 
 Poniżej `MIN_POINT_CELL_PX` pikseli na komórkę siatka sama się chowa, a `showPoints` pozostaje bez zmian: tak gęsto upakowane kropki tworzyłyby efekt mory, zamiast układać się w siatkę. Gdy znów powiększysz, siatka wraca.
@@ -502,9 +502,9 @@ Przypisanie innej planszy do `board` zaczyna nową grę i rysuje planszę od now
 `theme` wybiera jeden z wbudowanych motywów z tabeli niżej. Każdy przynosi tło, kolor strzałek, kolor wyróżnienia i paletę dla kolorowych strzałek. Pole podane w `view` zawsze wygrywa z polem motywu, a motyw wygrywa z ustawieniem domyślnym komponentu. Motyw maluje tło, strzałki i wyróżnienie z `enableColors` i bez; tylko paleta potrzebuje tego pozwolenia, bo koloruje każdą strzałkę osobno.
 
 :::compare
-::board[`gruvbox-dark`]{cmd="--width=12 --height=12 --seed=7 --theme=gruvbox-dark --colored"}
-::board[`catppuccin-latte`]{cmd="--width=12 --height=12 --seed=7 --theme=catppuccin-latte --colored"}
-::board[`rose-pine-moon`]{cmd="--width=12 --height=12 --seed=7 --theme=rose-pine-moon --colored"}
+::board[`gruvbox-dark`]{cmd="--width=12 --height=12 --seed=7 --theme=gruvbox-dark --colored --rounded"}
+::board[`catppuccin-latte`]{cmd="--width=12 --height=12 --seed=7 --theme=catppuccin-latte --colored --rounded"}
+::board[`rose-pine-moon`]{cmd="--width=12 --height=12 --seed=7 --theme=rose-pine-moon --colored --rounded"}
 :::
 
 Motywy to jasne i ciemne wersje otwartoźródłowych motywów edytorów kodu, a informacja, skąd każdy pochodzi i na jakiej licencji, idzie razem z nimi:
