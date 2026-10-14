@@ -183,7 +183,8 @@ function checkView(v: unknown): Checked<View> {
   }
   if (typeof v.colored !== 'boolean') return { error: 'view.colored must be true or false' }
   view.colored = v.colored
-  // Optional: boards saved before the field existed have none.
+  // Optional: a POST is a fresh write, so an omitted field is stored as the default from `DEFAULT_VIEW`;
+  // only a view read back from disk without it goes through `storedView`'s rule.
   if (v.rounded !== undefined) {
     if (typeof v.rounded !== 'boolean') return { error: 'view.rounded must be true or false' }
     view.rounded = v.rounded

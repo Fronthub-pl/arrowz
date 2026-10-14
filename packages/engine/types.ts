@@ -232,7 +232,7 @@ export interface SvgOptions {
   headWidth?: number
   /** Head height in cells, taken literally; absent = the default of 1. */
   headHeight?: number
-  /** Round corners and a disc tail, or a mitred corner and a square tail; absent = the default of true. */
+  /** Round corners and a disc tail, or a mitred corner and a square tail; absent = `DEFAULT_ROUNDED` (square). */
   rounded?: boolean
   /** The background; absent = `#f6f6fa`. Any CSS colour; escaped into the attribute. */
   paper?: string

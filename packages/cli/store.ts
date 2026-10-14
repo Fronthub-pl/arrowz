@@ -40,7 +40,8 @@ export function boardsDir(): string {
 /**
  * The JSON of a stored layout, or null when the file is missing, broken or not
  * an object. A board saved before a knob existed lacks it in params and view:
- * the missing fields take the engine defaults here, at the boundary, so every
+ * the missing fields are filled here, at the boundary, by `storedView`: the engine
+ * defaults, and `rounded` as such a board was drawn (rounded), so every
  * reader — the page, buildCommand — sees a complete Params and View, in the
  * top level and in every recipe. A meta without the closing report or without
  * recipes gets its empty values the same way.
