@@ -8,3 +8,7 @@ allowBuilds:
 # the first, and pnpm's own entry would be that one. The cost is that pnpm no
 # longer checks its version against `packageManager`.
 pmOnFail: ignore
+# nx pins undici exactly, and 7.29.0 has advisories fixed in 7.29.1. The
+# selector names the pinned version, so the entry stops matching once nx moves.
+overrides:
+  undici@7.29.0: 7.29.1
