@@ -22,7 +22,8 @@ const HELP_EN: Record<StatKey, string> = {
   longest: 'The longest arrow, in cells and as a share of the board. Longer = more of the board in one arrow.',
   lengths: 'Share of arrows by length in cells: 2–6, 7–15, 16–49 and 50 or more.',
   f0: 'Arrows you can remove on the very first move. Lower = harder.',
-  almost: 'Arrows blocked by exactly one other: they look almost free, but are not. More = more tempting mistakes.',
+  almost:
+    'Arrows whose path to the edge only one other arrow blocks: remove that one and they can leave. More = more arrows wait on just one other.',
   D: 'The longest chain of arrows waiting on one another. Even removing every free arrow at once, clearing the board takes depth + 1 rounds. Higher = harder.',
   corridor:
     'How many cells, on average, an arrow has to travel in the direction it points to leave the board. Higher = longer ways out.',

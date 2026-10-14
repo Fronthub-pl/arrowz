@@ -491,7 +491,7 @@ The words of the puzzle itself — arrow, arrowhead, path to the edge, free, see
 - **layers / tunnels** — two ways of choosing where the next arrow starts. Layers peel the board from the outside and make it easy; tunnels dig inward and make it hard.
 - **stuck** — the generator has painted itself into a corner while building, so no arrow can be added. It takes some arrows back, or starts over.
 - **complete** — a board where every cell is covered by an arrow. A board that is not complete is still saved, marked `"ok": false`.
-- **trap** — an arrow blocked by exactly one other, so it looks free when it is not. `--trapbias` asks for more or fewer of them.
+- **trap** — an arrow whose path to the edge only one other arrow blocks: remove that one and it can leave. `--trapbias` asks for more or fewer of them.
 - **target length** — the length some arrows are drawn around, instead of the usual mix of short, medium and long. In the code: `probe`.
 - **safe range** — the measured limits of each setting. Outside them boards stop working, and the command refuses rather than let you find out the slow way.
 

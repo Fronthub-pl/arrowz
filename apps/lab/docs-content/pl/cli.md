@@ -491,7 +491,7 @@ Słowa samej łamigłówki — strzałka, grot, droga do krawędzi, wolna, ziarn
 - **warstwy / tunele** — dwa sposoby wyboru miejsca, w którym startuje następna strzałka. Warstwy obierają planszę od zewnątrz i robią ją łatwą. Tunele kopią w głąb i robią ją trudną.
 - **utknąć** — generator podczas budowania zapędził się w kozi róg i nie może dodać żadnej strzałki. Cofa wtedy część strzałek albo zaczyna od nowa.
 - **pełna** — plansza, w której każdą komórkę zajmuje strzałka. Plansza, która nie jest pełna, i tak zostaje zapisana, z oznaczeniem `"ok": false`.
-- **pułapka** — strzałka zablokowana przez dokładnie jedną inną, więc wygląda na wolną, choć nie jest. `--trapbias` prosi o więcej albo mniej pułapek.
+- **pułapka** — strzałka, której drogę do krawędzi zagradza tylko jedna inna: wystarczy zdjąć tamtą, a ta odleci. `--trapbias` prosi o więcej albo mniej pułapek.
 - **zadana długość** — długość, wokół której losowane są niektóre strzałki, zamiast zwykłej mieszanki krótkich, średnich i długich. W kodzie: `probe`.
 - **bezpieczny zakres** — zmierzone granice każdego ustawienia. Poza nimi plansze przestają wychodzić, a polecenie odmawia, zamiast pozwolić Ci przekonać się o tym powoli.
 
