@@ -9,10 +9,14 @@ import { stripVTControlCharacters } from 'node:util'
 
 const here = dirname(fromFileUrl(import.meta.url))
 
+/** How the tests run the program: every permission it might want, so no prompt can stop a test. */
+const DENO_RUN = ['run', '--allow-read', '--allow-write', '--allow-env', join(here, 'arrowz.ts')]
+
 /** Runs arrowz.ts in `cwd` with the environment given and nothing of the caller's store or colour settings. */
 function arrowz(
   argv: readonly string[],
-  { cwd = here, env = {} }: { cwd?: string; env?: Record<string, string> } = {},
+  { cwd = here, env = {}, run = DENO_RUN }: { cwd?: string; env?: Record<string, string>; run?: readonly string[] } =
+    {},
 ) {
   const inherited = Deno.env.toObject()
   delete inherited.ARROWZ_BOARDS_DIR
@@ -21,7 +25,7 @@ function arrowz(
   delete inherited.NO_COLOR
   delete inherited.NODE_DISABLE_COLORS
   const r = new Deno.Command(Deno.execPath(), {
-    args: ['run', '--allow-read', '--allow-write', '--allow-env', join(here, 'arrowz.ts'), ...argv],
+    args: [...run, ...argv],
     cwd,
     clearEnv: true,
     env: { ...inherited, ...env },
@@ -104,4 +108,17 @@ Deno.test('ARROWZ_BOARDS_DIR moves the store, and a relative one starts at the w
   assertEquals(r.status, 0, r.stderr)
   assert([...Deno.readDirSync(join(cwd, 'elsewhere', '8x8'))].length > 0)
   assertEquals([...Deno.readDirSync(cwd)].map((e) => e.name), ['elsewhere'])
+})
+
+// The task's own grant under --no-prompt, so a missing name throws NotCapable instead
+// of asking. Forced colour makes Deno read only part of what a terminal makes it read;
+// `STYLE_ENV` in guard-readme.test.ts holds the whole list.
+Deno.test('the carve task grants what --help reads to colour itself', () => {
+  const tasks = (JSON.parse(Deno.readTextFileSync(join(here, 'deno.json'))) as { tasks: Record<string, string> })
+    .tasks
+  const [deno, run, ...rest] = (tasks.carve ?? '').split(' ')
+  assertEquals([deno, run], ['deno', 'run'])
+  const r = arrowz(['--help'], { run: ['run', '--no-prompt', ...rest], env: { FORCE_COLOR: '1' } })
+  assertEquals(r.status, 0, r.stderr)
+  assertStringIncludes(r.stdout, '\x1b[1mEveryday:\x1b[22m')
 })
