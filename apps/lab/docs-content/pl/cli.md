@@ -429,9 +429,11 @@ Plik `.json` obok każdej planszy trzyma każde użyte ustawienie, czas powstani
 
 ## Zmienne środowiskowe {#env}
 
-`carve` i `report` czytają te zmienne i nic więcej ze środowiska:
+`carve` i `report` czytają te własne zmienne:
 
 ::table{of="env"}
+
+W terminalu `--help` słucha też zwykłych ustawień koloru: `NO_COLOR` wyłącza kolor, a `FORCE_COLOR` włącza go nawet w potoku.
 
 ## W klonie repozytorium {#clone}
 

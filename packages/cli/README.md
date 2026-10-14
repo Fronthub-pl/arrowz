@@ -64,6 +64,8 @@ arrowz carve --help          # the short form: everyday flags, output, picture (
 arrowz carve --help=knobs    # the full table: every knob, its range and default
 ```
 
+On a terminal the help is in colour; into a pipe or a file it is plain text.
+
 ### Making a board
 
 ```sh
@@ -712,8 +714,7 @@ a board, keep that line.
 
 ## Environment variables
 
-`carve` and `report` read four variables, and nothing else from the
-environment:
+`carve` and `report` read four variables of their own:
 
 | Variable | What it does |
 |---|---|
@@ -721,6 +722,11 @@ environment:
 | `CARVE_TIMEOUT_S` | gives up a board after that many seconds; `carve` stores the part built so far as incomplete |
 | `CARVE_TRACE` | set to `1`, prints the generator's progress on stderr as it works |
 | `GIANT_DEBUG` | set to `1`, prints how each very long arrow (a giant) was grown, on stderr |
+
+On a terminal, `--help` also follows the usual colour settings: `NO_COLOR`
+turns the colour off, and `FORCE_COLOR` turns it on even into a pipe. In a
+clone, the `carve` task also lets Deno read the few variables, such as `TERM`
+and `COLORTERM`, by which it tells whether the terminal shows colour.
 
 ---
 

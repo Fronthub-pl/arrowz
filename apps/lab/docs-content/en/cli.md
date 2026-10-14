@@ -429,9 +429,11 @@ The `.json` file next to each board holds every setting used, when the board was
 
 ## Environment variables {#env}
 
-`carve` and `report` read these variables, and nothing else from the environment:
+`carve` and `report` read these variables of their own:
 
 ::table{of="env"}
+
+On a terminal, `--help` also follows the usual colour settings: `NO_COLOR` turns the colour off, and `FORCE_COLOR` turns it on even into a pipe.
 
 ## In a clone of the repository {#clone}
 
