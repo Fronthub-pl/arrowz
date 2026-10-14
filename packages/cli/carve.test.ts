@@ -145,23 +145,32 @@ Deno.test('carve.ts --svg=path also writes a copy at the path', async () => {
 // A view flag has to reach the drawing, not only the command text and the meta. This asserts on the written
 // characters: a comparison against a toSvg call that names the same fields is a mirror and agrees with itself
 // whatever the CLI does.
-Deno.test('carve.ts --sharp writes a sharp SVG, and without it a round one', () => {
+Deno.test('carve.ts --rounded writes a round SVG, and without it a square one', () => {
   const dir = tmp()
   const store = join(dir, 'store')
-  const sharpPath = join(dir, 'sharp.svg')
   const roundPath = join(dir, 'round.svg')
-  const sharp = runCarve(['--width=10', '--height=10', '--seed=3', '--sharp', `--svg=${sharpPath}`], store)
-  assertEquals(sharp.status, 0, sharp.stderr)
-  const round = runCarve(['--width=10', '--height=10', '--seed=3', `--svg=${roundPath}`], store)
+  const squarePath = join(dir, 'square.svg')
+  const round = runCarve(['--width=10', '--height=10', '--seed=3', '--rounded', `--svg=${roundPath}`], store)
   assertEquals(round.status, 0, round.stderr)
-
-  const sharpSvg = Deno.readTextFileSync(sharpPath)
-  assertStringIncludes(sharpSvg, 'stroke-linejoin="miter"')
-  assert(!sharpSvg.includes('<circle'), 'a sharp board squares its tails off')
+  const square = runCarve(['--width=10', '--height=10', '--seed=3', `--svg=${squarePath}`], store)
+  assertEquals(square.status, 0, square.stderr)
 
   const roundSvg = Deno.readTextFileSync(roundPath)
   assertStringIncludes(roundSvg, 'stroke-linejoin="round"')
   assertStringIncludes(roundSvg, '<circle')
+
+  const squareSvg = Deno.readTextFileSync(squarePath)
+  assertStringIncludes(squareSvg, 'stroke-linejoin="miter"')
+  assert(!squareSvg.includes('<circle'), 'a square board squares its tails off')
+})
+
+Deno.test('carve.ts --sharp is refused with the reason, and draws nothing', () => {
+  const dir = tmp()
+  const out = join(dir, 'out.svg')
+  const r = runCarve(['--width=10', '--height=10', '--seed=3', '--sharp', `--svg=${out}`], join(dir, 'store'))
+  assertEquals(r.status, 2)
+  assertStringIncludes(r.stderr, '--sharp is gone: square is the default now; drop --sharp')
+  assert(!exists(out), 'no picture for a refused command')
 })
 
 // --- --dry-run ---------------------------------------------------------------

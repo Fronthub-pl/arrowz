@@ -412,9 +412,9 @@ and you get an arrowhead of no height at all.
 |---|---|
 | <img src="../../docs/images/head-small.png" width="260"> | <img src="../../docs/images/head-big.png" width="260"> |
 
-**`--sharp`** takes the rounding off. Normally a line turns a corner in a
-curve and its blunt end is a rounded cap; with `--sharp` the corners are
-angular and the blunt end is a square.
+**`--rounded`** rounds the picture off. Normally a line turns a corner at an
+angle and its blunt end is a square; with `--rounded` the corners are curves
+and the blunt end is a rounded cap. The other pictures on this page use it.
 
 **`--theme`** paints the board in one of the lab's twelve colour themes
 (`--theme=gruvbox-dark`, `--theme=catppuccin-latte`, …); an unknown name is
@@ -742,9 +742,9 @@ spelling against `--help` or `--help=knobs`.
 **`--straight is gone: use --winding=R …`** (or `--advanced`, `--board`,
 `--w`/`--h`, `--colorized`, `--stroke`/`--lineweight`,
 `--headwidth`/`--arrowwidth`, `--headheight`/`--arrowheight`, `--lateral`,
-`--absorb`, `--giantspacepen`, `--headbias`, `--mix`) — an old spelling from
-before this tool had one mode. The message names what to write instead, or
-says the flag can simply be dropped.
+`--absorb`, `--giantspacepen`, `--headbias`, `--mix`, `--sharp`) — an old
+spelling this tool no longer takes. The message names what to write instead,
+or says the flag can simply be dropped.
 
 **`invalid arguments: --pstraight=0.2 is outside 0.6..1`** — a value is out of
 range, between two of a knob's settings, or breaks one of the rules. Every line

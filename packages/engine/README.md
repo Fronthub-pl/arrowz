@@ -244,7 +244,7 @@ out when it fits in a line and described when it does not.
 | `ENV_WORD_SOURCE` | `'[A-Z_][A-Z0-9_]*=\S*'` | The pattern of a `NAME=value` environment word, shared with the lab's command palette. |
 | `KNOB_ROWS` | 27 `KnobRow`s | The knob table `--help=knobs` prints: one row per knob, with `headBias` and `mix` merged into `--start`. |
 | `MIX_START` | `0.5` | The share mixing starts from when the stored value is not a share. |
-| `RETIRED_FLAGS` | 17 retired flags, each with its replacement | The spellings the CLI refuses, each with the flag that replaced it. |
+| `RETIRED_FLAGS` | 18 retired flags, each with its replacement | The spellings the CLI refuses, each with the flag that replaced it. |
 | `RULE_ROWS` | 5 rules, each `{ key, flags, reason }` | The cross-knob rules, with the flags each is about. |
 | `START` | `{ words, mix }` | The `--start` surface: each word stores a pair of `headBias` and `mix`; a number stores the mixing share, within `mix`. |
 | `START_CHOICES` | `['layers', 'random', 'tunnels', 'mixing']` | The start choices, in the order a surface offers them. |
