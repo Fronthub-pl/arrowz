@@ -924,7 +924,7 @@ Deno.test('toSvg: at every stroke the arrowhead is wider than the line, inside i
   const cell = 20
   const { board } = generate({ ...defaultParams(), W: 12, H: 12, seed: 3 })
   for (let s = 0.2; s <= 0.9 + 1e-9; s += 0.05) {
-    const svg = toSvg(board, { cell, colored: false, strokeRatio: s, top: 0 })
+    const svg = toSvg(board, { cell, colored: false, strokeRatio: s, top: 0, rounded: true })
     const parse = (tag: string): Pt[][] =>
       [...svg.matchAll(new RegExp(`<${tag} points="([^"]+)"`, 'g'))].map((m) => group(m, 1).split(' ').map(pt))
     // A head is tip, base corner, [collar corners], base corner: the base
@@ -1022,6 +1022,13 @@ Deno.test('sharp corners mitre and the tail squares off', () => {
   assert(/stroke-linejoin="miter"/.test(svg), 'corners mitre')
   assert(!/<circle /.test(svg), 'no tail disc')
   assert(/<rect [^>]*width="[\d.]+" height="[\d.]+"\/>/.test(svg), 'a square tail')
+})
+
+Deno.test('toSvg without rounded draws square corners and a square tail', () => {
+  const { toSvg } = engineExports
+  const svg = toSvg(generate(defaultParams()).board)
+  assert(/stroke-linejoin="miter"/.test(svg), 'corners mitre')
+  assert(!/<circle /.test(svg), 'no tail disc')
 })
 
 // A board file keeps the ids it was written with, gaps included (see

@@ -126,7 +126,7 @@ function show(b: Board | null, view = DEFAULT_VIEW): void {
 
 /** Head at (5,5) facing right, one cell left, then two down: one corner, and a tail at (4.5, 7.5). */
 const BENT: Piece = { id: 0, dir: 1, cells: [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 4, y: 6 }, { x: 4, y: 7 }] }
-const INK_ON_PAPER = { ...DEFAULT_VIEW, paper: '#ffffff', ink: '#000000' }
+const INK_ON_PAPER = { ...DEFAULT_VIEW, rounded: true, paper: '#ffffff', ink: '#000000' }
 
 /**
  * Far past MAX_CELL_PX on purpose: a faceted fan keeps its sagitta under half

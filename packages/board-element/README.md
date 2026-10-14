@@ -42,7 +42,7 @@ and assign the result to `board`.
 | Property | Type | Default |
 |---|---|---|
 | `board` | `BoardData \| null` | `null` |
-| `view` | `Partial<BoardView>` (`stroke`, `headWidth`, `headHeight`, `rounded`, `colored`, `top`, `voids`, `ink`, `paper`, `highlight`, `palette`) | `{}`, merged over the CLI defaults (stroke 0.5, heads one cell tall and as wide as the stroke asks, corners and tails rounded, monochrome) |
+| `view` | `Partial<BoardView>` (`stroke`, `headWidth`, `headHeight`, `rounded`, `colored`, `top`, `voids`, `ink`, `paper`, `highlight`, `palette`) | `{}`, merged over the CLI defaults (stroke 0.5, heads one cell tall and as wide as the stroke asks, square corners and tails, monochrome) |
 | `theme` | `string` (attribute, reflected): name of a built-in theme (see [Themes and attribution](#themes-and-attribution)); `''` selects none | `''` |
 | `interactive` | `boolean` (attribute, reflected) | `false` |
 | `pad` | `number` (attribute, reflected, default not shown until set — removing the attribute restores it): margin around the board, in cells, held to `PAD_RANGE` (0 to 16) | `4`; `0` draws the cells edge to edge |
@@ -396,7 +396,7 @@ the engine, so a consumer needs no second import for them.
 | `DEFAULT_POINT_RADIUS` | `0.06` | the radius of the dot grid's dots, in cells |
 | `PAD_RANGE` | `{ min: 0, max: 16 }` | the margin a board may be given, in cells |
 | `POINT_RADIUS_RANGE` | `{ min: 0, max: 0.5 }` | a dot's radius in cells; past half a cell it overlaps its neighbours |
-| `DEFAULT_VIEW` | `{ stroke: 0.5, headWidth: 0, headHeight: 1, rounded: true, colored: false, top: 0, voids: false, ink: '#232447', paper: '#f6f6fa', highlight: '#e8467c', palette: [] }` | the `BoardView` an empty `view` is merged over |
+| `DEFAULT_VIEW` | `{ stroke: 0.5, headWidth: 0, headHeight: 1, rounded: false, colored: false, top: 0, voids: false, ink: '#232447', paper: '#f6f6fa', highlight: '#e8467c', palette: [] }` | the `BoardView` an empty `view` is merged over |
 | `THEMES` | `{ catppuccin-mocha, gruvbox-dark, tokyonight-storm, everforest-dark, rose-pine-moon, ayu-dark, catppuccin-latte, gruvbox-light, tokyonight-day, everforest-light, rose-pine-dawn, ayu-light }` | the built-in themes by name (see [Themes and attribution](#themes-and-attribution)) |
 | `BOARD_LABELS` | `{ en, pl }` | the element's strings per `BoardLang` |
 | `GESTURE_STORAGE_KEY` | `'arrowz-board.gestures'` | the `localStorage` key of the player's gesture choice |

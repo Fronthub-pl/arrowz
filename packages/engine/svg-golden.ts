@@ -19,30 +19,30 @@ function clearRun(board: Board, x0: number, x1: number, y: number): void {
 }
 
 export const SVG_GOLDEN_CASES: readonly SvgGoldenCase[] = [
-  { name: 'defaults', params: defaultParams(), gen: {}, opts: {} },
+  { name: 'defaults', params: defaultParams(), gen: {}, opts: { rounded: true } },
   {
     name: 'skeleton-top',
     params: { ...defaultParams(), W: 100, H: 200, giants: 4 },
     gen: {},
-    opts: { cell: 12, top: 5 },
+    opts: { rounded: true, cell: 12, top: 5 },
   },
   {
     name: 'colored-stick',
     params: defaultParams(),
     gen: {},
-    opts: { colored: true, strokeRatio: 0.7, headWidth: 0.9, headHeight: 1.1 },
+    opts: { rounded: true, colored: true, strokeRatio: 0.7, headWidth: 0.9, headHeight: 1.1 },
   },
   {
     name: 'thin-narrow-head',
     params: defaultParams(),
     gen: {},
-    opts: { strokeRatio: 0.3, headWidth: 0.2 },
+    opts: { rounded: true, strokeRatio: 0.3, headWidth: 0.2 },
   },
   {
     name: 'voids',
     params: { ...defaultParams(), W: 40, H: 40, seed: 1 },
     gen: { unchecked: true, voidFrac: 0.1 },
-    opts: { voids: true, cell: 8 },
+    opts: { rounded: true, voids: true, cell: 8 },
   },
   // voidFrac punches holes as owner -2, which the void strips never draw: only
   // uncarved cells (-1) get a strip, so this case clears a few by hand — two
@@ -51,7 +51,7 @@ export const SVG_GOLDEN_CASES: readonly SvgGoldenCase[] = [
     name: 'voids-strips',
     params: { ...defaultParams(), W: 40, H: 40, seed: 1 },
     gen: { unchecked: true, voidFrac: 0.1 },
-    opts: { voids: true, cell: 8 },
+    opts: { rounded: true, voids: true, cell: 8 },
     mutate: (board) => {
       clearRun(board, 1, 3, 0)
       clearRun(board, 10, 10, 0)

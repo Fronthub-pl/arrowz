@@ -31,7 +31,10 @@ Deno.test('points: one pattern and one rect over the cells alone, whatever the s
   )
   assertStringIncludes(svg, '<rect x="20" y="20" width="120" height="80" fill="url(#arrowz-points)"/>')
   const big = generate({ ...defaultParams(), W: 60, H: 60, seed: 4 }).board
-  assertEquals(toSvg(big, { points: { color: '#c9c9d6', radius: 0.06 } }).match(/<pattern |<rect /g)?.length, 3)
+  assertEquals(
+    toSvg(big, { rounded: true, points: { color: '#c9c9d6', radius: 0.06 } }).match(/<pattern |<rect /g)?.length,
+    3,
+  )
 })
 
 Deno.test('points sit above the paper and below the pieces', () => {

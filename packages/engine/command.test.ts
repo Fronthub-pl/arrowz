@@ -95,7 +95,7 @@ Deno.test('buildCommand <-> parseArgs: round trip for changed knobs and view', (
   assertMatch(cmd, /--anticoil=3 /)
   assertMatch(cmd, /--start=layers /)
   assert(!cmd.includes('--headbias'), cmd)
-  assertMatch(cmd, / --cell=7 --line=0.4 --arrow-width=0.8 --arrow-height=1.2 --colored --top=5$/)
+  assertMatch(cmd, / --cell=7 --line=0.4 --arrow-width=0.8 --arrow-height=1.2 --colored --top=5 --rounded$/)
   // The cell the CLI would pick for this size is not worth printing.
   assertEquals(exportCell(100, 200), 8)
   assert(!buildCommand(p, { ...v, cell: 8 }).includes('--cell'), 'the size-derived cell stays out of the command')
@@ -267,7 +267,7 @@ Deno.test('parseArgs: the picture flags are hyphenated and carry the CLI names',
     '--arrow-width=0.8',
     '--arrow-height=1.2',
     '--top=4',
-    '--sharp',
+    '--rounded',
   ])
   assertEquals(r.errors, [])
   assertEquals(r.view, {
@@ -278,7 +278,7 @@ Deno.test('parseArgs: the picture flags are hyphenated and carry the CLI names',
     headHeight: 1.2,
     colored: true,
     top: 4,
-    rounded: false,
+    rounded: true,
   })
   // --cell wins over the size-derived default, and --arrow-width takes the word.
   assertEquals(parseArgs([...SIZE, '--cell=7']).view.cell, 7)
@@ -406,7 +406,7 @@ Deno.test('parseArgs: the size takes whole numbers inside its own range', () => 
 // asking for a skeleton), and a bare word would be read by nobody. Both
 // contradict "an unknown flag is refused".
 Deno.test('parseArgs: a switch takes no value, and a stray word is not an argument', () => {
-  for (const flag of ['--skeleton=off', '--randomized=false', '--sharp=no', '--colored=0']) {
+  for (const flag of ['--skeleton=off', '--randomized=false', '--rounded=no', '--colored=0']) {
     assertEquals(parseArgs([...SIZE, flag]).errors, [`${flag} takes no value`], flag)
   }
   assertEquals(parseArgs([...SIZE, '--skeleton=off']).choice.skeleton, 'off')
@@ -448,6 +448,18 @@ const PROBLEM_CASES: [string[], ArgProblem, string][] = [
       why: 'oneMode',
     },
     '--advanced is gone: the CLI has one mode now; drop --advanced',
+  ],
+  [
+    ['--width=9', '--height=9', '--sharp'],
+    {
+      kind: 'retired',
+      arg: '--sharp',
+      name: 'sharp',
+      hint: 'square is the default now; drop --sharp',
+      use: [],
+      why: 'squareDefault',
+    },
+    '--sharp is gone: square is the default now; drop --sharp',
   ],
   [
     ['--width=2000', '--height=9'],
@@ -690,13 +702,13 @@ Deno.test('boardId: stable, ignores view and key order, distinguishes seeds', ()
   assertNotEquals(boardId({ ...p, anticoil: 1 }), id)
 })
 
-Deno.test('--sharp round-trips, and a rounded board prints no switch', () => {
-  const sharp = parseArgs([...SIZE, '--sharp'])
-  assertEquals(sharp.view.rounded, false)
-  assertMatch(buildCommand(sharp.params, sharp.view), /--sharp\b/)
-  const round = parseArgs(SIZE)
+Deno.test('--rounded round-trips, and a square board prints no switch', () => {
+  const round = parseArgs([...SIZE, '--rounded'])
   assertEquals(round.view.rounded, true)
-  assert(!buildCommand(round.params, round.view).includes('--sharp'))
+  assertMatch(buildCommand(round.params, round.view), /--rounded\b/)
+  const square = parseArgs(SIZE)
+  assertEquals(square.view.rounded, false)
+  assert(!buildCommand(square.params, square.view).includes('--rounded'))
 })
 
 // --- one voice for a refusal ---------------------------------------------
@@ -896,13 +908,13 @@ Deno.test('the look round-trips through the command', () => {
   }
 })
 
-Deno.test('buildCommand prints the look after --sharp, in a fixed order, and nothing at the defaults', () => {
+Deno.test('buildCommand prints the look after --rounded, in a fixed order, and nothing at the defaults', () => {
   const p = { ...defaultParams(), W: 30, H: 20, seed: 3 }
   assertEquals(buildCommand(p, DEFAULT_VIEW).includes('--pad'), false)
-  const cmd = buildCommand(p, { ...DEFAULT_VIEW, ...LOOK, rounded: false })
+  const cmd = buildCommand(p, { ...DEFAULT_VIEW, ...LOOK, rounded: true })
   assertMatch(
     cmd,
-    / --sharp --theme=gruvbox-dark --palette='#112233,#445566' --paper='#010203' --ink='#040506' --highlight-color='#0a0b0c' --pad=7 --points --point-color='#070809' --point-radius=0.15$/,
+    / --rounded --theme=gruvbox-dark --palette='#112233,#445566' --paper='#010203' --ink='#040506' --highlight-color='#0a0b0c' --pad=7 --points --point-color='#070809' --point-radius=0.15$/,
   )
 })
 
