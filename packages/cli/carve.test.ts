@@ -55,10 +55,15 @@ const prefixRe = COMMAND_PREFIX.replace(/ /g, '\\s')
 
 /** Runs `arrowz carve` with the board store pointed at boardsDir. */
 function runCarve(argv: readonly string[], boardsDir: string, env: Record<string, string> = {}) {
+  // Nx sets FORCE_COLOR, which would colour the help these cases compare as plain text.
+  const inherited = Deno.env.toObject()
+  delete inherited.FORCE_COLOR
+  delete inherited.NO_COLOR
   const r = new Deno.Command(Deno.execPath(), {
     args: ['run', '--allow-read', '--allow-write', '--allow-env', arrowz, 'carve', ...argv],
     cwd: dirname(here),
-    env: { ARROWZ_BOARDS_DIR: boardsDir, ...env },
+    clearEnv: true,
+    env: { ...inherited, ARROWZ_BOARDS_DIR: boardsDir, ...env },
     stdout: 'piped',
     stderr: 'piped',
   }).outputSync()
