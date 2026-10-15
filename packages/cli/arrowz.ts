@@ -5,6 +5,7 @@
 import process from 'node:process'
 import { COMMAND_PREFIX } from '@fronthub/arrowz-engine/command'
 import { Exit } from './exit.ts'
+import { colourHelp } from './help-colour.ts'
 
 const USAGE = [
   `Usage: ${COMMAND_PREFIX} --width=N --height=N [--seed=N] [options] [mode]`,
@@ -23,7 +24,7 @@ if (command === 'carve') {
     process.exitCode = e.code
   }
 } else if (command === '--help' || command === '-h') {
-  console.log(USAGE)
+  console.log(colourHelp(USAGE))
 } else {
   if (command !== undefined) console.error(`arrowz: unknown command ${command}`)
   console.error(USAGE)

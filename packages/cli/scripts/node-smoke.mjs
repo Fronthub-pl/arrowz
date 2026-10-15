@@ -8,7 +8,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { stripVTControlCharacters } from 'node:util'
 import { defaultParams, generate, layoutHash } from '@fronthub/arrowz-engine'
+import { helpText } from '@fronthub/arrowz-engine/command'
 
 const bundle = fileURLToPath(new URL('../dist/arrowz.mjs', import.meta.url))
 let failures = 0
@@ -23,6 +25,9 @@ function arrowz(argv, env = {}) {
   const cwd = mkdtempSync(join(tmpdir(), 'arrowz-node-'))
   const inherited = { ...process.env }
   delete inherited.ARROWZ_BOARDS_DIR
+  // The caller's colour settings would colour the help this compares as plain text.
+  delete inherited.FORCE_COLOR
+  delete inherited.NO_COLOR
   const r = spawnSync(process.execPath, [bundle, ...argv], { cwd, env: { ...inherited, ...env }, encoding: 'utf8' })
   return { status: r.status, stdout: r.stdout, stderr: r.stderr, cwd }
 }
@@ -68,6 +73,15 @@ check(
   'the help of every knob is printed whole',
 )
 
+const plainHelp = arrowz(['carve', '--help'])
+check(plainHelp.stdout === helpText() + '\n', 'into a pipe the help is plain text')
+const forced = arrowz(['carve', '--help'], { FORCE_COLOR: '1' })
+check(
+  forced.stdout.includes('\x1b[1mEveryday:\x1b[22m') &&
+    stripVTControlCharacters(forced.stdout) === helpText() + '\n',
+  'with FORCE_COLOR the help is in colour, in the same columns',
+)
+
 const refused = arrowz(['carve', '--width=8'])
 check(
   refused.status === 2 && refused.stderr.includes('invalid arguments') && refused.stdout === '',
@@ -76,6 +90,8 @@ check(
 const bare = arrowz([])
 check(bare.status === 2 && bare.stderr.includes('Usage: arrowz carve'), 'no command prints the usage with status 2')
 
-for (const run of [dry, saved, moved, help, refused, bare]) rmSync(run.cwd, { recursive: true, force: true })
+for (const run of [dry, saved, moved, help, plainHelp, forced, refused, bare]) {
+  rmSync(run.cwd, { recursive: true, force: true })
+}
 console.log(failures ? `${failures} FAILED` : 'all ok')
 process.exitCode = failures ? 1 : 0

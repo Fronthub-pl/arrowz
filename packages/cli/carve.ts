@@ -49,6 +49,7 @@ import type { Move } from '@fronthub/arrowz-engine/simple'
 import { writeFileSync } from 'node:fs'
 import process from 'node:process'
 import { exit } from './exit.ts'
+import { colourHelp } from './help-colour.ts'
 import { saveBoard, type SaveResult } from './store.ts'
 
 // A program, not a module: arrowz.ts imports it to run it, and the word
@@ -140,7 +141,7 @@ if (helpFlag !== undefined) {
   if (helpFlag !== '--help' && helpFlag !== '-h' && helpFlag !== '--help=knobs') {
     refuseErrors([`${helpFlag} is not --help or --help=knobs`])
   }
-  console.log(helpText({ knobs: helpFlag === '--help=knobs' }))
+  console.log(colourHelp(helpText({ knobs: helpFlag === '--help=knobs' })))
   exit(0)
 }
 
