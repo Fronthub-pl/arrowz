@@ -7,6 +7,7 @@ import type {
   GesturesChangeEvent,
   LifeLostEvent,
   PieceClickEvent,
+  PieceHoverEvent,
   PieceRemovedEvent,
   ViewportChangeEvent,
 } from './arrowz-board.ts'
@@ -30,6 +31,7 @@ export type {
   GesturesChangeEvent,
   LifeLostEvent,
   PieceClickEvent,
+  PieceHoverEvent,
   PieceRemovedEvent,
   ViewportChangeEvent,
 } from './arrowz-board.ts'
@@ -56,6 +58,7 @@ declare global {
     'colored-change': ColoredChangeEvent
     'gestures-change': GesturesChangeEvent
     'piece-click': PieceClickEvent
+    'piece-hover': PieceHoverEvent
     'piece-removed': PieceRemovedEvent
     'life-lost': LifeLostEvent
     'finished': FinishedEvent

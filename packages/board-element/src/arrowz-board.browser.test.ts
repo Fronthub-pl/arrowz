@@ -1,4 +1,4 @@
-import { decodeBoard, defaultParams, encodeBoard, generate } from '@fronthub/arrowz-engine'
+import { decodeBoard, defaultParams, encodeBoard, generate, newSession, play } from '@fronthub/arrowz-engine'
 import type { Board } from '@fronthub/arrowz-engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import {
@@ -1184,5 +1184,164 @@ describe('the default bar and the fit', () => {
     expect(el.viewport?.cellPx).toBeLessThan(before)
     expect(barOverBoard(el)).toBe(false)
     box.remove()
+  })
+})
+
+describe('hover', () => {
+  /** Every `piece-hover` the board announces, by its detail. */
+  function hovers(e: ArrowzBoard): (number | null)[] {
+    const seen: (number | null)[] = []
+    e.addEventListener('piece-hover', (ev) => seen.push(ev.detail.pieceId))
+    return seen
+  }
+
+  /** A move with no button held, as a hovering mouse sends it. */
+  function glide(x: number, y: number, init: Partial<PointerEventInit> = {}): void {
+    canvasOf(el).dispatchEvent(pointer('pointermove', x, y, { buttons: 0, ...init }))
+  }
+
+  /** The piece drawn at a canvas point, read the way `headPoint` places one. */
+  function pieceUnder(e: ArrowzBoard, x: number, y: number): number | null {
+    const vp = e.viewport
+    const b = e.board
+    if (!vp || !b) return null
+    const cx = Math.floor(vp.originX + x / vp.cellPx)
+    const cy = Math.floor(vp.originY + y / vp.cellPx)
+    if (cx < 0 || cy < 0 || cx >= b.W || cy >= b.H) return null
+    const id = b.owner[cy * b.W + cx]
+    return id === undefined || id < 0 ? null : id
+  }
+
+  function twoPieces(): { a: number; b: number } {
+    const [a, b] = [el.board?.pieces[0], el.board?.pieces[1]]
+    if (!a || !b) throw new Error('need two pieces')
+    return { a: a.id, b: b.id }
+  }
+
+  test('a mouse over a piece announces it once, and again only when the piece changes', async () => {
+    await mount()
+    const { a, b } = twoPieces()
+    const seen = hovers(el)
+    const pa = headPoint(el, a)
+    const pb = headPoint(el, b)
+    canvasOf(el).dispatchEvent(pointer('pointerenter', pa.x, pa.y, { buttons: 0 }))
+    glide(pa.x, pa.y)
+    glide(pa.x + 0.1, pa.y)
+    // The modifier re-reads the cursor without a move; the piece under it is the same one.
+    globalThis.dispatchEvent(new KeyboardEvent('keydown', { key: 'Meta', metaKey: true }))
+    globalThis.dispatchEvent(new KeyboardEvent('keyup', { key: 'Meta' }))
+    glide(pb.x, pb.y)
+    expect(seen).toEqual([a, b])
+  })
+
+  test('piece-hover bubbles out of the shadow root, like piece-click', async () => {
+    await mount()
+    const { a } = twoPieces()
+    const seen: Event[] = []
+    document.addEventListener('piece-hover', (e) => seen.push(e))
+    const pa = headPoint(el, a)
+    glide(pa.x, pa.y)
+    expect(seen.map((e) => [e.bubbles, e.composed])).toEqual([[true, true]])
+  })
+
+  test('paper, leaving the board and leaving the page each announce null', async () => {
+    await mount()
+    const { a } = twoPieces()
+    const seen = hovers(el)
+    const pa = headPoint(el, a)
+    glide(pa.x, pa.y)
+    glide(1, 1) // the corner of the margin: paper, no cell
+    glide(pa.x, pa.y)
+    canvasOf(el).dispatchEvent(pointer('pointerleave', pa.x, pa.y, { buttons: 0 }))
+    canvasOf(el).dispatchEvent(pointer('pointerenter', pa.x, pa.y, { buttons: 0 }))
+    el.remove()
+    expect(seen).toEqual([a, null, a, null, a, null])
+  })
+
+  test('a pan announces null as it starts, and the release reads the piece again', async () => {
+    await mount()
+    el.zoomBy(3) // room to pan: the fitted view does not move
+    await raf()
+    const id = pieceUnder(el, 150, 150)
+    if (id === null) throw new Error('need a piece in the middle')
+    const seen = hovers(el)
+    glide(150, 150)
+    canvasOf(el).dispatchEvent(pointer('pointerdown', 150, 150))
+    canvasOf(el).dispatchEvent(pointer('pointermove', 120, 150))
+    canvasOf(el).dispatchEvent(pointer('pointerup', 120, 150))
+    // The drag carried the board with the pointer, so the same piece is under it.
+    expect(seen).toEqual([id, null, id])
+  })
+
+  test('touch announces nothing: a finger has no hover', async () => {
+    await mount()
+    const { a } = twoPieces()
+    const seen = hovers(el)
+    const pa = headPoint(el, a)
+    canvasOf(el).dispatchEvent(pointer('pointerenter', pa.x, pa.y, { pointerType: 'touch', buttons: 0 }))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y, { pointerType: 'touch' }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', pa.x, pa.y, { pointerType: 'touch' }))
+    expect(seen).toEqual([])
+  })
+
+  test('a pen hovers like a mouse', async () => {
+    await mount()
+    const { a } = twoPieces()
+    const seen = hovers(el)
+    const pa = headPoint(el, a)
+    glide(pa.x, pa.y, { pointerType: 'pen' })
+    expect(seen).toEqual([a])
+  })
+
+  test('a new board announces null', async () => {
+    await mount()
+    const { a } = twoPieces()
+    const seen = hovers(el)
+    const pa = headPoint(el, a)
+    glide(pa.x, pa.y)
+    el.board = makeBoard(8)
+    await el.updateComplete
+    expect(seen).toEqual([a, null])
+  })
+
+  test('a piece that rides off at the release announces null', async () => {
+    await mount({ play: '' })
+    const board = el.board
+    if (!board) throw new Error('need a board')
+    const session = newSession(board)
+    const free = board.pieces.find((pc) => play(session, pc.id).move.kind === 'exit')
+    if (!free) throw new Error('need a free piece')
+    const seen = hovers(el)
+    const p = headPoint(el, free.id)
+    canvasOf(el).dispatchEvent(pointer('pointerenter', p.x, p.y, { buttons: 0 }))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y, { ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y, { ctrlKey: true }))
+    expect(seen).toEqual([free.id, null])
+  })
+
+  // `owner` is what `pieceAt` reads; a second look-up for the event would read it twice.
+  test('a move looks the piece up once, for the cursor and the event alike, in either mode', async () => {
+    await mount({ interactive: '' })
+    const plain = el.board
+    if (!plain) throw new Error('need a board')
+    let reads = 0
+    el.board = new Proxy(plain, {
+      get(target, key, receiver) {
+        if (key === 'owner') reads++
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    await el.updateComplete
+    await raf()
+    const { a } = twoPieces()
+    const pa = headPoint(el, a)
+    reads = 0
+    glide(pa.x, pa.y)
+    const drag = reads
+    el.toggleGestures()
+    await el.updateComplete
+    reads = 0
+    glide(pa.x + 0.1, pa.y)
+    expect([el.gestureMode, drag, reads]).toEqual(['click', 1, 1])
   })
 })
