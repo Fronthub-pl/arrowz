@@ -39,6 +39,7 @@ export interface BoardViewport {
 }
 
 export type PieceClickEvent = CustomEvent<{ pieceId: number }>
+export type PieceHoverEvent = CustomEvent<{ pieceId: number | null }>
 export type ViewportChangeEvent = CustomEvent<BoardViewport>
 export type PieceRemovedEvent = CustomEvent<{ pieceId: number; left: number }>
 export type LifeLostEvent = CustomEvent<{ pieceId: number; blockerId: number; distance: number }>
@@ -286,8 +287,13 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private observer: ResizeObserver | null = null
   /** Set while a disconnect waits to see whether it was only a move; see `disconnectedCallback`. */
   private disposeQueued = false
-  /** Where the pointer last was, to redraw the cursor when the modifier changes without a move. */
-  private lastPointer: { x: number; y: number } | null = null
+  /**
+   * Where the pointer last was, to redraw the cursor when the modifier changes
+   * without a move; `hovers` is false for touch, which has no hover.
+   */
+  private lastPointer: { x: number; y: number; hovers: boolean } | null = null
+  /** The piece last announced as `piece-hover`; see `hover`. */
+  private hovered: number | null = null
   private modifierHeld = false
   private hostWidth = 0
   private hostHeight = 0
@@ -601,6 +607,9 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     // Applies from the next press (see GestureMachine.mode), so a change mid-drag is safe.
     this.gestures.mode = this.gestureMode
     if (changed.has('chosenMode') || changed.has('play') || changed.has('interactive')) this.refreshCursor()
+    // A piece id names a piece of one board only. The re-read just above takes a
+    // new board through the old viewport, so a board change ends with null after it.
+    if (changed.has('board')) this.hover(null)
     if (
       changed.has('enableColors') || changed.has('coloredOverride') || changed.has('view') ||
       changed.has('chosenMode') || changed.has('play') || changed.has('interactive')
@@ -898,7 +907,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
    * events are taken from the window, because the board is not
    * necessarily focused when someone puts their hand on ⌘, and only while
    * the pointer is over it, so a board nobody is pointing at listens to
-   * nothing.
+   * nothing. The same hit test answers `piece-hover` (see `hover`), so a
+   * move looks the piece up once in either mode.
    */
   private refreshCursor(): void {
     if (this.gestures.panning) return
@@ -906,11 +916,26 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     const p = this.lastPointer
     if (!p) {
       canvas.classList.remove('pan-ready', 'over-piece')
+      this.hover(null)
       return
     }
+    const piece = this.pieceAt(p.x, p.y)
     const panReady = this.modifierHeld !== (this.gestureMode === 'drag')
     canvas.classList.toggle('pan-ready', panReady)
-    canvas.classList.toggle('over-piece', !panReady && this.pieceAt(p.x, p.y) !== null)
+    canvas.classList.toggle('over-piece', !panReady && piece !== null)
+    // A captured pointer past the host's edge reads the zoomed board on beyond it,
+    // a piece nobody sees; only the hover drops it, a release there still plays.
+    const inside = p.x >= 0 && p.y >= 0 && p.x < this.hostWidth && p.y < this.hostHeight
+    this.hover(p.hovers && inside ? piece : null)
+  }
+
+  /** Announces the piece under a mouse or pen as `piece-hover`, and only when it changes. */
+  private hover(pieceId: number | null): void {
+    if (pieceId === this.hovered) return
+    this.hovered = pieceId
+    this.dispatchEvent(
+      new CustomEvent<PieceHoverEvent['detail']>('piece-hover', { detail: { pieceId }, bubbles: true, composed: true }),
+    )
   }
 
   private setModifier(held: boolean): void {
@@ -939,7 +964,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     globalThis.addEventListener('keyup', this.onModifierKey)
     globalThis.addEventListener('blur', this.onWindowBlur)
     const s = this.sample(e)
-    this.lastPointer = { x: s.x, y: s.y }
+    this.lastPointer = { x: s.x, y: s.y, hovers: s.kind !== 'touch' }
     this.setModifier(e.metaKey || e.ctrlKey)
   }
 
@@ -979,14 +1004,18 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.apply(this.gestures.down(this.sample(e)))
     const panning = this.gestures.panning
     // The pointer cursor of a piece under the press outranks the grab cursor,
-    // and a pan stops refreshing it, so it has to go before the pan starts.
-    if (panning) this.layer.canvas.classList.remove('over-piece')
+    // and a pan stops refreshing it, so it has to go before the pan starts;
+    // the hovered piece goes with it.
+    if (panning) {
+      this.layer.canvas.classList.remove('over-piece')
+      this.hover(null)
+    }
     this.layer.canvas.classList.toggle('panning', panning)
   }
 
   private readonly onPointerMove = (e: PointerEvent): void => {
     const s = this.sample(e)
-    this.lastPointer = { x: s.x, y: s.y }
+    this.lastPointer = { x: s.x, y: s.y, hovers: s.kind !== 'touch' }
     this.apply(this.gestures.move(s))
     if (!this.gestures.panning) this.layer.canvas.classList.remove('panning')
     if (this.gestures.panning) return

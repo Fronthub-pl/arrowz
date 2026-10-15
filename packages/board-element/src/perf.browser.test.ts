@@ -94,6 +94,39 @@ async function zoom(el: ArrowzBoard, count: number): Promise<number[]> {
   return frames
 }
 
+/**
+ * Mean cost of one hover move (no button held), in µs, and the `piece-hover`
+ * events those moves raised: `count` moves dispatched back to back, built
+ * before the clock starts. No frame is awaited, since a hover asks for none.
+ */
+function hoverCost(el: ArrowzBoard, count: number): { us: number; events: number } {
+  const canvas = canvasOf(el)
+  const r = canvas.getBoundingClientRect()
+  const at = (type: string, i: number) =>
+    new PointerEvent(type, {
+      bubbles: true,
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      clientX: r.left + ((i * 7.3) % r.width),
+      clientY: r.top + ((i * 3.1) % r.height),
+      buttons: 0,
+    })
+  canvas.dispatchEvent(at('pointerenter', 0))
+  // A first pass, discarded, so the timed one is not paying for a cold JIT.
+  for (let i = 0; i < 200; i++) canvas.dispatchEvent(at('pointermove', i))
+  const moves = Array.from({ length: count }, (_, i) => at('pointermove', i))
+  let events = 0
+  const counted = () => events++
+  el.addEventListener('piece-hover', counted)
+  const t = performance.now()
+  for (const move of moves) canvas.dispatchEvent(move)
+  const us = ((performance.now() - t) / count) * 1000
+  el.removeEventListener('piece-hover', counted)
+  canvas.dispatchEvent(at('pointerleave', 0))
+  return { us, events }
+}
+
 /** A mounted, sized element; two frames so the ResizeObserver has delivered. */
 async function mount(size: string): Promise<ArrowzBoard> {
   localStorage.removeItem('arrowz-board.gestures')
@@ -286,6 +319,40 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
     console.log(`insane coloured removal: piece=${leaving.id} ${(performance.now() - t1).toFixed(1)}ms of ride`)
     expect(el.pieceCount).toBe(board.pieces.length - 1)
     el.remove()
+  },
+  180_000,
+)
+
+// What one hover move costs at Insane, in both gesture modes, fitted and zoomed.
+test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
+  'measures the hover path on Insane when ARROWZ_MEASURE=1',
+  async () => {
+    const board: Board = generate({ ...defaultParams(), W: 1000, H: 1000, seed: 7 }).board
+    for (const mode of ['drag', 'click'] as const) {
+      const el = await mount('800px')
+      // `drag` is the lab's View board; `click` needs a board a click can reach.
+      if (mode === 'click') {
+        el.play = true
+        el.toggleGestures()
+      }
+      el.board = board
+      await el.updateComplete
+      await raf()
+      expect(el.gestureMode).toBe(mode)
+      for (const zoomed of [false, true]) {
+        if (zoomed) {
+          el.zoomBy(8)
+          await raf()
+        }
+        const { us, events } = hoverCost(el, 5000)
+        console.log(
+          `insane hover: mode=${mode} zoom=${zoomed ? 'x8' : 'fit'} cellPx=${(el.viewport?.cellPx ?? 0).toFixed(2)} ` +
+            `perMove=${us.toFixed(1)}µs events=${events}`,
+        )
+      }
+      expect(el.pieceCount).toBe(board.pieces.length)
+      el.remove()
+    }
   },
   180_000,
 )

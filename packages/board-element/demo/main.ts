@@ -246,13 +246,14 @@ $<HTMLButtonElement>('restart').addEventListener('click', () => {
 
 const EVENT_TYPES: readonly string[] = [
   'piece-click',
+  'piece-hover',
   'piece-removed',
   'life-lost',
   'finished',
   'viewport-change',
 ]
 
-const events = new EventConsole($('console'), $('filters'), EVENT_TYPES, ['viewport-change'])
+const events = new EventConsole($('console'), $('filters'), EVENT_TYPES, ['viewport-change', 'piece-hover'])
 for (const type of EVENT_TYPES) {
   board.addEventListener(type, (e: Event) => {
     events.record(type, e instanceof CustomEvent ? e.detail : null)

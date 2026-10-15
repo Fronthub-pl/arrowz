@@ -391,11 +391,27 @@ body {
   box-sizing: border-box;
   display: flex;
   align-items: center;
+  gap: 8px;
+  max-width: calc(100% - var(--fw-strip));
   padding: 0 8px;
   background: var(--void);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
   pointer-events: none;
+}
+
+/* The size and seed never give way; the arrow under the pointer (`.fw-read`)
+   does, clipped, so the strip never reaches the solo toggle. */
+.fw-anno > :first-child {
+  flex: none;
+}
+.fw-read {
+  min-width: 0;
+  padding-left: 8px;
+  border-left: var(--rule);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The solo toggle: the frame's top-right corner, after the element

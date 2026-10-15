@@ -315,6 +315,19 @@ Deno.test('both ui dictionaries carry the changed-knobs words', () => {
   for (const d of [EN, PL]) assert(d.ui.knobDiffCap.length > 0)
 })
 
+Deno.test('the hover readout names the arrow and its length, Polish in its three forms', () => {
+  assertEquals([1, 2, 5].map((n) => EN.ui.hoverReadout(3, n)), [
+    'Arrow #3 · 1 cell',
+    'Arrow #3 · 2 cells',
+    'Arrow #3 · 5 cells',
+  ])
+  assertEquals([1, 2, 5].map((n) => PL.ui.hoverReadout(3, n)), [
+    'Strzałka #3 · 1 komórka',
+    'Strzałka #3 · 2 komórki',
+    'Strzałka #3 · 5 komórek',
+  ])
+})
+
 Deno.test('the console rail names itself and its two sections in both languages', () => {
   for (const lang of ['en', 'pl'] as const) {
     const dict = dictionary(lang)

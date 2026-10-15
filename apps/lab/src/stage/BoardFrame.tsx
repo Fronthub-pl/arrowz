@@ -1,5 +1,6 @@
-import { type ArrowzBoard, boardViewOf, type ColoredChangeEvent } from '@fronthub/arrowz-board'
-import { type ReactElement, useLayoutEffect, useMemo, useRef } from 'react'
+import { type ArrowzBoard, boardViewOf, type ColoredChangeEvent, type PieceHoverEvent } from '@fronthub/arrowz-board'
+import type { BoardData } from '@fronthub/arrowz-engine'
+import { type ReactElement, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useDictionary } from '../i18n'
 import { useInLibrary } from '../library/useInLibrary'
 import { refreshLibrary } from '../library/useLibraryList'
@@ -9,14 +10,15 @@ import { viewOf } from '../state/view.slice'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardModeLine, BoardModeSwitch, useBoardSession } from './BoardMode'
 import { BusyVeil } from './BusyVeil'
+import { pieceLength } from './pieceFacts'
 
 /**
  * The paper frame around the one `<arrowz-board>`, and what sits on it: the
- * annotation of the board on screen and the solo toggle, in its top corners
- * over the board's margin, after the element in DOM order because its host is
- * opaque and positioned. The board mode and its line live in `.fw-modebar`
- * under the frame, and the element is fitted above it, so neither covers a
- * drawn row.
+ * annotation of the board on screen with the arrow under the pointer beside
+ * it, and the solo toggle, in its top corners over the board's margin, after
+ * the element in DOM order because its host is opaque and positioned. The board
+ * mode and its line live in `.fw-modebar` under the frame, and the element is
+ * fitted above it, so neither covers a drawn row.
  *
  * The element's view is memoised on the *slice's* identity, not rebuilt per
  * render: `run.progressed()` replaces `state.run` and leaves `state.view` and
@@ -97,6 +99,14 @@ export function BoardFrame(): ReactElement {
   const mode = useStore((state) => state.ui.boardMode)
   const element = useRef<ArrowzBoard>(null)
   const session = useBoardSession(board, mode, element)
+  // Keyed by the board it was read on: a board swapped in under a still
+  // pointer must not have the old board's id read against it.
+  const [hover, setHover] = useState<{ board: BoardData; pieceId: number } | null>(null)
+  const onPieceHover = (event: PieceHoverEvent) => {
+    const { pieceId } = event.detail
+    setHover(board === null || pieceId === null ? null : { board, pieceId })
+  }
+  const hoverLength = hover === null || hover.board !== board ? null : pieceLength(hover.board, hover.pieceId)
 
   // Solo hides everything in the lab but the board, and HTML's focus fixup
   // would drop a focus left in there onto <body>. A layout effect runs first,
@@ -134,6 +144,7 @@ export function BoardFrame(): ReactElement {
           pad={view.pad}
           onColoredChange={onColoredChange}
           onPieceClick={session.onPieceClick}
+          onPieceHover={onPieceHover}
           onPieceRemoved={session.onPieceRemoved}
           onLifeLost={session.onLifeLost}
           onFinished={session.onFinished}
@@ -141,9 +152,14 @@ export function BoardFrame(): ReactElement {
         <BusyVeil />
         {named === null ? null : (
           <span className="fw-anno">
-            {named.seed === null
-              ? dict.t('boardSize', named.W, named.H)
-              : dict.t('boardAnnotation', named.W, named.H, named.seed)}
+            <span>
+              {named.seed === null
+                ? dict.t('boardSize', named.W, named.H)
+                : dict.t('boardAnnotation', named.W, named.H, named.seed)}
+            </span>
+            {hover === null || hoverLength === null ? null : (
+              <span className="fw-read">{dict.t('hoverReadout', hover.pieceId, hoverLength)}</span>
+            )}
           </span>
         )}
         {/* Its own glyph: `⤢` is the element's fit button. */}

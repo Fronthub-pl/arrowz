@@ -386,6 +386,8 @@ Plansza, która przyjmuje kliknięcia — `play` albo `interactive` — ma w rog
 
 Kursor pokazuje, co zrobi następne kliknięcie. Domyślnie nad planszą widać dłoń do chwytania, a wskazujący palec nad strzałką pojawia się tylko wtedy, gdy trzymasz ⌘ albo Ctrl, bo tylko wtedy kliknięcie wykonuje ruch. Z wciśniętym przełącznikiem jest odwrotnie: to klawisz modyfikujący zmienia kursor nad planszą w dłoń do chwytania. Na Macu kliknięcie z Ctrl to kliknięcie prawym przyciskiem; na planszy, która przyjmuje kliknięcia, w trybie domyślnym komponent nie otwiera wtedy menu kontekstowego.
 
+Komponent mówi też Twojej stronie, która strzałka jest pod myszą albo piórem, zdarzeniem `piece-hover`, niezależnie od tego, czy plansza przyjmuje kliknięcia. Zdarzenie leci tylko wtedy, gdy ta strzałka się zmienia, z `null` nad tłem, gdy wskaźnik opuszcza planszę, gdy zaczyna się przesuwanie i gdy zmienia się plansza. Dotyk nie zna najechania, więc palec nigdy go nie wywołuje.
+
 ### Dotyk
 
 Dotyk działa tak samo w obu trybach: jeden palec przesuwa, dwa palce powiększają szczypnięciem, a stuknięcie wykonuje ruch.
