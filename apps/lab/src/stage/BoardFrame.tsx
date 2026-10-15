@@ -16,9 +16,9 @@ import { pieceLength } from './pieceFacts'
  * The paper frame around the one `<arrowz-board>`, and what sits on it: the
  * annotation of the board on screen with the arrow under the pointer beside
  * it, and the solo toggle, in its top corners over the board's margin, after
- * the element in DOM order because its host is opaque and positioned. The board mode and its line live in `.fw-modebar`
- * under the frame, and the element is fitted above it, so neither covers a
- * drawn row.
+ * the element in DOM order because its host is opaque and positioned. The board
+ * mode and its line live in `.fw-modebar` under the frame, and the element is
+ * fitted above it, so neither covers a drawn row.
  *
  * The element's view is memoised on the *slice's* identity, not rebuilt per
  * render: `run.progressed()` replaces `state.run` and leaves `state.view` and
