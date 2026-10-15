@@ -67,7 +67,7 @@ Deno.test('every lab table description is in both languages, and translated', ()
       assertNotEquals(plRows[key], text, `${group}.${key} is still English in the Polish docs`)
     }
   }
-  assertEquals(seen, 10 + 17 + 19 + 4)
+  assertEquals(seen, 10 + 18 + 19 + 4)
 })
 
 // The export tables' rows are held to the element's `mod.ts` by its README guard

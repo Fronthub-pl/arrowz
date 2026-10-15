@@ -432,6 +432,8 @@ export type WorkerIn =
   | { type: 'svg'; board: BoardFile; options: SvgOptions }
   /** One seed of a series: answered by `seedDone`, never by `progress`. */
   | { type: 'seed'; params: Params; stop?: Int32Array }
+  /** One seed of a batch of saves: answered by `fillDone`, never by `progress`. */
+  | { type: 'fill'; params: Params; stop?: Int32Array }
 
 export type WorkerOut =
   | { type: 'progress'; info: TraceInfo }
@@ -456,3 +458,5 @@ export type WorkerOut =
     board: BoardFile
   }
   | { type: 'seedDone'; run: SeedRun }
+  /** One seed of a batch of saves; `board` is the seed's file only when the board is complete. */
+  | { type: 'fillDone'; run: SeedRun; board: BoardFile | null; restarts: number; backtracks: number }

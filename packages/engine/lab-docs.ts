@@ -288,6 +288,7 @@ export type PaletteId =
   | 'run-defaults'
   | 'run-abort'
   | 'run-check-seeds'
+  | 'run-fill-library'
   | 'run-solo'
   | 'go-lab'
   | 'go-boards'
@@ -464,6 +465,8 @@ const EN = {
     'run-defaults': 'Puts every setting back to its default and generates.',
     'run-abort': 'Stops the run and keeps the board made so far; while one is stopping, _Discard_ drops its board.',
     'run-check-seeds': 'Runs the settings over a number of seeds (advanced view only).',
+    'run-fill-library':
+      'Saves complete boards from the current seed up, skipping a seed whose board is not complete and a layout already stored (advanced view only).',
     'run-solo': 'The board alone.',
     'go-lab': 'The settings, the board and the report.',
     'go-boards': 'The saved boards.',
@@ -705,6 +708,8 @@ const PL = {
     'run-abort':
       'Zatrzymuje generowanie i zostawia planszę ułożoną do tej pory; gdy generowanie już się zatrzymuje, _Odrzuć_ porzuca jego planszę.',
     'run-check-seeds': 'Uruchamia ustawienia na wielu ziarnach (tylko w widoku zaawansowanym).',
+    'run-fill-library':
+      'Zapisuje pełne plansze od bieżącego ziarna w górę, pomijając ziarna z niepełną planszą i układy już zapisane (tylko w widoku zaawansowanym).',
     'run-solo': 'Sama plansza.',
     'go-lab': 'Ustawienia, plansza i raport.',
     'go-boards': 'Zapisane plansze.',
