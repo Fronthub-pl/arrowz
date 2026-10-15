@@ -150,7 +150,8 @@ function lookRows(deps: CommandDeps, state: Store): Command[] {
 
 /**
  * A preset row's `run` rewrites every knob before `applyPreset` can refuse a
- * series, so it is off during one; a normal run is replaced, as `PresetStrip` does.
+ * series or a batch of saves (Save many boards), so it is off during either; a
+ * normal run is replaced, as `PresetStrip` does.
  */
 function presetRows(deps: CommandDeps, poolBusy: boolean): Command[] {
   const levels = deps.dict.d.presets.levels as Partial<Record<string, string>>

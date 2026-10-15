@@ -15,7 +15,7 @@ export function fillLimit(seed: number, maxSeeds: number): number {
  * Whether one more seed may go out: within the limit, and only while more
  * boards are wanted than are written or in flight, since each seed in flight
  * may be the last one needed. A batch so never writes more than it was asked
- * for, and tries the seeds `carve --count` tries.
+ * for, and tries the seeds `carve --count` tries, for a batch `carve --count` accepts.
  */
 export function mayHandOut(p: {
   wanted: number

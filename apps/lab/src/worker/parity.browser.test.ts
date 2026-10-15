@@ -55,8 +55,7 @@ test('one seed of a batch hands back the engine’s board file', async () => {
   expect([answer.restarts, answer.backtracks]).toEqual([mine.restartsUsed, mine.backtracks])
 }, 30_000)
 
-// 400×400 because the first trace comes no sooner than 250 ms in, so a flag
-// raised before the start stops the seed there rather than after it completes.
+// 400×400 for the reason given in `worker-smoke.mjs`.
 test('a seed of a batch stopped by the flag hands back no board', async () => {
   const stop = new Int32Array(new SharedArrayBuffer(4))
   Atomics.store(stop, 0, 1)

@@ -22,9 +22,9 @@ export const REPORT_ID = 'lab-report'
  * the tab, not merely when a preview is set, which is why this asks the route;
  * and it shows nothing while no board the address names is drawn.
  *
- * `series` is a slot: the lab's `SeriesSection`, mounted above the run's own
- * report even while it has none, so a series just finished still shows before
- * a board has run.
+ * `series` is a slot: the lab's `SeriesSection` and the "many boards" section
+ * of Save many boards, mounted above the run's own report even while it has
+ * none, so a series or a batch just finished still shows before a board has run.
  */
 export function ReportPanel({ series = null }: { series?: ReactNode }): ReactElement {
   const dict = useDictionary()

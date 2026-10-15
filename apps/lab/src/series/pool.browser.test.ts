@@ -55,7 +55,7 @@ test('a worker that breaks is reported with an empty message, never undefined', 
 })
 
 // The test page is cross-origin isolated (the chromium project's ISOLATION headers).
-test('the workers share one stop flag, read through stopRequested', () => {
+test("the pool's stop flag is read through stopRequested", () => {
   const pool = openPool(2, { message: vi.fn(), failed: vi.fn() })
   if (pool.flag === null) throw new Error('expected a shared flag on an isolated page')
   expect(pool.stopRequested()).toBe(false)

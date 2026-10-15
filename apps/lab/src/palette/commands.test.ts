@@ -339,7 +339,7 @@ describe('the catalogue', () => {
   })
 
   // A preset row's `run` writes every knob before `applyPreset` refuses the run,
-  // so it must be disabled while a series checks the ones on screen.
+  // so it must be disabled while a series checks the ones on screen (a batch of saves is refused the same way).
   it('disables every preset row during a series, with the reason other rows give', () => {
     useStore.getState().series.started(useStore.getState().params.values, 4)
     try {
@@ -354,7 +354,7 @@ describe('the catalogue', () => {
     }
   })
 
-  // `applyPreset` refuses only a series; a normal run is replaced, as the preset strip's buttons do.
+  // `applyPreset` refuses a series and a batch of saves; a normal run is replaced, as the preset strip's buttons do.
   it('keeps every preset row on during a normal run, with its size', () => {
     useStore.getState().run.started(useStore.getState().params.values)
     const rows = buildCommands(deps(), useStore.getState()).filter((row) => row.section === 'preset')

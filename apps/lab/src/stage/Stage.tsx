@@ -50,7 +50,7 @@ export function Stage({
   settings: ReactNode
   run: ReactNode
   side: ReactNode
-  /** The lab's Seeds section, passed to the report drawer; null on the saved boards. */
+  /** The lab's Seeds and "many boards" sections, passed to the report drawer; null on the saved boards. */
   series?: ReactNode
   /** A carve in flight on the lab: the board is about to change. */
   busy?: boolean
