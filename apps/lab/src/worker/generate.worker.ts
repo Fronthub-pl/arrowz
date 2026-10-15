@@ -7,6 +7,11 @@ import { seedRunOf } from '@fronthub/arrowz-engine/report'
 // ~90 000 piece objects), the very file that goes to the store.
 const post = (message: WorkerOut) => self.postMessage(message)
 
+/** The trace of a seed nobody watches cell by cell: it only reads the page's stop flag. */
+const stopOnly = (stop: Int32Array | undefined) => () => {
+  if (stop !== undefined && Atomics.load(stop, 0) === 1) throw new GenerateAbort('stopped from the page')
+}
+
 self.onmessage = (event: MessageEvent<WorkerIn>) => {
   const message = event.data
   if (message.type === 'svg') {
@@ -18,14 +23,26 @@ self.onmessage = (event: MessageEvent<WorkerIn>) => {
     return
   }
   if (message.type === 'seed') {
-    const { stop } = message
     try {
-      const result = generate(message.params, {
-        trace: () => {
-          if (stop !== undefined && Atomics.load(stop, 0) === 1) throw new GenerateAbort('stopped from the page')
-        },
-      })
+      const result = generate(message.params, { trace: stopOnly(message.stop) })
       post({ type: 'seedDone', run: seedRunOf(message.params.seed, result) })
+    } catch (err) {
+      post({ type: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+    return
+  }
+  if (message.type === 'fill') {
+    try {
+      const result = generate(message.params, { trace: stopOnly(message.stop) })
+      const run = seedRunOf(message.params.seed, result)
+      post({
+        type: 'fillDone',
+        run,
+        // Encoded once, here, and only for a board worth saving: the page posts this file as it is.
+        board: run.outcome === 'complete' ? encodeBoard(result.board) : null,
+        restarts: result.restartsUsed,
+        backtracks: result.backtracks,
+      })
     } catch (err) {
       post({ type: 'error', message: err instanceof Error ? err.message : String(err) })
     }

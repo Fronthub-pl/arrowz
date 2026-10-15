@@ -41,3 +41,28 @@ test('the worker draws the SVG the engine draws', async () => {
   if (answer.type !== 'svg') return
   expect(answer.svg).toBe(toSvg(mine.board, options))
 }, 30_000)
+
+test('one seed of a batch hands back the engine’s board file', async () => {
+  const params = { ...defaultParams(), W: 20, H: 20, seed: 11 }
+  const answer = await ask({ type: 'fill', params })
+  expect(answer.type).toBe('fillDone')
+  if (answer.type !== 'fillDone') return
+  const mine = generate(params)
+  expect(mine.ok).toBe(true)
+  expect(answer.run.outcome).toBe('complete')
+  expect(answer.board?.fingerprint).toBe(fingerprint(mine.board))
+  expect(answer.board === null ? null : fingerprint(decodeBoard(answer.board))).toBe(fingerprint(mine.board))
+  expect([answer.restarts, answer.backtracks]).toEqual([mine.restartsUsed, mine.backtracks])
+}, 30_000)
+
+// 400×400 because the first trace comes no sooner than 250 ms in, so a flag
+// raised before the start stops the seed there rather than after it completes.
+test('a seed of a batch stopped by the flag hands back no board', async () => {
+  const stop = new Int32Array(new SharedArrayBuffer(4))
+  Atomics.store(stop, 0, 1)
+  const answer = await ask({ type: 'fill', params: { ...defaultParams(), W: 400, H: 400, seed: 7 }, stop })
+  expect(answer.type).toBe('fillDone')
+  if (answer.type !== 'fillDone') return
+  expect(answer.run.outcome).toBe('stopped')
+  expect(answer.board).toBeNull()
+}, 30_000)
