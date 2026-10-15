@@ -81,6 +81,24 @@
 .fw-series > button {
   flex: 1;
 }
+/* Save many boards: the button on its own line, its two numbers under it, each after its word. */
+.fw-fill {
+  flex-flow: row wrap;
+  align-items: center;
+  column-gap: 6px;
+}
+.fw-fill > button:first-child {
+  flex: 1 1 100%;
+}
+.fw-fill-pair {
+  display: inline-flex;
+  align-items: center;
+  column-gap: 6px;
+  white-space: nowrap;
+}
+.fw-fill-lab {
+  color: var(--mist);
+}
 .fw-ghost {
   flex: none;
   display: flex;
@@ -600,8 +618,9 @@
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
-/* Check seeds is Generate's meter for a series: the same fill, on its own button. */
-.fw-series > button.busy {
+/* Check seeds and Save many boards are Generate's meter for their batch: the same fill, on their own button. */
+.fw-series > button.busy,
+.fw-fill > button.busy {
   opacity: 1;
   background: linear-gradient(to right, var(--signal-fill) 0 var(--p), var(--surface) var(--p) 100%);
   color: var(--ink);

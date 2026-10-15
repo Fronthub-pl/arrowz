@@ -15,7 +15,13 @@ import '../design/index.css'
 
 function stub() {
   const calls = { start: 0 }
-  const control: RunControl = { start: () => void calls.start++, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
+  const control: RunControl = {
+    start: () => void calls.start++,
+    abort: () => {},
+    hold: () => {},
+    checkSeeds: () => {},
+    fillLibrary: () => {},
+  }
   return { control, started: () => calls.start }
 }
 

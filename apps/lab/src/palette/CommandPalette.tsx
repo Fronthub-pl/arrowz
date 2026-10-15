@@ -46,6 +46,7 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
   const violations = useStore((state) => state.params.violations)
   const running = useStore(inFlight)
   const seriesStopping = useStore((state) => state.series.stopping)
+  const fillStopping = useStore((state) => state.fill.stopping)
   const runStopping = useStore((state) => state.run.stopping)
   const mode = useStore((state) => state.ui.mode)
   const lang = useStore((state) => state.lang.lang)
@@ -74,7 +75,7 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
     // Read through `getState()`, so `exhaustive-deps` calls these slices
     // unnecessary and cannot check the list: it is every slice a row shows or
     // is disabled by, kept by hand. A new field on a row must add its slice.
-    [deps, values, violations, running, seriesStopping, runStopping, mode, lang, view, refusal],
+    [deps, values, violations, running, seriesStopping, fillStopping, runStopping, mode, lang, view, refusal],
   )
   const pasted = useMemo(() => (isCommandQuery(query) ? pastedRow(deps, query) : null), [deps, query])
   const hits = useMemo(

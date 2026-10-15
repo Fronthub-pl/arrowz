@@ -147,6 +147,10 @@ export const EN = {
     checkSeeds: 'Check seeds',
     checkSeedsCount: 'seeds',
     checkingSeeds: (done: number, planned: number) => `Checking ${done}/${planned}`,
+    fillLibrary: 'Save many boards',
+    fillCount: 'boards',
+    fillMaxSeeds: 'max seeds',
+    fillingLibrary: (written: number, wanted: number) => `Saving ${written}/${wanted}`,
     cliLabel: 'CLI',
     runColumn: 'Run',
     // The phone's bar of bottom sheets: its name and its
@@ -669,6 +673,22 @@ export const EN = {
     seriesStatus: (done: number, planned: number) => `Checking seeds: ${done} of ${planned}…`,
     seriesStopping: 'Stopping the seeds…',
     seriesError: (message: string) => `The seeds could not be checked: ${message}`,
+    // The Many boards section: one batch of saves, its tally and the seeds it skipped.
+    fillTitle: 'Many boards',
+    fillHead: (written: number, wanted: number, tried: number) =>
+      `Saved ${written} of ${wanted} ${wanted === 1 ? 'board' : 'boards'} · ${tried} ${
+        tried === 1 ? 'seed' : 'seeds'
+      } tried`,
+    fillGaveUp: (limit: number) => `stopped at the limit of ${limit} ${limit === 1 ? 'seed' : 'seeds'}`,
+    fillNotComplete: (seeds: string) => `seeds not complete, skipped: ${seeds}`,
+    fillAlreadyStored: (seeds: string) => `seeds whose layout is already stored, skipped: ${seeds}`,
+    fillStatus: (written: number, wanted: number, tried: number) =>
+      `Saving boards: ${written} of ${wanted}, ${tried} ${tried === 1 ? 'seed' : 'seeds'} tried…`,
+    fillStopping: 'Stopping; the boards saved so far stay…',
+    fillStoreError: (message: string) => `The store did not take a board, so saving stopped: ${message}`,
+    fillStale:
+      'The store server is older than this lab: it took one more board, not counted here, and saving stopped; restart it',
+    fillWorkerError: (message: string) => `The boards could not be made: ${message}`,
     boardAnnotation: (W: number, H: number, seed: number) => `${W}×${H} · seed ${seed}`,
     // The arrow under a mouse or pen, beside the annotation (`piece-hover`).
     hoverReadout: (id: number, length: number) => `Arrow #${id} · ${length} ${length === 1 ? 'cell' : 'cells'}`,
@@ -1045,6 +1065,10 @@ export const PL: Translation = {
     checkSeeds: 'Sprawdź ziarna',
     checkSeedsCount: 'ziaren',
     checkingSeeds: (done, planned) => `Sprawdzam ${done}/${planned}`,
+    fillLibrary: 'Zapisz wiele plansz',
+    fillCount: 'plansz',
+    fillMaxSeeds: 'maks. ziaren',
+    fillingLibrary: (written, wanted) => `Zapisuję ${written}/${wanted}`,
     cliLabel: 'CLI',
     runColumn: 'Generowanie',
     sheetBar: 'Panele',
@@ -1501,6 +1525,17 @@ export const PL: Translation = {
     seriesStatus: (done, planned) => `Sprawdzam ziarna: ${done} z ${planned}…`,
     seriesStopping: 'Zatrzymuję ziarna…',
     seriesError: (message) => `Nie udało się sprawdzić ziaren: ${message}`,
+    fillTitle: 'Wiele plansz',
+    fillHead: (written, wanted, tried) => `Zapisane plansze: ${written} z ${wanted} · sprawdzone ziarna: ${tried}`,
+    fillGaveUp: (limit) => `zatrzymane na limicie ziaren: ${limit}`,
+    fillNotComplete: (seeds) => `ziarna z niepełną planszą, pominięte: ${seeds}`,
+    fillAlreadyStored: (seeds) => `ziarna z układem już w magazynie, pominięte: ${seeds}`,
+    fillStatus: (written, wanted, tried) => `Zapisuję plansze: ${written} z ${wanted}, sprawdzone ziarna: ${tried}…`,
+    fillStopping: 'Zatrzymuję; zapisane dotąd plansze zostają…',
+    fillStoreError: (message) => `Magazyn nie przyjął planszy, więc zapisywanie stanęło: ${message}`,
+    fillStale:
+      'Serwer magazynu jest starszy niż to laboratorium: przyjął jeszcze jedną planszę, nieliczoną tutaj, i zapisywanie stanęło; uruchom go ponownie',
+    fillWorkerError: (message) => `Nie udało się ułożyć plansz: ${message}`,
     boardAnnotation: (W, H, seed) => `${W}×${H} · ziarno ${seed}`,
     hoverReadout: (id, length) => `Strzałka #${id} · ${length} ${plCells(length)}`,
     boardModeLabel: 'Tryb planszy',

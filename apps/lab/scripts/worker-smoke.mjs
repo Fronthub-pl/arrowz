@@ -96,6 +96,25 @@ check(
 check(answer?.run?.outcome === (direct.ok ? 'complete' : 'incomplete'), 'and its outcome')
 check(!messages.some((m) => m.type === 'progress' || m.type === 'done'), 'with no progress and no board')
 
+messages.length = 0
+globalThis.onmessage({ data: { type: 'fill', params: seedParams } })
+const filled = messages.find((m) => m.type === 'fillDone')
+check(
+  filled?.run?.outcome === 'complete' && filled.board?.fingerprint === fingerprint(direct.board),
+  'one seed of a batch hands back the engine’s board file',
+)
+check(!messages.some((m) => m.type === 'progress' || m.type === 'done'), 'and nothing else')
+
+messages.length = 0
+const raised = new Int32Array(new SharedArrayBuffer(4))
+Atomics.store(raised, 0, 1)
+globalThis.onmessage({ data: { type: 'fill', params: { ...defaultParams(), W: 400, H: 400, seed: 7 }, stop: raised } })
+const cut = messages.find((m) => m.type === 'fillDone')
+check(
+  cut?.run?.outcome === 'stopped' && cut.board === null,
+  'a seed of a batch stopped by the flag hands back no board',
+)
+
 if (failures > 0) {
   console.error(`${failures} check(s) failed: the built worker is not the engine`)
   process.exit(1)

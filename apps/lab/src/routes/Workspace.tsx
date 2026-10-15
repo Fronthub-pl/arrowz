@@ -6,6 +6,7 @@ import { BoardColumn } from '../library/BoardColumn'
 import { openBoardFiles } from '../library/openBoardFiles'
 import { useOpenBoard } from '../library/useOpenBoard'
 import { useStoredBoard } from '../library/useStoredBoard'
+import { FillSection } from '../report/FillSection'
 import { SeriesSection } from '../report/SeriesSection'
 import { ClampNotice } from '../run/ClampNotice'
 import { PresetStrip } from '../run/PresetStrip'
@@ -114,7 +115,14 @@ export function Workspace({
             settings={<Console control={control} face={tab} />}
             run={<RunColumn control={control} goRef={goRef} abortRef={abortRef} />}
             side={lab ? null : <BoardColumn key={`${open.size ?? ''}/${open.id ?? ''}`} control={control} />}
-            series={lab && !simple ? <SeriesSection control={control} /> : null}
+            series={
+              lab && !simple ? (
+                <>
+                  <FillSection />
+                  <SeriesSection control={control} />
+                </>
+              ) : null
+            }
             // Only on the lab: the saved boards' stage shows a stored board,
             // which a carve in flight does not touch.
             busy={lab && running}

@@ -13,6 +13,7 @@ function stub() {
     abort: () => {},
     hold: (fn) => void (cancel = fn),
     checkSeeds: () => {},
+    fillLibrary: () => {},
   }
   return { control, started: () => calls.start, cancelPending: () => cancel?.() }
 }

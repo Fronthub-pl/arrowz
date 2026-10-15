@@ -2,7 +2,7 @@ import { summariseSeries, type SeriesSummary } from '@fronthub/arrowz-engine/rep
 import type { ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useDictionary } from '../i18n'
-import type { RunControl } from '../run/useRun'
+import { poolRunning, type RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
 import { StatRowView } from './StatRowView'
 
@@ -39,13 +39,14 @@ export function SeriesSection({ control }: { control: RunControl }): ReactElemen
     })),
   )
   const values = useStore((state) => state.params.values)
+  const poolBusy = useStore(poolRunning)
   if (series.params === null || (series.runs.length === 0 && series.error === null)) return null
   const own = series.params
   const s = series.runs.length === 0 ? null : summariseSeries(series.runs)
   const tone = s === null ? null : toneOf(s, series.error, series.phase === 'done')
   const stale = (Object.keys(own) as (keyof typeof own)[]).some((key) => key !== 'seed' && own[key] !== values[key])
   const open = (seed: number) => {
-    if (series.phase === 'running') return
+    if (poolBusy) return
     useStore.getState().params.setMany({ ...own, seed })
     control.start()
   }
@@ -97,7 +98,7 @@ export function SeriesSection({ control }: { control: RunControl }): ReactElemen
               .filter((run) => run.outcome !== 'complete')
               .map((run) => (
                 <li key={run.seed}>
-                  <button type="button" disabled={series.phase === 'running'} onClick={() => open(run.seed)}>
+                  <button type="button" disabled={poolBusy} onClick={() => open(run.seed)}>
                     {run.outcome === 'complete'
                       ? null
                       : run.outcome === 'unsolvable'

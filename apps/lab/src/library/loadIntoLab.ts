@@ -1,5 +1,5 @@
 import { type BoardMeta, readParams } from '@fronthub/arrowz-engine'
-import type { RunControl } from '../run/useRun'
+import { poolRunning, type RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
 import { viewFieldsOf } from '../state/view.slice'
 
@@ -15,9 +15,9 @@ export function loadIntoLab(
   navigate: (path: string) => void,
   storedId?: string,
 ): void {
-  const { params, ui, view, series } = useStore.getState()
-  // Before the write: a series still running must keep the knobs it started with.
-  if (series.phase === 'running') return
+  const { params, ui, view } = useStore.getState()
+  // Before the write: a series or a batch still running must keep the knobs it started with.
+  if (poolRunning(useStore.getState())) return
   ui.raiseClamped(params.setMany(readParams(source.params)))
   view.apply(viewFieldsOf(source.view))
   if (storedId === undefined) control.start()

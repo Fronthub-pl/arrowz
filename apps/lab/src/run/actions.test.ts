@@ -1,7 +1,7 @@
 import { PARAM_SPEC } from '@fronthub/arrowz-engine'
 import { PRESETS } from '@fronthub/arrowz-engine/presets'
 import { exportCell } from '@fronthub/arrowz-engine/simple'
-import { beforeEach, describe, expect, it, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, test } from 'vitest'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
 import { applyPreset, defaults, generate, generateAndSave, reseed, stepSeed } from './actions'
@@ -15,6 +15,7 @@ function fakeControl(): RunControl & { started: number } {
     abort: () => {},
     hold: () => {},
     checkSeeds: () => {},
+    fillLibrary: () => {},
   }
   return control
 }
@@ -25,6 +26,7 @@ beforeEach(() => {
   useStore.setState((state) => ({ ui: { ...state.ui, mode: 'advanced', auto: false } }))
   useStore.getState().params.reset()
 })
+afterEach(() => useStore.getState().fill.reset())
 
 describe('the run actions, which the column and the palette share', () => {
   it('generates from the knobs as they stand', () => {
@@ -115,6 +117,20 @@ describe('the run actions, which the column and the palette share', () => {
     expect(control.started).toBe(0)
     useStore.getState().series.reset()
   })
+
+  it('refuses stepSeed and applyPreset during a batch of saves, leaving the knobs untouched', () => {
+    const control = fakeControl()
+    useStore.getState().params.setMany({ seed: 100 })
+    useStore.getState().fill.started(useStore.getState().params.values, 2, 4)
+    stepSeed(control, 1)
+    expect(useStore.getState().params.values.seed).toBe(100)
+    const before = useStore.getState().params.values.W
+    const option = PRESETS[0]?.options[0]
+    if (option === undefined) throw new Error('PRESETS has no first option')
+    applyPreset(control, option.params)
+    expect(useStore.getState().params.values.W).toBe(before)
+    expect(control.started).toBe(0)
+  })
 })
 
 test('generateAndSave starts a run that asks to save', () => {
@@ -124,6 +140,7 @@ test('generateAndSave starts a run that asks to save', () => {
     abort: () => {},
     hold: () => {},
     checkSeeds: () => {},
+    fillLibrary: () => {},
   }
   generateAndSave(control)
   expect(asked).toEqual([{ save: true }])

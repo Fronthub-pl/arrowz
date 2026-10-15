@@ -11,7 +11,13 @@ import { isCommandQuery, loadCommand, pastedRow, problemWords, readCommand } fro
 function deps(lang: 'en' | 'pl' = 'en') {
   const started: number[] = []
   const went: string[] = []
-  const control: RunControl = { start: () => started.push(1), abort: () => {}, hold: () => {}, checkSeeds: () => {} }
+  const control: RunControl = {
+    start: () => started.push(1),
+    abort: () => {},
+    hold: () => {},
+    checkSeeds: () => {},
+    fillLibrary: () => {},
+  }
   const d: CommandDeps = { control, navigate: (path) => went.push(path), dict: dictionary(lang) }
   return { d, started, went }
 }
@@ -24,6 +30,7 @@ beforeEach(() => {
   // too, or a case that loads a line leaves its view and recipe for the next.
   useStore.getState().view.apply(VIEW_DEFAULTS)
   useStore.getState().recipe.reset()
+  useStore.getState().fill.reset()
 })
 
 describe('a pasted command', () => {
@@ -172,5 +179,14 @@ describe('a pasted command', () => {
     loadCommand(d, readCommand('--width=30 --height=40 --pstraight=0.9').parsed)
     expect(useStore.getState().ui.mode).toBe('advanced')
     expect(useStore.getState().params.values.pStraight).toBe(0.9)
+  })
+
+  it('loads nothing and cannot be chosen while a batch of saves runs', () => {
+    const { d, started } = deps()
+    useStore.getState().fill.started(useStore.getState().params.values, 2, 4)
+    expect(pastedRow(d, '--width=30 --height=40 --seed=5').command.disabled).toBe(true)
+    loadCommand(d, readCommand('--width=30 --height=40 --seed=5').parsed)
+    expect(useStore.getState().params.values.W).not.toBe(30)
+    expect(started).toEqual([])
   })
 })

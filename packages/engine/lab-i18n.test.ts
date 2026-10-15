@@ -438,6 +438,24 @@ Deno.test('both ui dictionaries carry the command palette words', () => {
   for (const lang of ['en', 'pl'] as const) assertStringIncludes(dictionary(lang).t('cmdOpen'), '⌘K')
 })
 
+Deno.test('both ui dictionaries carry the words of saving many boards', () => {
+  assertEquals(EN.ui.fillHead(3, 10, 12), 'Saved 3 of 10 boards · 12 seeds tried')
+  assertEquals(EN.ui.fillHead(1, 1, 1), 'Saved 1 of 1 board · 1 seed tried')
+  assertEquals(PL.ui.fillHead(3, 10, 12), 'Zapisane plansze: 3 z 10 · sprawdzone ziarna: 12')
+  assertEquals(EN.ui.fillStatus(3, 10, 12), 'Saving boards: 3 of 10, 12 seeds tried…')
+  assertEquals(PL.ui.fillStatus(3, 10, 12), 'Zapisuję plansze: 3 z 10, sprawdzone ziarna: 12…')
+  assertEquals(EN.ui.fillingLibrary(3, 10), 'Saving 3/10')
+  assertEquals(PL.ui.fillingLibrary(3, 10), 'Zapisuję 3/10')
+  assertEquals(EN.ui.fillGaveUp(20), 'stopped at the limit of 20 seeds')
+  assertEquals(PL.ui.fillGaveUp(20), 'zatrzymane na limicie ziaren: 20')
+  for (const d of [EN, PL]) {
+    assertStringIncludes(d.ui.fillNotComplete('2, 4'), '2, 4')
+    assertStringIncludes(d.ui.fillAlreadyStored('3'), '3')
+    assertStringIncludes(d.ui.fillStoreError('Failed to fetch'), 'Failed to fetch')
+    assertStringIncludes(d.ui.fillWorkerError('nope'), 'nope')
+  }
+})
+
 // The preview's four section titles.
 Deno.test('both ui dictionaries carry the preview section titles', () => {
   for (const d of [EN, PL]) {

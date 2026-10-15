@@ -32,7 +32,7 @@ async function callsDuring(node: ReactNode, child: { mock: { calls: unknown[] } 
   return child.mock.calls.length - before
 }
 
-const control: RunControl = { start: vi.fn(), abort: vi.fn(), hold: vi.fn(), checkSeeds: vi.fn() }
+const control: RunControl = { start: vi.fn(), abort: vi.fn(), hold: vi.fn(), checkSeeds: vi.fn(), fillLibrary: vi.fn() }
 
 function seriesDone() {
   const s = useStore.getState().series

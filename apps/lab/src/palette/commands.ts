@@ -9,7 +9,7 @@ import { VIEW_FLAGS, VIEW_NUMBERS, VIEW_ROWS } from '../console/viewFields'
 import { openFilePicker } from '../library/BoardFileInput'
 import { saveRefusal, saveShown } from '../library/saveShown'
 import { applyPreset, defaults, generate, generateAndSave, reseed } from '../run/actions'
-import { inFlight, type RunControl } from '../run/useRun'
+import { inFlight, poolRunning, type RunControl } from '../run/useRun'
 import { type Store, useStore } from '../state/store'
 import type { RailEntry } from '../state/ui.slice'
 import { lookOf, PALETTE_CAP } from '../state/view.slice'
@@ -150,9 +150,10 @@ function lookRows(deps: CommandDeps, state: Store): Command[] {
 
 /**
  * A preset row's `run` rewrites every knob before `applyPreset` can refuse a
- * series, so it is off during one; a normal run is replaced, as `PresetStrip` does.
+ * series or a batch of saves (Save many boards), so it is off during either; a
+ * normal run is replaced, as `PresetStrip` does.
  */
-function presetRows(deps: CommandDeps, series: boolean): Command[] {
+function presetRows(deps: CommandDeps, poolBusy: boolean): Command[] {
   const levels = deps.dict.d.presets.levels as Partial<Record<string, string>>
   const rows: Command[] = []
   for (const level of PRESETS) {
@@ -164,9 +165,9 @@ function presetRows(deps: CommandDeps, series: boolean): Command[] {
         section: 'preset',
         name: deps.dict.d.presets.modes[option.mode],
         note: levels[level.id] ?? level.id,
-        value: series ? deps.dict.t('cmdRunning') : `${W}×${H}`,
+        value: poolBusy ? deps.dict.t('cmdRunning') : `${W}×${H}`,
         hay: option.id,
-        disabled: series,
+        disabled: poolBusy,
         run: () => {
           applyPreset(deps.control, option.params)
           useStore.getState().ui.closePalette()
@@ -254,7 +255,8 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
     {
       id: 'run-abort',
       section: 'run',
-      name: state.run.stopping || state.series.stopping ? dict.t('abortDiscard') : dict.t('abort'),
+      name:
+        state.run.stopping || state.series.stopping || state.fill.stopping ? dict.t('abortDiscard') : dict.t('abort'),
       note: dict.t('cmdSecRun'),
       value: running ? '' : dict.t('cmdNoRun'),
       hay: 'abort stop',
@@ -264,8 +266,8 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
         state.ui.closePalette()
       },
     },
-    // `RunColumn` hides `SeriesRow` in the simple view, so the row is absent
-    // here too rather than disabled, with nothing on screen for it to reach.
+    // `RunColumn` hides `SeriesRow` and `FillRow` in the simple view, so the rows are absent
+    // here too rather than disabled, with nothing on screen for them to reach.
     ...(state.ui.mode === 'simple'
       ? []
       : [
@@ -278,6 +280,16 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
             hay: 'check seeds series many rate',
             disabled: running || broken,
             run: onLab(deps, state, () => deps.control.checkSeeds()),
+          },
+          {
+            id: 'run-fill-library',
+            section: 'run' as const,
+            name: dict.t('fillLibrary'),
+            note: dict.t('cmdSecRun'),
+            value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : '',
+            hay: 'save many boards batch fill library count seeds',
+            disabled: running || broken,
+            run: onLab(deps, state, () => deps.control.fillLibrary()),
           },
         ]),
     {
@@ -343,21 +355,21 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
   ]
   // No export rows: each export is a closure inside `ExportButtons` holding a
   // worker or a per-board hash, reachable only by clicking its button.
-  return [
-    ...run,
-    ...go,
-    ...knobRows(deps, state),
-    ...lookRows(deps, state),
-    ...presetRows(deps, state.series.phase === 'running'),
-  ]
+  return [...run, ...go, ...knobRows(deps, state), ...lookRows(deps, state), ...presetRows(deps, poolRunning(state))]
 }
 
-const IDLE: RunControl = { start: () => {}, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
+const IDLE: RunControl = {
+  start: () => {},
+  abort: () => {},
+  hold: () => {},
+  checkSeeds: () => {},
+  fillLibrary: () => {},
+}
 
 /**
  * The run and go-to rows as the Docs tab lists them: the advanced view, in
  * `dict`'s language, nothing stopping, whatever the lab is doing now. The ⌘K
- * rows change with that state (Check seeds, Discard); a reference table does not.
+ * rows change with that state (Check seeds, Save many boards, Discard); a reference table does not.
  */
 export function docsPaletteRows(dict: Dict, state: Store): Command[] {
   const fixed: Store = {
@@ -366,6 +378,7 @@ export function docsPaletteRows(dict: Dict, state: Store): Command[] {
     lang: { ...state.lang, lang: dict.lang },
     run: { ...state.run, stopping: false },
     series: { ...state.series, stopping: false },
+    fill: { ...state.fill, stopping: false },
   }
   return buildCommands({ control: IDLE, navigate: () => {}, dict }, fixed).filter(
     (row) => row.section === 'run' || row.section === 'go',

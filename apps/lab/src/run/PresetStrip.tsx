@@ -5,7 +5,7 @@ import { useDictionary } from '../i18n'
 import { useDismiss } from '../shell/useDismiss'
 import { useStore } from '../state/store'
 import { applyPreset } from './actions'
-import type { RunControl } from './useRun'
+import { poolRunning, type RunControl } from './useRun'
 
 /** The last row index of level `col`, for the arrow keys' clamp. */
 function lastRow(col: number): number {
@@ -28,8 +28,8 @@ const MODES: readonly PresetMode[] = ['square', 'portrait', 'tunnels', 'skeleton
 export function PresetStrip({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const values = useStore((state) => state.params.values)
-  // `choose` rewrites every knob before `applyPreset` can refuse a series still running.
-  const running = useStore((state) => state.series.phase === 'running')
+  // `choose` rewrites every knob before `applyPreset` can refuse a series or a batch still running.
+  const running = useStore(poolRunning)
   const current = findPreset(values)
   // `PresetLevel.id` is a `string` and the dictionary's `levels` a fixed-key
   // object, so the index needs narrowing.

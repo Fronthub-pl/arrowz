@@ -103,6 +103,10 @@ keeps the board carved so far. A board is not stored until you
 board_ saves each finished run. In the advanced view, _generate right after a
 change_ starts a run whenever a knob moves, and **Check seeds** runs the current
 settings over a number of seeds and reports how many boards came out complete.
+**Save many boards** saves complete boards from the current seed up, as
+`arrowz carve --count` does: a seed whose board is not complete is skipped, and
+so is a layout already stored, until it has the boards asked for or has tried
+its seed limit (twice the boards unless set).
 **Download SVG** and **Download board file** export the board on screen.
 
 ![Check seeds: one setting over twenty seeds](docs/screenshots/lab-series.png)
@@ -169,6 +173,7 @@ would be.
 | `Defaults`             | run     | Puts every knob back to its default.                                  |
 | `Abort`                | run     | Stops the run; while one is stopping, _Discard_ drops its board.      |
 | `Check seeds`          | run     | Runs the settings over a number of seeds (advanced view only).        |
+| `Save many boards`     | run     | Saves complete boards over the seeds (advanced view only).            |
 | `Full view (key F)`    | run     | The board alone.                                                      |
 | `Lab`                  | go to   | The lab.                                                              |
 | `Saved boards`         | go to   | The saved boards.                                                     |

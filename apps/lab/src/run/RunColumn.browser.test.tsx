@@ -20,6 +20,7 @@ function stub() {
     abort: () => void calls.abort++,
     hold: () => {},
     checkSeeds: () => {},
+    fillLibrary: () => {},
   }
   return { control, started: () => calls.start, aborted: () => calls.abort }
 }
@@ -63,6 +64,7 @@ beforeEach(() => {
   state.run.reset()
   state.result.reset()
   state.series.reset()
+  state.fill.reset()
   state.ui.setAuto(false)
   state.ui.setSaveEvery(false)
   state.ui.setMode('advanced')
@@ -161,6 +163,7 @@ describe('RunColumn', () => {
       abort: () => useStore.getState().run.aborted(),
       hold: () => {},
       checkSeeds: () => {},
+      fillLibrary: () => {},
     }
     const screen = await render(<Host control={live} />)
     const go = buttonOf(screen.getByRole('button', { name: 'Generate', exact: true }).element())
@@ -288,6 +291,22 @@ describe('the alternative actions', () => {
     await expect.element(screen.getByRole('button', { name: 'Defaults' })).toBeDisabled()
   })
 
+  it('disables New seed and Defaults while a batch of saves runs, and names Abort Discard once it stops', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    useStore.getState().fill.started(defaultParams(), 3, 6)
+    await expect.element(screen.getByRole('button', { name: 'New seed' })).toBeDisabled()
+    await expect.element(screen.getByRole('button', { name: 'Defaults' })).toBeDisabled()
+    useStore.getState().fill.stopRequested()
+    await expect.element(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
+  })
+
+  it('carries Save many boards in the advanced view, not in the simple one', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    await expect.element(screen.getByRole('button', { name: 'Save many boards' })).toBeInTheDocument()
+    useStore.getState().ui.setMode('simple')
+    await expect.element(screen.getByRole('button', { name: 'Save many boards' })).not.toBeInTheDocument()
+  })
+
   // Geometry, because `.fw-cmd`'s text is in the DOM whether or not the box
   // paints it. The box shows the whole command and the column scrolls instead,
   // so Generate moves down with a longer command. 216 px is narrower than any
@@ -337,6 +356,7 @@ describe('Generate and save', () => {
       abort: () => {},
       hold: () => {},
       checkSeeds: () => {},
+      fillLibrary: () => {},
     }
     return { control, starts }
   }

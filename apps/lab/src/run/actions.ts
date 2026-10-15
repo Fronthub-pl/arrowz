@@ -2,7 +2,7 @@ import { PARAM_SPEC, type Params } from '@fronthub/arrowz-engine'
 import { exportCell } from '@fronthub/arrowz-engine/simple'
 import { drawIfRandom, resetRecipeIfSimple } from '../simple/applyRecipe'
 import { useStore } from '../state/store'
-import type { RunControl } from './useRun'
+import { poolRunning, type RunControl } from './useRun'
 
 /**
  * What a person can ask the generator for, in one place because two surfaces
@@ -48,9 +48,9 @@ export function defaults(control: RunControl): void {
  * that number and a copy drifts.
  */
 export function stepSeed(control: RunControl, delta: number): void {
-  // Before the write: `control.start()` refuses during a series too, but only
+  // Before the write: `control.start()` refuses during a series or a batch too, but only
   // after this would already have rewritten the seed under it.
-  if (useStore.getState().series.phase === 'running') return
+  if (poolRunning(useStore.getState())) return
   const params = useStore.getState().params
   params.setMany({ seed: params.values.seed + delta })
   drawIfRandom()
@@ -71,7 +71,7 @@ export function stepSeed(control: RunControl, delta: number): void {
  */
 export function applyPreset(control: RunControl, params: Partial<Params>): void {
   // Same reason as `stepSeed`: refuse before rewriting the knobs, not after.
-  if (useStore.getState().series.phase === 'running') return
+  if (poolRunning(useStore.getState())) return
   const state = useStore.getState()
   const full: Partial<Params> = {}
   for (const spec of PARAM_SPEC) full[spec.key] = params[spec.key] ?? spec.def

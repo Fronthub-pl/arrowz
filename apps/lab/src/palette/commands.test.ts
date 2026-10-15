@@ -7,7 +7,13 @@ import { PALETTE_CAP } from '../state/view.slice'
 import type { RunControl } from '../run/useRun'
 import { buildCommands, type CommandDeps, type CommandSection, docsPaletteRows, matchCommands } from './commands'
 
-const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
+const control: RunControl = {
+  start: () => {},
+  abort: () => {},
+  hold: () => {},
+  checkSeeds: () => {},
+  fillLibrary: () => {},
+}
 
 function deps(): CommandDeps & { went: string[] } {
   const went: string[] = []
@@ -21,6 +27,8 @@ beforeEach(() => {
   useStore.getState().params.reset()
   useStore.getState().run.reset()
   useStore.getState().result.reset()
+  useStore.getState().series.reset()
+  useStore.getState().fill.reset()
 })
 
 describe('the catalogue', () => {
@@ -110,6 +118,7 @@ describe('the catalogue', () => {
       abort: () => {},
       hold: () => {},
       checkSeeds: () => calls.push('checkSeeds'),
+      fillLibrary: () => {},
     }
     useStore.getState().ui.openPalette()
     buildCommands({ ...deps(), control }, useStore.getState())
@@ -117,6 +126,24 @@ describe('the catalogue', () => {
       ?.run()
     expect(calls).toEqual(['checkSeeds'])
     expect(useStore.getState().ui.palette).toBe(false)
+  })
+
+  it('offers Save many boards in the advanced view only, off while anything runs', () => {
+    const row = () => buildCommands(deps(), useStore.getState()).find((r) => r.id === 'run-fill-library')
+    expect(row()?.name).toBe('Save many boards')
+    expect(row()?.section).toBe('run')
+    expect(row()?.disabled).toBe(false)
+    useStore.getState().series.started(useStore.getState().params.values, 3)
+    expect(row()?.disabled).toBe(true)
+    useStore.getState().series.reset()
+    useStore.setState((state) => ({ ui: { ...state.ui, mode: 'simple' } }))
+    expect(row()).toBeUndefined()
+  })
+
+  it('names Abort Discard once a batch of saves is stopping', () => {
+    useStore.getState().fill.started(useStore.getState().params.values, 2, 4)
+    useStore.getState().fill.stopRequested()
+    expect(buildCommands(deps(), useStore.getState()).find((r) => r.id === 'run-abort')?.name).toBe('Discard')
   })
 
   it('refuses Generate against a broken rule, and says which way it is broken', () => {
@@ -135,6 +162,7 @@ describe('the catalogue', () => {
       abort: () => {},
       hold: () => {},
       checkSeeds: () => {},
+      fillLibrary: () => {},
     }
     useStore.getState().ui.openPalette()
     const row = buildCommands({ ...deps(), control }, useStore.getState()).find((r) => r.id === 'run-generate-save')
@@ -246,6 +274,7 @@ describe('the catalogue', () => {
         abort: () => void log.push('abort'),
         hold: () => {},
         checkSeeds: () => void log.push('checkSeeds'),
+        fillLibrary: () => void log.push('fillLibrary'),
       }
       return { log, handed: { control: ctl, navigate: (path) => void log.push(`go ${path}`), dict: dictionary('en') } }
     }
@@ -256,6 +285,7 @@ describe('the catalogue', () => {
       ['run-reseed', 'start'],
       ['run-defaults', 'start'],
       ['run-check-seeds', 'checkSeeds'],
+      ['run-fill-library', 'fillLibrary'],
     ])('%s brings the lab before it runs', (id, action) => {
       const { log, handed } = logged()
       buildCommands(handed, useStore.getState())
@@ -309,7 +339,7 @@ describe('the catalogue', () => {
   })
 
   // A preset row's `run` writes every knob before `applyPreset` refuses the run,
-  // so it must be disabled while a series checks the ones on screen.
+  // so it must be disabled while a series checks the ones on screen (a batch of saves is refused the same way).
   it('disables every preset row during a series, with the reason other rows give', () => {
     useStore.getState().series.started(useStore.getState().params.values, 4)
     try {
@@ -324,7 +354,7 @@ describe('the catalogue', () => {
     }
   })
 
-  // `applyPreset` refuses only a series; a normal run is replaced, as the preset strip's buttons do.
+  // `applyPreset` refuses a series and a batch of saves; a normal run is replaced, as the preset strip's buttons do.
   it('keeps every preset row on during a normal run, with its size', () => {
     useStore.getState().run.started(useStore.getState().params.values)
     const rows = buildCommands(deps(), useStore.getState()).filter((row) => row.section === 'preset')
@@ -437,8 +467,8 @@ describe('the matcher', () => {
     expect(matches[0]).toBe('view-top')
   })
 
-  // 'run' matches the ten run rows' note, and `knob-giantStep`'s and
-  // `knob-giantJitter`'s label; no name starts with it, so all ten share one rank.
+  // 'run' matches the nine run rows' note, and `knob-giantStep`'s and
+  // `knob-giantJitter`'s label; no name starts with it, so all eleven share one rank.
   it('keeps the catalogue order among rows that tie in rank', () => {
     const rows = buildCommands(deps(), useStore.getState())
     const catalogueOrder = rows.map((row) => row.id)
@@ -451,6 +481,7 @@ describe('the matcher', () => {
       'run-defaults',
       'run-abort',
       'run-check-seeds',
+      'run-fill-library',
       'run-solo',
       'knob-giantStep',
       'knob-giantJitter',

@@ -73,7 +73,7 @@ export interface RunState {
    * that failed to load, or null when there is neither.
    */
   readonly library: StateLine | null
-  /** What Generate and the board's veil say while a carve or a series runs; null when neither does. */
+  /** What Generate and the board's veil say while a carve, a series or a batch of saves runs; null when none does. */
   readonly meter: Meter | null
 }
 
@@ -167,6 +167,11 @@ export function useRunLine(): Omit<RunState, 'library'> {
   const seriesDone = useStore((state) => state.series.runs.length)
   const seriesPlanned = useStore((state) => state.series.planned)
   const seriesStopping = useStore((state) => state.series.stopping)
+  const fillPhase = useStore((state) => state.fill.phase)
+  const fillWritten = useStore((state) => state.fill.written)
+  const fillWanted = useStore((state) => state.fill.wanted)
+  const fillTried = useStore((state) => state.fill.tried)
+  const fillStopping = useStore((state) => state.fill.stopping)
 
   let text: string
   let rest: string | null = null
@@ -176,10 +181,13 @@ export function useRunLine(): Omit<RunState, 'library'> {
   // the refusal would glue a board nobody is looking at onto the knobs' error.
   let reportsRun = false
   let meter: Meter | null = null
-  // A series has no board of its own, so it owns the line while it runs; once
-  // done the line goes back to the board on screen, and the counts stay in
-  // the Seeds section.
-  if (seriesPhase === 'running') {
+  // A series or a batch of saves has no board of its own, so it owns the line
+  // while it runs; once done the line goes back to the board on screen, and
+  // the counts stay in the report drawer.
+  if (fillPhase === 'running') {
+    text = fillStopping ? dict.t('fillStopping') : dict.t('fillStatus', fillWritten, fillWanted, fillTried)
+    meter = { label: text, percent: fillWanted === 0 ? 0 : tenths((100 * fillWritten) / fillWanted) }
+  } else if (seriesPhase === 'running') {
     text = seriesStopping ? dict.t('seriesStopping') : dict.t('seriesStatus', seriesDone, seriesPlanned)
     meter = { label: text, percent: seriesPlanned === 0 ? 0 : tenths((100 * seriesDone) / seriesPlanned) }
   } else if (run.phase === 'running') {
