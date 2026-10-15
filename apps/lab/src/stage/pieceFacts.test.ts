@@ -1,6 +1,6 @@
 import { type BoardData, newSession, play } from '@fronthub/arrowz-engine'
 import { expect, test } from 'vitest'
-import { pieceFacts } from './pieceFacts'
+import { pieceFacts, pieceLength } from './pieceFacts'
 import { threeDominoes } from './pieces.fixtures'
 
 test('a piece whose way out is clear is free', () => {
@@ -44,4 +44,11 @@ test('a piece whose only blocker has left is free', () => {
 test('a piece that has left has no facts', () => {
   const { next } = play(newSession(threeDominoes()), 2)
   expect(pieceFacts(next, 2)).toBeNull()
+})
+
+test('a piece’s length is its cell count, and an id no piece carries has none', () => {
+  const board = threeDominoes()
+  expect([0, 1, 2].map((id) => pieceLength(board, id))).toEqual([2, 2, 3])
+  expect(pieceLength(board, 7)).toBeNull()
+  expect(pieceLength(board, -1)).toBeNull()
 })

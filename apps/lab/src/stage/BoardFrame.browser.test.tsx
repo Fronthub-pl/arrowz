@@ -9,6 +9,7 @@ import { storedFixture } from '../state/library.fixtures'
 import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { BoardFrame } from './BoardFrame'
+import { threeDominoes } from './pieces.fixtures'
 import '../design/index.css'
 
 beforeEach(() => {
@@ -44,6 +45,20 @@ async function mountFrame(path = '/') {
 }
 
 const annotation = (container: HTMLElement) => container.querySelector('.fw-anno')
+const readout = (container: HTMLElement) => container.querySelector('.fw-anno .fw-read')
+
+/** What the element dispatches, the way it dispatches it. */
+async function hoverOver(container: HTMLElement, pieceId: number | null) {
+  await act(async () => {
+    container
+      .querySelector('arrowz-board')
+      ?.dispatchEvent(new CustomEvent('piece-hover', { detail: { pieceId }, bubbles: true, composed: true }))
+  })
+}
+
+async function showDominoes() {
+  await act(async () => finish({ ...finishedRun(1), board: threeDominoes() }))
+}
 
 // Colours are a permission the element grants only to a host that asks
 // (`enableColors`). `element.view.colored` is the input, not what is drawn, so
@@ -463,4 +478,87 @@ test('the frame paints the lab’s token, not --arrowz-paper set on itself', asy
   // `var(--paper)` plainly, with no fallback that would read the property here.
   frame.style.setProperty('--arrowz-paper', 'rgb(40, 40, 40)')
   expect(getComputedStyle(frame).backgroundImage).toContain('rgb(244, 245, 248)')
+})
+
+test('the strip names the arrow under the pointer and its length, and null clears it', async () => {
+  const screen = await mountFrame()
+  await showDominoes()
+  expect(readout(screen.container)).toBeNull()
+  await hoverOver(screen.container, 2)
+  expect(readout(screen.container)?.textContent).toBe('Arrow #2 · 3 cells')
+  await hoverOver(screen.container, 0)
+  expect(readout(screen.container)?.textContent).toBe('Arrow #0 · 2 cells')
+  await hoverOver(screen.container, null)
+  expect(readout(screen.container)).toBeNull()
+  expect(annotation(screen.container)?.textContent).toBe('8×8 · seed 1')
+})
+
+test('the readout follows the language', async () => {
+  const screen = await mountFrame()
+  await showDominoes()
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  await hoverOver(screen.container, 2)
+  expect(readout(screen.container)?.textContent).toBe('Strzałka #2 · 3 komórki')
+})
+
+// Only the frame's own key can clear it here: the synthetic event leaves the
+// element thinking nothing is hovered, so its own `null` on a new board never comes.
+test('a piece read on one board is not named on the next', async () => {
+  const screen = await mountFrame()
+  await showDominoes()
+  await hoverOver(screen.container, 2)
+  await act(async () => finish(finishedRun(2)))
+  expect(readout(screen.container)).toBeNull()
+})
+
+test('a real mouse over an arrow names it, and leaving the board clears it', async () => {
+  const screen = await mountFrame()
+  await showDominoes()
+  const element = screen.container.querySelector('arrowz-board')
+  await expect.poll(() => element?.viewport ?? null).not.toBeNull()
+  const vp = element?.viewport
+  const head = element?.board?.pieces.find((p) => p.id === 2)?.cells[0]
+  const canvas = element?.shadowRoot?.querySelector('canvas')
+  if (!vp || !head || !canvas) throw new Error('need a viewport, a canvas and a piece')
+  const r = canvas.getBoundingClientRect()
+  const at = {
+    bubbles: true,
+    composed: true,
+    pointerId: 1,
+    pointerType: 'mouse',
+    isPrimary: true,
+    buttons: 0,
+    clientX: r.left + (head.x + 0.5 - vp.originX) * vp.cellPx,
+    clientY: r.top + (head.y + 0.5 - vp.originY) * vp.cellPx,
+  }
+  await act(async () => {
+    canvas.dispatchEvent(new PointerEvent('pointerenter', at))
+    canvas.dispatchEvent(new PointerEvent('pointermove', at))
+  })
+  expect(readout(screen.container)?.textContent).toBe('Arrow #2 · 3 cells')
+  await act(async () => canvas.dispatchEvent(new PointerEvent('pointerleave', at)))
+  expect(readout(screen.container)).toBeNull()
+})
+
+// 180 px: the strip cannot hold the size, the seed and the readout, so the readout has to give way.
+test('a long readout gives way before the solo toggle, and the annotation keeps its words', async () => {
+  const screen = await renderAt(<BoardFrame />, {
+    path: '/',
+    style: { display: 'grid', gridTemplateRows: '1fr', width: '180px', height: '360px' },
+  })
+  await showDominoes()
+  await hoverOver(screen.container, 2)
+  const anno = annotation(screen.container)
+  const read = readout(screen.container)
+  const first = anno?.firstElementChild
+  const solo = screen.container.querySelector('.fw-solo')
+  if (!(read instanceof HTMLElement) || !(first instanceof HTMLElement) || anno === null || solo === null) {
+    throw new Error('the strip is not on the page')
+  }
+  expect(read.scrollWidth).toBeGreaterThan(read.clientWidth)
+  expect(anno.getBoundingClientRect().right).toBeLessThanOrEqual(solo.getBoundingClientRect().left + 0.5)
+  // Line boxes, not the span's own box: a flex item has one box however many lines it wraps to.
+  const words = document.createRange()
+  words.selectNodeContents(first)
+  expect(new Set([...words.getClientRects()].map((r) => Math.round(r.top))).size).toBe(1)
 })

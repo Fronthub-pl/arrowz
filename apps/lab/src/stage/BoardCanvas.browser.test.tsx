@@ -41,6 +41,15 @@ test('a piece-click event on the element calls the onPieceClick prop', async () 
   expect(onPieceClick.mock.calls[0]?.[0]?.detail).toEqual({ pieceId: 3 })
 })
 
+test('a piece-hover event on the element calls the onPieceHover prop', async () => {
+  const onPieceHover = vi.fn()
+  const screen = await render(<BoardCanvas board={board} view={view} interactive={false} onPieceHover={onPieceHover} />)
+  const element = screen.container.querySelector('arrowz-board')
+  element?.dispatchEvent(new CustomEvent('piece-hover', { detail: { pieceId: 3 } }))
+  element?.dispatchEvent(new CustomEvent('piece-hover', { detail: { pieceId: null } }))
+  expect(onPieceHover.mock.calls.map((c) => c[0]?.detail)).toEqual([{ pieceId: 3 }, { pieceId: null }])
+})
+
 test('the three game events call their props', async () => {
   const onPieceRemoved = vi.fn()
   const onLifeLost = vi.fn()

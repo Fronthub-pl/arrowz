@@ -670,6 +670,8 @@ export const EN = {
     seriesStopping: 'Stopping the seeds…',
     seriesError: (message: string) => `The seeds could not be checked: ${message}`,
     boardAnnotation: (W: number, H: number, seed: number) => `${W}×${H} · seed ${seed}`,
+    // The arrow under a mouse or pen, beside the annotation (`piece-hover`).
+    hoverReadout: (id: number, length: number) => `Arrow #${id} · ${length} ${length === 1 ? 'cell' : 'cells'}`,
     // The board frame's mode: look, click a piece for its facts, or play it.
     boardModeLabel: 'Board mode',
     boardModeView: 'View',
@@ -1500,6 +1502,7 @@ export const PL: Translation = {
     seriesStopping: 'Zatrzymuję ziarna…',
     seriesError: (message) => `Nie udało się sprawdzić ziaren: ${message}`,
     boardAnnotation: (W, H, seed) => `${W}×${H} · ziarno ${seed}`,
+    hoverReadout: (id, length) => `Strzałka #${id} · ${length} ${plCells(length)}`,
     boardModeLabel: 'Tryb planszy',
     boardModeView: 'Widok',
     boardModeInspect: 'Inspekcja',

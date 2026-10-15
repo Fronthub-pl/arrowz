@@ -4,6 +4,7 @@ import type {
   FinishedEvent,
   LifeLostEvent,
   PieceClickEvent,
+  PieceHoverEvent,
   PieceRemovedEvent,
 } from '@fronthub/arrowz-board'
 import { createComponent, type EventName } from '@lit/react'
@@ -21,6 +22,7 @@ export const BoardCanvas = createComponent({
   react: React,
   events: {
     onPieceClick: 'piece-click' as EventName<PieceClickEvent>,
+    onPieceHover: 'piece-hover' as EventName<PieceHoverEvent>,
     onPieceRemoved: 'piece-removed' as EventName<PieceRemovedEvent>,
     onLifeLost: 'life-lost' as EventName<LifeLostEvent>,
     onFinished: 'finished' as EventName<FinishedEvent>,
