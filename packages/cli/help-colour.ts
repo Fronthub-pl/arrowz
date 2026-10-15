@@ -15,7 +15,10 @@ const HEADING = /^\S.*:$/
 /** A flag row: two spaces, then a first column that starts with a dash and ends at the first double space. */
 const FLAG_ROW = /^( {2})(-.*?)(?= {2})/
 
-/** Whether to colour: FORCE_COLOR forces it for '', 1, 2, 3 and true and forbids it for any other value, as in Node, NO_COLOR forbids it, else a terminal gets it. */
+/**
+ * Whether to colour: FORCE_COLOR forces it for '', 1, 2, 3 and true and forbids it for any other
+ * value, as in Node, NO_COLOR forbids it, else a terminal gets it.
+ */
 export function colourWanted(
   env: { readonly FORCE_COLOR?: string | undefined; readonly NO_COLOR?: string | undefined },
   tty: boolean,

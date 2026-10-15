@@ -48,7 +48,8 @@ Deno.test('arrowz carve --help prints the help of carve and succeeds', () => {
   assertEquals(r.stdout, helpText() + '\n')
 })
 
-// FORCE_COLOR stands in for a terminal: stdout is a pipe here, and the help colours a pipe only when FORCE_COLOR says so (`colourWanted`).
+// FORCE_COLOR stands in for a terminal: stdout is a pipe here, and the help colours a pipe only when
+// FORCE_COLOR says so (`colourWanted`).
 Deno.test('arrowz carve --help is in colour when colour is forced, in the columns of the plain help', () => {
   for (const [flag, knobs] of [['--help', false], ['--help=knobs', true]] as const) {
     const r = arrowz(['carve', flag], { env: { FORCE_COLOR: '1' } })
