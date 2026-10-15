@@ -307,6 +307,14 @@ Deno.test('both ui dictionaries carry the report, export and annotation words', 
   }
 })
 
+Deno.test('both ui dictionaries carry the changed-knobs words', () => {
+  assertEquals(EN.ui.knobDiffHead, 'Changed settings')
+  assertEquals(PL.ui.knobDiffHead, 'Zmienione ustawienia')
+  assertEquals(EN.ui.knobDiffRow('seed', 'board', '1', '2'), 'seed (board): from 1 to 2')
+  assertEquals(PL.ui.knobDiffRow('ziarno', 'plansza', '1', '2'), 'ziarno (plansza): z 1 na 2')
+  for (const d of [EN, PL]) assert(d.ui.knobDiffCap.length > 0)
+})
+
 Deno.test('the console rail names itself and its two sections in both languages', () => {
   for (const lang of ['en', 'pl'] as const) {
     const dict = dictionary(lang)
