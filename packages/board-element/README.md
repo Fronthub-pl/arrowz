@@ -172,10 +172,10 @@ pans, the menu is the page's.
 
 The board also says which piece is under a mouse or pen, as `piece-hover`,
 whether or not it takes clicks. It fires when that piece changes, not on every
-move, and `null` means none: over paper, after the pointer leaves, when a pan
-starts and when the board changes. Touch has no hover and never fires it. The
-look-up is the one the cursor makes anyway: one hit test per pointer move or
-modifier key, none during a pan.
+move, and `null` means none: over paper, after the pointer leaves or is held
+past the board's edge, when a pan starts and when the board changes. Touch has
+no hover and never fires it. The look-up is the one the cursor makes anyway: one
+hit test per pointer move or modifier key, none during a pan.
 
 ### Size, and values the board cannot draw
 

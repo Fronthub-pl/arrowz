@@ -607,8 +607,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     // Applies from the next press (see GestureMachine.mode), so a change mid-drag is safe.
     this.gestures.mode = this.gestureMode
     if (changed.has('chosenMode') || changed.has('play') || changed.has('interactive')) this.refreshCursor()
-    // A piece id names a piece of one board only. After the re-read above, which
-    // a new board takes through the old viewport, so a board change ends with null.
+    // A piece id names a piece of one board only, so a board change ends the hover with `null`.
+    // The board is re-read further down, after this announcement.
     if (changed.has('board')) this.hover(null)
     if (
       changed.has('enableColors') || changed.has('coloredOverride') || changed.has('view') ||
