@@ -147,6 +147,8 @@ beforeEach(() => {
 })
 afterEach(() => {
   el?.remove()
+  // The next test file in the same browser reads this key.
+  localStorage.removeItem(GESTURE_STORAGE_KEY)
 })
 
 describe('mount and viewport', () => {

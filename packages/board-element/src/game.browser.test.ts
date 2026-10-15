@@ -1,7 +1,7 @@
 import { defaultParams, DIRS, generate } from '@fronthub/arrowz-engine'
 import type { Board, BoardData, SessionSnapshot } from '@fronthub/arrowz-engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { ArrowzBoard } from './arrowz-board.ts'
+import { ArrowzBoard, GESTURE_STORAGE_KEY } from './arrowz-board.ts'
 import type { ColoredChangeEvent } from './arrowz-board.ts'
 import { EXIT_MAX_MS } from './track.ts'
 import { hueBytes, SHAKE_MS } from './view.ts'
@@ -151,6 +151,8 @@ function verdicts(board: BoardData): { free: number; blocked: number; blocker: n
 
 beforeEach(() => {
   document.body.innerHTML = ''
+  // Its clicks assume the default drag mode, not a choice stored by another file.
+  localStorage.removeItem(GESTURE_STORAGE_KEY)
 })
 afterEach(() => {
   el?.remove()
