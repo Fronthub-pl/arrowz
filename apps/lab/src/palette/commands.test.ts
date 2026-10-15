@@ -7,7 +7,13 @@ import { PALETTE_CAP } from '../state/view.slice'
 import type { RunControl } from '../run/useRun'
 import { buildCommands, type CommandDeps, type CommandSection, docsPaletteRows, matchCommands } from './commands'
 
-const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
+const control: RunControl = {
+  start: () => {},
+  abort: () => {},
+  hold: () => {},
+  checkSeeds: () => {},
+  fillLibrary: () => {},
+}
 
 function deps(): CommandDeps & { went: string[] } {
   const went: string[] = []
@@ -110,6 +116,7 @@ describe('the catalogue', () => {
       abort: () => {},
       hold: () => {},
       checkSeeds: () => calls.push('checkSeeds'),
+      fillLibrary: () => {},
     }
     useStore.getState().ui.openPalette()
     buildCommands({ ...deps(), control }, useStore.getState())
@@ -135,6 +142,7 @@ describe('the catalogue', () => {
       abort: () => {},
       hold: () => {},
       checkSeeds: () => {},
+      fillLibrary: () => {},
     }
     useStore.getState().ui.openPalette()
     const row = buildCommands({ ...deps(), control }, useStore.getState()).find((r) => r.id === 'run-generate-save')
@@ -246,6 +254,7 @@ describe('the catalogue', () => {
         abort: () => void log.push('abort'),
         hold: () => {},
         checkSeeds: () => void log.push('checkSeeds'),
+        fillLibrary: () => {},
       }
       return { log, handed: { control: ctl, navigate: (path) => void log.push(`go ${path}`), dict: dictionary('en') } }
     }

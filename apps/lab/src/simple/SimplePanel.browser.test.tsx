@@ -25,7 +25,13 @@ function themeFixture(name: string) {
 
 function stub() {
   const calls = { start: 0 }
-  const control: RunControl = { start: () => void calls.start++, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
+  const control: RunControl = {
+    start: () => void calls.start++,
+    abort: () => {},
+    hold: () => {},
+    checkSeeds: () => {},
+    fillLibrary: () => {},
+  }
   return { control, started: () => calls.start }
 }
 
@@ -274,6 +280,7 @@ describe('SimplePanel', () => {
       abort: () => {},
       hold: () => {},
       checkSeeds: () => {},
+      fillLibrary: () => {},
     }
     const shaped = state().recipe.edits
     const screen = await render(<SimplePanel control={control} />)

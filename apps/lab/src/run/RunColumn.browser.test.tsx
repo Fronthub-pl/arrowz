@@ -20,6 +20,7 @@ function stub() {
     abort: () => void calls.abort++,
     hold: () => {},
     checkSeeds: () => {},
+    fillLibrary: () => {},
   }
   return { control, started: () => calls.start, aborted: () => calls.abort }
 }
@@ -161,6 +162,7 @@ describe('RunColumn', () => {
       abort: () => useStore.getState().run.aborted(),
       hold: () => {},
       checkSeeds: () => {},
+      fillLibrary: () => {},
     }
     const screen = await render(<Host control={live} />)
     const go = buttonOf(screen.getByRole('button', { name: 'Generate', exact: true }).element())
@@ -337,6 +339,7 @@ describe('Generate and save', () => {
       abort: () => {},
       hold: () => {},
       checkSeeds: () => {},
+      fillLibrary: () => {},
     }
     return { control, starts }
   }

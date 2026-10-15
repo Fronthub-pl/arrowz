@@ -11,7 +11,13 @@ import { viewOf } from '../state/view.slice'
 import { CommandPalette } from './CommandPalette'
 import '../design/index.css'
 
-const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
+const control: RunControl = {
+  start: () => {},
+  abort: () => {},
+  hold: () => {},
+  checkSeeds: () => {},
+  fillLibrary: () => {},
+}
 
 function mount(path = '/') {
   return render(
@@ -275,6 +281,7 @@ describe('a pasted command', () => {
         abort: () => {},
         hold: () => {},
         checkSeeds: () => {},
+        fillLibrary: () => {},
       } satisfies RunControl,
     }
   }

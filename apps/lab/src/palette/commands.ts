@@ -352,7 +352,13 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
   ]
 }
 
-const IDLE: RunControl = { start: () => {}, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
+const IDLE: RunControl = {
+  start: () => {},
+  abort: () => {},
+  hold: () => {},
+  checkSeeds: () => {},
+  fillLibrary: () => {},
+}
 
 /**
  * The run and go-to rows as the Docs tab lists them: the advanced view, in

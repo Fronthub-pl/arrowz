@@ -77,7 +77,13 @@ test('the key table is WORKSPACE_KEYS and COMMAND_KEYS, both ways', () => {
   expect(sorted(firstColumn('## Keys', 'Key'))).toEqual(sorted(shownKeys()))
 })
 
-const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {}, checkSeeds: () => {} }
+const control: RunControl = {
+  start: () => {},
+  abort: () => {},
+  hold: () => {},
+  checkSeeds: () => {},
+  fillLibrary: () => {},
+}
 
 // The palette as the README describes it: English, the advanced view, nothing running.
 beforeEach(() => {

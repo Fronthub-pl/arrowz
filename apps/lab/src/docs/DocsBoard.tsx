@@ -21,6 +21,7 @@ import { useDictionary } from '../i18n'
 import { loadCommand } from '../palette/pastedCommand'
 import { CommandText } from '../run/CommandText'
 import { RunControlContext } from '../run/RunControlContext'
+import { poolRunning } from '../run/useRun'
 import { useCopy } from '../run/useCopy'
 import { BoardCanvas } from '../stage/BoardCanvas'
 import { useStore } from '../state/store'
@@ -211,7 +212,7 @@ function BoardCommand({ spec, name }: { spec: DocsBoardSpec; name: string }): Re
   const { copied, copy } = useCopy()
   const control = useContext(RunControlContext)
   const navigate = useNavigate()
-  const seriesRunning = useStore((state) => state.series.phase === 'running')
+  const poolBusy = useStore(poolRunning)
   const command = `${COMMAND_PREFIX} ${spec.cmd}`
   return (
     <div className="fw-docs-boardcmd">
@@ -232,7 +233,7 @@ function BoardCommand({ spec, name }: { spec: DocsBoardSpec; name: string }): Re
             type="button"
             className="fw-btn"
             aria-label={dict.t('docsOpenInLabFor', name)}
-            disabled={seriesRunning}
+            disabled={poolBusy}
             onClick={() => loadCommand({ control, navigate: (path) => void navigate(path), dict }, spec.parsed)}
           >
             {dict.t('docsOpenInLab')}

@@ -46,6 +46,7 @@ const runControl = (start: RunControl['start'] = () => {}): RunControl => ({
   abort: () => {},
   hold: () => {},
   checkSeeds: () => {},
+  fillLibrary: () => {},
 })
 
 const BOARD = '# T\n\n## A {#a}\n\n::board[A small board]{cmd="--width=12 --height=12 --seed=7" stats="pieces avgLen"}'
@@ -303,6 +304,15 @@ test('Open in lab waits while a series runs', async () => {
   await expect.element(button).toBeEnabled()
   await act(async () => useStore.setState((state) => ({ series: { ...state.series, phase: 'running' } })))
   await expect.element(button).toBeDisabled()
+})
+
+test('Open in lab waits while a batch of saves runs', async () => {
+  const screen = await show(BOARD, createDocsQueue(answeringWorkers().make, new Map()), runControl())
+  const button = screen.getByRole('button', { name: 'Open in lab: A small board' })
+  await expect.element(button).toBeEnabled()
+  await act(async () => useStore.getState().fill.started(useStore.getState().params.values, 2, 4))
+  await expect.element(button).toBeDisabled()
+  await act(async () => useStore.getState().fill.reset())
 })
 
 test('Open in lab is named in Polish with the board’s label', async () => {

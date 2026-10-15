@@ -15,7 +15,7 @@ beforeEach(() => {
   state.library.reset()
   state.params.reset()
   state.lang.setLang('en')
-  control = { start: vi.fn(), abort: vi.fn(), hold: vi.fn(), checkSeeds: vi.fn() }
+  control = { start: vi.fn(), abort: vi.fn(), hold: vi.fn(), checkSeeds: vi.fn(), fillLibrary: vi.fn() }
 })
 
 afterEach(() => {

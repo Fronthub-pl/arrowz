@@ -10,6 +10,7 @@ import { RunControlContext } from './run/RunControlContext'
 import { useAutoRun } from './run/useAutoRun'
 import { useRun } from './run/useRun'
 import { useShownHash } from './run/useShownHash'
+import { useFill } from './series/useFill'
 import { useSeries } from './series/useSeries'
 import { usePaletteKey, useWorkspaceKeys } from './shell/hotkeys'
 import { useRememberBoards } from './shell/lastBoards'
@@ -32,7 +33,8 @@ function Shell() {
   // <arrowz-board> and dispose its GL context.
   const generator = useGenerator()
   const series = useSeries()
-  const control = useRun(generator, series)
+  const fill = useFill()
+  const control = useRun(generator, series, fill)
   useAutoRun(control)
   const hash = useUrlHash(control)
   // Open on a board: run once at mount, after `useUrlHash` has read the link

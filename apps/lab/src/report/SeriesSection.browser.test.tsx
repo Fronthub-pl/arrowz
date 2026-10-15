@@ -7,7 +7,7 @@ import type { RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
 import { SeriesSection } from './SeriesSection'
 
-const control: RunControl = { start: vi.fn(), abort: vi.fn(), hold: vi.fn(), checkSeeds: vi.fn() }
+const control: RunControl = { start: vi.fn(), abort: vi.fn(), hold: vi.fn(), checkSeeds: vi.fn(), fillLibrary: vi.fn() }
 
 const runs: SeedRun[] = [
   { seed: 10, outcome: 'complete', pieces: 10, maxLen: 20, genMs: 5, remaining: 0 },
@@ -25,6 +25,7 @@ beforeEach(() => {
   const state = useStore.getState()
   state.params.reset()
   state.series.reset()
+  state.fill.reset()
   state.lang.setLang('en')
   vi.clearAllMocks()
 })
@@ -79,6 +80,14 @@ test('a failed seed button is disabled while its series is still running', async
   await expect.element(button).toBeDisabled()
   await userEvent.click(button, { force: true })
   expect(control.start).not.toHaveBeenCalled()
+})
+
+// A failed seed's button rewrites the knobs; a batch of saves keeps the ones it started with.
+test('a failed seed button is disabled while a batch of saves runs', async () => {
+  seriesDone()
+  useStore.getState().fill.started(defaultParams(), 2, 4)
+  const screen = await render(<SeriesSection control={control} />)
+  await expect.element(screen.getByRole('button', { name: /seed 11/ })).toBeDisabled()
 })
 
 test('the mean time carries its unit', async () => {

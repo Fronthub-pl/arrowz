@@ -34,6 +34,7 @@ function recorder() {
     abort: () => {},
     hold: () => {},
     checkSeeds: () => {},
+    fillLibrary: () => {},
   }
   return { control, seen }
 }

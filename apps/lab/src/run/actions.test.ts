@@ -15,6 +15,7 @@ function fakeControl(): RunControl & { started: number } {
     abort: () => {},
     hold: () => {},
     checkSeeds: () => {},
+    fillLibrary: () => {},
   }
   return control
 }
@@ -115,6 +116,21 @@ describe('the run actions, which the column and the palette share', () => {
     expect(control.started).toBe(0)
     useStore.getState().series.reset()
   })
+
+  it('refuses stepSeed and applyPreset during a batch of saves, leaving the knobs untouched', () => {
+    const control = fakeControl()
+    useStore.getState().params.setMany({ seed: 100 })
+    useStore.getState().fill.started(useStore.getState().params.values, 2, 4)
+    stepSeed(control, 1)
+    expect(useStore.getState().params.values.seed).toBe(100)
+    const before = useStore.getState().params.values.W
+    const option = PRESETS[0]?.options[0]
+    if (option === undefined) throw new Error('PRESETS has no first option')
+    applyPreset(control, option.params)
+    expect(useStore.getState().params.values.W).toBe(before)
+    expect(control.started).toBe(0)
+    useStore.getState().fill.reset()
+  })
 })
 
 test('generateAndSave starts a run that asks to save', () => {
@@ -124,6 +140,7 @@ test('generateAndSave starts a run that asks to save', () => {
     abort: () => {},
     hold: () => {},
     checkSeeds: () => {},
+    fillLibrary: () => {},
   }
   generateAndSave(control)
   expect(asked).toEqual([{ save: true }])

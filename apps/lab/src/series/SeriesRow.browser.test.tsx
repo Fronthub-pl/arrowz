@@ -6,7 +6,7 @@ import type { RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
 import { SeriesRow } from './SeriesRow'
 
-const control: RunControl = { start: vi.fn(), abort: vi.fn(), hold: vi.fn(), checkSeeds: vi.fn() }
+const control: RunControl = { start: vi.fn(), abort: vi.fn(), hold: vi.fn(), checkSeeds: vi.fn(), fillLibrary: vi.fn() }
 
 beforeEach(() => {
   const state = useStore.getState()

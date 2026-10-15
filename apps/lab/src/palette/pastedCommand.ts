@@ -8,6 +8,7 @@ import {
   splitCommand,
 } from '@fronthub/arrowz-engine/command'
 import type { Dict } from '@fronthub/arrowz-engine/i18n'
+import { poolRunning } from '../run/useRun'
 import { useStore } from '../state/store'
 import { viewFieldsOf } from '../state/view.slice'
 import type { Command, CommandDeps } from './commands'
@@ -91,7 +92,7 @@ export function pastedRow(deps: CommandDeps, query: string): PastedRow {
   const { W, H, seed } = parsed.params
   const board = dict.t('boardAnnotation', W, H, seed)
   const ok = problems.length === 0
-  const running = useStore.getState().series.phase === 'running'
+  const running = poolRunning(useStore.getState())
   return {
     command: {
       id: 'load-command',
@@ -119,9 +120,9 @@ export function pastedRow(deps: CommandDeps, query: string): PastedRow {
  * randomise on, `generate` would draw over the pins just set.
  */
 export function loadCommand(deps: CommandDeps, parsed: ParsedArgs): void {
-  const { params, view, recipe, ui, series } = useStore.getState()
-  // The row is disabled while a series runs, but a hotkey or a stale row must not rewrite it either.
-  if (series.phase === 'running') return
+  const { params, view, recipe, ui } = useStore.getState()
+  // The row is disabled while a series or a batch runs, but a hotkey or a stale row must not rewrite it either.
+  if (poolRunning(useStore.getState())) return
   ui.raiseClamped(params.setMany(drawOf(parsed, Math.random).params))
   view.apply(viewFieldsOf(parsed.view))
   const { seed: _seed, ...choice } = parsed.choice
