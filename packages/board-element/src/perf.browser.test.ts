@@ -107,6 +107,7 @@ function hoverCost(el: ArrowzBoard, count: number): { us: number; events: number
       bubbles: true,
       pointerId: 1,
       pointerType: 'mouse',
+      isPrimary: true,
       clientX: r.left + ((i * 7.3) % r.width),
       clientY: r.top + ((i * 3.1) % r.height),
       buttons: 0,
@@ -322,7 +323,7 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
   180_000,
 )
 
-// The same moves are timed before and after the hover event; the PR carries both.
+// What one hover move costs at Insane, in both gesture modes, fitted and zoomed.
 test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
   'measures the hover path on Insane when ARROWZ_MEASURE=1',
   async () => {
