@@ -1,7 +1,7 @@
 import { PARAM_SPEC } from '@fronthub/arrowz-engine'
 import { PRESETS } from '@fronthub/arrowz-engine/presets'
 import { exportCell } from '@fronthub/arrowz-engine/simple'
-import { beforeEach, describe, expect, it, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, test } from 'vitest'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
 import { applyPreset, defaults, generate, generateAndSave, reseed, stepSeed } from './actions'
@@ -26,6 +26,7 @@ beforeEach(() => {
   useStore.setState((state) => ({ ui: { ...state.ui, mode: 'advanced', auto: false } }))
   useStore.getState().params.reset()
 })
+afterEach(() => useStore.getState().fill.reset())
 
 describe('the run actions, which the column and the palette share', () => {
   it('generates from the knobs as they stand', () => {
@@ -129,7 +130,6 @@ describe('the run actions, which the column and the palette share', () => {
     applyPreset(control, option.params)
     expect(useStore.getState().params.values.W).toBe(before)
     expect(control.started).toBe(0)
-    useStore.getState().fill.reset()
   })
 })
 

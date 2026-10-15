@@ -40,8 +40,16 @@ test('the seed limit is held to 1..400, and twice the boards reads as following 
   fill().setMaxSeeds(20)
   expect(fill().maxSeeds).toBeNull()
   fill().setMaxSeeds(30)
-  fill().setCount(15)
+  fill().setCount(12)
   expect(fill().maxSeeds).toBe(30)
+})
+
+test('a seed limit that becomes twice the boards follows them again', () => {
+  fill().setMaxSeeds(30)
+  fill().setCount(15)
+  expect(fill().maxSeeds).toBeNull()
+  fill().setCount(40)
+  expect(fill().maxSeeds ?? 2 * fill().count).toBe(80)
 })
 
 test('an answer counts as tried and a seed that is not complete is kept in seed order; a stopped one counts for nothing', () => {

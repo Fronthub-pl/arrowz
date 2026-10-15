@@ -64,7 +64,11 @@ export function createFillSlice(set: SliceSet<'fill', FillState>): FillState {
     alreadyStored: [],
     count: FILL_DEFAULT,
     maxSeeds: null,
-    setCount: (count) => patch({ count: held(count, FILL_MIN, FILL_MAX) }),
+    setCount: (count) =>
+      update((fill) => {
+        const boards = held(count, FILL_MIN, FILL_MAX)
+        return { count: boards, maxSeeds: fill.maxSeeds === 2 * boards ? null : fill.maxSeeds }
+      }),
     setMaxSeeds: (maxSeeds) =>
       update((fill) => {
         const limit = held(maxSeeds, 1, FILL_SEEDS_MAX)

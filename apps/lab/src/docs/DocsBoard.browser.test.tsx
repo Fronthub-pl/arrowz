@@ -24,6 +24,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   useStore.getState().view.setFlag('colored', COLORED)
   useStore.setState((state) => ({ series: { ...state.series, phase: SERIES_PHASE } }))
+  useStore.getState().fill.reset()
 })
 
 /** A page of boards; `control` is the lab's run control, which a page shown on its own has none of. */
@@ -312,7 +313,6 @@ test('Open in lab waits while a batch of saves runs', async () => {
   await expect.element(button).toBeEnabled()
   await act(async () => useStore.getState().fill.started(useStore.getState().params.values, 2, 4))
   await expect.element(button).toBeDisabled()
-  await act(async () => useStore.getState().fill.reset())
 })
 
 test('Open in lab is named in Polish with the board’s label', async () => {
