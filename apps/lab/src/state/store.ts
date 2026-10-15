@@ -1,5 +1,6 @@
 import type { BoardData, BoardFile } from '@fronthub/arrowz-engine'
 import { create } from 'zustand'
+import { createFillSlice, type FillState } from './fill.slice'
 import { createLangSlice, type LangState } from './lang.slice'
 import { createLibrarySlice, type LibraryState } from './library.slice'
 import { createParamsSlice, type ParamsState } from './params.slice'
@@ -31,6 +32,7 @@ export interface Store {
   lang: LangState
   recipe: RecipeState
   series: SeriesState
+  fill: FillState
   /**
    * The only writer that sees both the run and the result: the run's done
    * transition and the result's show transition in one `set`, so no render
@@ -50,6 +52,7 @@ export const useStore = create<Store>()((set) => ({
   lang: createLangSlice(set),
   recipe: createRecipeSlice(set),
   series: createSeriesSlice(set),
+  fill: createFillSlice(set),
   completeRun: (done) =>
     set((state) => {
       const params = state.run.params
