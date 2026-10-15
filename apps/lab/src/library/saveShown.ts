@@ -1,3 +1,4 @@
+import type { Params, View } from '@fronthub/arrowz-engine'
 import { storeRequest } from '@fronthub/arrowz-engine/command'
 import { exportCell } from '@fronthub/arrowz-engine/simple'
 import { saveBoard } from '../api/boards'
@@ -24,16 +25,19 @@ export function saveRefusal(state: Store): SaveRefusal | null {
 }
 
 /**
- * Posts `shown` to the store and hands the answer to the result slice, which
- * drops it for a board no longer on screen. `top` zeroed: a saved board is a
- * picture, and the highlight is a reading aid for this run. `cell` comes from
- * the board's size (`exportCell`, as `buildCommand` does), not from the slice,
- * so the preview field a user just set is not overwritten.
+ * The look a lab save stores: the view on screen with `top` zeroed, since a
+ * saved board is a picture and the highlight a reading aid for this run, and
+ * `cell` from the board's size (`exportCell`, as `buildCommand` does), not
+ * from the slice, so the preview field a user just set is not overwritten.
  */
+export function storedView(params: Params): View {
+  return { ...viewOf(useStore.getState().view), top: 0, cell: exportCell(params.W, params.H) }
+}
+
+/** Posts `shown` to the store and hands the answer to the result slice, which drops it for a board no longer on screen. */
 export function postShown(shown: ShownResult): void {
   const { file, params, report } = shown
-  const view = { ...viewOf(useStore.getState().view), top: 0, cell: exportCell(params.W, params.H) }
-  const request = storeRequest(file, params, view, 'lab', {
+  const request = storeRequest(file, params, storedView(params), 'lab', {
     ok: report.ok,
     pieces: report.pieces,
     maxLen: report.metrics?.maxLen ?? null,
