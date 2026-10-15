@@ -30,7 +30,7 @@ A board is not kept until you use **Save board** (`⌘S`) or **Generate and save
 
 In the advanced view, _generate right after a change_ starts a run whenever a setting moves, and **Check seeds** runs the current settings over a number of seeds and reports how many of the boards came out complete.
 
-**Save many boards** saves complete boards from the current seed up: a seed whose board is not complete is skipped, and so is a layout already stored, until it has saved the number of boards asked for or has tried its seed limit, twice the boards unless you set it. Stop keeps the boards saved so far, and the report lists the seeds it skipped.
+**Save many boards** saves complete boards from the current seed up: a seed whose board is not complete is skipped, and so is a layout already stored, until it has saved the number of boards asked for or has tried its seed limit, twice the boards unless you set it. **Abort** keeps the boards saved so far, and the report lists the seeds it skipped.
 
 **Download SVG** and **Download board file** export the board on screen.
 

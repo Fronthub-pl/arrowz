@@ -30,7 +30,7 @@ Plansza nie trafia do magazynu, dopóki nie użyjesz **Zapisz planszę** (`⌘S`
 
 W widoku zaawansowanym _generuj od razu po zmianie_ uruchamia generowanie przy każdej zmianie ustawienia, a **Sprawdź ziarna** uruchamia bieżące ustawienia na wielu ziarnach i podaje, ile plansz wyszło pełnych.
 
-**Zapisz wiele plansz** zapisuje pełne plansze od bieżącego ziarna w górę: ziarno z niepełną planszą jest pomijane, podobnie jak układ już zapisany, aż zapisze tyle plansz, ile prosisz, albo sprawdzi limit ziaren, domyślnie dwa razy tyle, ile plansz. Przerwanie zostawia zapisane dotąd plansze, a raport wymienia pominięte ziarna.
+**Zapisz wiele plansz** zapisuje pełne plansze od bieżącego ziarna w górę: ziarno z niepełną planszą jest pomijane, podobnie jak układ już zapisany, aż zapisze tyle plansz, ile prosisz, albo wyczerpie limit ziaren, domyślnie dwa razy tyle, ile plansz. **Przerwij** zostawia zapisane dotąd plansze, a raport wymienia pominięte ziarna.
 
 **Pobierz SVG** i **Pobierz plik planszy** eksportują planszę z ekranu.
 
