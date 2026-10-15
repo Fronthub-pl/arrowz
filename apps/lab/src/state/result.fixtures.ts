@@ -50,3 +50,20 @@ export function stoppedRun(seed: number): FinishedFixture {
   const run = finishedRun(seed)
   return { ...run, report: { ...run.report, ok: false, aborted: true } }
 }
+
+/**
+ * The board on screen finished again under changed knobs, through the same
+ * `started` and `completeRun` a real run goes through: the board and its size
+ * stay, and the result before it becomes the baseline when it had metrics.
+ */
+export function finishShownAgain(patch: Partial<Params>): void {
+  const state = useStore.getState()
+  const shown = state.result.shown
+  if (shown === null) throw new Error('no result on screen to finish again')
+  state.run.started({ ...shown.params, ...patch })
+  state.completeRun({
+    board: shown.board,
+    file: shown.file,
+    report: { ...shown.report, type: 'done', board: shown.file },
+  })
+}

@@ -12,6 +12,7 @@ import { audit, type Finding, type Invariant } from '../harness/invariants'
 import { loadRunDone, resetApp } from '../harness/mountApp'
 import { settleTransitions } from '../harness/settle'
 import { storedFixture } from '../state/library.fixtures'
+import { finishShownAgain } from '../state/result.fixtures'
 import type { Sheet } from '../state/ui.slice'
 import { useStore } from '../state/store'
 import '../design/index.css'
@@ -161,6 +162,9 @@ async function arrange(state: State) {
     await loadRunDone()
   await act(async () => {
     const s = useStore.getState()
+    // The widest values the list shows, a start pair and a knob with no effect, on the load run's board.
+    if (state === 'report-open' || state === 'sheet-report')
+      finishShownAgain({ seed: 4242, probeLen: 30, headBias: 1, trapBias: 1, giantSpan: 40, maxBack: 1000 })
     if (state === 'report-open') s.ui.setReport(true)
     // The settings drawer is open in every other state (`resetApp`); this one
     // reads the closed face.
@@ -185,6 +189,8 @@ async function arrange(state: State) {
       s.ui.setSheet(state.slice(6) as Sheet)
     if (state === 'menu-open') s.ui.setMenu(true)
   })
+  if (state === 'report-open' || state === 'sheet-report')
+    await expect.poll(() => screen.container.querySelector('.fw-kdiff')).not.toBeNull()
   if (state === 'library-detail' || state === 'library-sheet-cli' || state === 'library-report-open') {
     // `useStoredBoard`'s fetch of the board file is asynchronous, so wait for
     // the detail; `loadRunDone` is skipped, because this state is about the
