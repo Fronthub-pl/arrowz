@@ -81,6 +81,7 @@ export const ELEMENT_MEMBERS = [
 
 export const ELEMENT_EVENTS = [
   { key: 'piece-click', detail: '{ pieceId }' },
+  { key: 'piece-hover', detail: '{ pieceId }' },
   { key: 'colored-change', detail: '{ colored }' },
   { key: 'gestures-change', detail: '{ mode }' },
   { key: 'piece-removed', detail: '{ pieceId, left }' },
@@ -162,6 +163,7 @@ export const ELEMENT_TYPES = [
   { key: 'Session', from: '@fronthub/arrowz-engine', shape: 'board, gone, index, left, status' },
   { key: 'SessionSnapshot', from: '@fronthub/arrowz-engine', shape: 'v, board, removed, colored' },
   { key: 'PieceClickEvent', from: '@fronthub/arrowz-board', shape: 'pieceId' },
+  { key: 'PieceHoverEvent', from: '@fronthub/arrowz-board', shape: 'pieceId' },
   { key: 'PieceRemovedEvent', from: '@fronthub/arrowz-board', shape: 'pieceId, left' },
   { key: 'LifeLostEvent', from: '@fronthub/arrowz-board', shape: 'pieceId, blockerId, distance' },
   { key: 'FinishedEvent', from: '@fronthub/arrowz-board', shape: 'pieces' },
@@ -419,6 +421,8 @@ const EN = {
   },
   events: {
     'piece-click': 'An arrow was clicked, while interactive or playing.',
+    'piece-hover':
+      'The arrow under a mouse or pen changed; null when there is none, the pointer leaves, a pan starts or the board changes. Never for touch.',
     'colored-change':
       'The colour button was clicked or `toggleColors()` was called; cancelable, and fired before the override changes. Cancelling clears the override instead, handing the colour back to `view.colored`.',
     'gestures-change':
@@ -521,6 +525,7 @@ const EN = {
     SessionSnapshot:
       'A saved game: a version, the board it belongs to (with its fingerprint), the arrows removed and the colour choice.',
     PieceClickEvent: 'The `piece-click` event: its `detail` names the arrow.',
+    PieceHoverEvent: 'The `piece-hover` event: its `detail` names the arrow, or null.',
     PieceRemovedEvent: 'The `piece-removed` event: the arrow, and how many are still on the board.',
     LifeLostEvent: 'The `life-lost` event: the arrow, the one that stops it, and how far it gets before it bounces.',
     FinishedEvent: 'The `finished` event: how many arrows the board had.',
@@ -656,6 +661,8 @@ const PL = {
   },
   events: {
     'piece-click': 'Kliknięto strzałkę, w trybie interaktywnym albo w grze.',
+    'piece-hover':
+      'Zmieniła się strzałka pod myszą albo piórem; null, gdy żadnej nie ma, wskaźnik opuszcza planszę, zaczyna się przesuwanie albo zmienia się plansza. Nigdy przy dotyku.',
     'colored-change':
       'Kliknięto przycisk koloru albo wywołano `toggleColors()`; można je anulować, leci przed zmianą nadpisania. Anulowanie czyści nadpisanie i oddaje kolor `view.colored`.',
     'gestures-change':
@@ -758,6 +765,7 @@ const PL = {
     SessionSnapshot:
       'Zapisana gra: wersja, plansza, do której należy (z jej odciskiem), usunięte strzałki i wybór koloru.',
     PieceClickEvent: 'Zdarzenie `piece-click`: jego `detail` wskazuje strzałkę.',
+    PieceHoverEvent: 'Zdarzenie `piece-hover`: jego `detail` wskazuje strzałkę albo null.',
     PieceRemovedEvent: 'Zdarzenie `piece-removed`: strzałka i ile ich zostało na planszy.',
     LifeLostEvent: 'Zdarzenie `life-lost`: strzałka, ta, która ją zatrzymuje, i jak daleko dojedzie przed odbiciem.',
     FinishedEvent: 'Zdarzenie `finished`: ile strzałek miała plansza.',

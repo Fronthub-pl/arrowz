@@ -76,6 +76,7 @@ and assign the result to `board`.
 | Event | `detail` |
 |---|---|
 | `piece-click` | `{ pieceId }`, when `interactive` or `play` |
+| `piece-hover` | `{ pieceId }`, a piece id or `null`, each time the piece under a mouse or pen changes: `null` over paper, when the pointer leaves, when a pan starts and when the board changes; on every board, never for touch |
 | `colored-change` | `{ colored }`, cancelable: fired by the ◑ button or `toggleColors()` before the colour override changes; `preventDefault()` clears the override instead, handing the colour back to `view.colored` |
 | `gestures-change` | `{ mode }` (`'drag'` or `'click'`): the player's gesture choice changed, through the ☝ button or `toggleGestures()`; fired by that board alone, not by the boards that follow it nor for the choice read back on connect |
 | `viewport-change` | the viewport snapshot, at most once per frame |
@@ -168,6 +169,12 @@ the piece cursor away. On macOS a Ctrl click is a secondary click: on a board
 that takes clicks (`play` or `interactive`), in the default mode, the board
 keeps the context menu shut. In the switched mode, and on a board that only
 pans, the menu is the page's.
+
+The board also says which piece is under a mouse or pen, as `piece-hover`,
+whether or not it takes clicks. It fires when that piece changes, not on every
+move, and `null` means none: over paper, after the pointer leaves, when a pan
+starts and when the board changes. Touch has no hover and never fires it. The
+look-up is the one the cursor makes anyway: one read of `owner` per move.
 
 ### Size, and values the board cannot draw
 
@@ -379,6 +386,7 @@ the engine, so a consumer needs no second import for them.
 | `Session` | `@fronthub/arrowz-engine` | a game in progress: { `board`: BoardData, `gone`: Uint8Array (1 per piece id that has left), `index`: Int32Array (an internal lookup, not to be read), `left`: number, `status`: 'playing' or 'won' } |
 | `SessionSnapshot` | `@fronthub/arrowz-engine` | a saved game: { `v`: 1, `board`: { W, H, pieces, fingerprint } (the board it belongs to), `removed`: number[], `colored`: boolean } |
 | `PieceClickEvent` | this package | `CustomEvent` with detail { `pieceId`: number } |
+| `PieceHoverEvent` | this package | `CustomEvent` with detail { `pieceId`: number \| null } |
 | `PieceRemovedEvent` | this package | `CustomEvent` with detail { `pieceId`: number, `left`: number } |
 | `LifeLostEvent` | this package | `CustomEvent` with detail { `pieceId`: number, `blockerId`: number, `distance`: number } |
 | `FinishedEvent` | this package | `CustomEvent` with detail { `pieces`: number } |
@@ -457,6 +465,7 @@ The HTML pane is written from the element's own attributes and prints only what
 differs from the defaults: the shortest markup that reproduces what is on
 screen, with `view` and `board` as the two assignments no attribute can carry.
 The event pane logs what the element reports, a checkbox per type;
-`viewport-change` starts muted because it fires once a frame while a drag is in
-flight, and consecutive repeats of any event fold into a count rather than
-spending the buffer the four game events share.
+`viewport-change` and `piece-hover` start muted, the first because it fires
+once a frame while a drag is in flight, the second because a zoomed-out board
+changes piece at nearly every move, and consecutive repeats of any event fold
+into a count rather than spending the buffer the four game events share.

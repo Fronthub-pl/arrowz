@@ -386,6 +386,8 @@ A board that takes clicks — `play` or `interactive` — shows a ☝ switch in 
 
 The cursor shows what the next click will do. By default the board shows the grab hand, and an arrow shows the pointing hand only while ⌘ or Ctrl is held, because only then does a click play. With the switch pressed it is the other way round: the modifier turns the board to the grab hand. On a Mac a Ctrl click is a right click; on a board that takes clicks, in the default mode, the element keeps the context menu shut.
 
+The element also tells your page which arrow is under a mouse or pen, as `piece-hover`, whether or not the board takes clicks. It fires only when that arrow changes, with `null` over the background, when the pointer leaves, when a pan starts and when the board changes. Touch has no hover, so a finger never fires it.
+
 ### Touch
 
 Touch works the same in both modes: one finger pans, two fingers pinch to zoom, and a tap plays.

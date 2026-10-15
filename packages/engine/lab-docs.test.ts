@@ -92,7 +92,7 @@ Deno.test('every export description is in both languages, and translated', () =>
       assertNotEquals(plRows[row.key], enRows[row.key], `${group}.${row.key} is still English in the Polish docs`)
     }
   }
-  assertEquals(seen, 21 + 8 + 20 + 2)
+  assertEquals(seen, 22 + 8 + 20 + 2)
 })
 
 Deno.test('spellValue writes a constant as the tables do', () => {
