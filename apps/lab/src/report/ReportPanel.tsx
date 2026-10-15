@@ -4,6 +4,7 @@ import { useInLibrary } from '../library/useInLibrary'
 import { useOpenPreview } from '../library/useOpenPreview'
 import { useStore } from '../state/store'
 import { FileFacts } from './FileFacts'
+import { KnobDiff } from './KnobDiff'
 import { LongestTable } from './LongestTable'
 import { ReportSummary } from './ReportSummary'
 import { RunFacts } from './RunFacts'
@@ -51,6 +52,7 @@ export function ReportPanel({ series = null }: { series?: ReactNode }): ReactEle
           {result === null ? null : (
             <>
               <ReportSummary result={result} baseline={result.report.aborted ? null : baseline} />
+              <KnobDiff result={result} baseline={result.report.aborted ? null : baseline} />
               <StatsTable result={result} baseline={result.report.aborted ? null : baseline} />
               <RunFacts file={result.file} />
               <LongestTable board={result.board} />

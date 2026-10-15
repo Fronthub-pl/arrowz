@@ -273,3 +273,53 @@
 .fw-report .fw-longest-hd h2 {
   margin: 0;
 }
+
+/* The changed knobs (`KnobDiff`): a row per knob, its name and group, then
+   before → after; the whole row is the button that jumps to the knob. */
+.fw-kdiff ul {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  border-top: var(--rule);
+}
+.fw-kdiff li {
+  box-shadow: 0 1px 0 var(--border);
+}
+.fw-kdiff button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 34px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.fw-kdiff .kd-lab {
+  color: var(--mist);
+}
+.fw-kdiff button:hover .kd-lab {
+  color: var(--ink);
+}
+.fw-kdiff .kd-grp,
+.fw-kdiff .kd-why {
+  font-size: 11px;
+  color: var(--ash);
+}
+.fw-kdiff .kd-val {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.fw-kdiff .kd-why {
+  grid-column: 1 / -1;
+}
+/* A finger's target, as the knobs' own rows. */
+@media (pointer: coarse), (max-width: 767px) {
+  .fw-kdiff button {
+    min-height: var(--touch);
+  }
+}

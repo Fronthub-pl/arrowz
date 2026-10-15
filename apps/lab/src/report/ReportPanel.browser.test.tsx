@@ -1,7 +1,8 @@
 import { act } from 'react'
 import { beforeEach, expect, test } from 'vitest'
 import { contrast, shown } from '../design/contrast'
-import { decodeBoard, fingerprint } from '@fronthub/arrowz-engine'
+import { decodeBoard, fingerprint, type Params } from '@fronthub/arrowz-engine'
+import { dictionary } from '@fronthub/arrowz-engine/i18n'
 import { renderAt } from '../harness/renderAt'
 import { storedFixture } from '../state/library.fixtures'
 import { finish, finishedRun, stoppedRun } from '../state/result.fixtures'
@@ -12,6 +13,13 @@ import '../design/index.css'
 // Seed 1: 8 pieces, longest 18. Seed 2: 13 pieces, longest 17 (both close).
 const ONE = finishedRun(1)
 const TWO = finishedRun(2)
+const en = dictionary('en')
+const pl = dictionary('pl')
+
+/** `ONE` as if made with `patch`: the same board under other knobs. */
+function oneWith(patch: Partial<Params>) {
+  return { ...ONE, params: { ...ONE.params, ...patch } }
+}
 
 beforeEach(() => {
   const state = useStore.getState()
@@ -191,6 +199,79 @@ test('a language switch keeps every delta', async () => {
   expect(labelOf(row(screen.container, 1))).toBe('strzałki')
   expect(row(screen.container, 1).cells[2]?.textContent).toBe('+5,0 wzrost')
   expect(row(screen.container, 3).cells[2]?.textContent).toBe('−1,0 spadek')
+})
+
+test('no changed knobs before a second result, nor after one made with the same knobs', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  expect(screen.container.querySelector('.fw-kdiff')).toBeNull()
+  await act(async () => finish(ONE))
+  // The second result moved the baseline: the list is empty for want of a change.
+  expect(useStore.getState().result.baseline).not.toBeNull()
+  expect(screen.container.querySelector('.fw-kdiff')).toBeNull()
+})
+
+test('the second result names the knob it changed, its group and both values', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  await act(async () => finish(TWO))
+  const region = screen.getByRole('region', { name: en.t('knobDiffHead'), exact: true })
+  await expect.element(region).toBeInTheDocument()
+  expect(region.element().querySelectorAll('button')).toHaveLength(1)
+  const seed = screen.getByRole('button', {
+    name: en.t('knobDiffRow', en.d.short.seed, en.d.groups.board, '1', '2'),
+    exact: true,
+  })
+  await expect.element(seed).toBeInTheDocument()
+  expect(seed.element().querySelector('.kd-val')?.textContent).toBe('1 → 2')
+})
+
+test('a stopped board names no changed knobs, as it shows no delta', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  await act(async () => finish(stoppedRun(2)))
+  expect(useStore.getState().result.baseline).not.toBeNull()
+  expect(screen.container.querySelector('.fw-kdiff')).toBeNull()
+})
+
+test('the two knobs behind --start are one row, as their control is one', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  await act(async () => finish(oneWith({ headBias: 1 })))
+  const region = screen.getByRole('region', { name: en.t('knobDiffHead'), exact: true })
+  await expect.element(region).toBeInTheDocument()
+  expect(region.element().querySelectorAll('button')).toHaveLength(1)
+  const name = en.t('knobDiffRow', en.d.short.headBias, en.d.groups.difficulty, 'random', 'tunnels')
+  await expect.element(screen.getByRole('button', { name, exact: true })).toBeInTheDocument()
+})
+
+test('a changed knob with no effect on the board on screen says why', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  await act(async () => finish(oneWith({ giantSpan: 40 })))
+  const name = en.t('knobDiffRow', en.d.short.giantSpan, en.d.groups.skeleton, '30 × side', '40 × side')
+  await expect
+    .element(screen.getByRole('button', { name, exact: true }))
+    .toHaveAccessibleDescription(`${en.t('inactivePrefix')}${en.reason('skeletonOff')}`)
+})
+
+test('a language switch rewords every changed knob, its values included', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  await act(async () => finish(oneWith({ trapBias: 1 })))
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  await expect.element(screen.getByRole('region', { name: pl.t('knobDiffHead'), exact: true })).toBeInTheDocument()
+  const name = pl.t('knobDiffRow', pl.d.short.trapBias, pl.d.groups.difficulty, 'normalnie', 'szukaj')
+  await expect.element(screen.getByRole('button', { name, exact: true })).toBeInTheDocument()
+})
+
+test('the changed knobs stand between the summary and the statistics', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  await act(async () => finish(TWO))
+  const list = screen.container.querySelector('.fw-kdiff')
+  expect(list?.previousElementSibling?.classList.contains('fw-rsum-wrap')).toBe(true)
+  expect(list?.nextElementSibling).toBe(stats(screen.container))
 })
 
 // f0 is row 5, on screen and not repeated by the summary.
