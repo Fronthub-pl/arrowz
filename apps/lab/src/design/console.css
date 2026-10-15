@@ -461,7 +461,7 @@
 .kv-row.bad .kv-track .thumb {
   background: var(--error);
 }
-/* A row the palette jumped to, for 1200 ms (flash.ts), inside the row: `.kv`
+/* A row a jump landed on, for 1200 ms (flash.ts), inside the row: `.kv`
    clips sideways. */
 .kv-row.flash {
   outline: 1px solid var(--signal);

@@ -55,7 +55,7 @@ function LengthMix(): ReactElement {
 /**
  * A group's dependency block (`knobLayout.ts`): the knobs that do nothing
  * until a parent does, on while any parent is above 0, held open while one of
- * them is refused or asked for by the palette (`CollapsibleBlock`).
+ * them is refused or asked for by a jump (`CollapsibleBlock`).
  */
 function DependencyBlock({ block }: { block: KnobBlock }): ReactElement {
   const dict = useDictionary()
