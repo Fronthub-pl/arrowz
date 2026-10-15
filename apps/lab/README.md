@@ -169,6 +169,7 @@ would be.
 | `Defaults`             | run     | Puts every knob back to its default.                                  |
 | `Abort`                | run     | Stops the run; while one is stopping, _Discard_ drops its board.      |
 | `Check seeds`          | run     | Runs the settings over a number of seeds (advanced view only).        |
+| `Save many boards`     | run     | Saves complete boards over the seeds (advanced view only).            |
 | `Full view (key F)`    | run     | The board alone.                                                      |
 | `Lab`                  | go to   | The lab.                                                              |
 | `Saved boards`         | go to   | The saved boards.                                                     |

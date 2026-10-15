@@ -64,6 +64,7 @@ beforeEach(() => {
   state.run.reset()
   state.result.reset()
   state.series.reset()
+  state.fill.reset()
   state.ui.setAuto(false)
   state.ui.setSaveEvery(false)
   state.ui.setMode('advanced')
@@ -288,6 +289,22 @@ describe('the alternative actions', () => {
     useStore.getState().series.started(defaultParams(), 3)
     await expect.element(screen.getByRole('button', { name: 'New seed' })).toBeDisabled()
     await expect.element(screen.getByRole('button', { name: 'Defaults' })).toBeDisabled()
+  })
+
+  it('disables New seed and Defaults while a batch of saves runs, and names Abort Discard once it stops', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    useStore.getState().fill.started(defaultParams(), 3, 6)
+    await expect.element(screen.getByRole('button', { name: 'New seed' })).toBeDisabled()
+    await expect.element(screen.getByRole('button', { name: 'Defaults' })).toBeDisabled()
+    useStore.getState().fill.stopRequested()
+    await expect.element(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
+  })
+
+  it('carries Save many boards in the advanced view, not in the simple one', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    await expect.element(screen.getByRole('button', { name: 'Save many boards' })).toBeInTheDocument()
+    useStore.getState().ui.setMode('simple')
+    await expect.element(screen.getByRole('button', { name: 'Save many boards' })).not.toBeInTheDocument()
   })
 
   // Geometry, because `.fw-cmd`'s text is in the DOM whether or not the box

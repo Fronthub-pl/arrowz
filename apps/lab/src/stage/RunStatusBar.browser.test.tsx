@@ -50,6 +50,7 @@ beforeEach(() => {
   state.run.reset()
   state.result.reset()
   state.series.reset()
+  state.fill.reset()
   // `boardError` outranks even the refusal, so a case that sets it would
   // otherwise decide every case after it in this file.
   state.library.reset()
@@ -139,6 +140,25 @@ describe('RunStatusBar', () => {
     state.series.stopRequested()
     const screen = await mountBar()
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('seriesStopping'))
+  })
+
+  it('counts a batch of saves in flight, then hands the line back to the board', async () => {
+    const state = useStore.getState()
+    state.fill.started(state.params.values, 10, 20)
+    state.fill.answered({ seed: 1, outcome: 'complete', pieces: 1, maxLen: 1, genMs: 1, remaining: 0 })
+    state.fill.saved(1, false)
+    const screen = await mountBar()
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('fillStatus', 1, 10, 1))
+    await act(async () => state.fill.finished())
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('pressGenerate'))
+  })
+
+  it('says the boards saved so far stay once a batch stop is requested', async () => {
+    const state = useStore.getState()
+    state.fill.started(state.params.values, 10, 20)
+    state.fill.stopRequested()
+    const screen = await mountBar()
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('fillStopping'))
   })
 
   // An 8 × 8 run has 2 × (8 + 8) = 32 places a head can stand; the stuck report is stated.

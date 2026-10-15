@@ -1,6 +1,7 @@
 import { type CSSProperties, type RefObject, useLayoutEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { saveRefusal, saveShown } from '../library/saveShown'
+import { FillRow } from '../series/FillRow'
 import { SeriesRow } from '../series/SeriesRow'
 import { oneDecimal, useRunLine } from '../stage/useRunState'
 import { useStore } from '../state/store'
@@ -9,7 +10,7 @@ import { ExportButtons } from './ExportButtons'
 import { LiveCommand } from './LiveCommand'
 import { MoreMenu } from './MoreMenu'
 import { OptionSwitch } from './OptionSwitch'
-import { inFlight, type RunControl } from './useRun'
+import { inFlight, poolRunning, type RunControl } from './useRun'
 
 /**
  * The stage's third track (`.fw-run-col`), right of the board. It belongs to
@@ -42,12 +43,12 @@ export function RunColumn({
   abortRef?: RefObject<HTMLButtonElement | null> | undefined
 }) {
   const dict = useDictionary()
-  // A series keeps the cores: Generate and Abort go off for either, but the
+  // A series or a batch of saves keeps the cores: Generate and Abort go off for either, but the
   // meter, the percent and the progressbar stay the run's own (`carving`).
   const running = useStore(inFlight)
   const carving = useStore((state) => state.run.phase === 'running')
-  const seriesRunning = useStore((state) => state.series.phase === 'running')
-  const stopping = useStore((state) => state.run.stopping || state.series.stopping)
+  const poolBusy = useStore(poolRunning)
+  const stopping = useStore((state) => state.run.stopping || state.series.stopping || state.fill.stopping)
   const blocked = useStore((state) => state.params.violations.length > 0)
   const auto = useStore((state) => state.ui.auto)
   const setAuto = useStore((state) => state.ui.setAuto)
@@ -162,12 +163,12 @@ export function RunColumn({
         {line.text}
       </p>
       <div className="fw-alt">
-        {/* Off only for a series, whose seeds are the point: a normal run does
+        {/* Off only for a series or a batch, whose seeds are the point: a normal run does
             not stop either from starting, unlike Generate. */}
-        <button type="button" onClick={onReseed} disabled={seriesRunning}>
+        <button type="button" onClick={onReseed} disabled={poolBusy}>
           {dict.t('reseed')}
         </button>
-        <button type="button" onClick={onDefaults} disabled={seriesRunning}>
+        <button type="button" onClick={onDefaults} disabled={poolBusy}>
           {dict.t('reset')}
         </button>
         <button type="button" ref={abortRef} onClick={control.abort} disabled={!running}>
@@ -192,10 +193,11 @@ export function RunColumn({
         </button>
       </div>
       <MoreMenu>
-        {/* Checking many seeds keeps the run bar's own cap (`bar-row`): mounted
-            here, the row rides in the "…" popover at M/S and reads unchanged
-            (`display: contents`) at the wide band. */}
+        {/* Checking many seeds and saving many boards keep the run bar's own
+            cap (`bar-row`): mounted here, the rows ride in the "…" popover at
+            M/S and read unchanged (`display: contents`) at the wide band. */}
         {simple ? null : <SeriesRow control={control} />}
+        {simple ? null : <FillRow control={control} />}
         {/* The knobs' own switch, so not in the simple view, which shows no knobs. */}
         {simple ? null : (
           <div className="fw-ghost">

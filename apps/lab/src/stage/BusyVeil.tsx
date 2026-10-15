@@ -3,7 +3,7 @@ import { useInLibrary } from '../library/useInLibrary'
 import { useRunLine } from './useRunState'
 
 /**
- * Dims the board while a carve or a series runs on the lab, with Generate's
+ * Dims the board while a carve, a series or a batch of saves runs on the lab, with Generate's
  * label and a bar filled to the share done. `aria-hidden`: the run status's
  * live output speaks for it, and the stage carries `aria-busy`. The 300ms
  * delay and the pointer passing through are the stylesheet's (`.fw-veil`).
