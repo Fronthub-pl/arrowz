@@ -90,6 +90,12 @@
 .fw-fill > button:first-child {
   flex: 1 1 100%;
 }
+.fw-fill-pair {
+  display: inline-flex;
+  align-items: center;
+  column-gap: 6px;
+  white-space: nowrap;
+}
 .fw-fill-lab {
   color: var(--mist);
 }

@@ -686,7 +686,8 @@ export const EN = {
       `Saving boards: ${written} of ${wanted}, ${tried} ${tried === 1 ? 'seed' : 'seeds'} tried…`,
     fillStopping: 'Stopping; the boards saved so far stay…',
     fillStoreError: (message: string) => `The store did not take a board, so saving stopped: ${message}`,
-    fillStale: 'The store server is older than this lab, so saving stopped after one board; restart it',
+    fillStale:
+      'The store server is older than this lab: it took one more board, not counted here, and saving stopped; restart it',
     fillWorkerError: (message: string) => `The boards could not be made: ${message}`,
     boardAnnotation: (W: number, H: number, seed: number) => `${W}×${H} · seed ${seed}`,
     // The arrow under a mouse or pen, beside the annotation (`piece-hover`).
@@ -1533,7 +1534,7 @@ export const PL: Translation = {
     fillStopping: 'Zatrzymuję; zapisane dotąd plansze zostają…',
     fillStoreError: (message) => `Magazyn nie przyjął planszy, więc zapisywanie stanęło: ${message}`,
     fillStale:
-      'Serwer magazynu jest starszy niż to laboratorium, więc zapisywanie stanęło po jednej planszy; uruchom go ponownie',
+      'Serwer magazynu jest starszy niż to laboratorium: przyjął jeszcze jedną planszę, nieliczoną tutaj, i zapisywanie stanęło; uruchom go ponownie',
     fillWorkerError: (message) => `Nie udało się ułożyć plansz: ${message}`,
     boardAnnotation: (W, H, seed) => `${W}×${H} · ziarno ${seed}`,
     hoverReadout: (id, length) => `Strzałka #${id} · ${length} ${plCells(length)}`,

@@ -29,19 +29,23 @@ export function FillRow({ control }: { control: RunControl }): ReactElement {
         {filling ? dict.t('fillingLibrary', written, wanted) : dict.t('fillLibrary')}
       </button>
       {/* For the eye only: each number's own name carries its word. */}
-      <span className="fw-fill-lab" aria-hidden="true">
-        {dict.t('fillCount')}
+      <span className="fw-fill-pair">
+        <span className="fw-fill-lab" aria-hidden="true">
+          {dict.t('fillCount')}
+        </span>
+        <DraftNumber entryId="fill-count" label={dict.t('fillCount')} value={count} onCommit={setCount} />
       </span>
-      <DraftNumber entryId="fill-count" label={dict.t('fillCount')} value={count} onCommit={setCount} />
-      <span className="fw-fill-lab" aria-hidden="true">
-        {dict.t('fillMaxSeeds')}
+      <span className="fw-fill-pair">
+        <span className="fw-fill-lab" aria-hidden="true">
+          {dict.t('fillMaxSeeds')}
+        </span>
+        <DraftNumber
+          entryId="fill-max-seeds"
+          label={dict.t('fillMaxSeeds')}
+          value={maxSeeds ?? 2 * count}
+          onCommit={setMaxSeeds}
+        />
       </span>
-      <DraftNumber
-        entryId="fill-max-seeds"
-        label={dict.t('fillMaxSeeds')}
-        value={maxSeeds ?? 2 * count}
-        onCommit={setMaxSeeds}
-      />
     </div>
   )
 }
