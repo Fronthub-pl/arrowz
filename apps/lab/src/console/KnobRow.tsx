@@ -189,7 +189,7 @@ export function KnobTrack({
  * off, with a header saying what it needs; open once it is on, with the
  * block's name. The header toggles it either way, and the parent turning on
  * or off resets it to that default. `forced` keeps it open whatever the
- * header says — a refusal in it, or a palette jump to one of its rows — so
+ * header says — a refusal in it, or a jump (`jumpTo`) to one of its rows — so
  * neither can land on a closed block.
  *
  * The body is always mounted and `hidden` when closed: the header's
@@ -216,7 +216,7 @@ export function CollapsibleBlock({
   // The header's choice, reset whenever the parent crosses on/off (React's
   // "adjust state while rendering" pattern, not an effect: an effect would
   // paint the stale state for a frame). `forced` latches into the same state
-  // rather than only ORing into `open`: a palette jump clears its request the
+  // rather than only ORing into `open`: a jump (`jumpTo`) clears its request the
   // render after it lands, and a refusal can clear on any later write, so a
   // block open only through the OR would close under the focus it just took.
   const [choice, setChoice] = useState({ on, open: on })

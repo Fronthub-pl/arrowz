@@ -89,7 +89,7 @@ export interface UiState {
    */
   lastBoards: string
   /**
-   * The DOM id of a control a palette jump asked for — `knob-<key>` or
+   * The DOM id of a control a jump (`jumpTo`) asked for — `knob-<key>` or
    * `view-<field>` — waiting for the render that puts it in the tree. The
    * console's `useFocusRequest` consumes it and clears it, so a later render
    * cannot steal the focus a second time.

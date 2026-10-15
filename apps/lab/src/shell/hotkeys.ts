@@ -43,7 +43,10 @@ function isCommandKey(event: KeyboardEvent, letter: string): boolean {
   return event.key.toLowerCase() === letter && (event.metaKey || event.ctrlKey) && !event.altKey
 }
 
-/** Escape closes one layer: an open sheet, then the report (it lies over the board), then the settings. */
+/**
+ * Escape closes one layer: an open sheet, then the report (it lies over the
+ * board below 1280, over the right column from 1280 up), then the settings.
+ */
 function closeOneLayer(): void {
   const ui = useStore.getState().ui
   if (ui.sheet !== null) ui.setSheet(null)

@@ -166,9 +166,10 @@ function popoverFit(root: HTMLElement): Finding[] {
 }
 
 /**
- * An open drawer lies over the board, inside its stage, never past the stage's
- * edge onto the console. Open only: closed, it is translated all but its handle
- * past the stage's right edge by design, and the stage clips it.
+ * An open drawer lies inside its stage, never past the stage's edge onto the
+ * console; what it may cover is `boardCover`'s. Open only: closed, it is
+ * translated all but its handle past the stage's right edge by design, and the
+ * stage clips it.
  */
 function drawerFit(root: HTMLElement): Finding[] {
   // At XS the drawers are sheets over the viewport (`sheet-fit`).
@@ -272,15 +273,26 @@ function lowContrast(root: HTMLElement): Finding[] {
 const BOARD_FLOORS: Readonly<Record<number, number>> = { 1440: 501, 1024: 424, 768: 678 }
 
 /**
- * The board keeps a usable width: `BOARD_FLOORS` at the checkpoint sizes, at
- * least 320px at any other width from 768 up whatever the drawer does, and edge
- * to edge (less 16px) on a phone. Solo is exempt: the board takes the panel.
+ * The board's floor at the checkpoint sizes while the report is open beside
+ * it: from 1280 up the board gives the report what it takes past the right
+ * column (console.css).
+ */
+const REPORT_FLOORS: Readonly<Record<number, number>> = { 1440: 471 }
+
+/**
+ * The board keeps a usable width: `BOARD_FLOORS` at the checkpoint sizes
+ * (`REPORT_FLOORS` while the report is open beside it), at least 320px at any
+ * other width from 768 up whatever the drawers do (under a finger at 1280-1308
+ * with both drawers open it is about 301px, accepted), and edge to edge (less
+ * 16px) on a phone. Solo is exempt: the board takes the panel.
  */
 function boardWidth(root: HTMLElement, solo: boolean): Finding[] {
   const board = root.querySelector('.fw-board')
   if (board === null || !rendered(board) || solo) return []
   const w = board.getBoundingClientRect().width
-  const floor = window.innerWidth < 768 ? window.innerWidth - 16 : (BOARD_FLOORS[window.innerWidth] ?? 320)
+  const report = root.querySelector('.fw-drawer.open')
+  const floors = window.innerWidth >= 1280 && report !== null && rendered(report) ? REPORT_FLOORS : BOARD_FLOORS
+  const floor = window.innerWidth < 768 ? window.innerWidth - 16 : (floors[window.innerWidth] ?? 320)
   return w + EPS < floor ? [{ invariant: 'board-width', detail: `board ${w.toFixed(0)}px < ${floor}` }] : []
 }
 
@@ -471,10 +483,14 @@ function frameOverlap(root: HTMLElement): Finding[] {
  * The lab's controls around the board and the element's own bar leave the
  * drawn board clear at fit: a piece under one is reachable only by panning.
  * The drawn rectangle is the board's W×H through the element's `viewport`,
- * from the host's top-left.
+ * from the host's top-left. From 1280 up, where the right column stands beside
+ * the board, the open report covers none of them either: below 1280 the column
+ * is a bar under the board and the report lies over the board by design.
  */
 function boardCover(root: HTMLElement): Finding[] {
   const out: Finding[] = []
+  const open = window.innerWidth >= 1280 ? root.querySelector('.fw-drawer.open') : null
+  const report = open !== null && rendered(open) ? open : null
   for (const element of root.querySelectorAll<ArrowzBoard>('arrowz-board')) {
     const vp = element.viewport
     const board = element.board
@@ -495,8 +511,8 @@ function boardCover(root: HTMLElement): Finding[] {
     const bottom = Math.min(host.bottom, host.top + (board.H - vp.originY) * vp.cellPx)
     // The element's own bar too: its buttons and hint, in its shadow root.
     const bar = element.shadowRoot?.querySelectorAll('.chrome button, .chrome .hint') ?? []
-    for (const node of [...wrap.querySelectorAll('.fw-anno, .fw-mode, .fw-solo, .fw-modeline'), ...bar]) {
-      if (!rendered(node)) continue
+    const controls = [...wrap.querySelectorAll('.fw-anno, .fw-mode, .fw-solo, .fw-modeline'), ...bar].filter(rendered)
+    for (const node of controls) {
       const r = node.getBoundingClientRect()
       const x = Math.min(r.right, right) - Math.max(r.left, left)
       const y = Math.min(r.bottom, bottom) - Math.max(r.top, top)
@@ -504,6 +520,21 @@ function boardCover(root: HTMLElement): Finding[] {
         out.push({
           invariant: 'board-cover',
           detail: `${label(node)} [${r.left.toFixed(0)},${r.top.toFixed(0)} ${r.right.toFixed(0)},${r.bottom.toFixed(0)}] × board [${left.toFixed(0)},${top.toFixed(0)} ${right.toFixed(0)},${bottom.toFixed(0)}]`,
+        })
+    }
+    if (report === null) continue
+    const d = report.getBoundingClientRect()
+    const under: readonly (readonly [string, DOMRectReadOnly])[] = [
+      ['board', new DOMRect(left, top, right - left, bottom - top)],
+      ...controls.map((node) => [label(node), node.getBoundingClientRect()] as const),
+    ]
+    for (const [name, r] of under) {
+      const x = Math.min(r.right, d.right) - Math.max(r.left, d.left)
+      const y = Math.min(r.bottom, d.bottom) - Math.max(r.top, d.top)
+      if (x > EPS && y > EPS)
+        out.push({
+          invariant: 'board-cover',
+          detail: `${name} [${r.left.toFixed(0)},${r.top.toFixed(0)} ${r.right.toFixed(0)},${r.bottom.toFixed(0)}] under ${label(report)} from x=${d.left.toFixed(0)}`,
         })
     }
   }

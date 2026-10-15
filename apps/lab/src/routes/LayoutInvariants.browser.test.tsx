@@ -12,6 +12,7 @@ import { audit, type Finding, type Invariant } from '../harness/invariants'
 import { loadRunDone, resetApp } from '../harness/mountApp'
 import { settleTransitions } from '../harness/settle'
 import { storedFixture } from '../state/library.fixtures'
+import { finishShownAgain } from '../state/result.fixtures'
 import type { Sheet } from '../state/ui.slice'
 import { useStore } from '../state/store'
 import '../design/index.css'
@@ -36,6 +37,7 @@ type State =
   | 'sheet-cli'
   | 'sheet-report'
   | 'library-sheet-cli'
+  | 'library-report-open'
   | 'menu-open'
   | 'more-open'
   | 'inspect'
@@ -136,7 +138,7 @@ async function arrange(state: State) {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('no store'))
     window.history.pushState({}, '', '/boards')
   }
-  if (state === 'library-detail' || state === 'library-sheet-cli') {
+  if (state === 'library-detail' || state === 'library-sheet-cli' || state === 'library-report-open') {
     // The one board this fixture builds, listed under its own size: enough for
     // `useStoredBoard` to find the address's board and fetch its file, so the
     // open board's column is reached the way a person reaches it.
@@ -150,10 +152,19 @@ async function arrange(state: State) {
     await docsChunk()
     await expect.poll(() => screen.container.querySelector('.fw-docs-toc')).not.toBeNull()
   }
-  if (state !== 'library-empty' && state !== 'library-detail' && state !== 'library-sheet-cli' && state !== 'docs')
+  if (
+    state !== 'library-empty' &&
+    state !== 'library-detail' &&
+    state !== 'library-sheet-cli' &&
+    state !== 'library-report-open' &&
+    state !== 'docs'
+  )
     await loadRunDone()
   await act(async () => {
     const s = useStore.getState()
+    // The widest values the list shows, a start pair and a knob with no effect, on the load run's board.
+    if (state === 'report-open' || state === 'sheet-report')
+      finishShownAgain({ seed: 4242, probeLen: 30, headBias: 1, trapBias: 1, giantSpan: 40, maxBack: 1000 })
     if (state === 'report-open') s.ui.setReport(true)
     // The settings drawer is open in every other state (`resetApp`); this one
     // reads the closed face.
@@ -178,13 +189,16 @@ async function arrange(state: State) {
       s.ui.setSheet(state.slice(6) as Sheet)
     if (state === 'menu-open') s.ui.setMenu(true)
   })
-  if (state === 'library-detail' || state === 'library-sheet-cli') {
+  if (state === 'report-open' || state === 'sheet-report')
+    await expect.poll(() => screen.container.querySelector('.fw-kdiff')).not.toBeNull()
+  if (state === 'library-detail' || state === 'library-sheet-cli' || state === 'library-report-open') {
     // `useStoredBoard`'s fetch of the board file is asynchronous, so wait for
     // the detail; `loadRunDone` is skipped, because this state is about the
     // board the address opened, not the lab's own load run.
     await expect.poll(() => screen.container.querySelector('.fw-bcol .fw-cmdfig')).not.toBeNull()
   }
   if (state === 'library-sheet-cli') await act(async () => useStore.getState().ui.setSheet('cli'))
+  if (state === 'library-report-open') await act(async () => useStore.getState().ui.setReport(true))
   if (state === 'inspect' || state === 'play') await showBoardMode(screen.container, state)
   if (state === 'solo-play') await showBoardMode(screen.container, 'play')
   if (state === 'simple-inspect' || state === 'simple-play')
@@ -256,6 +270,19 @@ test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const
 )
 
 test.each(BANDED)('the banded %s state at %d×%d keeps every layout invariant', matrixCase, 40_000)
+
+// The open report beside the board, past the matrix's sizes: a laptop's
+// window, the L band's widest (the report reaches furthest past the right
+// column there) and a width where both columns' clamps are at their maximum.
+// The saved boards' tab gives the report the same room.
+const REPORT_CASES: readonly (readonly [State, number, number])[] = [
+  ['report-open', 1440, 877],
+  ['report-open', 1599, 900],
+  ['report-open', 2560, 1200],
+  ['library-report-open', 1440, 877],
+]
+
+test.each(REPORT_CASES)('the %s state at %d×%d keeps every layout invariant', matrixCase, 40_000)
 
 // The board mode's line is on screen only in Inspect and Play, so the matrix
 // above sees the control but never the line: the lab's three widths and a
@@ -567,6 +594,7 @@ test('every KNOWN_RED key names a case this file runs', () => {
   const keys = new Set([
     ...STATES.flatMap((state) => SIZES.map(([w, h]) => `${state}@${w}x${h}`)),
     ...BANDED.map(([state, w, h]) => `${state}@${w}x${h}`),
+    ...REPORT_CASES.map(([state, w, h]) => `${state}@${w}x${h}`),
     ...LANG_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),
     ...MODE_CASES.map(([state, w, h]) => `${state}@${w}x${h}`),
     ...MODE_PL_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),

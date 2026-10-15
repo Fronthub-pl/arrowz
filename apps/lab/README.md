@@ -112,6 +112,9 @@ settings over a number of seeds and reports how many boards came out complete.
 The report drawer on the right (`R`) lists the run's measurements — arrows,
 lengths, how hard the board plays, how far arrows reach, their shape — each with
 a `?` that explains it, and colours each change against the previous board.
+Between the four figures and the table, **Changed settings** lists the settings that
+differ from the previous board, before and after; a row takes you to its setting,
+as ⌘K does.
 The settings drawer on the left opens and closes with `S`; `F` hides both and
 gives the board the whole lab panel.
 

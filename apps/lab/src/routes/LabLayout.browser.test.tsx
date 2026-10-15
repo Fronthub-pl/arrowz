@@ -44,20 +44,26 @@ test.each([[1400, 900, 'advanced']] as const)(
   40_000,
 )
 
-// Open, the report is clamp(22rem, 24vw, 32rem) wide, and it lies over the
-// board rather than moving it.
+// Open, the report is clamp(22rem, 24vw, 32rem) wide. From 1280 up it lies
+// over the right column, and the board's frame gives way by what the report
+// takes past that column: the wrap keeps its box, the frame ends at the
+// report's edge, and closing the report gives the width back.
 test.each([
   [1280, 800, 352],
+  [1440, 877, 352],
   [1920, 1080, 460.8],
   [2560, 1200, 512],
 ] as const)(
-  'at %d×%d the open report is %dpx wide, over a board that does not move',
+  'at %d×%d the open report is %dpx wide and the board ends at its edge',
   async (w, h, px) => {
     await page.viewport(w, h)
     const screen = await mountApp('advanced')
     await loadRunDone()
+    await settleTransitions()
     const before = rect(screen.container, '.fw-boardwrap')
-    await screen.getByRole('button', { name: 'report', exact: true }).click()
+    const closed = rect(screen.container, '.fw-board').width
+    const handle = screen.getByRole('button', { name: 'report', exact: true })
+    await handle.click()
     await settleTransitions()
     const report = rect(screen.container, '.fw-report')
     const stage = rect(screen.container, '.fw-stage')
@@ -68,10 +74,48 @@ test.each([
     const after = rect(screen.container, '.fw-boardwrap')
     for (const side of ['left', 'top', 'width', 'height'] as const)
       expect(after[side], side).toBeCloseTo(before[side], 1)
+    expect(rect(screen.container, '.fw-board').right).toBeCloseTo(rect(screen.container, '.fw-drawer').left, 0)
     await expect.element(screen.getByRole('region', { name: 'Report' })).toBeVisible()
+    await handle.click()
+    await settleTransitions()
+    expect(rect(screen.container, '.fw-board').width, 'closed again').toBeCloseTo(closed, 1)
   },
   40_000,
 )
+
+// Below 1280 the right column is a bar under the board, so the open report
+// lies over the board rather than moving it.
+test('at 1024×768 the open report lies over a board that does not move', async () => {
+  await page.viewport(1024, 768)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await settleTransitions()
+  const before = rect(screen.container, '.fw-board')
+  await screen.getByRole('button', { name: 'report', exact: true }).click()
+  await settleTransitions()
+  const after = rect(screen.container, '.fw-board')
+  for (const side of ['left', 'top', 'width', 'height'] as const) expect(after[side], side).toBeCloseTo(before[side], 1)
+  expect(rect(screen.container, '.fw-drawer').left).toBeLessThan(after.right)
+}, 40_000)
+
+// The report is remembered open, so `F` over it is an everyday state: the
+// stage keeps `report-open` in solo, yet the hidden report takes no room.
+test('at 1440×877 solo over the open report gives the board the whole lab', async () => {
+  await page.viewport(1440, 877)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await screen.getByRole('button', { name: 'report', exact: true }).click()
+  await settleTransitions()
+  await userEvent.keyboard('f')
+  await settleTransitions()
+  expect(useStore.getState().ui.solo).toBe(true)
+  const lab = rect(screen.container, '.fw-lab')
+  const board = rect(screen.container, '.fw-board')
+  expect(board.left).toBeCloseTo(lab.left + 16, 0)
+  expect(board.right).toBeCloseTo(lab.right - 16, 0)
+  await userEvent.keyboard('f')
+  expect(useStore.getState().ui.solo).toBe(false)
+}, 40_000)
 
 // Closing slides the whole drawer out, report and all: the report turns hidden
 // only once the 180ms slide is over, or only the bare 28px handle would cross
@@ -727,7 +771,8 @@ test('s toggles the settings, and a modifier, a repeat or a field does nothing',
 }, 40_000)
 
 // One layer per press, the report before the settings: the report lies over
-// the board, the settings drawer beside it. A third press has nothing left.
+// the board below 1280 and over the right column above, the settings drawer
+// beside the board. A third press has nothing left.
 test('Escape closes the report first, then the settings, one per press', async () => {
   await page.viewport(1400, 900)
   await mountApp('advanced')
@@ -763,9 +808,10 @@ test('s does nothing on the docs route', async () => {
   }
 }, 40_000)
 
-// Unlike the report, the open settings drawer does not cover the board: from
-// 1024px up the board's track gives way by the drawer's width. Closed it is its
-// 28px handle on the stage's left edge, the console hidden once the slide is over.
+// Unlike the report below 1280, the open settings drawer never covers the
+// board: from 1024px up the board's track gives way by the drawer's width.
+// Closed it is its 28px handle on the stage's left edge, the console hidden
+// once the slide is over.
 test.each([
   [1024, 768],
   [1400, 900],

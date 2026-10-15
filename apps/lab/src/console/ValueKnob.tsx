@@ -6,6 +6,7 @@ import { DraftNumber } from './DraftNumber'
 import { endText, KnobTrack, rowState, rowTitle } from './KnobRow'
 import { RowShell, rowIds } from './rows/RowShell'
 import { useReleasableChip } from './rows/useReleasableChip'
+import { minWord } from './knobValue'
 import { boundOn } from './track'
 import { RELEASE_TO, UNIT_OF } from './knobLayout'
 
@@ -49,12 +50,9 @@ export function ValueKnob({
   const { label, help } = dict.paramText(spec)
   const name = dict.d.short[spec.key]
   const word = wordFor(spec.key, value)
-  // A special value is the word the CLI spells the track's minimum with —
-  // `--lmax=auto`, `--giantstep=random` — so it gets the minimum's track as a
-  // chip. `maxBack`'s `auto` is 200, mid-track, and stays a number.
-  const special = wordFor(spec.key, bounds.min)
-  const specialText = special === null ? null : dict.choiceText(spec.key, special)
-  const isSpecial = special !== null && value === bounds.min
+  // The minimum's word gets the minimum's track as a chip (see `minWord`).
+  const specialText = minWord(dict, spec.key, bounds.min)
+  const isSpecial = specialText !== null && value === bounds.min
   // Where a released chip goes: the last value this row held, else the
   // default, else `RELEASE_TO`, else one step up.
   const release = useReleasableChip(value, isSpecial, () =>
@@ -95,7 +93,7 @@ export function ValueKnob({
         </span>
       }
       min={
-        special === null ? (
+        specialText === null ? (
           <span className="kv-end">{endText(dict, bounds.min)}</span>
         ) : (
           <button

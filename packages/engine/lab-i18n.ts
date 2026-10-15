@@ -642,6 +642,12 @@ export const EN = {
     statGroupShape: 'shape',
     statGroupRun: 'generator',
     statGroupDetail: 'generator in detail',
+    // The report's changed settings: the settings the board on screen was made with
+    // that differ from the previous board's, each row a jump to its setting.
+    knobDiffHead: 'Changed settings',
+    knobDiffCap: 'Against the previous board. Choose a row to go to its setting.',
+    knobDiffRow: (label: string, group: string, before: string, after: string) =>
+      `${label} (${group}): from ${before} to ${after}`,
     // The Seeds section: a series' outcome counts, the means of its complete
     // seeds, and one line per seed that did not complete.
     seriesTitle: 'Seeds',
@@ -1473,6 +1479,9 @@ export const PL: Translation = {
     statGroupShape: 'kształt',
     statGroupRun: 'generator',
     statGroupDetail: 'generator w szczegółach',
+    knobDiffHead: 'Zmienione ustawienia',
+    knobDiffCap: 'Względem poprzedniej planszy. Wybierz wiersz, aby przejść do ustawienia.',
+    knobDiffRow: (label, group, before, after) => `${label} (${group}): z ${before} na ${after}`,
     seriesTitle: 'Ziarna',
     seriesStale: 'dla innych ustawień',
     seriesHead: (total, complete, incomplete, unsolvable, stopped) =>

@@ -36,6 +36,8 @@ In the advanced view, _generate right after a change_ starts a run whenever a se
 
 The report drawer on the right (`R`) lists the run's measurements: the arrows and their lengths, how hard the board plays, how far arrows reach, and their shape. Each has a `?` that explains it, and each change is coloured against the previous board.
 
+Between the four figures and the table, **Changed settings** lists every setting that differs from the previous board, with its value before and after. Choosing a row takes you to that setting, as ⌘K does.
+
 The settings drawer on the left comes and goes with `S`. `F` hides both and gives the board the whole lab panel.
 
 ## Saved boards and files {#saved}

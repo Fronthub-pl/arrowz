@@ -111,3 +111,18 @@ test('closing the settings with the focus inside moves the focus to the handle',
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'settings', exact: true }).element())
   useStore.getState().ui.setSettings(true)
 })
+
+// From 1280 up the class gives the board's frame room for the report (console.css).
+test('the report handle sets report-open on the stage while the report is open', async () => {
+  useStore.getState().ui.setReport(false)
+  const screen = await render(<Probe />)
+  const stage = () => screen.container.querySelector('.fw-stage')
+  const handle = screen.getByRole('button', { name: 'report', exact: true })
+  expect(stage()?.classList.contains('report-open')).toBe(false)
+  await handle.click()
+  await expect.element(handle).toHaveAttribute('aria-expanded', 'true')
+  expect(stage()?.classList.contains('report-open')).toBe(true)
+  await handle.click()
+  await expect.element(handle).toHaveAttribute('aria-expanded', 'false')
+  expect(stage()?.classList.contains('report-open')).toBe(false)
+})

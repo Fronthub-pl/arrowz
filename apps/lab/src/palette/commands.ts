@@ -2,6 +2,7 @@ import { PARAM_SPEC } from '@fronthub/arrowz-engine'
 import { flagOf, wordFor } from '@fronthub/arrowz-engine/command'
 import type { Dict } from '@fronthub/arrowz-engine/i18n'
 import { PRESETS } from '@fronthub/arrowz-engine/presets'
+import { jumpTo } from '../console/jumpTo'
 import { DOCS_PAGE_NAMES, DOCS_PAGES } from '../docs/pages'
 import type { PlainUiKey } from '../console/viewFields'
 import { VIEW_FLAGS, VIEW_NUMBERS, VIEW_ROWS } from '../console/viewFields'
@@ -9,8 +10,8 @@ import { openFilePicker } from '../library/BoardFileInput'
 import { saveRefusal, saveShown } from '../library/saveShown'
 import { applyPreset, defaults, generate, generateAndSave, reseed } from '../run/actions'
 import { inFlight, type RunControl } from '../run/useRun'
-import { readBand } from '../state/band'
 import { type Store, useStore } from '../state/store'
+import type { RailEntry } from '../state/ui.slice'
 import { lookOf, PALETTE_CAP } from '../state/view.slice'
 
 export type CommandSection = 'run' | 'go' | 'knob' | 'preset'
@@ -40,24 +41,10 @@ export interface CommandDeps {
   readonly dict: Dict
 }
 
-/** A jump: the face, then the panel that holds the control, then the control itself. */
-function jumpTo(deps: CommandDeps, entry: Parameters<Store['ui']['select']>[0], id: string): void {
-  const ui = useStore.getState().ui
-  // ⌘K is bound on every route, but the knobs are the lab face's alone:
-  // `/boards` puts the library in the panel slot and `/docs/*` hides the
-  // workspace.
-  deps.navigate('/')
-  // The knobs do not exist in the simple view either, so the jump has to bring
-  // the console that has them.
-  if (ui.mode === 'simple') ui.setMode('advanced')
-  ui.select(entry)
-  // The control has to be on screen, not merely in the tree: below 1024 the
-  // settings drawer starts closed, and at XS the console is not rendered until
-  // its sheet opens. The drawer is remembered open, as pressing `s` would.
-  if (readBand() === 'xs') ui.setSheet('settings')
-  else if (!ui.settings) ui.setSettings(true)
-  ui.requestFocus(id)
-  ui.closePalette()
+/** A palette row's jump: `jumpTo`, then the palette closes. */
+function jump(deps: CommandDeps, entry: RailEntry, id: string): void {
+  jumpTo(deps.navigate, entry, id)
+  useStore.getState().ui.closePalette()
 }
 
 function knobRows(deps: CommandDeps, state: Store): Command[] {
@@ -76,7 +63,7 @@ function knobRows(deps: CommandDeps, state: Store): Command[] {
         value: '--start',
         hay: '--start',
         disabled: false,
-        run: () => jumpTo(deps, spec.group, 'knob-start'),
+        run: () => jump(deps, spec.group, 'knob-start'),
       })
       continue
     }
@@ -93,7 +80,7 @@ function knobRows(deps: CommandDeps, state: Store): Command[] {
       value: word === null ? String(value) : deps.dict.choiceText(spec.key, word),
       hay: flagOf(spec.key),
       disabled: false,
-      run: () => jumpTo(deps, spec.group, `knob-${spec.key}`),
+      run: () => jump(deps, spec.group, `knob-${spec.key}`),
     })
   }
   for (const field of VIEW_NUMBERS) {
@@ -105,7 +92,7 @@ function knobRows(deps: CommandDeps, state: Store): Command[] {
       value: String(state.view[field]),
       hay: field,
       disabled: false,
-      run: () => jumpTo(deps, 'preview', `view-${field}`),
+      run: () => jump(deps, 'preview', `view-${field}`),
     })
   }
   for (const flag of VIEW_FLAGS) {
@@ -117,7 +104,7 @@ function knobRows(deps: CommandDeps, state: Store): Command[] {
       value: deps.dict.t(state.view[flag] ? 'valueOn' : 'valueOff'),
       hay: flag,
       disabled: false,
-      run: () => jumpTo(deps, 'preview', `view-${flag}`),
+      run: () => jump(deps, 'preview', `view-${flag}`),
     })
   }
   return rows
@@ -140,7 +127,7 @@ function lookRows(deps: CommandDeps, state: Store): Command[] {
     value,
     hay,
     disabled: false,
-    run: () => jumpTo(deps, 'preview', target),
+    run: () => jump(deps, 'preview', target),
   })
   return [
     row('view-pad', 'padLabel', String(look.pad), '--pad pad'),
