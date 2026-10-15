@@ -1238,9 +1238,12 @@ describe('hover', () => {
     await mount()
     const { a } = twoPieces()
     const seen: Event[] = []
-    document.addEventListener('piece-hover', (e) => seen.push(e))
+    const listen = (e: Event) => seen.push(e)
+    document.addEventListener('piece-hover', listen)
     const pa = headPoint(el, a)
     glide(pa.x, pa.y)
+    document.removeEventListener('piece-hover', listen)
+    glide(1, 1) // paper announces null, which the removed listener must not hear
     expect(seen.map((e) => [e.bubbles, e.composed])).toEqual([[true, true]])
   })
 
@@ -1343,5 +1346,42 @@ describe('hover', () => {
     reads = 0
     glide(pa.x + 0.1, pa.y)
     expect([el.gestureMode, drag, reads]).toEqual(['click', 1, 1])
+  })
+
+  // A mode change re-reads the cursor in the same update, through the viewport of the old board.
+  test('a new board of another size and a mode change in one update end with null', async () => {
+    await mount()
+    const small = generate({ ...defaultParams(), W: 20, H: 20, seed: 3 }).board
+    const old = el.board
+    if (!old) throw new Error('need a board')
+    // A cell that is a piece on both boards, as the old viewport indexes the new one.
+    let at: { x: number; y: number } | null = null
+    for (let i = 0; i < 20 * 20 && !at; i++) {
+      const [x, y] = [i % 20, Math.floor(i / 20)]
+      if ((old.owner[y * old.W + x] ?? -1) >= 0 && (small.owner[y * small.W + x] ?? -1) >= 0) at = { x, y }
+    }
+    const vp = el.viewport
+    if (!at || !vp) throw new Error('need a cell that is a piece on both boards')
+    const seen = hovers(el)
+    glide((at.x + 0.5 - vp.originX) * vp.cellPx, (at.y + 0.5 - vp.originY) * vp.cellPx)
+    el.board = small
+    el.toggleAttribute('play', true)
+    await el.updateComplete
+    expect(seen.length).toBeGreaterThan(1)
+    expect(seen.at(-1)).toBe(null)
+  })
+
+  test('a pointer outside the board announces null, though the zoomed board goes on under it', async () => {
+    await mountClickMode()
+    el.zoomBy(3) // the board now reaches past every edge of the host
+    await raf()
+    const outside = [320, 340, 360, 380].find((x) => pieceUnder(el, x, 150) !== null)
+    if (outside === undefined) throw new Error('need a piece past the right edge')
+    const inside = pieceUnder(el, 150, 150)
+    if (inside === null) throw new Error('need a piece in the middle')
+    const seen = hovers(el)
+    glide(150, 150)
+    glide(outside, 150)
+    expect(seen).toEqual([inside, null])
   })
 })

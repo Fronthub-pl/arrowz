@@ -606,9 +606,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   override updated(changed: Map<keyof this | 'coloredOverride' | 'chosenMode', unknown>): void {
     // Applies from the next press (see GestureMachine.mode), so a change mid-drag is safe.
     this.gestures.mode = this.gestureMode
-    // A piece id names a piece of one board only.
-    if (changed.has('board')) this.hover(null)
     if (changed.has('chosenMode') || changed.has('play') || changed.has('interactive')) this.refreshCursor()
+    // A piece id names a piece of one board only. After the re-read above, which
+    // a new board takes through the old viewport, so a board change ends with null.
+    if (changed.has('board')) this.hover(null)
     if (
       changed.has('enableColors') || changed.has('coloredOverride') || changed.has('view') ||
       changed.has('chosenMode') || changed.has('play') || changed.has('interactive')
@@ -922,7 +923,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     const panReady = this.modifierHeld !== (this.gestureMode === 'drag')
     canvas.classList.toggle('pan-ready', panReady)
     canvas.classList.toggle('over-piece', !panReady && piece !== null)
-    this.hover(p.hovers ? piece : null)
+    // A captured pointer past the host's edge reads the zoomed board on beyond it,
+    // a piece nobody sees; only the hover drops it, a release there still plays.
+    const inside = p.x >= 0 && p.y >= 0 && p.x < this.hostWidth && p.y < this.hostHeight
+    this.hover(p.hovers && inside ? piece : null)
   }
 
   /** Announces the piece under a mouse or pen as `piece-hover`, and only when it changes. */
